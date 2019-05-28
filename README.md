@@ -1,13 +1,16 @@
-Cell Counting Project
+# FSL-MRS
 
--- Install Instructions
+### Installation instructions
 
-git clone https://git.fmrib.ox.ac.uk/saad/CellCounting.git
-cd CellCounting
-pip install .
+```
+	git clone https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
+	cd fsl_mrs
+	pip install .
+```
 
 
--- Howto?
+### Content
+
 
 
 
