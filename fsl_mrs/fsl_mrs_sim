@@ -1,0 +1,130 @@
+#!/usr/bin/env python
+
+# fsl_mrs_sim - wrapper script for MRS spectra simulations
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         Largely based on Jamie Near's FID-A toolbox
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
+import os,sys,shutil,time
+import argparse
+from fsl_mrs.utils import simu
+from fsl_mrs.utils import mrs_io
+
+
+def main():
+
+    p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tools')
+
+    
+    required     = p.add_argument_group('required arguments')
+    optional     = p.add_argument_group('optional arguments')
+
+    # REQUIRED ARGUMENTS
+    required.add_argument('-o','--output',
+                          required=True,type=str,metavar='<str>',
+                          help='output folder')
+
+    required.add_argument('-t','--tesla',
+                          required=True,type=float,metavar='<float>',
+                          help='field strength in tesla')
+
+    required.add_argument('-s','--seq',
+                          required=True,type=str,metavar='<str>',
+                          help='pulse sequence [PRESS,LASER,SE]')
+    
+    required.add_argument('-n','--numpoints',
+                          required=True,type=int,
+                          help='number of points')
+
+    required.add_argument('--dwelltime',
+                          required=True,type=float,
+                          help='dwell time in seconds')
+    
+    required.add_argument('--echotime',
+                          required=True,type=float,
+                          help='echo time in seconds')
+
+    required.add_argument('--linewidth',
+                          required=True,type=float,
+                          help='line width in Hz')
+    
+    # OPTIONAL ARGUMENTS
+    optional.add_argument('--verbose',action="store_true",
+                   help='spit out verbose info')
+    optional.add_argument('--overwrite',action="store_true",
+                   help='overwrite existing output folder')
+
+    
+
+    # Output kickass splash screen
+    mrs_io.splash(logo='mrs')
+
+    # Parse command-line arguments
+    args = p.parse_args()
+
+    # Check if output folder exists
+    overwrite = args.overwrite
+    if os.path.exists(args.output):
+        if not overwrite:
+            print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
+            response = input()
+            overwrite = response.upper() == "Y"
+        if not overwrite:
+            print('Early stopping...')
+            exit()
+        else:
+            shutil.rmtree(args.output)
+            os.mkdir(args.output)
+    else:
+        os.mkdir(args.output)
+
+
+    #######  Do the work #######
+
+    # Instantiate MRS object
+    if args.verbose:
+        print('---- Init simulator')
+
+    if args.verbose:
+        print('---- Loop over available metabolites')
+    for metab in simu.metab_list():
+
+        # init
+        if args.verbose:
+            print('>>>     {}    <<<'.format(metab))
+            
+        sim = simu.MRS_sim(field_strength=args.tesla,
+                           num_points=args.numpoints,
+                           dwelltime=args.dwelltime,
+                           linewidth=args.linewidth,
+                           metab=metab)        
+
+        # simu
+        if args.verbose:
+            print('     --simulate')
+        if args.seq == 'PRESS':          
+            out = sim.PRESS(tau1=0.01,tau2=.125)
+        elif args.seq == 'LASER':          
+            out = sim.LASER(te=args.echotime)
+        elif args.seq == 'SE':          
+            out = sim.SE(te=args.echotime)
+        else:
+            raise Exception('Unknown sequence {}'.format(args.seq))
+
+        # save
+        if args.verbose:
+            print('     --save')
+        info = {'ID':metab}
+        mrs_io.saveRAW(os.path.join(args.output,metab+'.RAW'),
+                       out,info)
+    
+        if args.verbose:
+            print('Done.')
+        
+    
+
+if __name__ == '__main__':
+    main()

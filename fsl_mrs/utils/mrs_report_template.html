@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+          crossorigin="anonymous">
+
+    <style type="text/css">
+
+        html {
+            font-size: 0.8rem;
+        }
+
+        body {
+            background: whitesmoke !important;
+        }
+
+        .popover {
+            max-width: 100%;
+        }
+
+        page {
+            /*background: white;*/
+            display: block;
+            margin: 0 auto;
+            margin-bottom: 0.5cm;
+            margin-top: 0.5cm;
+            /*box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);*/
+        }
+
+        page[size="A4"] {
+            width: 21cm;
+            height: 29.7cm;
+        }
+
+        page[size="A4"][layout="landscape"] {
+            width: 29.7cm;
+            height: 21cm;
+        }
+
+        @media print {
+            body, page {
+                margin: 0;
+            }
+        }
+
+    </style>
+
+    <title>FSL MRS Report</title>
+</head>
+<body>
+
+<!-- NAVIGATION BAR -->
+
+<nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
+    <span class="navbar-brand mb-0 h1">FSL-MRS Report</span>
+
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+        <ul class="navbar-nav mr-auto">
+
+            <li class="nav-item">
+                <a class="nav-link" href="#page1">Page1<span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#page2">Page2<span class="sr-only">(current)</span></a>
+            </li>
+
+        </ul>
+    </div>
+</nav>
+
+
+<!-- PAGE 1 -->
+
+<page size="A4">
+    <div class="card border-secondary mt-2" id="page1" style="height:100%; width:100%">
+        <div class="card-header">
+            Title
+        </div>
+        <div class="card-body">
+
+            <!-- FILENAMES-->
+
+            <table class="table table-hover table-bordered">
+                <tr>
+                    <td><b>FID File:</b></td>
+                    <td>{{ mrs.fidfile }}</td>
+                </tr>
+                <tr>
+                    <td><b>Basis File:</b></td>
+                    <td>{{ mrs.basisfile }}</td>
+                </tr>
+                <tr>
+                    <td><b>H2O File:</b></td>
+                    <td>{{ mrs.h2ofile }}</td>
+                </tr>
+                <tr>
+                    <td><b>Output Folder:</b></td>
+                    <td>{{ mrs.outdir }}</td>
+                </tr>
+            </table>
+
+            <!-- GUFF-->
+
+            <table width="100%">
+                <tr>
+                    <td halign="left"><small>{{ mrs.date }}</small></td>
+                    <!-- <td halign="left"><small>Data from: {{ mrs.provenance }}</small></td> -->
+                    <!-- <td halign="right"><small></small></td> -->
+                </tr>
+                <tr>
+
+                    <!-- <td halign="left"><small>{{ mrs.date }}</small></td> -->
+                    <td halign="center"><small>Copyright University Of Oxford</small></td>
+                    <!---<td halign="right"><small>{{ mrs.date }}</small></td>-->
+                </tr>
+            </table>
+
+            <br>
+
+            <table>
+                <tr>
+
+                    <!-- SPECTRUM-->
+
+                    <td width="80%">
+                        {% set imgstr = report.to_base64( mrs.plot_fit() )%}
+                        <img src="{{ imgstr }}" width="100%">
+                    </td>
+
+                    <!-- METABOLITES-->
+
+                    <td valign="top">
+
+                        <table class="table table-sm table-hover table-bordered">
+                            <thead>
+                            <tr>
+                                <th scope="col">mmol/L</th>
+                                <th scope="col">%SD</th>
+                                <th scope="col">/CR+PCr</th>
+                                <th scope="col">Metabolite</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {% for m in mrs.all_con_names %}
+                            <tr>
+
+                                <th scope="row">
+                                    <small>{{ "%0.2f"|format(mrs.all_con_names_h2o[m]) }}</small>
+                                </th>
+                                <td>
+                                    <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
+                                </td>
+                                <td>
+                                    <small>{{ m }}</small>
+                                </td>
+
+                            </tr>
+                            </tbody>
+                            {% endfor %}
+                        </table>
+
+                    </td>
+                </tr>
+            </table>
+
+
+        </div>
+    </div>
+</page>
+
+<!-- PAGE 2 -->
+
+<page size="A4">
+    <div class="card border-secondary mt-2" id="page2" style="height:100%; width:100%">
+        <div class="card-header">
+            Page 2
+        </div>
+        <div class="card-body">
+
+
+        </div>
+    </div>
+</page>
+
+
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+<script>
+    $(document).ready(function () {
+        $('[data-toggle="popover"]').popover({container: 'body'});
+    });
+
+</script>
+
+
+</body>
+
+</html>
