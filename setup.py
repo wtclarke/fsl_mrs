@@ -7,9 +7,9 @@ setup(name='FSL_MRS',
       description='FSL Tools for Spectroscopy',
       author=['Saad Jbabdi'],
       author_email=['saad@fmrib.ox.ac.uk'],
-      url='<someGitLabURL>',
+      url='www.fmrib.ox.ac.uk/fsl',
       packages=['fsl_mrs','fsl_mrs.utils'],
       package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle']},
       install_requires=['numpy','scipy','matplotlib'],
-      scripts=['fsl_mrs/fsl_mrs','fsl_mrs/fsl_mrs_sim']               
+      scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrs_sim']               
      )

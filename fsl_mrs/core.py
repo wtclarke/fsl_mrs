@@ -13,11 +13,15 @@ import sys, os, glob, warnings
 from fsl_mrs.utils.mh import MH
 from fsl_mrs.utils import mrs_io as io
 from fsl_mrs.utils import models, misc
+from fsl_mrs.utils import plotting
 
 
 import numpy as np
 import time
 from scipy.optimize import minimize
+from scipy.interpolate import interp1d
+
+import matplotlib.pyplot as plt
 
 #------------------------------------------------
 #
@@ -25,19 +29,13 @@ from scipy.optimize import minimize
 #------------------------------------------------
 
 
-# TODOs
-#  - add Gaussian blurring
-#  - add B-spline or other 'background' fitting 
-#  - add fitting mask
-#  - water normalisation
-#  - fix discrepancies between data and basis
 
-
-## ASK MICHIEL/PAUL HOW BEST TO SET UP GLOB VARIABLES
+## ASK MICHIEL/PAUL HOW BEST TO SET UP GLOBAL VARIABLES
 H2O_MOLECULAR_MASS = 18.01528   # g/mol
 H2O_Conc           = 55.51E3    # mmol/kg      
 H2O_PPM_TO_TMS     = 4.65       # Shift of water to Tetramethylsilane
 H2O_to_Cr          = 0.4        # Proton ratio
+H1_gamma           = 42.576     # MHz/tesla
 
 class MRS(object):
     """
@@ -46,6 +44,7 @@ class MRS(object):
     def __init__(self):
         # Data
         self.FID               = None
+        self.Spec              = None
         self.basis             = None
         self.H2O               = None
         # Constants
@@ -58,10 +57,13 @@ class MRS(object):
         self.timeAxis          = None   # seconds
         self.frequencyAxis     = None   # Hz
         self.ppmAxis           = None   # Chemical shift in ppm
-        self.ppmAxisShift      = None   # Shift from water 
+        self.ppmAxisShift      = None   # Shift from water
+        self.ppmAxisFlip       = None   # flipped axis
         self.names             = None
         self.metab_groups      = None
         self.T2s               = None
+        self.basis_dwellTime   = None
+        self.basis_bandwidth   = None
         # Modelling variables
         self.pred              = None   # Predicted FID
         self.con               = None   # Concentrations
@@ -69,14 +71,30 @@ class MRS(object):
         self.gamma             = None   # peak spread
         self.phi0              = None   # phase shift
         self.phi1              = None   # phase ramp
+        self.baseline          = None   # baseline
         self.samples           = None   # MCMC samples
+        self.all_params        = None   # All model parameters including concentration
         self.con_names         = None   # zipped con and names
         self.all_con_names     = None   # zipped con and names for all metabolites and metab groups
-        self.all_con_names_h2o = None   # zipped con and names for all metabolites and metab groups
-        self.all_con_names_std = None   # zipped std and names for all metabolites and metab groups
+        self.all_con_names_h2o = None   # zipped con and names for all metabolites and metab groups norm h2o
+        self.all_con_names_std = None   # zipped std and names for all metabolites and metab groups std
         # Quantification
         self.quantif           = MRS_quantif() # Instantiate quantif object
-        
+
+    def __str__(self):
+        out  = '------- MRS Object ---------\n'
+        out += '     FID.shape             = {}\n'.format(self.FID.shape)
+        out += '     H2O.shape             = {}\n'.format(self.H2O.shape)
+        out += '     basis.shape           = {}\n'.format(self.basis.shape)
+        out += '     FID.centralFreq (MHz) = {}\n'.format(self.centralFrequency/1e6)
+        out += '     FID.centralFreq (T)   = {}\n'.format(self.centralFrequency/H1_gamma/1e6)        
+        out += '     FID.bandwidth (Hz)    = {}\n'.format(self.bandwidth)
+        out += '     FID.dwelltime (s)     = {}\n'.format(self.dwellTime)
+        out += '     FID.echotime (s)      = {}\n'.format(self.echotime)
+
+        return out
+
+    
     # Acquisition parameters
     def set_acquisition_params(self,header):
         """
@@ -85,27 +103,112 @@ class MRS(object):
           Parameters
           ----------
           header: dict
+                contains the keys: 'centralFrequency', 'bandwidth', 'echotime'
 
         """
         self.centralFrequency = header['centralFrequency']
         self.bandwidth        = header['bandwidth']
         self.echotime         = header['echotime']
         
-        self.dwellTime     = 1/self.bandwidth; 
-        self.timeAxis      = np.linspace(self.dwellTime,
-                                         self.dwellTime*self.numPoints,
-                                         self.numPoints)  
-        self.frequencyAxis = np.linspace(-self.bandwidth/2,
-                                         self.bandwidth/2,
-                                         self.numPoints)  
-        self.ppmAxis       = misc.hz2ppm(self.centralFrequency,
-                                         self.frequencyAxis,shift=False)
-        self.ppmAxisShift  = misc.hz2ppm(self.centralFrequency,
-                                         self.frequencyAxis,shift=True) 
-        self.timeAxis      = self.timeAxis[:,None]
-        self.frequencyAxis = self.frequencyAxis[:,None]
+        self.dwellTime        = 1/self.bandwidth; 
+        self.timeAxis         = np.linspace(self.dwellTime,
+                                            self.dwellTime*self.numPoints,
+                                            self.numPoints)  
+        self.frequencyAxis    = np.linspace(-self.bandwidth/2,
+                                            self.bandwidth/2,
+                                            self.numPoints)        
+        self.ppmAxis          = misc.hz2ppm(self.centralFrequency,
+                                            self.frequencyAxis,shift=False)
+        self.ppmAxisShift     = misc.hz2ppm(self.centralFrequency,
+                                            self.frequencyAxis,shift=True)
+        self.ppmAxisFlip      = np.flipud(self.ppmAxisShift)
+        # turn into column vectors
+        self.timeAxis         = self.timeAxis[:,None]
+        self.frequencyAxis    = self.frequencyAxis[:,None]
+
+        # by default, basis setup like data
+        self.set_acquisition_params_basis(self.dwellTime)
 
 
+    def set_acquisition_params_basis(self,dwelltime):
+        """
+           sets basis-specific timing params
+        """
+        # Basis has different dwelltime
+        self.basis_dwellTime     = dwelltime
+        self.basis_bandwidth     = 1/dwelltime
+        self.basis_frequencyAxis = np.linspace(-self.basis_bandwidth/2,
+                                               self.basis_bandwidth/2,
+                                               self.numPoints)
+        self.basis_timeAxis      = np.linspace(self.basis_dwellTime,
+                                               self.basis_dwellTime*self.numPoints,
+                                               self.numPoints)
+
+        
+    def ppmlim_to_range(self,ppmlim=None):
+        """
+           turns ppmlim into data range
+
+           Parameters:
+           -----------
+
+           ppmlim : tuple
+
+           Outputs:
+           --------
+
+           int : first position
+           int : last position
+        """
+        if ppmlim is not None:
+            axis   = np.flipud(np.fft.fftshift(self.ppmAxisShift))
+            first  = np.argmin(np.abs(axis[:int(self.numPoints/2)]-ppmlim[0]))
+            last   = np.argmin(np.abs(axis[:int(self.numPoints/2)]-ppmlim[1]))
+            if first>last:
+                first,last = last,first
+        else:
+            first,last = 0,self.numPoints 
+
+        return int(first),int(last)
+
+
+    def resample_basis(self):
+        """
+           Sometimes the basis is simulated using different timings (dwelltime)
+           This interpolates the basis to match the FID
+        """
+        # RESAMPLE BASIS FUNCTION
+        bdt    = self.basis_dwellTime
+        bbw    = 1/bdt
+        bn     = self.basis.shape[0]
+        
+        bt     = np.linspace(bdt,bdt*bn,bn)-bdt
+        fidt   = self.timeAxis.flatten()-self.dwellTime
+        
+        f      = interp1d(bt,self.basis,axis=0)
+        newiFB = f(fidt)
+        
+        self.basis = newiFB
+        
+
+    def remove_reference_from_basis(self):
+        """
+           Some basis spectra include the reference spectrum
+           This function regress out the ref spectrum   
+
+           DO NOT USE THIS FUNCTION - HAS NOT BEEN TESTED
+        """
+
+        basis_freq  = np.fft.fft(self.basis,axis=0)
+        first, last = self.ppmlim_to_range(ppmlim=(0-.05,0+0.05))
+        basis_freq[first:last] = (np.mean(basis_freq[first-10:first])+np.mean(basis_freq[last:last+10]))/2
+        self.basis  = np.fft.ifft(basis_freq,axis=0)
+        
+        #ref = np.exp(1j*self.timeAxis*self.centralFrequency*2.0*np.pi)
+        #ref = ref@np.linalg.pinv(ref)@self.basis
+        #self.basis = self.basis - ref
+
+        
     # Helper functions
     def ignore(self,metabs):
         """
@@ -190,6 +293,10 @@ class MRS(object):
         if header['bandwidth'] is None:
             header['bandwidth'] = 4000
             warnings.warn('Cannot determine bandwidth. Setting to default of 4000Hz.')
+
+
+        # Calculate spectrum straight away
+        self.Spec = np.fft.fft(self.FID)
         
         self.set_acquisition_params(header)
     
@@ -223,7 +330,12 @@ class MRS(object):
         """
            Reads single basis (.BASIS) file assuming it is spectra (not FIDs)
         """
-        self.basis, self.names, _ = io.readLCModelBasis(filename,self.numPoints)
+        self.basis, self.names, header = io.readLCModelBasis(filename,self.numPoints)
+
+        if header['dwelltime'] is not None:
+            self.set_acquisition_params_basis(header['dwelltime'])
+            self.resample_basis()
+        
         self.numBasis = len(self.names)
 
     def read_h2o(self,filename,TYPE='RAW'):
@@ -233,9 +345,11 @@ class MRS(object):
         self.H2O, header = self.read(filename, TYPE)
         
         
+    #######################################################
+    ################### Fitting functions #################
+    #################################### ##################
     
-    # Fitting functions
-    def fit(self, model='LCModel',method='Newton',domain='time',ppmlim=None):
+    def fit(self, model='LCModel',method='Newton',ppmlim=None):
         """
            Fit given model to the FID or Spectrum
 
@@ -247,70 +361,74 @@ class MRS(object):
                 'LCModel' fits concentrations, phi0, phi1, gamma, epsilon, [TBC]
          
            method : string
-                options are: 'Newton', 'Powell', 'MH' (Metropolis Hastings)
-                these do not apply for the GLM model
-           
-           domains : string
-                either 'time' or 'frequency'
+                options are: 'Newton', 'MH' (Metropolis Hastings)
+                these do not apply for the GLM model           
 
            ppmlim  : tuple
-                frequency bands over which the fitting is done. Only applies if domain='frequency'
+                frequency bands over which the fitting is done. 
         """
         if model == 'LCModel':
-            self.fit_LCModel(method=method,domain=domain,ppmlim=ppmlim)
+            self.fit_LCModel(method=method,ppmlim=ppmlim)
         elif model == 'GLM':
             self.fit_simple_glm()
         else:
             raise Exception('Unknown model {}'.format(model))
       
-    def fit_simple_glm(self):
+    def fit_simple_glm(self,real=False):
         """
            Basic GLM fitting 
+
+           Parameters:
+           ----------
+           real : bool 
+                  Force the concentrations to be real by concatenation of real/imag data and basis
+
+           Outputs:
+           array-like : concentrations
+
         """
-        beta      = np.linalg.pinv(self.basis)@self.FID
-        self.con  = beta
-        self.pred = self.basis@self.con
-        self.concentrations = dict(zip(self.names,self.con))
+
+        if real:
+            data   = np.append(np.real(self.FID),np.imag(self.FID),axis=0)
+            desmat = np.append(np.real(self.basis),np.imag(self.basis),axis=0)            
+            beta   = np.real(np.linalg.pinv(desmat)@data)
+            print(beta)
+        else:
+            beta      = np.linalg.pinv(self.basis)@self.FID
+        
+        self.con       = beta
+        self.pred      = self.basis@self.con
+        self.con_names = dict(zip(self.names,self.con))
+
         return beta
+
     
+        
      
-    def fit_LCModel(self,method='Newton',domain='time',ppmlim=None):
+    def fit_LCModel(self,method='Newton',ppmlim=None):
         """
            A simplified version of LCModel
         """
-        # Different set up depending on fitting domain
-        if domain == 'time':
-            err_func = models.LCModel_err
-            jac      = models.LCModel_jac
-            forward  = models.LCModel_forward
-            data     = self.FID
-            first    = 0
-            last     = self.numPoints
-        elif domain == 'frequency':
-            err_func = models.LCModel_err_freq
-            jac      = models.LCModel_jac_freq
-            forward  = models.LCModel_forward_freq
-            data     = np.fft.fft(self.FID)
-            if ppmlim is not None:
-                first = np.argmin(np.abs(self.ppmAxisShift-ppmlim[0]))
-                last  = np.argmin(np.abs(self.ppmAxisShift-ppmlim[1]))
-            else:
-                first    = 0
-                last     = self.numPoints
-        else:
-            raise Exception('Unknown domain {}'.format(domain))
-                
-        # Initialise all params to zero
-        x0  = np.abs(np.linalg.pinv(self.basis)@data)
-        x0  = np.append(x0,[0,0,0,0])
-        constants = (self.numBasis,self.frequencyAxis[first:last],
-                     self.timeAxis[first:last],
-                     self.basis[first:last,:],data[first:last])
         
-        if method == 'Powell':
-            res = minimize(err_func, x0, args=constants, method='Powell')
-            x   = res.x
-        elif method == 'Newton':
+        # Set up
+        err_func   = models.LCModel_err_freq        # error function
+        jac        = models.LCModel_jac_freq        # gradient
+        forward    = models.LCModel_forward_freq    # forward model
+        data       = self.Spec.copy()               # data
+        first,last = self.ppmlim_to_range(ppmlim)   # data range
+                
+        # Initialise all params
+        #  simple GLM for concentrations
+        x0  = self.fit_simple_glm(real=True) # np.abs(np.linalg.pinv(self.basis)@self.FID)
+
+        
+        #  Zero for the rest
+        x0  = np.append(np.abs(x0),[0,0,0,0])
+        constants = (self.frequencyAxis,
+                     self.timeAxis,
+                     self.basis,data,first,last)
+        
+        if method == 'Newton':
             # Bounds
             bnds = []
             for i in range(self.numBasis):
@@ -321,29 +439,99 @@ class MRS(object):
             bnds.append((None,None))            
             res = minimize(err_func, x0, args=constants, method='TNC',jac=jac,bounds=bnds)
             x   = res.x
+            self.reset_params(x)
+            
+            # Calc covariance
+            #cf = lambda x : models.LCModel_err_freq(x,self.frequencyAxis,
+            #                                        self.timeAxis,self.basis,self.Spec,first,last)        
+            #hess = misc.hessian(x,cf)
+            #noise_std = np.sqrt(np.sum(np.absolute(self.pred[first:last]-self.Spec[first:last])**2))
+            #self.all_params_cov = np.linalg.inv(hess)/2/noise_std
+            #self.hess = hess
+  
         elif method == 'MH':
-            forward = lambda p : forward(p,self.numBasis,self.frequencyAxis,self.timeAxis,self.basis)
-            loglik = lambda p : np.log(np.linalg.norm(data-forward(p)))*self.numPoints/2
-            logpr  = lambda p : 0
+            forward_mh = lambda p : forward(p,self.frequencyAxis,self.timeAxis,self.basis)
+            numPoints_over_2  = (last-first)/2.0
+            y      = data[first:last]
+            loglik = lambda  p : np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2            
+            logpr  = lambda  p : 0 # uniform priors for now
 
-            p0   = self.fit_LCModel(method='Newton',domain=domain,pplim=pplim) 
+            # Setup the fitting
+            p0   = self.fit_LCModel(method='Newton',ppmlim=ppmlim) 
             LB   = np.zeros(self.numBasis)
             LB   = np.append(LB,-np.inf*np.ones(4))
             UB   = np.inf*np.ones(p0.size)
 
+            # Do the fitting
             mh           = MH(loglik,logpr,burnin=100,njumps=1000)
             self.samples = mh.fit(p0,LB=LB,UB=UB,verbose=False)
+
+            # some stats on the posterior distribution
+            self.all_params_cov = np.cov(self.samples)
             x            = self.samples.mean(axis=0)
+            self.reset_params(x)
+            self.params_std = self.samples.std(axis=0)
         else:
             raise Exception('Unknown optimisation method.')
-        
-        
-        # Get params
-        self.reset_params(x)
-        
-         
+                
+                   
         return x
+
+
+    def calc_baseline(self,spec=None,ppmlim=(0,4.6),order=10):
+        """
+        Estimate baseline
+        
+        parameters
+        ----------
+        spec : array-like
+               spectrum to use for estimating baseline. default: uses self.Spec
+               
+        ppmlim : tuple
+                 upper and lower limit over which spectrum is calculated
+        order : integer
+                order of polynomial used to estimate baseline
+        """
+        # Get axes
+        axis   = np.flipud(self.ppmAxisFlip)
+        first  = np.argmin(np.abs(axis-ppmlim[0]))
+        last   = np.argmin(np.abs(axis-ppmlim[1]))
+        if first>last:
+            first,last = last,first    
+        freq       = axis[first:last]
+        # Build design matrix
+        desmat = []
+        for i in range(order+1):
+            regressor  = freq**i                     # power
+            if i>0:
+                regressor -= np.mean(regressor)      # demean
+            regressor /= np.linalg.norm(regressor)   # normalise
+            desmat.append(regressor.flatten())
+        desmat = np.asarray(desmat).T
+        # Append basis to design matrix so it doesn't
+        # model out good signal
+        # First, do a quick nonlinear fit:
+        self.fit_LCModel(method='Newton',ppmlim=ppmlim)
+        basis  = np.exp(-1j*(self.phi0+self.phi1*self.frequencyAxis))*np.fft.fft(self.basis*np.exp(-(self.gamma+1j*self.eps)*self.timeAxis),axis=0)
+        basis  = np.flipud(np.fft.fftshift(basis))
+        basis  = basis[first:last,:]      
+        desmat = np.concatenate((desmat,basis),axis=1)
+        if spec is None:
+            spec     = self.Spec
+        spec = np.flipud(np.fft.fftshift(spec))
+        beta = np.matmul(np.linalg.pinv(desmat),spec[first:last])
     
+        # Model is:
+        # data = [nuisance basis]*beta
+        # so baseline = nuisance*beta[:order+1]
+    
+        baseline = np.zeros(self.numPoints,dtype='complex')
+        baseline[first:last] = np.matmul(desmat[:,:order+1],beta[:order+1])
+        baseline = np.flipud(baseline)
+        baseline = np.fft.fftshift(baseline)
+    
+        return baseline
+
     def reset_params(self,x):
         """
            Set params and recalculate model prediction
@@ -354,7 +542,10 @@ class MRS(object):
            x : array-like
              Parameters are in the followin order: [concentrations,gamma,epsilon,phi0,phi1]
         """
-        # Get params
+    
+        # Keep track of all params
+        self.all_params =x
+        # Split into groups of params
         self.con   = x[:self.numBasis]
         self.gamma = x[self.numBasis]
         self.eps   = x[self.numBasis+1]
@@ -362,20 +553,25 @@ class MRS(object):
         self.phi1  = x[self.numBasis+3]
         
         # Readable mean concentrations
-        self.concentrations = dict(zip(self.names,self.con))
-        self.pred           = models.LCModel_forward(x,self.numBasis,self.frequencyAxis,self.timeAxis,self.basis)
+        self.con_names = dict(zip(self.names,self.con))
+        self.pred      = models.LCModel_forward(x,self.frequencyAxis,self.timeAxis,self.basis)
 
 
 
+        
     # Quantification
     def init_quantification(self,T2s=None,volfrac=None):
+        """
+           Set params useful for absolute quantification
+        """
 
         # Set H2O quantif params
         self.quantif.T2s     = np.asarray(T2s)
         self.quantif.volfrac = np.asarray(volfrac)
         self.quantif.TE      = self.echotime
         self.quantif.H2O     = self.H2O
-        self.quantif.Cr      = self.basis[:,self.names.index('Cr')] 
+        self.quantif.Cr      = self.basis[:,self.names.index('Cr')]
+        self.quantif.PCr     = self.basis[:,self.names.index('PCr')]
             
         # set up all metabolites
         con_names = dict(zip(self.names,self.con))
@@ -410,7 +606,7 @@ class MRS(object):
         """
 
         #h2o_signal = 
-        self.all_con_names_h2o = self.quantif.rescale_to_h2o()
+        self.all_con_names_h2o = self.quantif.rescale_to_h2o(self.ppmAxisShift)
         
         return
     
@@ -441,7 +637,58 @@ class MRS(object):
         self.rescale_concentrations_to_h2o()
         
         return 
+
+
+    def save_results_to_file(self,filename):
+        """
+           Write concentrations (abs and relative) to text file
+        """
+        header = 'metabolite,Conc,/Cr+PCr\n'
+        with open(filename,'w') as f:
+            f.write(header)
+            for met in self.all_con_names:
+                x,y,z = met,self.all_con_names_h2o[met],self.all_con_names[met]
+                f.write('{},{},{}\n'.format(x,y,z))
+
     
+    def save_fit_to_figure(self,filename,ppmlim=(.4,4.2)):
+        """
+           Save fit to figure
+        """
+        if self.pred is None:
+            raise Exception('Cannot plot fit before fitting')
+
+        axis   = np.flipud(self.ppmAxisFlip)
+        spec   = np.flipud(np.fft.fftshift(self.Spec))
+        pred   = np.fft.fft(self.pred)
+        pred   = np.flipud(np.fft.fftshift(pred))
+
+        if self.baseline is not None:
+            B = np.flipud(np.fft.fftshift(self.baseline))
+    
+        first  = np.argmin(np.abs(axis-ppmlim[0]))
+        last   = np.argmin(np.abs(axis-ppmlim[1]))
+        if first>last:
+            first,last = last,first    
+        freq = axis[first:last] 
+
+        plt.figure(figsize=(9,10))
+        plt.plot(axis[first:last],spec[first:last])
+        plt.gca().invert_xaxis()
+        plt.plot(axis[first:last],pred[first:last],'r')
+        if self.baseline is not None:
+            plt.plot(axis[first:last],B[first:last],'k')
+
+        # style stuff
+        plt.minorticks_on()
+        plt.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
+        plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
+
+        # Save to file
+        plt.savefig(filename)
+        return plt.gcf()
+
+        
 
 class MRS_quantif(object):
     """
@@ -456,7 +703,8 @@ class MRS_quantif(object):
         self.con_names  = None       # names and un-normalised concentrations
         self.H2O        = None
         self.Cr         = None
-
+        self.PCr        = None
+        
     def rescale_to_metab(self,metab=None,scale=1.0,ref=None):
         """
            Rescales all concentrations to one of the metabolites
@@ -486,7 +734,7 @@ class MRS_quantif(object):
         
         return con
 
-    def rescale_to_h2o(self):
+    def rescale_to_h2o(self,ppmaxisshift=None):
         
         """
            Rescales all concentrations to water peak
@@ -515,19 +763,31 @@ class MRS_quantif(object):
         
         # rescale
         Cr  = self.con_names['Cr']
-        toToCr_ratio = {k: v/Cr for k, v in self.con_names.items()}
-        # Below hack for Cr area assuming the two peaks are 2to3
-        Cr_area = np.sum(np.abs(self.con_names['Cr']*self.Cr))*3/5
-        H2O_area = np.sum(np.real(self.H2O))
+        PCr  = self.con_names['PCr']
+        toTotCr_ratio = {k: v/(Cr+PCr) for k, v in self.con_names.items()}
+        # Use Cr+PCr
+        
+        interval   = np.ones(self.Cr.size)
+        if ppmaxisshift is not None:
+            interval[ppmaxisshift<2.5] = 0
+            interval[ppmaxisshift>4.5] = 0
+            self.Cr = self.Cr*interval
+            self.Pcr = self.PCr*interval
+            
+        Cr_area    = np.sum(np.abs(self.con_names['Cr']*self.Cr))/interval.sum()
+        PCr_area   = np.sum(np.abs(self.con_names['PCr']*self.PCr))/interval.sum()
+        TotCr_area = PCr_area+Cr_area
+        H2O_area = np.sum(np.real(self.H2O))/self.H2O.size
         
         CrH2O_ratio = Cr_area/H2O_area
         frac_ratio  = np.sum(frac*R)/(1-frac[-1])/RM*H2O_Conc
 
-        H2O_protons = 2
-        Cr_protons  = 5
+        H2O_protons    = 2
+        TotCr_protons  = 10
 
-        absQuantifFactor = CrH2O_ratio*frac_ratio*H2O_protons/Cr_protons
+        absQuantifFactor = CrH2O_ratio*frac_ratio*H2O_protons/TotCr_protons
         
-        rescaled = {k: v*absQuantifFactor for k,v in toToCr_ratio.items()}
+        rescaled = {k: v*absQuantifFactor for k,v in toTotCr_ratio.items()}
 
         return rescaled
+

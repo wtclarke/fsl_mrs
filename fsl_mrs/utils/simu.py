@@ -29,7 +29,7 @@ class MRS_sim(object):
     """
     
 
-    def __init__(self,field_strength,num_points,dwelltime,linewidth,metab=None):
+    def __init__(self,field_strength,num_points,dwelltime,linewidth,centreFreq,metab=None):
         """
            Parameters
            ----------
@@ -75,7 +75,8 @@ class MRS_sim(object):
         self.sw             = 1/dwelltime
         self.metab          = metab
         self.linewidth      = linewidth
-        self.centreFreq     = 0 #4.65  # water by default
+        self.centreFreq     = centreFreq
+        self.centreFreqPPM  = centreFreq*1E-6
         self.field_strength = field_strength
 
         if self.metab is not None:
@@ -84,7 +85,7 @@ class MRS_sim(object):
     def init_metab(self,metab):
         # Init spin system and Hamiltonian
         sys = SpinSystem(metab)
-        sys.shifts = [sys.shifts[k]-self.centreFreq for k in range(sys.n)]
+        sys.shifts = [sys.shifts[k]-self.centreFreqPPM for k in range(sys.n)]
         self.H   = Hamiltonian(sys,self.field_strength)
 
     
@@ -293,7 +294,6 @@ class Hamiltonian(object):
         # Helper
         self.diag   = []
 
-        self.centreFreq = 0 #4.65
         self.shifts = [self.sys.shifts[k] for k in range(self.sys.n)]
 
         
@@ -433,7 +433,7 @@ class Hamiltonian(object):
         return
         
 class SpinSystem(object):
-    def __init__(self,name=None,centreFreq=0):
+    def __init__(self,name=None):
         self.sysname        = None   # name of overall spin system
         self.subnames       = None   # list of subsystem names
         self.shifts         = None   # list of shifts

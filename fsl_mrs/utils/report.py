@@ -6,8 +6,21 @@ import jinja2
 import pandas as pd
 import numpy as np
 import os.path as op
+import os
 from tempfile import TemporaryFile
 import base64
+
+
+import plotly
+import plotly.graph_objs as go
+
+import matplotlib.gridspec as gridspec
+from plotly import tools
+
+from fsl_mrs.utils import plotting
+from fsl_mrs.utils import plot
+
+
 
 class Report(object):
     '''
@@ -18,18 +31,13 @@ class Report(object):
         '''
         Constructor
         '''
-        self.properties = OrderedDict()
-
-    def add(self, **kwargs):
-        for k, v in kwargs:
-            self.properties[k] = v
+        pass
 
 
     def parse(self, template: str, outname: str, **kwargs):
 
         env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(op.dirname(template)),
-            autoescape=jinja2.select_autoescape(['html', 'xml']),
             extensions=['jinja2.ext.do']
         )
 
@@ -37,6 +45,7 @@ class Report(object):
             report=self,
             numpy=np,
             pandas=pd,
+            plot=plot,
             **kwargs
         )
 
@@ -46,15 +55,46 @@ class Report(object):
         with open(outname, 'w') as outfile:
             outfile.write(html)
 
-    @staticmethod
-    def to_base64(fig, ext='.svg', *args, **kwargs):
-        with TemporaryFile(suffix=ext) as tmp:
-            Report.to_file(fig, tmp, *args, **kwargs)
-            tmp.seek(0)
-            s = base64.b64encode(tmp.read()).decode("utf-8")
-        return 'data:image/{};base64,'.format(ext) + s
+
 
     @staticmethod
-    def to_file(fig, fname, dpi=100):
+    def plotly_to_div(fig, include_plotly='cdn', **kwargs):
+        div = plotly.offline.plot(fig, output_type='div', include_plotlyjs=include_plotly, **kwargs)
+        return div
+
+
+    @staticmethod
+    def mpl_to_div(fig, ext='.png', *args, **kwargs):
+        with TemporaryFile(suffix=ext) as tmp:
+            Report.mpl_to_file(fig, tmp, *args, **kwargs)
+            tmp.seek(0)
+            s = base64.b64encode(tmp.read()).decode("utf-8")
+        return f"<div><img src = \"data:image/{format(ext)};base64,{s}\" width=\"100%\"></div>"
+
+    @staticmethod
+    def mpl_to_file(fig, fname, dpi=100):
         fig.savefig(fname, dpi=dpi, bbox_inches='tight')
-        # fig.close()
+
+
+class MRS_Report(Report):
+
+    def __init__(self, mrs):
+        Report.__init__(self)
+        self.html_template=os.path.join(os.path.dirname(__file__),'mrs_report_template.html')
+        self.mrs = mrs
+
+    def plot_fit(self):
+
+        fig = plotting.plot_fit_new(self.mrs)
+        
+        return fig
+
+    def some_mpl_plot(self):
+        fig = plotting.plot_waterfall(self.mrs, ppmlim=(0, 5), proj='real',mod=False)
+
+        return fig
+
+    def parse(self, outname: str):
+        super().parse(self.html_template, outname, mrs=self.mrs)
+
+

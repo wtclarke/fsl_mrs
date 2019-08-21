@@ -17,6 +17,9 @@ from fsl_mrs.utils import report
 import datetime
 
 
+# TODO:
+# Look here: http://blog.vwelch.com/2011/04/combining-configparser-and-argparse.html
+# For a good way to allow config files
 
 
 def main():
@@ -48,10 +51,8 @@ def main():
                    help='ignore certain metabolites [repeatable]')
     fitting_args.add_argument('--combine',type=str,nargs='+',action='append',metavar='METAB',
                    help='combine certain metabolites')
-    fitting_args.add_argument('--ppmlim',default=None,type=str,nargs=2,action='append',metavar=('LOW','HIGH'),
-                   help='limit the fit to a freq range (only done if fitting in the frequency domain)')
-    fitting_args.add_argument('--freq_fit',action="store_true",
-                   help='fit in the frequency domain')
+    fitting_args.add_argument('--ppmlim',default=None,type=float,nargs=2,metavar=('LOW','HIGH'),
+                   help='limit the fit to a freq range')
     fitting_args.add_argument('--h2o',type=str,metavar='H2O',
                    help='input .H2O file for quantification')
     fitting_args.add_argument('--T2s',type=float,nargs=4,metavar=('T2metab','T2GM','T2WM','T2CSF'),
@@ -133,14 +134,7 @@ def main():
     mrs.ignore(args.ignore)
     mrs.combine(args.combine)
 
-    # Fitting options
-    if args.freq_fit:
-        domain = 'frequency'
-    else:
-        domain = 'time'
-    if args.ppmlim is not None and args.freq_fit is False:
-        warnings.warn('\n ppmlim only available when fitting in the frequency domain. This option will thus be ignored.\n')
-            
+             
 
     # Do the fitting here
     if args.verbose:
@@ -148,8 +142,23 @@ def main():
         print('    Model = [{}] and Algorithm = [{}]\n'.format(args.model,args.algo))
         start = time.time()
 
-    
-    mrs.fit(model = args.model, method=args.algo,domain=domain,ppmlim=args.ppmlim)
+
+    # BASELINE REMOVAL
+    # Remove baseline before fitting
+    #print('     --- Remove baseline --- ')
+    #B = mrs.calc_baseline(ppmlim=(0.2,4.4),order=10)
+    #mrs.Spec = mrs.Spec - B
+    #mrs.FID  = np.fft.ifft(mrs.Spec)
+  # ENDOF BASELINE REMOVAL
+        
+    # Do the fitting
+    print('     --- Run fitting --- ')
+    ppmlim=args.ppmlim
+    if ppmlim is not None:
+        ppmlim=(ppmlim[0],ppmlim[1])
+    print('mrs.fit(model ={}, method={},ppmlim={})'.format(args.model,args.algo,ppmlim))
+   
+    mrs.fit(model = args.model, method=args.algo,ppmlim=args.ppmlim)
     stop = time.time()
 
     # Do some extra bits for quantification
@@ -160,10 +169,16 @@ def main():
     # Report on the fitting
     if args.verbose:
         print('    Fitting lasted          : {:.3f} secs.\n'.format(stop-start))
-        print('    Fitted concentrations   : {}\n'.format(mrs.concentrations))
+        #print('    Fitted concentrations   : {}\n'.format(mrs.concentrations))
     # Save output files
     if args.verbose:
         print('--->> Saving output files to {}\n'.format(args.output))
+
+    mrs.save_results_to_file(os.path.join(args.output,'results_table.csv'))
+    mrs.save_fit_to_figure(os.path.join(args.output,'spectrum_fit.jpg'))
+
+
+    
     if args.report:
         if args.verbose:
             print('--->> Creating html report\n')
@@ -173,20 +188,18 @@ def main():
         mrs.outdir       = args.output
         mrs.provenance   = 'FMRIB Centre'
         mrs.date         = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        report_template  = os.path.join(os.path.dirname(report.__file__),'mrs_report_template.html')
         report_file      = os.path.join(args.output,'report.html')
 
-        r = report.Report()
-        r.parse(report_template, report_file, mrs=mrs)
+        r = report.MRS_Report(mrs)
+        r.parse(report_file)
 
         if args.verbose:
             print('      {}'.format(report_file)) 
-        #r.parse(report_template,report_file, mrs=mrs)
 
     # Finish
     # TMP: quick plot
-    for proj in ['real','imag','abs']:
-        mrs.plot_fit(out=os.path.join(args.output,'fitted_spectrum_{}.png'.format(proj)),proj=proj)
+    #for proj in ['real','imag','abs']:
+    #    mrs.plot_fit(out=os.path.join(args.output,'fitted_spectrum_{}.png'.format(proj)),proj=proj)
 
      
     if args.verbose:

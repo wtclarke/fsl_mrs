@@ -12,11 +12,6 @@
           crossorigin="anonymous">
 
     <style type="text/css">
-
-        html {
-            font-size: 0.8rem;
-        }
-
         body {
             background: whitesmoke !important;
         }
@@ -25,38 +20,43 @@
             max-width: 100%;
         }
 
-        page {
-            /*background: white;*/
-            display: block;
-            margin: 0 auto;
-            margin-bottom: 0.5cm;
-            margin-top: 0.5cm;
-            /*box-shadow: 0 0 0.5cm rgba(0, 0, 0, 0.5);*/
-        }
-
-        page[size="A4"] {
-            width: 21cm;
-            height: 29.7cm;
-        }
-
-        page[size="A4"][layout="landscape"] {
-            width: 29.7cm;
-            height: 21cm;
-        }
-
-        @media print {
-            body, page {
-                margin: 0;
+        @media screen and (min-width: 34em) {.card-columns {
+                -webkit-column-count: 1;
+                -moz-column-count: 1;
+                column-count: 1;
             }
         }
 
+        @media screen and (min-width: 48em) {
+            .card-columns {
+                -webkit-column-count: 1;
+                -moz-column-count: 1;
+                column-count: 1;
+            }
+        }
+
+        @media screen and (min-width: 62em) {
+            .card-columns {
+                -webkit-column-count: 1;
+                -moz-column-count: 1;
+                column-count: 1;
+            }
+        }
+
+        @media screen and (min-width: 75em) {
+            .card-columns {
+                -webkit-column-count: 2;
+                -moz-column-count: 2;
+                column-count: 2;
+            }
+        }
     </style>
 
-    <title>FSL MRS Report</title>
+    <title>FSL-MRS Report</title>
 </head>
+
 <body>
 
-<!-- NAVIGATION BAR -->
 
 <nav class="navbar sticky-top navbar-expand-lg navbar-dark bg-dark">
     <span class="navbar-brand mb-0 h1">FSL-MRS Report</span>
@@ -71,10 +71,13 @@
         <ul class="navbar-nav mr-auto">
 
             <li class="nav-item">
-                <a class="nav-link" href="#page1">Page1<span class="sr-only">(current)</span></a>
+                <a class="nav-link" href="#section1">Summary<span class="sr-only">(current)</span></a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="#page2">Page2<span class="sr-only">(current)</span></a>
+                <a class="nav-link" href="#section2">Details<span class="sr-only">(current)</span></a>
+            </li>
+	    <li class="nav-item">
+                <a class="nav-link" href="#section3">More details<span class="sr-only">(current)</span></a>
             </li>
 
         </ul>
@@ -82,123 +85,144 @@
 </nav>
 
 
-<!-- PAGE 1 -->
 
-<page size="A4">
-    <div class="card border-secondary mt-2" id="page1" style="height:100%; width:100%">
-        <div class="card-header">
-            Title
-        </div>
-        <div class="card-body">
+<div class="container-fuild">
+  
+  <div class="card-columns">
 
-            <!-- FILENAMES-->
+    {# SECTION 1 #}
+    <div class="card border-secondary mt-2" id="section1">
+      <div class="card-header">
+        Summary
+      </div>
+      <div class="card-body">
 
-            <table class="table table-hover table-bordered">
-                <tr>
-                    <td><b>FID File:</b></td>
-                    <td>{{ mrs.fidfile }}</td>
-                </tr>
-                <tr>
-                    <td><b>Basis File:</b></td>
-                    <td>{{ mrs.basisfile }}</td>
-                </tr>
-                <tr>
-                    <td><b>H2O File:</b></td>
-                    <td>{{ mrs.h2ofile }}</td>
-                </tr>
-                <tr>
-                    <td><b>Output Folder:</b></td>
-                    <td>{{ mrs.outdir }}</td>
-                </tr>
-            </table>
+        <!-- FILENAMES-->
 
-            <!-- GUFF-->
+        <table class="table table-hover table-bordered">
+          <tr>
+            <td><b>FID File:</b></td>
+            <td>{{ mrs.fidfile }}</td>
+          </tr>
+          <tr>
+            <td><b>Basis File:</b></td>
+            <td>{{ mrs.basisfile }}</td>
+          </tr>
+          <tr>
+            <td><b>H2O File:</b></td>
+            <td>{{ mrs.h2ofile }}</td>
+          </tr>
+          <tr>
+            <td><b>Output Folder:</b></td>
+            <td>{{ mrs.outdir }}</td>
+          </tr>
+        </table>
 
-            <table width="100%">
-                <tr>
-                    <td halign="left"><small>{{ mrs.date }}</small></td>
-                    <!-- <td halign="left"><small>Data from: {{ mrs.provenance }}</small></td> -->
-                    <!-- <td halign="right"><small></small></td> -->
-                </tr>
-                <tr>
+        <!-- GUFF-->
 
-                    <!-- <td halign="left"><small>{{ mrs.date }}</small></td> -->
-                    <td halign="center"><small>Copyright University Of Oxford</small></td>
-                    <!---<td halign="right"><small>{{ mrs.date }}</small></td>-->
-                </tr>
-            </table>
+        <table width="100%">
+          <tr>
+            <td halign="left"><small>{{ mrs.date }}</small></td>
+            <!-- <td halign="left"><small>Data from: {{ mrs.provenance }}</small></td> -->
+            <!-- <td halign="right"><small></small></td> -->
+          </tr>
+          <tr>
 
-            <br>
+            <!-- <td halign="left"><small>{{ mrs.date }}</small></td> -->
+            <td halign="center"><small>Copyright University Of Oxford</small></td>
+            <!---<td halign="right"><small>{{ mrs.date }}</small></td>-->
+          </tr>
+        </table>
 
-            <table>
-                <tr>
+        <br>
 
-                    <!-- SPECTRUM-->
+	    
+        <table>
+          <tr>
 
-                    <td width="80%">
-                        {% set imgstr = report.to_base64( mrs.plot_fit() )%}
-                        <img src="{{ imgstr }}" width="100%">
+            <!-- METABOLITES-->
+	    <div class="left">
+            <td valign="top" width="10%">
+
+              <table class="table table-sm table-hover table-bordered">
+                <thead>
+                  <tr>
+                    <th scope="col">mmol/L</th>
+                    <th scope="col">%SD</th>
+                    <th scope="col">/CR+PCr</th>
+                    <th scope="col">Metabolite</th>
+                  </tr>
+                </thead>
+		
+                <tbody>
+                  {% for m in mrs.all_con_names %}
+                  <tr>
+		    
+                    <th scope="row">
+                      <small>{{ "%0.2f"|format(mrs.all_con_names_h2o[m]) }}</small>
+                    </th>
+                    <td>
+                      <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
                     </td>
-
-                    <!-- METABOLITES-->
-
-                    <td valign="top">
-
-                        <table class="table table-sm table-hover table-bordered">
-                            <thead>
-                            <tr>
-                                <th scope="col">mmol/L</th>
-                                <th scope="col">%SD</th>
-                                <th scope="col">/CR+PCr</th>
-                                <th scope="col">Metabolite</th>
-                            </tr>
-                            </thead>
-
-                            <tbody>
-                            {% for m in mrs.all_con_names %}
-                            <tr>
-
-                                <th scope="row">
-                                    <small>{{ "%0.2f"|format(mrs.all_con_names_h2o[m]) }}</small>
-                                </th>
-                                <td>
-                                    <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
-                                </td>
-                                <td>
-                                    <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
-                                </td>
-                                <td>
-                                    <small>{{ m }}</small>
-                                </td>
-
-                            </tr>
-                            </tbody>
-                            {% endfor %}
-                        </table>
-
+                    <td>
+                      <small>{{ "%0.2f"|format(mrs.all_con_names[m]) }}</small>
                     </td>
-                </tr>
-            </table>
+                    <td>
+                      <small>{{ m }}</small>
+                    </td>
+		    
+                  </tr>
+                </tbody>
+                {% endfor %}
+              </table>
+
+            </td>
+	    </div>
+
+	    <div class="right">
+            <!-- SPECTRUM-->
+
+            <td width="90%">
+              {{ report.plotly_to_div(report.plot_fit()) }}
+            </td>
+	    </div>
+		    
+          </tr>
+        </table>
 
 
-        </div>
+      </div>
+    </div>	    
+    {# EMPTY CARD 1 #}
+    <div class="card border-secondary mt-2" id="section2">
+      <div class="card-header">
+        Details
+      </div>
+      <div class="card-body">
+        {{ report.mpl_to_div(report.some_mpl_plot()) }}
+
+      </div>
     </div>
-</page>
+    
 
-<!-- PAGE 2 -->
+    {# EMPTY CARD 2 #}
+    <div class="card border-secondary mt-2" id="section3">
+      <div class="card-header">
+        More details
+      </div>
+      <div class="card-body">
+        Grot
 
-<page size="A4">
-    <div class="card border-secondary mt-2" id="page2" style="height:100%; width:100%">
-        <div class="card-header">
-            Page 2
-        </div>
-        <div class="card-body">
-
-
-        </div>
+      </div>
     </div>
-</page>
 
+
+  </div>
+  {# END card-columns #}	    
+
+</div>
+
+{# END container-fluid #}
 
 <!-- Optional JavaScript -->
 <!-- jQuery first, then Popper.js, then Bootstrap JS -->
@@ -212,13 +236,13 @@
         integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
         crossorigin="anonymous"></script>
 <script>
-    $(document).ready(function () {
-        $('[data-toggle="popover"]').popover({container: 'body'});
-    });
-
+  $(document).ready(function () {
+      $('[data-toggle="popover"]').popover({container: 'body'});
+  });
+  
 </script>
 
-
+  
 </body>
 
 </html>

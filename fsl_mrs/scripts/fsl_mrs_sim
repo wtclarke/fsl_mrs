@@ -100,6 +100,7 @@ def main():
                            num_points=args.numpoints,
                            dwelltime=args.dwelltime,
                            linewidth=args.linewidth,
+                           centreFreq=args.tesla*42.576,
                            metab=metab)        
 
         # simu
