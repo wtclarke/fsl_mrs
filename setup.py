@@ -10,6 +10,6 @@ setup(name='FSL_MRS',
       url='www.fmrib.ox.ac.uk/fsl',
       packages=['fsl_mrs','fsl_mrs.utils'],
       package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle']},
-      install_requires=['numpy','scipy','matplotlib'],
-      scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrs_sim']               
+      install_requires=['numpy','scipy','matplotlib', 'plotly', 'jinja2', 'pandas'],
+      scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrs_sim']
      )
