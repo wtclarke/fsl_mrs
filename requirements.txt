@@ -3,6 +3,5 @@ scipy
 matplotlib
 plotly>=4.*
 pandas
-pickle
 configargparse
 argparse
