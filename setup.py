@@ -14,6 +14,6 @@ setup(name='FSL_MRS',
       url='www.fmrib.ox.ac.uk/fsl',
       packages=['fsl_mrs','fsl_mrs.utils'],
       package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle']},
-      install_requires=install_requires=install_requires,
+      install_requires=install_requires,
       scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrs_sim']               
      )
