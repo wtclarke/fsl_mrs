@@ -7,14 +7,12 @@
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
 
+# Quick imports
+#import argparse
+import configargparse
 
-import argparse
-import time, os, sys, shutil, warnings
-import numpy as np
-from fsl_mrs import MRS
-from fsl_mrs.utils import mrs_io
-from fsl_mrs.utils import report
-import datetime
+from fsl_mrs import __version__
+from fsl_mrs.utils.splash import splash
 
 
 # TODO:
@@ -24,42 +22,55 @@ import datetime
 
 def main():
     # Parse command-line arguments
-    p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tool')
+    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy Wrapper Script")
 
+
+    # utility for hiding certain arguments
+    def hide_args(arglist):
+        for action in arglist:
+            action.help=p.SUPPRESS
+
+        
+    #p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tool')
+    p.add_argument('-v','--version', action='version', version=__version__)
     
     required = p.add_argument_group('required arguments')
     fitting_args = p.add_argument_group('fitting options')
     optional = p.add_argument_group('additional options')
 
     # REQUIRED ARGUMENTS
-    required.add_argument('-d','--data',
+    required.add_argument('--data',
                           required=True,type=str,metavar='<str>.RAW',
                           help='input FID file')
-    required.add_argument('-b','--basis',
+    required.add_argument('--basis',
                           required=True,type=str,metavar='<str>',
                           help='.BASIS file or folder containing basis spectra (will read all .RAW files within)')
-    required.add_argument('-o','--output',
+    required.add_argument('--output',
                           required=True,type=str,metavar='<str>',
                           help='output folder')
     
     # FITTING ARGUMENTS
-    fitting_args.add_argument('--model',default='LCModel',type=str,
-                              help='model [default=LCModel]')
     fitting_args.add_argument('--algo',default='Newton',type=str,
-                   help='algorithm [Newton or Powell or MH]')
+                   help='algorithm [Newton (fast) or MH (slow)]')
     fitting_args.add_argument('--ignore',type=str,nargs='+',metavar='METAB',
                    help='ignore certain metabolites [repeatable]')
+    fitting_args.add_argument('--keep',type=str,nargs='+',metavar='METAB',
+                   help='only keep these metabolites')
     fitting_args.add_argument('--combine',type=str,nargs='+',action='append',metavar='METAB',
-                   help='combine certain metabolites')
-    fitting_args.add_argument('--ppmlim',default=None,type=float,nargs=2,metavar=('LOW','HIGH'),
-                   help='limit the fit to a freq range')
+                   help='combine certain metabolites [repeatable]')
+    fitting_args.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
+                   help='limit the fit to a freq range (default=(.2,4.2))')
     fitting_args.add_argument('--h2o',type=str,metavar='H2O',
                    help='input .H2O file for quantification')
     fitting_args.add_argument('--T2s',type=float,nargs=4,metavar=('T2metab','T2GM','T2WM','T2CSF'),
-                   help='T2 values (in milliseconds) for metabolites, and water GM, WM, and CSF (default=3T ref values)')
+                   help='T2 values (in milliseconds) for metabolites, and water GM, WM, and CSF')
     fitting_args.add_argument('--volfrac',type=float,nargs=3,metavar=('GM','WM','CSF'),
                    help='volume fractions of GM, WM, and CSF (in most cases these should add up to one)')
-
+    fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
+                   help='order of baseline polynomial (default=2)')
+    fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=int,
+                              help="metabolite groups.")
+    
     
     # ADDITONAL OPTIONAL ARGUMENTS
     optional.add_argument('--report',action="store_true",
@@ -68,16 +79,34 @@ def main():
                    help='spit out verbose info')
     optional.add_argument('--overwrite',action="store_true",
                    help='overwrite existing output folder')
+    optional.add('--config', required=False, is_config_file=True, help='configuration file')
 
-  
 
-    # Output kickass splash screen
-    mrs_io.splash(logo='mrs')
-
+    #hide_args([h1,h2])
+    
     # Parse command-line arguments
     args = p.parse_args()
-    
 
+    # Output kickass splash screen
+    if args.verbose:
+        splash(logo='mrs')
+
+
+    # ######################################################
+    # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
+    import time, os, sys, shutil, warnings
+    import numpy as np
+    from fsl_mrs.core import MRS
+    from fsl_mrs.utils import mrs_io
+    from fsl_mrs.utils import report
+    from fsl_mrs.utils import fitting
+    from fsl_mrs.utils import plotting
+    from fsl_mrs.utils import misc
+    import datetime
+    import plotly
+    # ######################################################
+
+    
     # Check if output folder exists
     overwrite = args.overwrite
     if os.path.exists(args.output):
@@ -94,7 +123,14 @@ def main():
     else:
         os.mkdir(args.output)
 
-    
+
+    # Save chosen arguments
+    with open(os.path.join(args.output,"options.txt"),"w") as f:
+        f.write(str(args))
+        f.write("\n--------\n")
+        f.write(p.format_values())
+        
+        
     #######  Do the work #######
 
     # Instantiate MRS object
@@ -130,41 +166,50 @@ def main():
         T2s = args.T2s
         
         
-    # Ignore/Combine metabolites
+    # Keep/Ignore/Combine metabolites
+    mrs.keep(args.keep)
     mrs.ignore(args.ignore)
     mrs.combine(args.combine)
-
-             
-
+    
     # Do the fitting here
     if args.verbose:
         print('--->> Start fitting\n\n')
-        print('    Model = [{}] and Algorithm = [{}]\n'.format(args.model,args.algo))
+        print('    Algorithm = [{}]\n'.format(args.algo))
         start = time.time()
 
-
-    # BASELINE REMOVAL
-    # Remove baseline before fitting
-    #print('     --- Remove baseline --- ')
-    #B = mrs.calc_baseline(ppmlim=(0.2,4.4),order=10)
-    #mrs.Spec = mrs.Spec - B
-    #mrs.FID  = np.fft.ifft(mrs.Spec)
-  # ENDOF BASELINE REMOVAL
         
     # Do the fitting
     print('     --- Run fitting --- ')
     ppmlim=args.ppmlim
     if ppmlim is not None:
         ppmlim=(ppmlim[0],ppmlim[1])
-    print('mrs.fit(model ={}, method={},ppmlim={})'.format(args.model,args.algo,ppmlim))
-   
-    mrs.fit(model = args.model, method=args.algo,ppmlim=args.ppmlim)
+ 
+    #mrs.fit(model = args.model, method=args.algo,ppmlim=args.ppmlim)
+
+    # Do phase correction
+    mrs.FID  = misc.phase_correct(mrs.FID)
+    mrs.Spec = np.fft.fft(mrs.FID)
+
+    # Parse metabolite groups
+    metab_groups = args.metab_groups
+    if metab_groups == 0:
+        metab_groups = [0]*mrs.numBasis
+    if len(metab_groups) != mrs.numBasis:
+        raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
+    
+    res = fitting.fit_FSLModel(mrs,method=args.algo,
+                               ppmlim=ppmlim,
+                               baseline_order=args.baseline_order,
+                               metab_groups=metab_groups)
+
+
+    
     stop = time.time()
 
     # Do some extra bits for quantification
-    mrs.post_process(metab=['Cr','PCr'],scale=8.0,T2s=T2s,volfrac=args.volfrac)
-    mrs.reference_matebolite = 'Cr+PCr'
-    print(mrs.all_con_names_h2o)
+    #mrs.post_process(metab=['Cr','PCr'],scale=8.0,T2s=T2s,volfrac=args.volfrac)
+    #mrs.reference_matebolite = 'Cr+PCr'
+    #print(mrs.all_con_names_h2o)
     
     # Report on the fitting
     if args.verbose:
@@ -174,33 +219,27 @@ def main():
     if args.verbose:
         print('--->> Saving output files to {}\n'.format(args.output))
 
-    mrs.save_results_to_file(os.path.join(args.output,'results_table.csv'))
-    mrs.save_fit_to_figure(os.path.join(args.output,'spectrum_fit.jpg'))
 
-
+    res.to_file(mrs,filename=os.path.join(args.output,'results_table.csv'))
     
-    if args.report:
-        if args.verbose:
-            print('--->> Creating html report\n')
-        mrs.fidfile      = args.data
-        mrs.basisfile    = args.basis
-        mrs.h2ofile      = args.h2o
-        mrs.outdir       = args.output
-        mrs.provenance   = 'FMRIB Centre'
-        mrs.date         = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        report_file      = os.path.join(args.output,'report.html')
 
-        r = report.MRS_Report(mrs)
-        r.parse(report_file)
 
-        if args.verbose:
-            print('      {}'.format(report_file)) 
-
-    # Finish
-    # TMP: quick plot
-    #for proj in ['real','imag','abs']:
-    #    mrs.plot_fit(out=os.path.join(args.output,'fitted_spectrum_{}.png'.format(proj)),proj=proj)
-
+    # Create short HTML report
+    #fig = plotting.plotly_fit(mrs,res,ppmlim=ppmlim,proj='abs')
+    #plotly.io.write_html(fig, file=os.path.join(args.output,'short_report.html'))
+    
+    
+    
+    # Creat HTML report
+    report.create_report(mrs,res,
+                         filename=os.path.join(args.output,'report.html'),
+                         fidfile=args.data,
+                         basisfile=args.basis,
+                         h2ofile=args.h2o,
+                         outdir=args.output,
+                         date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+                         
+    
      
     if args.verbose:
         print('\n\n\nDone.')

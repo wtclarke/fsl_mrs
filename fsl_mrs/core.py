@@ -14,7 +14,7 @@ from fsl_mrs.utils.mh import MH
 from fsl_mrs.utils import mrs_io as io
 from fsl_mrs.utils import models, misc
 from fsl_mrs.utils import plotting
-
+from fsl_mrs.utils.constants import *
 
 import numpy as np
 import time
@@ -30,12 +30,6 @@ import matplotlib.pyplot as plt
 
 
 
-## ASK MICHIEL/PAUL HOW BEST TO SET UP GLOBAL VARIABLES
-H2O_MOLECULAR_MASS = 18.01528   # g/mol
-H2O_Conc           = 55.51E3    # mmol/kg      
-H2O_PPM_TO_TMS     = 4.65       # Shift of water to Tetramethylsilane
-H2O_to_Cr          = 0.4        # Proton ratio
-H1_gamma           = 42.576     # MHz/tesla
 
 class MRS(object):
     """
@@ -91,6 +85,7 @@ class MRS(object):
         out += '     FID.bandwidth (Hz)    = {}\n'.format(self.bandwidth)
         out += '     FID.dwelltime (s)     = {}\n'.format(self.dwellTime)
         out += '     FID.echotime (s)      = {}\n'.format(self.echotime)
+        out += '     Metabolites           = {}\n'.format(self.names)
 
         return out
 
@@ -125,6 +120,7 @@ class MRS(object):
         # turn into column vectors
         self.timeAxis         = self.timeAxis[:,None]
         self.frequencyAxis    = self.frequencyAxis[:,None]
+        self.ppmAxisShift     = self.ppmAxisShift[:,None]
 
         # by default, basis setup like data
         self.set_acquisition_params_basis(self.dwellTime)
@@ -229,7 +225,21 @@ class MRS(object):
                 self.names.pop(idx)
                 self.basis = np.delete(self.basis,idx,axis=1)
             self.numBasis = len(self.names)
+
+    def keep(self,metabs):
+        """
+          Keep a subset of metabolites by removing all others from basis
+
+          Parameters
+          ----------
+
+          metabs: list
         
+        """
+        if metabs is not None:
+            metabs = list(set(self.names)-set(metabs))
+            self.ignore(metabs)
+
 
     def combine(self,metabs):
         """
@@ -284,6 +294,7 @@ class MRS(object):
           TYPE     : string
 
         """
+        self.datafile = filename
         self.FID, header   = self.read(filename,TYPE)
         self.numPoints     = self.FID.size
 
@@ -317,7 +328,7 @@ class MRS(object):
                 self.basis.append(data)
                 self.numBasis +=1
         self.basis = np.asarray(self.basis).astype(np.complex).T
-        self.basis = self.basis - self.basis.mean(axis=0)
+        #self.basis = self.basis - self.basis.mean(axis=0)
     
     def read_basis_from_folder(self,folder,TYPE='RAW',ignore=[]):
         """
@@ -391,8 +402,7 @@ class MRS(object):
         if real:
             data   = np.append(np.real(self.FID),np.imag(self.FID),axis=0)
             desmat = np.append(np.real(self.basis),np.imag(self.basis),axis=0)            
-            beta   = np.real(np.linalg.pinv(desmat)@data)
-            print(beta)
+            beta   = np.real(np.linalg.pinv(desmat)@data)            
         else:
             beta      = np.linalg.pinv(self.basis)@self.FID
         
@@ -477,60 +487,6 @@ class MRS(object):
                    
         return x
 
-
-    def calc_baseline(self,spec=None,ppmlim=(0,4.6),order=10):
-        """
-        Estimate baseline
-        
-        parameters
-        ----------
-        spec : array-like
-               spectrum to use for estimating baseline. default: uses self.Spec
-               
-        ppmlim : tuple
-                 upper and lower limit over which spectrum is calculated
-        order : integer
-                order of polynomial used to estimate baseline
-        """
-        # Get axes
-        axis   = np.flipud(self.ppmAxisFlip)
-        first  = np.argmin(np.abs(axis-ppmlim[0]))
-        last   = np.argmin(np.abs(axis-ppmlim[1]))
-        if first>last:
-            first,last = last,first    
-        freq       = axis[first:last]
-        # Build design matrix
-        desmat = []
-        for i in range(order+1):
-            regressor  = freq**i                     # power
-            if i>0:
-                regressor -= np.mean(regressor)      # demean
-            regressor /= np.linalg.norm(regressor)   # normalise
-            desmat.append(regressor.flatten())
-        desmat = np.asarray(desmat).T
-        # Append basis to design matrix so it doesn't
-        # model out good signal
-        # First, do a quick nonlinear fit:
-        self.fit_LCModel(method='Newton',ppmlim=ppmlim)
-        basis  = np.exp(-1j*(self.phi0+self.phi1*self.frequencyAxis))*np.fft.fft(self.basis*np.exp(-(self.gamma+1j*self.eps)*self.timeAxis),axis=0)
-        basis  = np.flipud(np.fft.fftshift(basis))
-        basis  = basis[first:last,:]      
-        desmat = np.concatenate((desmat,basis),axis=1)
-        if spec is None:
-            spec     = self.Spec
-        spec = np.flipud(np.fft.fftshift(spec))
-        beta = np.matmul(np.linalg.pinv(desmat),spec[first:last])
-    
-        # Model is:
-        # data = [nuisance basis]*beta
-        # so baseline = nuisance*beta[:order+1]
-    
-        baseline = np.zeros(self.numPoints,dtype='complex')
-        baseline[first:last] = np.matmul(desmat[:,:order+1],beta[:order+1])
-        baseline = np.flipud(baseline)
-        baseline = np.fft.fftshift(baseline)
-    
-        return baseline
 
     def reset_params(self,x):
         """
@@ -641,7 +597,7 @@ class MRS(object):
 
     def save_results_to_file(self,filename):
         """
-           Write concentrations (abs and relative) to text file
+           Write concentrations to text file
         """
         header = 'metabolite,Conc,/Cr+PCr\n'
         with open(filename,'w') as f:
@@ -651,42 +607,6 @@ class MRS(object):
                 f.write('{},{},{}\n'.format(x,y,z))
 
     
-    def save_fit_to_figure(self,filename,ppmlim=(.4,4.2)):
-        """
-           Save fit to figure
-        """
-        if self.pred is None:
-            raise Exception('Cannot plot fit before fitting')
-
-        axis   = np.flipud(self.ppmAxisFlip)
-        spec   = np.flipud(np.fft.fftshift(self.Spec))
-        pred   = np.fft.fft(self.pred)
-        pred   = np.flipud(np.fft.fftshift(pred))
-
-        if self.baseline is not None:
-            B = np.flipud(np.fft.fftshift(self.baseline))
-    
-        first  = np.argmin(np.abs(axis-ppmlim[0]))
-        last   = np.argmin(np.abs(axis-ppmlim[1]))
-        if first>last:
-            first,last = last,first    
-        freq = axis[first:last] 
-
-        plt.figure(figsize=(9,10))
-        plt.plot(axis[first:last],spec[first:last])
-        plt.gca().invert_xaxis()
-        plt.plot(axis[first:last],pred[first:last],'r')
-        if self.baseline is not None:
-            plt.plot(axis[first:last],B[first:last],'k')
-
-        # style stuff
-        plt.minorticks_on()
-        plt.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
-        plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
-
-        # Save to file
-        plt.savefig(filename)
-        return plt.gcf()
 
         
 
@@ -719,7 +639,7 @@ class MRS_quantif(object):
             return con
         else:
             warnings.warn("[{}]=0!! Something went wrong somewhere. Can't rescale concentrations...".format(metab))
-            return self.con
+            return None
 
         
     def rescale_to_metab_grp(self,metab_list,scale=1.0):
@@ -768,11 +688,11 @@ class MRS_quantif(object):
         # Use Cr+PCr
         
         interval   = np.ones(self.Cr.size)
-        if ppmaxisshift is not None:
-            interval[ppmaxisshift<2.5] = 0
-            interval[ppmaxisshift>4.5] = 0
-            self.Cr = self.Cr*interval
-            self.Pcr = self.PCr*interval
+        #if ppmaxisshift is not None:
+        #    interval[ppmaxisshift<2.5] = 0
+        #    interval[ppmaxisshift>4.5] = 0
+        #    self.Cr = self.Cr*interval
+        #    self.Pcr = self.PCr*interval
             
         Cr_area    = np.sum(np.abs(self.con_names['Cr']*self.Cr))/interval.sum()
         PCr_area   = np.sum(np.abs(self.con_names['PCr']*self.PCr))/interval.sum()

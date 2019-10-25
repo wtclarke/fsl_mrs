@@ -28,7 +28,7 @@ def FID2Spec(x):
     return x
 
 
-def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,proj='real'):
+def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,baseline=None,proj='real'):
     """
        Main function for plotting a model fit
        Parameters
@@ -64,6 +64,8 @@ def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,proj='real'):
     if pred is None:
         pred = mrs.pred
     pred = FID2Spec(pred)
+    if baseline is not None:
+        baseline = FID2Spec(baseline)
 
     
     axis   = mrs.ppmAxisShift
@@ -71,24 +73,31 @@ def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,proj='real'):
     last   = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[1]))
 
 
-
     # turn to real numbers
     if proj == "real":
         data,pred = np.real(data),np.real(pred)
+        if baseline is not None:
+            baseline = np.real(baseline)
     elif proj == "imag":
         data,pred = np.imag(data),np.imag(pred)
+        if baseline is not None:
+            baseline = np.imag(baseline)
     elif proj == "abs":
         data,pred = np.abs(data),np.abs(pred)
+        if baseline is not None:
+            baseline = np.abs(baseline)
     elif proj == "angle":
         data,pred = np.angle(data),np.angle(pred)            
+        if baseline is not None:
+            baseline = np.angle(baseline)
 
-
-    
     if first>last:
         first,last = last,first
-    ylim   = (data[first:last].min()-np.abs(data[first:last]).min()/30,
-              data[first:last].max()+np.abs(data[first:last]).max()/50)
-    
+
+    m = min(data[first:last].min(),pred[first:last].min())
+    M = max(data[first:last].max(),pred[first:last].max())
+    ylim   = (m-np.abs(M)/10,M+np.abs(M)/10)
+        
     
     # Create the figure
     plt.figure(figsize=(9,10))
@@ -107,11 +116,15 @@ def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,proj='real'):
     ax2 = plt.subplot(gs[1])
       
     doPlot(data,c='k'      ,linewidth=.5,xticks=xticks)
-    doPlot(pred,c='#cc0000',linewidth=3,xticks=xticks)
+    doPlot(pred,c='#cc0000',linewidth=1,xticks=xticks)
+    if baseline is not None:
+        doPlot(baseline,c='k',linewidth=.5,xticks=xticks)
+
+    # plot y=0
+    doPlot(data*0,c='k',linestyle=':',linewidth=1,xticks=xticks)
+
     plt.legend(['data','model fit'])
 
-    if mrs.baseline is not None:
-        doPlot(np.fft.fftshift(mrs.baseline),xticks=xticks)
     
     plt.tight_layout()
     plt.ylim(ylim)
@@ -296,4 +309,406 @@ def plot_fit_pretty(mrs,pred=None,ppmlim=(0.40,4.2),proj='real'):
 
     return fig
 
+
+
+
+
+def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
+    """
+         plot model fitting plus baseline
+        
+    Parameters:
+         mrs    : MRS object
+         res    : ResFit Object
+         ppmlim : tuple
+
+    Returns
+         fig
+     """
+    def project(x,proj):
+        if proj is 'real':
+            return np.real(x)
+        elif proj is 'imag':
+            return np.imag(x)
+        elif proj is 'angle':
+            return np.angle(x)
+        else:
+            return np.abs(x)
+
+    # Prepare the data
+    axis   = np.flipud(mrs.ppmAxisFlip)
+    data   = project(FID2Spec(mrs.FID),proj)
+    pred   = project(FID2Spec(res.pred),proj)
+    base   = project(FID2Spec(res.baseline),proj)
+    resid  = project(FID2Spec(res.residuals),proj)
+
+    # y-axis range
+    ymin = np.min(data)-np.min(data)/10
+    ymax = np.max(data)-np.max(data)/30
+
+    # Build the plot
+    import plotly.graph_objects as go
+    import plotly.figure_factory as ff
+    import pandas as pd
+
+    # Table
+
+    df = pd.DataFrame()
+    df['Metab']          = mrs.names
+    df['mMol/kg']        = np.round(res.conc_h2o,decimals=2)
+    df['%CRLB']          = np.round(res.perc_SD[:mrs.numBasis],decimals=1)
+    df['/Cr']            = np.round(res.conc_cr,decimals=2)
+
+
+    fig = ff.create_table(df, height_constant=50)
+    for i in range(len(fig.layout.annotations)):
+        fig.layout.annotations[i].font.size = 16
+        
+    colors = dict(data='rgb(67,67,67)', 
+                  pred='rgb(253,59,59)',
+                  base='rgb(170,170,170)',
+                  resid='rgb(170,170,170)')
+    line_size = dict(data=1, 
+                     pred=2,
+                     base=1,resid=1)
+
+    trace1 = go.Scatter(x=axis, y=data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color=colors['data'],width=line_size['data']),
+                        xaxis='x2', yaxis='y2')
+    trace2 = go.Scatter(x=axis, y=pred,
+                        mode='lines',
+                        name='model',
+                        line=dict(color=colors['pred'],width=line_size['pred']),
+                        xaxis='x2', yaxis='y2')
+    trace3 = go.Scatter(x=axis, y=base,
+                        mode='lines',
+                        name='baseline',
+                        line=dict(color=colors['base'],width=line_size['base']),
+                        xaxis='x2', yaxis='y2')
+    trace4 = go.Scatter(x=axis, y=resid,
+                        mode='lines',
+                        name='residuals',
+                        line=dict(color=colors['resid'],width=line_size['resid']),
+                        xaxis='x2', yaxis='y2')
+
+
+    fig.add_traces([trace1,trace2,trace3,trace4])
+    fig['layout']['xaxis2'] = {}
+    fig['layout']['yaxis2'] = {}
+
+    fig.layout.xaxis.update({'domain': [0, .35]})
+    fig.layout.xaxis2.update({'domain': [0.4, 1.]})
+    fig.layout.xaxis2.update(title_text='Chemical shift (ppm)',
+                             tick0=2, dtick=.5,
+                             range=[ppmlim[1],ppmlim[0]])
+    # The graph's yaxis MUST BE anchored to the graph's xaxis
+    fig.layout.yaxis2.update({'anchor': 'x2'})
+    fig.layout.yaxis2.update(zeroline=True, 
+                             zerolinewidth=1, 
+                             zerolinecolor='Gray',
+                             showgrid=False,showticklabels=False,
+                             range=[ymin,ymax])
+    
+    # Update the margins to add a title and see graph x-labels.
+    fig.layout.margin.update({'t':50, 'b':100})
+    fig.layout.update({'title': 'Fitting summary'})
+    fig.update_layout(template = 'plotly_white')
+    fig.layout.update({'height':800})
+    
+    return fig
+
+
+def plot_dist_approx(mrs,res,refname='Cr'):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    n = int(np.ceil(np.sqrt(mrs.numBasis)))
+    fig = make_subplots(rows=n, cols=n,subplot_titles=mrs.names)
+    traces = []
+    ref = res.params[mrs.names.index(refname)]
+    for i,metab in enumerate(mrs.names):
+        (r, c) = divmod(i, n)
+        mu  = res.params[i]/ref
+        sig = np.sqrt(res.crlb[i])/ref
+        x   = np.linspace(mu-mu,mu+mu,100)
+        N = np.exp(-(x-mu)**2/sig**2)
+        N = N/N.sum()/(x[1]-x[0])
+        t = go.Scatter(x=x,y=N,mode='lines',
+                       name=metab,line=dict(color='black'))
+        fig.add_trace(t,row=r+1,col=c+1)
+    
+    fig.update_layout(template = 'plotly_white',
+                      showlegend=False,
+                      font=dict(size=10),
+                      title='Approximate marginal distributions (ref={})'.format(refname),
+                      height=800,width=800)
+    for i in fig['layout']['annotations']:
+        i['font'] = dict(size=10,color='#ff0000')
+    
+    return fig
+
+
+def plot_mcmc_corr(mrs,res):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    #Greys,YlGnBu,Greens,YlOrRd,Bluered,RdBu,Reds,Blues,
+    #Picnic,Rainbow,Portland,Jet,Hot,Blackbody,Earth,
+    #Electric,Viridis,Cividis.
+    n = mrs.numBasis
+    fig = go.Figure()
+    corr = np.ma.corrcoef(res.mcmc_samples.T)
+    np.fill_diagonal(corr,np.nan)
+    fig.add_trace(go.Heatmap(z=corr,
+                     x=mrs.names,y=mrs.names,colorscale='Picnic'))
+    
+    fig.update_layout(template = 'plotly_white',
+                      font=dict(size=10),
+                      title='MCMC correlation',
+                      width = 700,
+                      height = 700,
+                      yaxis = dict(
+                          scaleanchor = "x",
+                          scaleratio = 1,
+                        ))
+    
+    return fig
+
+def plot_dist_mcmc(mrs,res,refname='Cr'):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    n = int(np.ceil(np.sqrt(mrs.numBasis)))
+    fig = make_subplots(rows=n, cols=n,subplot_titles=mrs.names)
+    traces = []
+    ref = res.mcmc_samples[:,mrs.names.index(refname)]
+    for i,metab in enumerate(mrs.names):
+        (r, c) = divmod(i, n)
+        x  = res.mcmc_samples[:,i] / np.mean(ref)
+        t = go.Histogram(x=x,
+                         name=metab,
+                        histnorm='percent',marker_color='#330C73',opacity=0.75)
+        
+    
+        fig.add_trace(t,row=r+1,col=c+1)
+    
+    fig.update_layout(template = 'plotly_white',
+                      showlegend=False,
+                      width = 700,
+                      height = 700,
+                      font=dict(size=10),
+                      title='MCMC marginal distributions (ref={})'.format(refname))
+    for i in fig['layout']['annotations']:
+        i['font'] = dict(size=10,color='#ff0000')
+
+        
+    
+    return fig
+
+
+def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
+    """
+         plot model fitting plus baseline
+        
+    Parameters:
+         mrs    : MRS object
+         res    : ResFit Object
+         ppmlim : tuple
+
+    Returns
+         fig
+     """
+    def project(x,proj):
+        if proj is 'real':
+            return np.real(x)
+        elif proj is 'imag':
+            return np.imag(x)
+        elif proj is 'angle':
+            return np.angle(x)
+        else:
+            return np.abs(x)
+    
+    # Prepare the data
+    axis        = np.flipud(mrs.ppmAxisFlip)
+    data_real   = project(FID2Spec(mrs.FID),'real')
+    pred_real   = project(FID2Spec(res.pred),'real')
+    data_imag   = project(FID2Spec(mrs.FID),'imag')
+    pred_imag   = project(FID2Spec(res.pred),'imag')
+
+
+
+    # Build the plot
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    fig = make_subplots(rows=1, cols=2,subplot_titles=['Real','Imag'])
+    
+
+    colors = dict(data='rgb(67,67,67)', 
+                  pred='rgb(253,59,59)',
+                  base='rgb(170,170,170)')
+    line_size = dict(data=1, 
+                     pred=2,
+                     base=1)
+
+    trace1 = go.Scatter(x=axis, y=data_real,
+                        mode='lines',
+                        name='data : real',
+                        line=dict(color=colors['data'],width=line_size['data']))
+    trace2 = go.Scatter(x=axis, y=pred_real,
+                        mode='lines',
+                        name='model : real',
+                        line=dict(color=colors['pred'],width=line_size['pred']))
+    fig.add_trace(trace1,row=1,col=1)
+    fig.add_trace(trace2,row=1,col=1)
+
+    trace1 = go.Scatter(x=axis, y=data_imag,
+                        mode='lines',
+                        name='data : imag',
+                        line=dict(color=colors['data'],width=line_size['data']))
+    trace2 = go.Scatter(x=axis, y=pred_imag,
+                        mode='lines',
+                        name='model : imag',
+                        line=dict(color=colors['pred'],width=line_size['pred']))
+    fig.add_trace(trace1,row=1,col=2)
+    fig.add_trace(trace2,row=1,col=2)
+
+#     fig.layout.xaxis.update({'domain': [0, .35]})
+#     fig.layout.xaxis2.update({'domain': [0.4, 1.]})
+    fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                             tick0=2, dtick=.5,
+                             range=[ppmlim[1],ppmlim[0]])
+    fig.layout.xaxis2.update(title_text='Chemical shift (ppm)',
+                             tick0=2, dtick=.5,
+                             range=[ppmlim[1],ppmlim[0]])
+
+    fig.layout.yaxis2.update(zeroline=True, 
+                             zerolinewidth=1, 
+                             zerolinecolor='Gray',
+                             showgrid=False,showticklabels=False)
+    fig.layout.yaxis.update(zeroline=True, 
+                             zerolinewidth=1, 
+                             zerolinecolor='Gray',
+                             showgrid=False,showticklabels=False)
+    
+    # Update the margins to add a title and see graph x-labels.
+#     fig.layout.margin.update({'t':50, 'b':100})
+    fig.layout.update({'title': 'Fitting summary Real/Imag'})
+    fig.update_layout(template = 'plotly_white')
+    fig.layout.update({'height':800,'width':1000})
+    
+    return fig
+
+
+def pred(mrs,res,metab):
+    from fsl_mrs.utils import models
+    con,gamma,eps,phi0,phi1,b = models.FSLModel_x2param(res.params,mrs.numBasis,res.g)
+    c = con[mrs.names.index(metab)].copy()
+    con = 0*con
+    con[mrs.names.index(metab)] = c
+    x = models.FSLModel_param2x(con,gamma,eps,phi0,phi1,b)    
+    pred = models.FSLModel_forward(x,mrs.frequencyAxis,
+                            mrs.timeAxis,
+                            mrs.basis,res.base_poly,res.metab_groups,res.g)
+    pred = np.fft.ifft(pred) # predict FID not Spec
+    return pred
+
+def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    
+    colors = dict(data='rgb(67,67,67)', 
+                  pred='rgb(253,59,59)')
+    line_size = dict(data=.5, 
+                     pred=2)
+
+    ncols = 3
+    nrows = int(np.ceil(mrs.numBasis/ncols))
+
+    fig = make_subplots(rows=nrows, cols=ncols,subplot_titles=mrs.names)
+    traces = []
+    axis        = np.flipud(mrs.ppmAxisFlip)
+    for i,metab in enumerate(mrs.names):
+        c,r = i%ncols,i//ncols
+        #r = i//ncols
+        con     = res.params[i]
+        y_data  = np.real(FID2Spec(mrs.FID))
+        y_fit   = np.real(FID2Spec(pred(mrs,res,metab)))
+        
+        trace1 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        line=dict(color=colors['data'],width=line_size['data']))
+        trace2 = go.Scatter(x=axis, y=y_fit,
+                        mode='lines',
+                        line=dict(color=colors['pred'],width=line_size['pred']))
+        fig.add_trace(trace1,row=r+1,col=c+1)
+        fig.add_trace(trace2,row=r+1,col=c+1)
+    
+        fig.update_layout(template = 'plotly_white',
+                      showlegend=False,
+                      width = 1500,
+                      height = 3000,
+                      font=dict(size=10),
+                      title='Individual fits')
+        for j in fig['layout']['annotations']:
+            j['font'] = dict(size=10,color='#ff0000')
+        
+        if i == 0:
+            xax = eval("fig.layout.xaxis")
+            yax = eval("fig.layout.yaxis")
+        else:
+            xax = eval("fig.layout.xaxis{}".format(i+1))
+            yax = eval("fig.layout.yaxis{}".format(i+1))
+        xax.update(tick0=2,dtick=.5,range=[ppmlim[1],ppmlim[0]],showticklabels=False)
+        yax.update(zeroline=True, zerolinewidth=1, zerolinecolor='Gray',
+                    showgrid=False,showticklabels=False)
+    return fig
+
+# def plot_table_extra(mrs,res):
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots    
+import pandas as pd
+
+def plot_table_qc(mrs,res):
+    # QC measures
+    header=["S/N","Static phase (deg)", "Linear phase (deg/ppm)"]
+    values=[np.round(res.snr,decimals=2),
+            np.round(res.phi0_deg,decimals=5),
+            np.round(res.phi1_deg_per_ppm,decimals=5)]
+    table1 = dict(type='table',
+                  header=dict(values=header,font=dict(size=10),align="center"),
+                  cells=dict(values=values,align = "right"),                  
+                  columnorder = [1,2,3],
+                  columnwidth = [80,80,80],
+                 )
+    fig = go.Figure(table1)
+    fig.update_layout(template = 'plotly_white')
+    fig.layout.update({'width':800})
+
+    return fig
+def plot_table_extras(mrs,res):
+    # Gamma/Eps
+    header = ['group','linewidth (sec)','shift (ppm)','metab groups']
+    values = [[],[],[],[]]
+    for g in range(res.g):    
+        values[0].append(g)
+        values[1].append(np.round(res.inv_gamma_sec[g],decimals=3))
+        values[2].append(np.round(res.eps_ppm[g],decimals=5))
+        metabs = []
+        for i,m in enumerate(mrs.names):
+            if res.metab_groups[i] == g:
+                metabs.append(m)                        
+        values[3].append(metabs)
+    table2 = go.Table(header=dict(values=header,font=dict(size=10),align="center"),
+                      cells=dict(values=values,align = "right"),             
+                      columnorder = [1,2,3,4],
+                      columnwidth = [12,12,12,64]
+                 )
+    fig = go.Figure(data=table2)
+    fig.update_layout(template = 'plotly_white')
+    fig.layout.update({'width':1000,'height':1000})
+
+    return fig
 

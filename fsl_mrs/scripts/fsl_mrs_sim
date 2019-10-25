@@ -8,16 +8,15 @@
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
 
-import os,sys,shutil,time
+# Quick imports
 import argparse
-from fsl_mrs.utils import simu
-from fsl_mrs.utils import mrs_io
-
+from fsl_mrs import __version__
+from fsl_mrs.utils.splash import splash
 
 def main():
 
     p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tools')
-
+    p.add_argument('-v','--version', action='version', version=__version__)
     
     required     = p.add_argument_group('required arguments')
     optional     = p.add_argument_group('optional arguments')
@@ -58,13 +57,22 @@ def main():
                    help='overwrite existing output folder')
 
     
-
-    # Output kickass splash screen
-    mrs_io.splash(logo='mrs')
-
     # Parse command-line arguments
     args = p.parse_args()
 
+    # Output kickass splash screen
+    if args.verbose:
+        splash(logo='mrs')
+
+    
+    # ######################################################
+    # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY    
+    import os,sys,shutil,time
+    from fsl_mrs.utils import simu
+    from fsl_mrs.utils import mrs_io
+    # ######################################################
+
+    
     # Check if output folder exists
     overwrite = args.overwrite
     if os.path.exists(args.output):
