@@ -12,6 +12,7 @@ from fsl_mrs.utils.models import *
 from fsl_mrs.utils.misc import *
 from fsl_mrs.utils.constants import *
 from fsl_mrs.utils import mh
+from fsl_mrs.core import MRS
 
 from scipy.optimize import minimize
 
@@ -20,7 +21,8 @@ class FitRes(object):
     """
        Collects fitting results
     """
-    def __init__(self):
+    def __init__(self,model):
+        self.model        = model
         self.params       = None
         self.crlb         = None
         self.mcmc_samples = None
@@ -30,6 +32,7 @@ class FitRes(object):
         self.perc_SD      = None
         self.conc_h2o     = None
         self.conc_cr      = None
+        self.conc_cr_pcr  = None
         self.cov          = None
         self.params_names = None
         self.residuals    = None
@@ -49,7 +52,7 @@ class FitRes(object):
         #out += " cov            = {}\n".format(self.cov)
         out += " phi0 (deg)     = {}\n".format(self.phi0_deg)
         out += " phi1 (deg/ppm) = {}\n".format(self.phi1_deg_per_ppm)
-        out += "inv_gamma_ms    = {}\n".format(self.inv_gamma_sec)
+        out += "inv_gamma_sec   = {}\n".format(self.inv_gamma_sec)
         out += "eps_ppm         = {}\n".format(self.eps_ppm)
         out += "b_norm          = {}\n".format(self.b_norm)
 
@@ -58,7 +61,7 @@ class FitRes(object):
         
     def fill_names(self,mrs,baseline_order=0,metab_groups=None):
         """
-        mrs : MRS Object
+        mrs            : MRS Object
         baseline_order : int
         metab_groups   : list (by default assumes single metab group)
         """
@@ -127,15 +130,20 @@ def quantify(mrs,concentrations,ref='Cr',to_h2o=False,scale=1):
     """
         Quantification
     """
-    ref_con = concentrations[mrs.names.index(ref)]
+    if isinstance(ref,list):
+        ref_con = 0
+        for met in ref:
+            ref_con += concentrations[mrs.names.index(met)]
+    else:
+        ref_con = concentrations[mrs.names.index(ref)]
 
-    if to_h2o is not True:
+    if to_h2o is not True or mrs.H2O is None:
         QuantifFactor = scale/ref_con
     else:
         ref_fid       = mrs.basis[:,mrs.names.index(ref)]
         ref_area      = calculate_area(mrs,ref_con*ref_fid)
         H2O_area      = calculate_area(mrs,mrs.H2O) 
-        refH2O_ratio   = ref_area/H2O_area
+        refH2O_ratio  = ref_area/H2O_area
         H2O_protons   = 2
         ref_protons   = num_protons[ref]
         QuantifFactor = scale*refH2O_ratio*H2O_Conc*H2O_protons/ref_protons/ref_con
@@ -165,36 +173,10 @@ def init_gamma_eps(mrs):
         return xx
 
     x0  = np.array([0,0])
-    res = minimize(cf, x0, method='Powell')
+    res = minimize(cf, x0, method='TNC',bounds=[(0,1e5),(-np.pi,np.pi)])
+    #res = minimize(cf, x0, method='Powell')
     g   = res.x[0]
     e   = res.x[1]
-    
-    # shifts = np.linspace(-1e2,1e2,500)
-    # t2blur = 50e-3    # seconds
-    # gamma  = 1/t2blur # Hz
-    
-    # if basis is None:
-    #     basis = np.sum(mrs.basis,axis=1)[:,None]
-    
-    # g = []
-    # e = []
-    
-    # for i in range(basis.shape[1]):
-    #     b = basis[:,i][:,None]
-    #     x = []
-    #     for shift in shifts:
-    #         bs = blur_FID(mrs,b,gamma)    
-    #         bs = shift_FID(mrs,bs,shift)
-    #         bs = extract_spectrum(mrs,bs)
-    #         xx = correlate(bs,target)
-    #         x.append(xx)
-    #     x = np.array(x)
-    #     eps = shifts[np.argmax(x)]
-    #     e.append(eps)
-    #     g.append(gamma)
-    # e = np.array(e)
-    # g = np.array(g)
-    # print('Initial value for gamma/eps = {},{}'.format(g,e))
     
     return g,e
 
@@ -208,9 +190,66 @@ def init_FSLModel(mrs,metab_groups,baseline_order):
     
     # 1. gamma/eps
     gamma,eps = init_gamma_eps(mrs)
-        
     new_basis = mrs.basis*np.exp(-(gamma+1j*eps)*mrs.timeAxis)    
     
+    data   = np.append(np.real(mrs.FID),np.imag(mrs.FID),axis=0)
+    desmat = np.append(np.real(new_basis),np.imag(new_basis),axis=0)
+    con    = np.real(np.linalg.pinv(desmat)@data)   
+                
+    # Append 
+    x0  = con   # concentrations
+        
+    g   = max(metab_groups)+1                    # number of metab groups
+    x0  = np.append(x0,[gamma]*g)                # gamma[0]..
+    x0  = np.append(x0,[eps]*g)                  # eps[0]..
+    x0  = np.append(x0,[0,0])                    # phi0 and phi1
+    x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
+    
+    return x0
+
+def init_gamma_sigma_eps(mrs):
+    """
+       Initialise gamma/sigma/epsilon parameters
+       This is done by summing all the basis FIDs and
+       maximizing the correlation with the data FID
+       after shifting and blurring
+       correlation is calculated in the range [.2,4.2] ppm
+    """
+    target = mrs.FID[:,None]
+    target = extract_spectrum(mrs,target)
+    b      = np.sum(mrs.basis,axis=1)[:,None]
+    def cf(p):
+        gamma = p[0]
+        sigma = p[1]
+        eps   = p[2]
+        bs = blur_FID_Voigt(mrs,b,gamma,sigma)    
+        bs = shift_FID(mrs,bs,eps)
+        bs = extract_spectrum(mrs,bs)
+        xx = 1-correlate(bs,target)
+        return xx
+
+    x0  = np.array([1,0,0])
+    res = minimize(cf, x0, method='Powell')
+    g   = res.x[0]
+    s   = res.x[1]
+    e   = res.x[2]
+    
+    
+    return g,s,e
+
+def init_FSLModel_Voigt(mrs,metab_groups,baseline_order):
+    """
+       Initialise params of FSLModel
+    """
+    # 1. Find theta, k and eps
+    # 2. Use those to init concentrations
+    # 3. How about phi0 and phi1?
+    
+    # 1. theta/k/eps
+    gamma,sigma,eps = init_gamma_sigma_eps(mrs)
+        
+    new_basis = mrs.basis*np.exp(-(1j*eps+gamma+mrs.timeAxis*sigma**2)*mrs.timeAxis)
+
     data   = np.append(np.real(mrs.FID),np.imag(mrs.FID),axis=0)
     desmat = np.append(np.real(new_basis),np.imag(new_basis),axis=0)            
     con    = np.real(np.linalg.pinv(desmat)@data)   
@@ -218,13 +257,12 @@ def init_FSLModel(mrs,metab_groups,baseline_order):
     # Append 
     x0 = con
         
-    
-    #  Zero for the rest        
     g   = max(metab_groups)+1                  # number of metab groups
-    x0  = np.append(x0,[gamma]*g)                  # gamma[0]..
-    x0  = np.append(x0,[eps]*g)                  # eps[0]..
+    x0  = np.append(x0,[gamma]*g)              # gamma[0]..
+    x0  = np.append(x0,[sigma]*g)              # sigma[0]..
+    x0  = np.append(x0,[eps]*g)                # eps[0]..
     x0  = np.append(x0,[0,0])                  # phi0 and phi1
-    x0  = np.append(x0,[0]*(baseline_order+1)) # baseline
+    x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
     
     return x0
 
@@ -241,6 +279,7 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
         if i>0:
             regressor = ztransform(regressor)
         B.append(regressor.flatten())
+        B.append(1j*regressor.flatten())
     B = np.asarray(B).T
     tmp = B.copy()
     B   = 0*B
@@ -248,13 +287,23 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
     
     return B
 
-def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None):
+def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None,model='lorentzian'):
     """
         A simplified version of LCModel
     """
-    err_func   = FSLModel_err          # error function
-    grad_func  = FSLModel_grad         # gradient
-    forward    = FSLModel_forward      # forward model
+    if model == 'lorentzian':
+        err_func   = FSLModel_err          # error function
+        grad_func  = FSLModel_grad         # gradient
+        forward    = FSLModel_forward      # forward model        
+        init_func  = init_FSLModel         # initilisation of params
+    elif model == 'voigt':
+        err_func   = FSLModel_err_Voigt     # error function
+        grad_func  = FSLModel_grad_Voigt    # gradient
+        forward    = FSLModel_forward_Voigt # forward model
+        init_func  = init_FSLModel_Voigt    # initilisation of params
+    else:
+        raise Exception('Unknown model {}.'.format(model))
+
     data       = mrs.Spec.copy()              # data
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
 
@@ -266,11 +315,11 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
 
     # Results object
-    results = FitRes()
+    results = FitRes(model)
     results.fill_names(mrs,baseline_order,metab_groups)
     
     # Initialise all params
-    x0= init_FSLModel(mrs,metab_groups,baseline_order)
+    x0= init_func(mrs,metab_groups,baseline_order)
 
     # Prepare baseline
     B                 = prepare_baseline_regressor(mrs,baseline_order,first,last)
@@ -286,13 +335,23 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         bnds = []
         for i in range(mrs.numBasis):
             bnds.append((0,None))
-        for i in range(g):
-            bnds.append((0,None))
+        if model == 'lorentzian':
+            for i in range(g):
+                bnds.append((0,None))
+        elif model == 'voigt':
+            for i in range(g):
+                bnds.append((0,None))
+            for i in range(g):
+                bnds.append((0,None))
+        else:
+            raise Exception('Unknown model bounds.')
+
         for i in range(g):
             bnds.append((None,None))
         bnds.append((None,None))
         bnds.append((None,None))        
         for i in range(baseline_order+1):
+            bnds.append((None,None))
             bnds.append((None,None))
         
         res = minimize(err_func, x0, args=constants, method='TNC',jac=grad_func,bounds=bnds)
@@ -310,20 +369,39 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         # Setup the fitting
         # Init with nonlinear fit
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
-                            metab_groups=metab_groups,baseline_order=baseline_order)
+                            metab_groups=metab_groups,baseline_order=baseline_order,model=model)
         p0   = res.params
         mask = np.ones(mrs.numBasis)
         LB   = np.zeros(mrs.numBasis)        
         for i in range(g):
             LB  = np.append(LB,0)
             mask = np.append(mask,1)
+        if model == 'lorentzian':
+            for i in range(g):
+                LB  = np.append(LB,0)
+                mask = np.append(mask,1)
+        elif model == 'voigt':
+            for i in range(g):
+                LB  = np.append(LB,0)
+                mask = np.append(mask,1)
+            for i in range(g):
+                LB  = np.append(LB,0)
+                mask = np.append(mask,1)
         for i in range(g):
             LB  = np.append(LB,-1e10)            
             mask = np.append(mask,1)
-        LB  = np.append(LB,-1e10*np.ones(2+baseline_order+1))
-        mask = np.append(mask,np.zeros(2+baseline_order+1))
+        LB  = np.append(LB,-1e10*np.ones(2+2*(baseline_order+1)))
+        mask = np.append(mask,np.zeros(2+2*(baseline_order+1)))
         
         UB   = 1e10*np.ones(len(p0))
+
+        # Check that the values initilised by the newton method don't exceed these bounds (unlikely but possible with bad data)
+        for i,(p, u, l) in enumerate(zip(p0, UB, LB)):
+            if p>u:        
+                p0[i]=u        
+            elif p<l:
+                p0[i]=l
+
         # Do the fitting
         mcmc    = mh.MH(loglik,logpr,burnin=100,njumps=500)
         samples = mcmc.fit(p0,LB=LB,UB=UB,verbose=False,mask=mask)
@@ -336,26 +414,31 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
 
     # Collect more results
-    results.pred = FSLModel_forward(results.params,freq,time,basis,results.base_poly,metab_groups,g)
-    results.pred = np.fft.ifft(results.pred) # predict FID not Spec
-
+    results.pred_spec = forward(results.params,freq,time,basis,results.base_poly,metab_groups,g)
+    results.pred      = np.fft.ifft(results.pred_spec) # predict FID not Spec
+    
     # baseline
-    con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
-    xx       = FSLModel_param2x(0*con,gamma,eps,phi0,phi1,b)
-    baseline = FSLModel_forward(xx,mrs.frequencyAxis,mrs.timeAxis,mrs.basis,
+    if model == 'lorentzian':
+        con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
+        xx       = FSLModel_param2x(0*con,gamma,eps,phi0,phi1,b)
+    elif model == 'voigt':
+        con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
+        xx       = FSLModel_param2x_Voigt(0*con,gamma,sigma,eps,phi0,phi1,b)
+
+    baseline = forward(xx,mrs.frequencyAxis,mrs.timeAxis,mrs.basis,
                                 results.base_poly,metab_groups,g)
     baseline = np.fft.ifft(baseline)
     results.baseline = baseline
 
     
-    forward = lambda p : FSLModel_forward(p,freq,time,basis,B,metab_groups,g)[first:last]
+    forward_lim = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
     
     
-    results.crlb      = calculate_crlb(results.params,forward,data[first:last])
-    results.cov       = calculate_lap_cov(results.params,forward,data[first:last])
-    results.residuals = FSLModel_forward(results.params,
-                                         freq,time,basis,
-                                         B,metab_groups,g) - data    
+    results.crlb      = calculate_crlb(results.params,forward_lim,data[first:last])
+    results.cov       = calculate_lap_cov(results.params,forward_lim,data[first:last])
+    results.residuals = forward(results.params,
+                                freq,time,basis,
+                                B,metab_groups,g) - data    
     
     results.mse       = np.mean(np.abs(results.residuals[first:last])**2)
     results.residuals = np.fft.ifft(results.residuals)
@@ -366,26 +449,44 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         results.mcmc_var = np.var(results.mcmc_samples,axis=0)
     
     results.perc_SD = np.sqrt(results.crlb) / results.params*100
+    results.perc_SD[results.perc_SD>999]       = 999   # Like LCModel :)
+    results.perc_SD[np.isnan(results.perc_SD)] = 999
 
+    
     # LCModel-style output
     #results.snr = np.max(np.fft(results.pred-results.baseline)[first:last]) / np.sqrt(results.mse)
 
     # Referencing
+    results.names    = mrs.names # keep metab names
+    results.conc     = con
     results.conc_h2o = quantify(mrs,con,ref='Cr',to_h2o=True,scale=1)
     results.conc_cr  = quantify(mrs,con,ref='Cr',to_h2o=False,scale=1)
-
+    if 'PCr' in mrs.names:
+        results.conc_cr_pcr = quantify(mrs,con,ref=['Cr','PCr'],to_h2o=False,scale=1)
+    
     # nuisance parameters in sensible units
-    con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
+    if model == 'lorentzian':
+        con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
+        results.inv_gamma_sec     = 1/gamma
+    elif model == 'voigt':
+        con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
+        results.inv_gamma_sec     = 1/gamma
+        results.inv_sigma_sec     = 1/sigma
     results.phi0_deg          = phi0*np.pi/180.0
     results.phi1_deg_per_ppm  = phi1*np.pi/180.0 * mrs.centralFrequency / 1E6
-    results.inv_gamma_sec     = 1/gamma
     results.eps_ppm           = eps / mrs.centralFrequency * 1E6
     results.b_norm            = b/b[0]
 
 
     # QC parameters (like LCModel)
-    results.snr  = np.max(np.abs(forward(results.params))) / np.sqrt(results.mse)
+    results.snr  = np.max(np.abs(forward_lim(results.params))) / np.sqrt(results.mse)
     #results.fwhm =  ????
     
+    # Save some input options as we want to know these later in the report
+    results.model = model
+    results.method = method
 
     return results
+
+
+

@@ -15,6 +15,9 @@ from plotly import tools
 
 from fsl_mrs.utils import plotting
 from fsl_mrs.utils import plot
+from fsl_mrs.utils import misc
+
+import nibabel as nib
 
 
 
@@ -182,3 +185,25 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
         f.write(template)
 
     
+
+
+def fitting_summary_fig(mrs,res,filename):
+    fig = plotting.plot_fit(mrs,pred=res.pred,baseline=res.baseline)
+    fig.savefig(filename)
+
+
+
+
+# --------- MRSI reporting
+def save_params(params,names,data_hdr,mask,folder,cleanup=True):
+    for i,p in enumerate(names):
+        x = misc.list_to_volume(list(params[:,i]),mask)
+        if cleanup:
+            x[np.isnan(x)] = 0
+            x[np.isinf(x)] = 0
+            x[x<1e-10]     = 0
+            x[x>1e10]      = 0
+        
+        img      = nib.Nifti1Image(x,data_hdr.affine)
+        filename = os.path.join(folder,p+'.nii.gz')
+        nib.save(img, filename)

@@ -12,6 +12,7 @@ import sys, os, glob
 import numpy as np
 import re
 import scipy.signal as ss
+import nibabel as nib
 
 # Generic I/O functions
 
@@ -198,4 +199,44 @@ def saveRAW(filename,FID,info=None):
                np.append(rFID,iFID,axis=1),
                header=header)
                
-        
+
+def check_datatype(filename):
+    try:
+        garbage = nib.load(filename)   
+    except:
+        try:
+            garbage = readLCModelRaw(filename)
+        except:
+            return 'Unknown'
+        else:
+            return 'RAW'
+    else:
+        return 'NIFTI'
+
+def read_FID(filename):
+    data_type = check_datatype(filename)
+    if data_type == 'RAW':
+        data,header = readLCModelRaw(filename)
+    elif data_type == 'NIFTI':
+        data,header = readNIFTI(filename)
+    else:
+        raise(Exception('Cannot read data format {}'.format(data_type)))
+    return data,header
+
+
+def read_basis(filename):
+    data_type = check_datatype(filename)
+    if data_type == 'RAW':
+        basis,names,header = readLCModelBasis(filename)
+    else:
+        raise(Exception('Cannot read data format {}'.format(data_type)))
+
+    return basis,names,header
+
+# NIFTI I/O
+def readNIFTI(datafile):
+    data_hdr = nib.load(datafile)
+    data = np.asanyarray(data_hdr.dataobj) 
+    header = None
+    return data,header
+

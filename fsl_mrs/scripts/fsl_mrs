@@ -14,10 +14,8 @@ import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 
+# NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
-# TODO:
-# Look here: http://blog.vwelch.com/2011/04/combining-configparser-and-argparse.html
-# For a good way to allow config files
 
 
 def main():
@@ -34,9 +32,9 @@ def main():
     #p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tool')
     p.add_argument('-v','--version', action='version', version=__version__)
     
-    required = p.add_argument_group('required arguments')
+    required     = p.add_argument_group('required arguments')
     fitting_args = p.add_argument_group('fitting options')
-    optional = p.add_argument_group('additional options')
+    optional     = p.add_argument_group('additional options')
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
@@ -62,23 +60,26 @@ def main():
                    help='limit the fit to a freq range (default=(.2,4.2))')
     fitting_args.add_argument('--h2o',type=str,metavar='H2O',
                    help='input .H2O file for quantification')
-    fitting_args.add_argument('--T2s',type=float,nargs=4,metavar=('T2metab','T2GM','T2WM','T2CSF'),
-                   help='T2 values (in milliseconds) for metabolites, and water GM, WM, and CSF')
-    fitting_args.add_argument('--volfrac',type=float,nargs=3,metavar=('GM','WM','CSF'),
-                   help='volume fractions of GM, WM, and CSF (in most cases these should add up to one)')
     fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
                    help='order of baseline polynomial (default=2)')
     fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=int,
-                              help="metabolite groups.")
+                              help="metabolite groups")
+    fitting_args.add_argument('--add_MM',type=bool,
+                              help="include default macromolecule peaks")
+
     
     
     # ADDITONAL OPTIONAL ARGUMENTS
+    optional.add_argument('--central_frequency',default=None,type=float,
+                           help='central frequency in Hz')
+    optional.add_argument('--dwell_time',default=None,type=float,
+                           help='dwell time in seconds')
     optional.add_argument('--report',action="store_true",
-                   help='output html report')
+                          help='output html report')
     optional.add_argument('--verbose',action="store_true",
-                   help='spit out verbose info')
+                          help='spit out verbose info')
     optional.add_argument('--overwrite',action="store_true",
-                   help='overwrite existing output folder')
+                          help='overwrite existing output folder')
     optional.add('--config', required=False, is_config_file=True, help='configuration file')
 
 
@@ -133,43 +134,60 @@ def main():
         
     #######  Do the work #######
 
-    # Instantiate MRS object
-    mrs = MRS()
+    # Read data/h2o/basis    
+    FID,dataheader            = mrs_io.read_FID(args.data)
+    basis, names, basisheader = mrs_io.read_basis(args.basis)
+    if args.h2o is not None:
+        H2O,_                 = mrs_io.read_FID(args.h2o)
+    else:
+        H2O = None
 
+    # Collect useful info
+    if args.central_frequency is not None:
+        cf = args.central_frequency
+    elif dataheader['centralFrequency'] is not None:
+        cf = dataheader['centralFrequency']
+    else:
+        raise(Exception('Cannot determine central frequency. Please either set it on include it in data header'))
+
+    if args.dwell_time is not None:
+        bw = 1/args.dwell_time
+    elif dataheader['bandwidth'] is not None:
+        bw = dataheader['bandwidth']
+    else:
+        raise(Exception('Cannot determine central frequency. Please either set it on include it in data header'))
+
+        
+    # Resample basis?
+    if bw != basisheader['bandwidth']:
+        dwell     = 1/basisheader['bandwidth']
+        new_dwell = 1/bw
+        basis     = misc.resample_ts(basis,dwell,new_dwell)
+
+
+    # Instantiate MRS object
+    MRSargs = {'FID':FID,'basis':basis,'names':names,'H2O':H2O,'cf':cf,'bw':bw}
+    mrs     = MRS(**MRSargs)
+    
+    # Check the FID
+    mrs.check_FID(repare=True)
+
+    # Do phase correction
+    mrs.FID  = misc.phase_correct(mrs.FID)
+    mrs.Spec = np.fft.fft(mrs.FID)
+  
     if args.verbose:        
         print('--->> Read input data and basis\n')
         print('  {}\n'.format(args.data))
         print('  {}\n'.format(args.basis))
 
-    # Read data and Basis
-    mrs.read_data(args.data)
-    if os.path.isdir(args.basis):
-        mrs.read_basis_from_folder(args.basis)
-    else:
-        mrs.read_basis_from_file(args.basis)
-
-    # Read H2O file if provided
-    if args.h2o is not None:
-        if args.verbose:
-            print('---> Read h2o file {}\n'.format(args.h2o))
-        mrs.read_h2o(args.h2o)
-
-    # Check that H2O quantif can include T2 factor
-    if mrs.echotime is None:
-        warnings.warn('\n Cannot determine echo time. Will assume it is =30ms!!!!\n')
-        mrs.echotime = 30
-
-    if args.T2s is None:
-        T2s = np.asarray([160,110,80,2000])
-        warnings.warn('\n T2s not provided. Assuming 3T approx values\n')
-    else:
-        T2s = args.T2s
-        
+            
         
     # Keep/Ignore/Combine metabolites
     mrs.keep(args.keep)
     mrs.ignore(args.ignore)
     mrs.combine(args.combine)
+
     
     # Do the fitting here
     if args.verbose:
@@ -186,9 +204,6 @@ def main():
  
     #mrs.fit(model = args.model, method=args.algo,ppmlim=args.ppmlim)
 
-    # Do phase correction
-    mrs.FID  = misc.phase_correct(mrs.FID)
-    mrs.Spec = np.fft.fft(mrs.FID)
 
     # Parse metabolite groups
     metab_groups = args.metab_groups
@@ -196,20 +211,24 @@ def main():
         metab_groups = [0]*mrs.numBasis
     if len(metab_groups) != mrs.numBasis:
         raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
-    
-    res = fitting.fit_FSLModel(mrs,method=args.algo,
-                               ppmlim=ppmlim,
-                               baseline_order=args.baseline_order,
-                               metab_groups=metab_groups)
+
+    # Include Macromolecules? These should have their own metab groups
+    if args.add_MM is not None:
+        nMM = mrs.add_MM_peaks()
+        G   = [i+max(metab_groups)+1 for i in range(nMM)]
+        metab_groups += G
+
+
+    Fitargs = {'mrs':mrs,'ppmlim':ppmlim,
+               'method':args.algo,'baseline_order':args.baseline_order,
+               'metab_groups':metab_groups}
+
+    res = fitting.fit_FSLModel(**Fitargs)
 
 
     
     stop = time.time()
 
-    # Do some extra bits for quantification
-    #mrs.post_process(metab=['Cr','PCr'],scale=8.0,T2s=T2s,volfrac=args.volfrac)
-    #mrs.reference_matebolite = 'Cr+PCr'
-    #print(mrs.all_con_names_h2o)
     
     # Report on the fitting
     if args.verbose:
@@ -239,7 +258,9 @@ def main():
                          outdir=args.output,
                          date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
                          
-    
+
+    report.fitting_summary_fig(mrs,res,
+                               filename=os.path.join(args.output,'fit_summary.png'))
      
     if args.verbose:
         print('\n\n\nDone.')

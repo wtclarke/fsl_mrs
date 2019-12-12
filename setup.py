@@ -15,5 +15,5 @@ setup(name='FSL_MRS',
       packages=['fsl_mrs','fsl_mrs.utils'],
       package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle']},
       install_requires=install_requires,
-      scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrs_sim']               
+      scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrsi','fsl_mrs/scripts/fsl_mrs_sim']               
      )

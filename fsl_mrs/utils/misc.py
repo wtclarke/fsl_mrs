@@ -9,6 +9,8 @@
 
 import numpy as np
 from scipy.signal import butter, lfilter
+from scipy.interpolate import interp1d
+import itertools as it
 
 H2O_PPM_TO_TMS = 4.65  # Shift of water to Tetramethylsilane
 
@@ -73,6 +75,35 @@ def filter(mrs,FID,ppmlim,filter_type='bandpass'):
     b,a = butter(order, wn, btype=filter_type)
     y = lfilter(b, a, FID)
     return y
+
+
+def resample_ts(ts,dwell,new_dwell):
+    """
+      Temporal resampling
+
+      Parameters
+      ----------
+
+     ts : matrix (rows=time axis)
+     
+     dwell and new_dwell : float 
+
+      Returns
+      -------
+
+      matrix
+
+    """
+    numPoints = ts.shape[0]
+    
+    t      = np.linspace(dwell,dwell*numPoints,numPoints)-dwell
+    new_t  = np.linspace(new_dwell,new_dwell*numPoints,numPoints)-new_dwell
+    
+    f      = interp1d(t,ts,axis=0)
+    new_ts = f(new_t)
+        
+    return new_ts
+
 
 
 # Numerical differentiation (light)
@@ -265,8 +296,8 @@ def shift_FID(mrs,FID,eps):
        array-like
     """
     t = mrs.timeAxis
-    FID_shifted = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-1j*t*eps)),axis=0),axis=0)
-    FID_shifted = FID_shifted
+    FID_shifted = multiply(FID,np.exp(-1j*t*eps))
+    #FID_shifted = FID_shifted
     return FID_shifted
  
 def blur_FID(mrs,FID,gamma):
@@ -282,8 +313,56 @@ def blur_FID(mrs,FID,gamma):
        array-like
     """
     t = mrs.timeAxis
-    FID_blurred = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-t*gamma)),axis=0),axis=0)
+    FID_blurred = multiply(FID,np.exp(-t*gamma))
     return FID_blurred
+
+def blur_FID_Voigt(mrs,FID,gamma,sigma):
+    """
+       Blur FID in spectral domain
+
+    Parameters:
+       mrs   : MRS object
+       FID   : array-like
+       gamma : Lorentzian line broadening 
+       sigma : Gaussian line broadening 
+
+    Returns:
+       array-like
+    """
+    t = mrs.timeAxis
+    FID_blurred = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-t*(gamma+t*sigma**2))),axis=0),axis=0)
+    return FID_blurred
+
+
+def create_peak(mrs,ppm,gamma=0,sigma=0):
+    """
+        creates FID for peak at specific ppm
+        
+    Parameters
+    ----------
+    mrs : MRS object (contains time information)
+    ppm : float
+    gamma : float
+            Peak Lorentzian dispersion
+    sigma : float
+            Peak Gaussian dispersion
+    
+    Returns
+    -------
+    array-like FID
+    """
+    
+    freq = ppm2hz(mrs.centralFrequency,ppm)
+    t    = mrs.timeAxis 
+    x    = np.exp(-1j*2*np.pi*freq*t).flatten()
+    
+    if gamma>0 or sigma>0:
+        x = misc.blur_FID_Voigt(mrs,x,gamma,sigma)
+        
+    y = np.fft.fft(x)
+    x = np.fft.ifft(np.abs(y))
+    
+    return x
 
 def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2)):
     """
@@ -335,3 +414,80 @@ def phase_correct(FID):
     return FID*np.exp(1j*phase)    
 
 
+# ----- MRSI stuff ---- #
+def volume_to_list(data,mask):
+    """
+       Turn voxels within mask into list of data
+
+    Parameters
+    ----------
+    
+    data : 4D array
+
+    mask : 3D array
+
+    Returns
+    -------
+
+    list
+
+    """
+    nx, ny, nz = data.shape[:3]
+    voxels = []
+    for x, y, z in it.product(range(nx), range(ny), range(nz)):
+        if mask[x, y, z]:
+            voxels.append((x, y, z))       
+    voxdata = [data[x, y, z, :] for (x, y, z) in voxels]
+    return voxdata
+
+def list_to_volume(data_list,mask,dtype=float):
+    """
+       Turn list of of voxelwise data into 4D volume
+
+    Parameters
+    ----------
+    voxdata : list
+    mask    : 3D volume
+    dtype   : force output data type
+
+    Returns
+    -------
+    4D or 3D volume
+    """
+
+    nx,ny,nz = mask.shape
+    nt       = data_list[0].size
+    if nt>1:
+        data     = np.zeros((nx,ny,nz,nt),dtype=dtype)
+    else:
+        data     = np.zeros((nx,ny,nz,),dtype=dtype)
+    i=0
+    for x, y, z in it.product(range(nx), range(ny), range(nz)):
+        if mask[x, y, z]:            
+            if nt>1:
+                data[x, y, z, :] = data_list[i]
+            else:
+                data[x, y, z] = data_list[i]
+            i+=1
+
+    return data
+
+def unravel(idx,mask):
+    nx,ny,nz=mask.shape
+    counter = 0
+    for x, y, z in it.product(range(nx), range(ny), range(nz)):
+        if mask[x,y,z]:
+            if counter==idx:
+                return np.array([x,y,z])
+            counter +=1
+
+
+def ravel(arr,mask):
+    nx,ny,nz=mask.shape
+    counter = 0
+    for x, y, z in it.product(range(nx), range(ny), range(nz)):
+        if mask[x,y,z]:
+            if arr==[x,y,z]:
+                return counter
+            counter += 1
+    

@@ -300,3 +300,161 @@ def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
 # plt.plot(grad_num,grad_ana,'.')
 
 
+# ##################### FSL MODEL including voigt distribution lineshape
+def FSLModel_x2param_Voigt(x,n,g):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    n  : number of metabiltes
+    g  : number of metabolite groups
+    """
+    con   = x[:n]           # concentrations
+    gamma = x[n:n+g]        # lineshape scale parameter θ
+    sigma = x[n+g:n+2*g]    # lineshape shape parameter k
+    eps   = x[n+2*g:n+3*g]    # frequency shift
+    phi0  = x[n+3*g]        # global phase shift
+    phi1  = x[n+3*g+1]      # global phase ramp
+    b     = x[n+3*g+2:]     # baseline params
+
+    return con,gamma,sigma,eps,phi0,phi1,b
+
+def FSLModel_param2x_Voigt(con,gamma,sigma,eps,phi0,phi1,b):
+    x = np.r_[con,gamma,sigma,eps,phi0,phi1,b]
+    
+    return x
+
+def FSLModel_forward_Voigt(x,nu,t,m,B,G,g):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+
+    Returns forward prediction in the frequency domain
+    """
+    
+    n     = m.shape[1]    # get number of basis functions
+
+    con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(x,n,g)
+
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg]+t*sigma[gg]**2)*t).flatten()
+    
+    tmp = np.zeros(m.shape,dtype=np.complex)
+    for i,gg in enumerate(G):
+        tmp[:,i] = m[:,i]*E[:,gg]
+    
+    M     = np.fft.fft(tmp,axis=0)
+    S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
+
+    # add baseline
+    if B is not None:
+        S += B@b[:,None]
+    
+    return S.flatten()
+
+def FSLModel_err_Voigt(x,nu,t,m,B,G,g,data,first,last):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+    data : array like - frequency domain data
+    first,last : range for the fitting is data[first:last]     
+
+    returns scalar error
+    """
+    pred = FSLModel_forward_Voigt(x,nu,t,m,B,G,g)
+    err  = data[first:last]-pred[first:last]
+    sse  = np.real(np.sum(err*np.conj(err)))
+    return sse
+
+
+def FSLModel_grad_Voigt(x,nu,t,m,B,G,g,data,first,last):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+    data : array like - frequency domain data
+    first,last : range for the fitting is data[first:last]     
+
+    returns gradient vector
+    """
+    n     = m.shape[1]    # get number of basis functions
+    #g     = max(G)+1       # get number of metabolite groups
+
+    con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(x,n,g)
+
+    # Start 
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    SIG = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg]+t*sigma[gg]**2)*t).flatten()
+        SIG[:,gg] = sigma[gg]
+    
+    e_term   = np.zeros(m.shape,dtype=np.complex)
+    sig_term   = np.zeros(m.shape,dtype=np.complex)
+    c        = np.zeros((con.size,g))
+    for i,gg in enumerate(G):
+        e_term[:,i] = E[:,gg]
+        sig_term[:,i] = SIG[:,gg]
+        c[i,gg] = con[i]
+    m_term = m*e_term
+    
+    phi_term = np.exp(-1j*(phi0+phi1*nu)) 
+    Fmet     = np.fft.fft(m_term,axis=0)
+    Ftmet    = np.fft.fft(t*m_term,axis=0)
+    Ft2sigmet   = np.fft.fft(t*t*sig_term*m_term,axis=0)
+    Ftmetc   = Ftmet@c
+    Ft2sigmetc  = Ft2sigmet@c
+    Fmetcon = Fmet@con[:,None]
+    
+    Spec     = data[first:last,None]
+
+    # Forward model 
+    S     = (phi_term*Fmetcon)
+    if B is not None:
+        S += B@b[:,None]
+        
+    # Gradients        
+    dSdc     = phi_term*Fmet
+    dSdgamma = phi_term*(-Ftmetc)
+    dSdsigma = phi_term*(-2*Ft2sigmetc)
+    dSdeps   = phi_term*(-1j*Ftmetc)
+    dSdphi0  = -1j*phi_term*(Fmetcon)
+    dSdphi1  = -1j*nu*phi_term*(Fmetcon)
+    dSdb     = B
+    
+    # Only compute within a range            
+    S         = S[first:last]
+    dSdc      = dSdc[first:last,:]
+    dSdgamma  = dSdgamma[first:last,:]
+    dSdsigma  = dSdsigma[first:last,:]
+    dSdeps    = dSdeps[first:last,:]
+    dSdphi0   = dSdphi0[first:last]
+    dSdphi1   = dSdphi1[first:last]
+    dSdb      = dSdb[first:last]
+
+    dS  = np.concatenate((dSdc,dSdgamma,dSdsigma,dSdeps,dSdphi0,dSdphi1,dSdb),axis=1)
+
+    grad = np.real(np.sum(S*np.conj(dS)+np.conj(S)*dS - np.conj(Spec)*dS - Spec*np.conj(dS),axis=0))
+    
+    return grad
+
+
+
+
