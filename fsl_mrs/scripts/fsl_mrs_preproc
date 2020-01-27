@@ -1,0 +1,215 @@
+#!/usr/bin/env python
+
+# fsl_mrs_preproc - wrapper script for MRS preprocessing
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
+# Quick imports
+#import argparse
+import configargparse
+
+from fsl_mrs import __version__
+from fsl_mrs.utils.splash import splash
+
+# NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
+
+
+def main():
+    # Parse command-line arguments
+    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
+
+    p.add_argument('-v','--version', action='version', version=__version__)
+
+    required     = p.add_argument_group('required arguments')
+    optional     = p.add_argument_group('additional options')
+
+
+    # REQUIRED ARGUMENTS
+    required.add_argument('--data',
+                          required=True,type=str,nargs='+',metavar='<str>',
+                          help='list of input files')    
+    required.add_argument('--output',
+                          required=True,type=str,metavar='<str>',
+                          help='output folder')
+
+    # ADDITONAL OPTIONAL ARGUMENTS
+
+    optional.add_argument('--t1',type=str,default=None,metavar='IMAGE',
+                          help='structural image (for report)')
+    optional.add_argument('--verbose',action="store_true",
+                          help='spit out verbose info')
+    optional.add_argument('--conjugate',action="store_true",
+                          help='apply conjugate to FID')
+    optional.add_argument('--overwrite',action="store_true",
+                          help='overwrite existing output folder')
+    optional.add('--config', required=False, is_config_file=True, help='configuration file')
+
+
+    optional.add_argument('--central_frequency',default=None,type=float,
+                           help='central frequency in Hz')
+    optional.add_argument('--dwell_time',default=None,type=float,
+                           help='dwell time in seconds')
+
+    # Parse command-line arguments
+    args = p.parse_args()
+    
+    # Output kickass splash screen
+    if args.verbose:
+        splash(logo='mrs')
+    
+
+    # ######################################################
+    # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
+    import time, os, sys, shutil, warnings
+    import numpy as np
+    from fsl_mrs.core import MRS
+    from fsl_mrs.utils import mrs_io
+    from fsl_mrs.utils import report
+    from fsl_mrs.utils import preproc
+    from fsl_mrs.utils import plotting
+    from fsl_mrs.utils import misc
+    import datetime
+    # ######################################################
+
+    
+    
+    # Check if output folder exists
+    overwrite = args.overwrite
+    if os.path.exists(args.output):
+        if not overwrite:
+            print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
+            response = input()
+            overwrite = response.upper() == "Y"
+        if not overwrite:
+            print('Early stopping...')
+            exit()
+        else:
+            shutil.rmtree(args.output)
+            os.mkdir(args.output)
+    else:
+        os.mkdir(args.output)
+
+
+
+    # Save chosen arguments
+    with open(os.path.join(args.output,"options.txt"),"w") as f:
+        f.write(str(args))
+        f.write("\n--------\n")
+        f.write(p.format_values())
+        
+
+
+    #######  Do the work #######
+    if args.verbose:
+        print('Load the data....')
+    # Read all data
+    FIDlist= []
+    shape    = None
+    datatype = None
+    for filename in args.data:
+        dtype      = mrs_io.check_datatype(filename)
+        fid,header = mrs_io.read_FID(filename)
+        shape_pre  = fid.shape
+        fid        = np.squeeze(fid)
+        if args.conjugate:
+            fid = np.conj(fid)
+        if shape is not None:
+            if fid.shape != shape:
+                raise(Exception('FIDs are incompatible in shapes'))
+            if dtype != datatype:
+                raise(Exception('FID files must all be of the same data type (e.g. RAW or NIFTI)'))
+        else:
+            shape    = fid.shape
+            datatype = dtype
+        
+        FIDlist.append(fid)
+
+    if args.verbose:
+        print('.... Found {} repeats of the FIDs with shape {} each.\n\n'.format(len(FIDlist),shape_pre))
+        
+    # Determine if coils have been combined already
+    if args.verbose:
+        print('.... Determine if coil combination is needed')
+    if len(shape) == 1:
+        do_coil_combine = False
+        if args.verbose:
+            print('   ----> NO.\n')
+    else:
+        do_coil_combine = True
+        if args.verbose:
+            print('  ----> YES.\n')
+
+    # Do preproc
+    if args.verbose:
+            print('Begin proprocessing.... ')
+            
+    if do_coil_combine:
+        FIDcomblist = []
+        if args.verbose:
+            print('... Coil Combination ...')
+        for idx,fid in enumerate(FIDlist):
+            if args.verbose:
+                print('{}/{}'.format(idx,len(FIDlist)),end='\r')
+            FIDcomb = preproc.combine_FIDs(list(fid.T),'svd',do_dephase=True,do_prewhiten=True)
+            FIDcomblist.append(FIDcomb)
+        FIDcomblist = preproc.dephase(FIDcomblist)
+    else:
+        FIDcomblist = FIDlist
+        
+    # Average the data (if asked to do so - this might not be the case for FMRS)
+    if args.verbose:
+        print('... Average FIDs ...')
+        FID_final = preproc.combine_FIDs(FIDcomblist,'mean',do_dephase=True,do_prewhiten=False)
+
+    
+    # Save the data
+    if datatype == 'RAW':
+        filename = os.path.join(args.output,'metab.RAW')
+        mrs_io.saveRAW(filename,FID_final,header)
+    elif datatype == 'NIFTI':
+        filename = os.path.join(args.output,'metab.nii')
+        data = np.reshape(FID_final,shape_pre[:4])
+        mrs_io.saveNIFTI(filename,data,header.affine)
+
+
+    # Produce html report
+    if args.verbose:
+        print('Create report')
+    if args.t1 is not None:
+        if datatype == 'NIFTI':
+            fig = plotting.plot_world_orient(args.t1,args.data[0])
+            fig.savefig(os.path.join(args.output,'voxel_location.png'))
+
+    centralFrequency = 123E6
+    if args.central_frequency is not None:
+        centralFrequency = args.central_frequency
+
+
+    if args.dwell_time is not None:
+        dwellTime = args.dwell_time
+    else:
+        import nibabel as nib
+        img = nib.load(args.data[0])
+        dwellTime = img.header.get_zooms()[3]
+    bandwidth = 1/dwellTime
+
+    
+    fig = plotting.plot_spectra(FIDlist=FIDcomblist,
+                                bandwidth=bandwidth,
+                                centralFrequency=centralFrequency,
+                                ppmlim=(.2,4.2),
+                                single_FID=FID_final,plot_avg=False)
+    fig.savefig(os.path.join(args.output,'coil_combined.png'))
+
+    # Produce QC measures?
+
+
+
+    
+
+        
+if __name__ == '__main__':
+    main()
