@@ -36,20 +36,23 @@ class MRS(object):
         # (now copying the data - looks ugly but better than referencing.
         # now I can run multiple times with different setups)
         self.FID               = FID.copy()
-        self.basis             = basis.copy()
+        self.basis             = basis
+        if basis is not None:
+            self.basis         = basis.copy()
         if H2O is not None:
             self.H2O           = H2O.copy()
         else:
             self.H2O           = None
         self.centralFrequency  = cf     # Hz
         self.bandwidth         = bw     # Hz
-        self.names             = names.copy()
+        self.names             = names
+        if names is not None:
+            self.names         = names.copy()
 
 
         # Set remaining class attributes
         self.Spec              = None        
         self.numPoints         = None
-        self.Spec              = None
         self.numBasis          = None
         
         # Constants 
@@ -169,13 +172,13 @@ class MRS(object):
         return int(first),int(last)
 
 
-    def resample_basis(self):
+    def resample_basis(self,dwelltime):
         """
            Sometimes the basis is simulated using different timings (dwelltime)
            This interpolates the basis to match the FID
         """
         # RESAMPLE BASIS FUNCTION
-        bdt    = self.basis_dwellTime
+        bdt    = dwelltime
         bbw    = 1/bdt
         bn     = self.basis.shape[0]
         
@@ -205,10 +208,11 @@ class MRS(object):
         0 if check successful and -1 if not (also issues warning)
 
         """
-        Spec1 = np.fft.fft(self.FID)
-        Spec2 = np.fft.fft(np.conj(self.FID))
         first,last = self.ppmlim_to_range(ppmlim)
-        if np.linalg.norm(Spec1[first:last]) < np.linalg.norm(Spec2[first:last]):
+        Spec1 = np.real(np.fft.fft(self.FID))[first:last]
+        Spec2 = np.real(np.fft.fft(np.conj(self.FID)))[first:last]
+        
+        if np.linalg.norm(misc.detrend(Spec1,deg=4)) < np.linalg.norm(misc.detrend(Spec2,deg=4)):
             if repare is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOU FID!!!')
                 return -1
@@ -219,6 +223,9 @@ class MRS(object):
         return 0
 
     def conj_FID(self):
+        """
+        Conjugate FID and recalculate spectrum
+        """
         self.FID  = np.conj(self.FID)
         self.Spec = np.fft.fft(self.FID)
 
@@ -254,7 +261,6 @@ class MRS(object):
         """
         if metabs is not None:
             metabs = [m for m in self.names if m not in metabs]
-            #metabs = list(set(self.names)-set(metabs))
             self.ignore(metabs)
 
 
@@ -306,7 +312,7 @@ class MRS(object):
 
         return len(ppmlist)
                 
-    # I/O functions
+    # I/O functions  [NOW OBSOLETE?]
     @staticmethod 
     def read(filename,TYPE='RAW'):
         """

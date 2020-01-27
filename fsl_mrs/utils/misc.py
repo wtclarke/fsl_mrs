@@ -104,7 +104,19 @@ def resample_ts(ts,dwell,new_dwell):
         
     return new_ts
 
-
+def ts_to_ts(old_ts,old_dt,new_dt,new_n):
+    """
+    Temporal resampling where the new time series has a smaller number of points
+    """
+    old_n    = old_ts.shape[0]    
+    old_t    = np.linspace(old_dt,old_dt*old_n,old_n)-old_dt
+    new_t    = np.linspace(new_dt,new_dt*new_n,new_n)-new_dt
+    
+    f      = interp1d(old_t,old_ts,axis=0)
+    new_ts = f(new_t)
+    
+    return new_ts
+        
 
 # Numerical differentiation (light)
 import numpy as np
@@ -295,9 +307,9 @@ def shift_FID(mrs,FID,eps):
     Returns:
        array-like
     """
-    t = mrs.timeAxis
+    t           = mrs.timeAxis
     FID_shifted = multiply(FID,np.exp(-1j*t*eps))
-    #FID_shifted = FID_shifted
+    
     return FID_shifted
  
 def blur_FID(mrs,FID,gamma):
@@ -312,7 +324,7 @@ def blur_FID(mrs,FID,gamma):
     Returns:
        array-like
     """
-    t = mrs.timeAxis
+    t           = mrs.timeAxis
     FID_blurred = multiply(FID,np.exp(-t*gamma))
     return FID_blurred
 
@@ -330,7 +342,7 @@ def blur_FID_Voigt(mrs,FID,gamma,sigma):
        array-like
     """
     t = mrs.timeAxis
-    FID_blurred = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-t*(gamma+t*sigma**2))),axis=0),axis=0)
+    FID_blurred = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-t*(gamma+t*sigma**2/2))),axis=0),axis=0)
     return FID_blurred
 
 
@@ -357,10 +369,10 @@ def create_peak(mrs,ppm,gamma=0,sigma=0):
     x    = np.exp(-1j*2*np.pi*freq*t).flatten()
     
     if gamma>0 or sigma>0:
-        x = misc.blur_FID_Voigt(mrs,x,gamma,sigma)
-        
-    y = np.fft.fft(x)
-    x = np.fft.ifft(np.abs(y))
+        x = blur_FID_Voigt(mrs,x,gamma,sigma)
+
+    # dephase
+    x = x*np.exp(-1j*np.angle(x[0]))
     
     return x
 
@@ -376,9 +388,10 @@ def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2)):
     Returns:
        array-like
     """
-    spec  = np.fft.fft(FID,axis=0)
+    spec        = np.fft.fft(FID,axis=0)
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
-    spec = spec[first:last] 
+    spec        = spec[first:last]
+    
     return spec
        
 def normalise(x,axis=0):
@@ -400,18 +413,40 @@ def correlate(x,y):
     """
     return np.real(np.sum(np.conjugate(ztransform(x))*ztransform(y)))
 
-def phase_correct(FID):
+def phase_correct(mrs,FID,ppmlim=(1,3)):
     """
        Apply phase correction to FID
-       ADD PPMLIM!!!!!
     """
+    first,last = mrs.ppmlim_to_range(ppmlim)
     phases = np.linspace(0,2*np.pi,1000)
     x = []
     for phase in phases:
         f = np.real(np.fft.fft(FID*np.exp(1j*phase),axis=0))
-        x.append(np.sum(f<0))
+        x.append(np.sum(f[first:last]<0))
     phase = phases[np.argmin(x)]
     return FID*np.exp(1j*phase)    
+
+
+
+
+def detrend(data,deg=1,keep_mean=True):
+    """
+    remove polynomial trend from data
+    works along first dimension
+    """
+    n = data.shape[0]
+    x = np.arange(n)
+    M = np.zeros((n,deg+1))
+    for i in range(deg+1):        
+        M[:,i] = x**i
+
+    beta = np.linalg.pinv(M) @ data
+
+    pred = M @ beta
+    m = 0
+    if keep_mean:
+        m = np.mean(data,axis=0)
+    return data - pred + m
 
 
 # ----- MRSI stuff ---- #
@@ -442,7 +477,7 @@ def volume_to_list(data,mask):
 
 def list_to_volume(data_list,mask,dtype=float):
     """
-       Turn list of of voxelwise data into 4D volume
+       Turn list of voxelwise data into 4D volume
 
     Parameters
     ----------
@@ -491,3 +526,32 @@ def ravel(arr,mask):
                 return counter
             counter += 1
     
+
+
+#### FMRS Stuff
+
+def smooth_FIDs(FIDlist,window):
+    """
+    Smooth a list of FIDs (makes sense if acquired one after the other as the smoothing is done along the "time" dimension
+
+    Note: at the edge of the list of FIDs the smoothing wraps around the list so make sure that the beginning and the end are 'compatible'
+
+    Parameters:
+    -----------
+    FIDlist : list of FIDs
+    window  : int (preferably odd number)
+
+    Returns:
+    --------
+    list of FIDs
+    """
+    sFIDlist = []
+    for idx,FID in enumerate(FIDlist):
+        fid = 0
+        n   = 0
+        for i in range(-int(window/2),int(window/2)+1,1):
+            fid = fid + FIDlist[(idx+i)%len(FIDlist)]
+            n   = n+1
+        fid = fid/n
+        sFIDlist.append(fid)
+    return sFIDlist

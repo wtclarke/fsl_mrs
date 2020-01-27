@@ -14,7 +14,7 @@ from fsl_mrs.utils.constants import *
 from fsl_mrs.utils import mh
 from fsl_mrs.core import MRS
 
-from scipy.optimize import minimize
+from scipy.optimize import minimize,nnls
 
 
 class FitRes(object):
@@ -83,20 +83,44 @@ class FitRes(object):
         for i in range(g):
             self.params_names.extend(["eps_{}".format(i)])
 
+        self.params_names.extend(['Phi0','Phi1'])
+        
         for i in range(baseline_order+1):
-            self.params_names.extend(["B_{}".format(i)])
+            self.params_names.extend(["B_real_{}".format(i)])
 
-    def to_file(self,mrs,filename):
+        for i in range(baseline_order+1):
+            self.params_names.extend(["B_imag_{}".format(i)])
+
+    def to_file(self,filename,mrs=None,what='concentrations'):
+        """
+        Save results to a csv file
+
+        Parameters:
+        -----------
+        filename : str
+        mrs      : MRS obj (only used if what = 'concentrations')
+        what     : one of 'concentrations, 'qc', 'parameters'
+        """
         import pandas as pd
-        df = pd.DataFrame()
-        df['Metab']          = mrs.names
-        df['mMol/kg']        = self.conc_h2o
-        df['%CRLB']          = self.perc_SD[:mrs.numBasis]
-        df['/Cr']            = self.conc_cr
-        df.to_csv(filename)
+        df                   = pd.DataFrame()
+
+        if what is 'concentrations':
+            df['Metab']          = mrs.names
+            df['mMol/kg']        = self.conc_h2o
+            df['%CRLB']          = self.perc_SD[:mrs.numBasis]
+            df['/Cr']            = self.conc_cr
+        elif what is 'qc':
+            df['Measure'] = ['SNR']
+            df['Value']   = [self.snr]
+        elif what is 'parameters':
+            df['Parameter'] = self.params_names
+            df['Value']     = self.params
+
+        df.to_csv(filename,index=False)
+
+         
 
         
-
 def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
     """
        Print parameters 
@@ -152,7 +176,55 @@ def quantify(mrs,concentrations,ref='Cr',to_h2o=False,scale=1):
 
     return res
 
+
+
 def init_gamma_eps(mrs):
+    """
+       Initialise gamma/epsilon parameters
+       
+    """
+
+    ppmlim = (.2,4.2)
+    first,last = mrs.ppmlim_to_range(ppmlim)
+    
+    y = np.fft.fft(mrs.FID)[first:last]
+    #y = np.real(y).flatten() #
+    y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
+
+    def modify_basis(mrs,gamma,eps):
+        bs = mrs.basis * np.exp(-(gamma+1j*eps)*mrs.timeAxis)        
+        bs = np.fft.fft(bs,axis=0)
+        bs = bs[first:last,:]
+        #return np.real(bs) #
+        return np.concatenate((np.real(bs),np.imag(bs)),axis=0)
+            
+    def cf(p):
+        gamma,eps = np.exp(p[0]),p[1]
+        bs        = modify_basis(mrs,gamma,eps)
+        #print(gamma)
+        #print(eps)
+        #beta,_    = nnls(bs,y)
+        beta      = np.linalg.pinv(bs)@y
+        pred      = bs@beta                
+        loss      = np.mean((pred-y)**2)
+        return loss
+
+    x0     = np.array([-10,0])
+    #bounds = [(0,1e3),(-1e3,1e3)]
+    #res    = minimize(cf, x0, method='TNC',bounds=bounds)
+
+    
+    res    = minimize(cf, x0, method='Powell')
+    res    = minimize(cf, x0=res.x, method='Nelder-Mead')
+    res    = minimize(cf, x0=res.x, method='TNC')
+    
+
+    g,e    = np.exp(res.x[0]),res.x[1]
+    
+    #print([g,e])
+    return g,e
+
+def init_gamma_eps_old(mrs):
     """
        Initialise gamma/epsilon parameters
        This is done by summing all the basis FIDs and
@@ -180,6 +252,7 @@ def init_gamma_eps(mrs):
     
     return g,e
 
+
 def init_FSLModel(mrs,metab_groups,baseline_order):
     """
        Initialise params of FSLModel
@@ -189,13 +262,16 @@ def init_FSLModel(mrs,metab_groups,baseline_order):
     # 3. How about phi0 and phi1?
     
     # 1. gamma/eps
+
+
     gamma,eps = init_gamma_eps(mrs)
     new_basis = mrs.basis*np.exp(-(gamma+1j*eps)*mrs.timeAxis)    
     
     data   = np.append(np.real(mrs.FID),np.imag(mrs.FID),axis=0)
     desmat = np.append(np.real(new_basis),np.imag(new_basis),axis=0)
-    con    = np.real(np.linalg.pinv(desmat)@data)   
-                
+    #con    = np.real(np.linalg.pinv(desmat)@data)   
+    con,_  = nnls(desmat,data.flatten())
+    
     # Append 
     x0  = con   # concentrations
         
@@ -233,8 +309,7 @@ def init_gamma_sigma_eps(mrs):
     g   = res.x[0]
     s   = res.x[1]
     e   = res.x[2]
-    
-    
+        
     return g,s,e
 
 def init_FSLModel_Voigt(mrs,metab_groups,baseline_order):
@@ -287,7 +362,9 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
     
     return B
 
-def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None,model='lorentzian'):
+
+
+def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None,model='lorentzian',x0=None):
     """
         A simplified version of LCModel
     """
@@ -317,18 +394,27 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     # Results object
     results = FitRes(model)
     results.fill_names(mrs,baseline_order,metab_groups)
-    
-    # Initialise all params
-    x0= init_func(mrs,metab_groups,baseline_order)
 
     # Prepare baseline
     B                 = prepare_baseline_regressor(mrs,baseline_order,first,last)
     results.base_poly = B
-
+    
     # Constants
     g         = results.g
     constants = (freq,time,basis,B,metab_groups,g,data,first,last)    
+
+    if x0 is None:
+        # Initialise all params
+        x0= init_func(mrs,metab_groups,baseline_order)
+        # Update init baseline params
+        pred = forward(x0,freq,time,basis,B,metab_groups,g)
+        err  = pred-data
+        br = np.linalg.pinv(np.real(B[:,0::2]))@np.real(err[:,None])
+        bi = np.linalg.pinv(np.imag(B[:,1::2]))@np.imag(err[:,None])
+        b0 = np.concatenate((br,bi),axis=1)
+        x0[mrs.numBasis+2*g+2:] = b0.flatten()
     
+        
     # Fitting
     if method == 'Newton':
         # Bounds        
@@ -358,6 +444,8 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         # collect results
         results.params = res.x
 
+    elif method == 'init':
+        results.params = x0
   
     elif method == 'MH':
         forward_mh = lambda p : forward(p,freq,time,basis,B,metab_groups,g)
@@ -429,6 +517,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
                                 results.base_poly,metab_groups,g)
     baseline = np.fft.ifft(baseline)
     results.baseline = baseline
+    results.B        = b
 
     
     forward_lim = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
@@ -447,6 +536,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         results.mcmc_cov = np.ma.cov(results.mcmc_samples.T)
         results.mcmc_cor = np.ma.corrcoef(results.mcmc_samples.T)
         results.mcmc_var = np.var(results.mcmc_samples,axis=0)
+
     
     results.perc_SD = np.sqrt(results.crlb) / results.params*100
     results.perc_SD[results.perc_SD>999]       = 999   # Like LCModel :)
@@ -459,7 +549,10 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     # Referencing
     results.names    = mrs.names # keep metab names
     results.conc     = con
-    results.conc_h2o = quantify(mrs,con,ref='Cr',to_h2o=True,scale=1)
+    if not mrs.H2O is None:
+        results.conc_h2o = quantify(mrs,con,ref='Cr',to_h2o=True,scale=1)
+    else:
+        results.conc_h2o = con*0
     results.conc_cr  = quantify(mrs,con,ref='Cr',to_h2o=False,scale=1)
     if 'PCr' in mrs.names:
         results.conc_cr_pcr = quantify(mrs,con,ref=['Cr','PCr'],to_h2o=False,scale=1)
@@ -468,12 +561,17 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     if model == 'lorentzian':
         con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
         results.inv_gamma_sec     = 1/gamma
+        results.gamma             = gamma
     elif model == 'voigt':
         con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
         results.inv_gamma_sec     = 1/gamma
         results.inv_sigma_sec     = 1/sigma
+    results.phi0              = phi0
+    results.phi1              = phi1
+
     results.phi0_deg          = phi0*np.pi/180.0
     results.phi1_deg_per_ppm  = phi1*np.pi/180.0 * mrs.centralFrequency / 1E6
+    results.eps               = eps
     results.eps_ppm           = eps / mrs.centralFrequency * 1E6
     results.b_norm            = b/b[0]
 
@@ -489,4 +587,47 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     return results
 
 
+
+
+
+
+
+# # Parallel fitting
+# def parallel_fit(fid_list,MRSargs,Fitargs,verbose):
+#     import multiprocessing as mp
+#     from functools import partial
+#     import time
+#     global_counter = mp.Value('L')
+
+#     # Define some ugly local functions for parallel processing
+#     def runworker(FID,MRSargs,Fitargs):
+#         mrs = MRS(FID=FID,**MRSargs)        
+#         res = fit_FSLModel(mrs,**Fitargs)   
+#         with global_counter.get_lock():
+#             global_counter.value += 1
+#         return res
+#     def parallel_runs(data_list):
+#         pool    = mp.Pool(processes=mp.cpu_count())
+#         func    = partial(runworker,MRSargs=MRSargs,Fitargs=Fitargs) 
+#         results = pool.map_async(func,data_list)
+#         return results
+
+#     # Fitting
+#     if verbose:
+#         print('    Parallelising over {} workers '.format(mp.cpu_count()))
+#     t0  = time.time()
+#     results = parallel_runs(fid_list)
+
+#     while not results.ready():
+#         if verbose:
+#             print('{}/{} voxels completed'.format(global_counter.value,len(fid_list)), end='\r')
+#         time.sleep(1)
+#     if verbose:
+#         print('{}/{} voxels completed'.format(global_counter.value,len(fid_list)), end='\r')
+#         print('\n\nFitting done in {:0f} secs.'.format(time.time()-t0))
+
+
+#     if not results.successful:
+#         raise(Exception("Fitting unsuccessful :-(((((("))
+#     return results.get()
 

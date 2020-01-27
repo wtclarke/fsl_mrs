@@ -214,6 +214,18 @@ def check_datatype(filename):
         return 'NIFTI'
 
 def read_FID(filename):
+    """
+     Read FID file. Tries to detect type automatically
+
+     Parameters
+     ----------
+     filename : str
+
+     Returns:
+     --------
+     array-like (complex)
+     dict (header info)
+    """
     data_type = check_datatype(filename)
     if data_type == 'RAW':
         data,header = readLCModelRaw(filename)
@@ -223,20 +235,46 @@ def read_FID(filename):
         raise(Exception('Cannot read data format {}'.format(data_type)))
     return data,header
 
+def read_basis_files(basisfiles,ignore=[]):
+    """
+     Reads basis files and extracts name of metabolite from file name
+     Assumes .RAW files are FIDs (not spectra)
+    """
+    basis = []
+    names = []
+    for file in basisfiles:
+        data,header = readLCModelRaw(file)
+        name = os.path.splitext(os.path.split(file)[-1])[-2]
+        if name not in ignore:
+            names.append(name)
+            basis.append(data)                
+    basis = np.asarray(basis).astype(np.complex).T
+    return basis,names
 
 def read_basis(filename):
-    data_type = check_datatype(filename)
-    if data_type == 'RAW':
-        basis,names,header = readLCModelBasis(filename)
+    if os.path.isfile(filename):
+        data_type = check_datatype(filename)
+        if data_type == 'RAW':
+            basis,names,header = readLCModelBasis(filename)
+        else:
+            raise(Exception('Cannot read data format {}'.format(data_type)))
+    elif os.path.isdir(filename):
+        folder = filename
+        basisfiles = sorted(glob.glob(os.path.join(folder,'*.RAW')))
+        basis,names = read_basis_files(basisfiles)
+        header = None
     else:
-        raise(Exception('Cannot read data format {}'.format(data_type)))
-
+        raise(Exception('{} is neither a file nor a folder!'.format(filename)))
+        
     return basis,names,header
 
 # NIFTI I/O
 def readNIFTI(datafile):
     data_hdr = nib.load(datafile)
     data = np.asanyarray(data_hdr.dataobj) 
-    header = None
-    return data,header
+    return data,data_hdr
 
+def saveNIFTI(datafile,data,affine):
+    img = nib.Nifti1Image(data,affine=affine)
+    nib.save(img,datafile)
+    return

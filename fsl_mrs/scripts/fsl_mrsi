@@ -60,6 +60,8 @@ fitting_args.add_argument('--add_MM',action="store_true",
 
 
 # ADDITONAL OPTIONAL ARGUMENTS
+optional.add_argument('--conjugate',action="store_true",
+                      help='conjugate the data')
 optional.add_argument('--single_proc',action="store_true",
                       help='do not run in parallel')
 optional.add_argument('--report',action="store_true",
@@ -143,6 +145,8 @@ numBasis                  = basis.shape[1]
 
 # Get array data
 data = np.asanyarray(data_hdr.dataobj)
+if args.conjugate:
+    data = np.conj(data)
 if args.h2o is not None:
     h2o  = np.asanyarray(h2o_hdr.dataobj) 
 mask = np.asanyarray(mask_hdr.dataobj) 
@@ -191,7 +195,7 @@ global_counter = mp.Value('L')
 # Define some ugly local functions for parallel processing
 def runvoxel(FIDH2O,MRSargs,Fitargs):
     mrs = MRS(FID=FIDH2O[0],H2O=FIDH2O[1],**MRSargs)        
-    mrs.check_FID(repare=True)
+    #mrs.check_FID(repare=True)
     if args.add_MM:
         n = mrs.add_MM_peaks()
         new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
@@ -222,9 +226,9 @@ if args.single_proc:
     results = []
     for idx,FID in enumerate(fid_list):
         if args.verbose:
-            print('{}/{} voxels fitted'.format(idx,len(fid_list)),end='\r')
+            print('{}/{} voxels fitted'.format(idx,len(fid_list))) #,end='\r')
         mrs = MRS(FID=FID,H2O=h2o_list[idx],**MRSargs)
-        mrs.check_FID(repare=True)
+        #mrs.check_FID(repare=True)
         n = mrs.add_MM_peaks()
         new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
         new_metab_groups = metab_groups + new_metab_groups
@@ -306,16 +310,18 @@ if results[0].conc_h2o is not None:
 pred_list = [r.pred for r in results]
 pred_vol  = misc.list_to_volume(pred_list,mask,dtype=np.complex)
 # check if data has been conjugated and if so conjugate the predictions
-FID   = fid_list[0] 
-Spec1 = np.fft.fft(FID)
-Spec2 = np.fft.fft(np.conj(FID))
-mrs = MRS(FID=fid_list[0],**MRSargs)
-first,last = mrs.ppmlim_to_range(ppmlim)
-if np.linalg.norm(Spec1[first:last]) < np.linalg.norm(Spec2[first:last]):
-    print('Data has been conjugated')
-    pred_vol = np.conj(pred_vol)
-else:
-    print('Data has NOT been conjugated')
+if args.conjugate:
+    pred_vol = np.conjugate(pred_vol)
+#FID   = fid_list[0] 
+#Spec1 = np.fft.fft(FID)
+#Spec2 = np.fft.fft(np.conj(FID))
+#mrs = MRS(FID=fid_list[0],**MRSargs)
+#first,last = mrs.ppmlim_to_range(ppmlim)
+#if np.linalg.norm(Spec1[first:last]) < np.linalg.norm(Spec2[first:last]):
+#    print('Data has been conjugated')
+#    pred_vol = np.conj(pred_vol)
+#else:
+#    print('Data has NOT been conjugated')
 img       = nib.Nifti1Image(pred_vol,affine=data_hdr.affine,header=data_hdr.header)
 filename  = os.path.join(os.path.join(args.output,'pred.nii.gz'))
 nib.save(img, filename)

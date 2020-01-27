@@ -58,7 +58,7 @@ def main():
                    help='combine certain metabolites [repeatable]')
     fitting_args.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
                    help='limit the fit to a freq range (default=(.2,4.2))')
-    fitting_args.add_argument('--h2o',type=str,metavar='H2O',
+    fitting_args.add_argument('--h2o',default=None,type=str,metavar='H2O',
                    help='input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
                    help='order of baseline polynomial (default=2)')
@@ -68,8 +68,9 @@ def main():
                               help="include default macromolecule peaks")
 
     
-    
     # ADDITONAL OPTIONAL ARGUMENTS
+    optional.add_argument('--t1',type=str,default=None,metavar='IMAGE',
+                          help='structural image (for report)')
     optional.add_argument('--central_frequency',default=None,type=float,
                            help='central frequency in Hz')
     optional.add_argument('--dwell_time',default=None,type=float,
@@ -78,6 +79,8 @@ def main():
                           help='output html report')
     optional.add_argument('--verbose',action="store_true",
                           help='spit out verbose info')
+    optional.add_argument('--phase_correct',action="store_true",
+                          help='do phase correction')
     optional.add_argument('--overwrite',action="store_true",
                           help='overwrite existing output folder')
     optional.add('--config', required=False, is_config_file=True, help='configuration file')
@@ -106,6 +109,8 @@ def main():
     import datetime
     import plotly
     # ######################################################
+    if not args.verbose:
+        warnings.filterwarnings("ignore")
 
     
     # Check if output folder exists
@@ -120,9 +125,9 @@ def main():
             exit()
         else:
             shutil.rmtree(args.output)
-            os.mkdir(args.output)
+            os.makedirs(args.output,exist_ok=True)
     else:
-        os.mkdir(args.output)
+        os.makedirs(args.output,exist_ok=True)
 
 
     # Save chosen arguments
@@ -134,7 +139,13 @@ def main():
         
     #######  Do the work #######
 
-    # Read data/h2o/basis    
+    # Read data/h2o/basis
+    if args.verbose:        
+        print('--->> Read input data and basis\n')
+        print('  {}'.format(args.data))
+        print('  {}\n'.format(args.basis))
+
+
     FID,dataheader            = mrs_io.read_FID(args.data)
     basis, names, basisheader = mrs_io.read_basis(args.basis)
     if args.h2o is not None:
@@ -142,27 +153,37 @@ def main():
     else:
         H2O = None
 
+    # Squeeze the data/h2o (e.g. if from NIFTI single voxel)
+    FID = np.squeeze(FID)
+    if H2O is not None:
+        H2O = np.squeeze(H2O)
+        
     # Collect useful info
     if args.central_frequency is not None:
         cf = args.central_frequency
     elif dataheader['centralFrequency'] is not None:
         cf = dataheader['centralFrequency']
+        if args.verbose:
+            print('      Detected central frequency in header info cf = {} MHz'.format(cf*1E-6))
     else:
-        raise(Exception('Cannot determine central frequency. Please either set it on include it in data header'))
+        raise(Exception('Cannot determine central frequency. Please either set it or include it in data header'))
 
     if args.dwell_time is not None:
         bw = 1/args.dwell_time
     elif dataheader['bandwidth'] is not None:
         bw = dataheader['bandwidth']
+        if args.verbose:
+            print('      Detected bandwidth in header info bw = {} Hz'.format(bw))
     else:
-        raise(Exception('Cannot determine central frequency. Please either set it on include it in data header'))
+        raise(Exception('Cannot determine bandwidth. Please either set it or include it in data header'))
 
         
     # Resample basis?
-    if bw != basisheader['bandwidth']:
-        dwell     = 1/basisheader['bandwidth']
-        new_dwell = 1/bw
-        basis     = misc.resample_ts(basis,dwell,new_dwell)
+    if basisheader is not None:
+        if bw != basisheader['bandwidth']:
+            dwell     = 1/basisheader['bandwidth']
+            new_dwell = 1/bw
+            basis     = misc.resample_ts(basis,dwell,new_dwell)
 
 
     # Instantiate MRS object
@@ -170,25 +191,24 @@ def main():
     mrs     = MRS(**MRSargs)
     
     # Check the FID
-    mrs.check_FID(repare=True)
+    conjugated = mrs.check_FID(repare=True)
+    if args.verbose:
+        if conjugated == 1:
+            raise(Warning('Warning :: FID has been checked and conjugated. Please check!'))
 
     # Do phase correction
-    mrs.FID  = misc.phase_correct(mrs.FID)
-    mrs.Spec = np.fft.fft(mrs.FID)
-  
-    if args.verbose:        
-        print('--->> Read input data and basis\n')
-        print('  {}\n'.format(args.data))
-        print('  {}\n'.format(args.basis))
-
-            
+    if args.phase_correct:
+        if args.verbose:
+            print('--->>  Phase correction\n')
+        mrs.FID  = misc.phase_correct(mrs,mrs.FID)
+        mrs.Spec = np.fft.fft(mrs.FID)
+              
         
     # Keep/Ignore/Combine metabolites
     mrs.keep(args.keep)
     mrs.ignore(args.ignore)
     mrs.combine(args.combine)
 
-    
     # Do the fitting here
     if args.verbose:
         print('--->> Start fitting\n\n')
@@ -197,12 +217,12 @@ def main():
 
         
     # Do the fitting
-    print('     --- Run fitting --- ')
+    if args.verbose:
+        print('     --- Run fitting --- ')
     ppmlim=args.ppmlim
     if ppmlim is not None:
         ppmlim=(ppmlim[0],ppmlim[1])
  
-    #mrs.fit(model = args.model, method=args.algo,ppmlim=args.ppmlim)
 
 
     # Parse metabolite groups
@@ -214,16 +234,23 @@ def main():
 
     # Include Macromolecules? These should have their own metab groups
     if args.add_MM is not None:
+        if not args.verbose:
+            print('Adding macromolecules')
         nMM = mrs.add_MM_peaks()
         G   = [i+max(metab_groups)+1 for i in range(nMM)]
         metab_groups += G
 
 
-    Fitargs = {'mrs':mrs,'ppmlim':ppmlim,
+    Fitargs = {'ppmlim':ppmlim,
                'method':args.algo,'baseline_order':args.baseline_order,
                'metab_groups':metab_groups}
 
-    res = fitting.fit_FSLModel(**Fitargs)
+    if args.verbose:
+        print(mrs)
+        print('Fitting args:')
+        print(Fitargs)
+
+    res = fitting.fit_FSLModel(mrs,**Fitargs)
 
 
     
@@ -239,9 +266,16 @@ def main():
         print('--->> Saving output files to {}\n'.format(args.output))
 
 
-    res.to_file(mrs,filename=os.path.join(args.output,'results_table.csv'))
-    
+    res.to_file(filename=os.path.join(args.output,'results_table.csv'),mrs=mrs,what='concentrations')
+    res.to_file(filename=os.path.join(args.output,'qc.csv'),what='qc')
+    res.to_file(filename=os.path.join(args.output,'all_parameters.csv'),what='parameters')
 
+    # Save image of MRS voxel
+    if args.t1 is not None:
+        datatype = mrs_io.check_datatype(args.data)
+        if datatype == 'NIFTI':            
+            fig = plotting.plot_world_orient(args.t1,args.data)
+            fig.savefig(os.path.join(args.output,'voxel_location.png'))
 
     # Create short HTML report
     #fig = plotting.plotly_fit(mrs,res,ppmlim=ppmlim,proj='abs')
@@ -250,13 +284,14 @@ def main():
     
     
     # Creat HTML report
-    report.create_report(mrs,res,
-                         filename=os.path.join(args.output,'report.html'),
-                         fidfile=args.data,
-                         basisfile=args.basis,
-                         h2ofile=args.h2o,
-                         outdir=args.output,
-                         date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    if args.report:
+        report.create_report(mrs,res,
+                             filename=os.path.join(args.output,'report.html'),
+                             fidfile=args.data,
+                             basisfile=args.basis,
+                             h2ofile=args.h2o,
+                             outdir=args.output,
+                             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
                          
 
     report.fitting_summary_fig(mrs,res,

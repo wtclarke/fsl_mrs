@@ -137,11 +137,55 @@ def create_plotly_div(mrs,res):
     
     return divs
 
+
+def create_vox_plot(t1file,voxfile,outdir):
+    def ijk2xyz(ijk,affine):    
+        return affine[:3, :3].dot(ijk) + affine[:3, 3]
+    def xyz2ijk(xyz,affine):
+        inv_affine = np.linalg.inv(affine)
+        return inv_affine[:3, :3].dot(xyz) + inv_affine[:3, 3]
+    def do_plot(slice,rect):
+        vmin = np.quantile(slice,.01)
+        vmax = np.quantile(slice,.99)
+        plt.imshow(slice, cmap="gray", origin="lower",vmin=vmin,vmax=vmax)
+        plt.plot(rect[:, 1], rect[:, 0],c='#FF4646',linewidth=2)
+        plt.xticks([])
+        plt.yticks([])
+
+    t1      = nib.load(t1file)
+    vox     = nib.load(voxfile)
+    t1_data = t1.get_fdata()
+
+    # centre of MRS voxel in T1 voxel space (or is it the corner?)
+    ijk   = xyz2ijk(ijk2xyz([0,0,0],vox.affine),t1.affine)
+    i,j,k = ijk
+    # half size of MRS voxel (careful this assumes 1mm resolution T1)
+    si,sj,sk = np.diag(vox.affine[:3,:3])/2
+    # Do the plotting
+    fig = plt.figure(figsize=(15,10))
+    plt.subplot(1,3,1)
+    slice = np.squeeze(t1_data[int(i),:,:])
+    rect  = np.asarray([[j-sj,k-sk],[j+sj,k-sk],[j+sj,k+sk],[j-sj,k+sk],[j-sj,k-sk]])
+    do_plot(slice,rect)
+    plt.subplot(1,3,2)
+    slice = np.squeeze(t1_data[:,int(j),:])
+    rect  = np.asarray([[i-si,k-sk],[i+si,k-sk],[i+si,k+sk],[i-si,k+sk],[i-si,k-sk]])
+    do_plot(slice,rect)
+    plt.subplot(1,3,3)
+    slice = np.squeeze(t1_data[:,:,int(k)])
+    rect  = np.asarray([[i-si,j-sj],[i+si,j-sj],[i+si,j+sj],[i-si,j+sj],[i-si,j-sj]])
+    do_plot(slice,rect)
+    fig.save(os.path.join(outdir,'voxplot.png'))
+    return
+
 def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
 
     divlist= create_plotly_div(mrs,res)
 
+    #if t1 is not None:
+    #    create_vox_plot(t1file=t1,outdir=outdir)
 
+    
     template = """<!DOCTYPE html>
     <html>
     <head>
@@ -164,8 +208,15 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
     Basis       : {}
     H2O         : {}
     </pre>
-    <hr>  
+    <hr>      
     """.format(date,fidfile,basisfile,h2ofile)
+
+    # add voxplot?
+    #if t1 is not None:
+    #    create_vox_plot(t1file,voxfile,outdir)
+    #    voxplothtml='<p><img src="voxplot.png">voxplot</img></p>'
+    #    template+=voxplothtml
+    
     for i,div in enumerate(divlist):
         section="""
         <div id='divPlotly{}'>

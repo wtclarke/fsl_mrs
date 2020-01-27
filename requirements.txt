@@ -5,3 +5,4 @@ plotly>=4.*
 pandas
 configargparse
 argparse
+pandas

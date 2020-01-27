@@ -144,7 +144,7 @@ def FSLModel_x2param(x,n,g):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
-    n  : number of metabiltes
+    n  : number of metabolites
     g  : number of metabolite groups
     """
     con   = x[:n]           # concentrations
@@ -162,6 +162,28 @@ def FSLModel_param2x(con,gamma,eps,phi0,phi1,b):
     return x
 
 
+def FSLModel_transform_basis(x,nu,t,m,G,g):
+    """
+       Transform basis by applying frequency shifting/blurring
+    """
+    n     = m.shape[1]    # get number of basis functions
+
+    con,gamma,eps,phi0,phi1,b = FSLModel_x2param(x,n,g)
+
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
+    
+    tmp = np.zeros(m.shape,dtype=np.complex)
+    for i,gg in enumerate(G):
+        tmp[:,i] = m[:,i]*E[:,gg]
+    
+    M     = np.fft.fft(tmp,axis=0)
+    
+    return np.fft.ifft(np.exp(-1j*(phi0+phi1*nu))*M,axis=0)
+    
+    #return tmp
+    
 def FSLModel_forward(x,nu,t,m,B,G,g):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
