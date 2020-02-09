@@ -19,42 +19,34 @@ def main():
     p.add_argument('-v','--version', action='version', version=__version__)
     
     required     = p.add_argument_group('required arguments')
+    mutual       = required.add_mutually_exclusive_group(required=True)
     optional     = p.add_argument_group('optional arguments')
 
-    # REQUIRED ARGUMENTS
-    required.add_argument('-o','--output',
-                          required=True,type=str,metavar='<str>',
-                          help='output folder')
+    # positional REQUIRED ARGUMENTS
+    p.add_argument('seqFile',type=str,metavar='SEQUENCE',
+                          help='pulse sequence file or previous results file')
 
-    required.add_argument('-t','--tesla',
-                          required=True,type=float,metavar='<float>',
-                          help='field strength in tesla')
+    # Mutual required arguments
+    mutual.add_argument('-m','--metab',type=str, metavar='METAB',
+                          help='Single metabolite string')
 
-    required.add_argument('-s','--seq',
-                          required=True,type=str,metavar='<str>',
-                          help='pulse sequence [PRESS,LASER,SE]')
-    
-    required.add_argument('-n','--numpoints',
-                          required=True,type=int,
-                          help='number of points')
+    mutual.add_argument('-b','--batch',type=str, metavar='METAB_FILE',
+                          help='Batch simulate metabolites. Path to file containing metabolite list.')
 
-    required.add_argument('--dwelltime',
-                          required=True,type=float,
-                          help='dwell time in seconds')
-    
-    required.add_argument('--echotime',
-                          required=True,type=float,
-                          help='echo time in seconds')
-
-    required.add_argument('--linewidth',
-                          required=True,type=float,
-                          help='line width in Hz')
+    mutual.add_argument('-s','--spinsys',type=str, metavar='spinsysJSON',
+                          help='Pass custom spin systems defined in json.')
     
     # OPTIONAL ARGUMENTS
-    optional.add_argument('--verbose',action="store_true",
-                   help='spit out verbose info')
+    optional.add_argument('-o','--output',default='.',
+                          required=False,type=str,metavar='<str>',
+                          help='output folder')
+    
+    # optional.add_argument('--verbose',action="store_true",
+    #                help='spit out verbose info')
     optional.add_argument('--overwrite',action="store_true",
                    help='overwrite existing output folder')
+    optional.add_argument('--verbose',action="store_true",
+                   help='Verbose output')
 
     
     # Parse command-line arguments
@@ -67,71 +59,127 @@ def main():
     
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY    
-    import os,sys,shutil,time
-    from fsl_mrs.utils import simu
-    from fsl_mrs.utils import mrs_io
+    import os,sys,shutil,datetime,json,copy
+    import numpy as np
+    from fsl_mrs.denmatsim import simseq as sim
+    from fsl_mrs.denmatsim import utils as simutils
+    #from fsl_mrs.utils import mrs_io
     # ######################################################
 
     
     # Check if output folder exists
     overwrite = args.overwrite
-    if os.path.exists(args.output):
-        if not overwrite:
-            print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
-            response = input()
-            overwrite = response.upper() == "Y"
-        if not overwrite:
-            print('Early stopping...')
-            exit()
+    if args.output != '.':
+        if os.path.exists(args.output):
+            if not overwrite:
+                print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
+                response = input()
+                overwrite = response.upper() == "Y"
+            if not overwrite:
+                print('Early stopping...')
+                exit()
+            else:
+                shutil.rmtree(args.output)
+                os.mkdir(args.output)
         else:
-            shutil.rmtree(args.output)
             os.mkdir(args.output)
-    else:
-        os.mkdir(args.output)
 
 
     #######  Do the work #######
 
-    # Instantiate MRS object
-    if args.verbose:
-        print('---- Init simulator')
+    # Load the sequence file
+    with open(args.seqFile,'r') as seqFile:
+        # If exisitng results file then extract the relavent dict
+        # Identify if file has a seq field
+        jsonString = seqFile.read()
+        seqFileParams = json.loads(jsonString)
+        if 'seq' in seqFileParams:
+            seqParams = seqFileParams['seq']
+        else: # Assume that this is a plain sequence file and contains just the information we need
+            seqParams = seqFileParams
 
-    if args.verbose:
-        print('---- Loop over available metabolites')
-    for metab in simu.metab_list():
-
-        # init
-        if args.verbose:
-            print('>>>     {}    <<<'.format(metab))
-            
-        sim = simu.MRS_sim(field_strength=args.tesla,
-                           num_points=args.numpoints,
-                           dwelltime=args.dwelltime,
-                           linewidth=args.linewidth,
-                           centreFreq=args.tesla*42.576,
-                           metab=metab)        
-
-        # simu
-        if args.verbose:
-            print('     --simulate')
-        if args.seq == 'PRESS':          
-            out = sim.PRESS(tau1=0.01,tau2=.125)
-        elif args.seq == 'LASER':          
-            out = sim.LASER(te=args.echotime)
-        elif args.seq == 'SE':          
-            out = sim.SE(te=args.echotime)
-        else:
-            raise Exception('Unknown sequence {}'.format(args.seq))
-
-        # save
-        if args.verbose:
-            print('     --save')
-        info = {'ID':metab}
-        mrs_io.saveRAW(os.path.join(args.output,metab+'.RAW'),
-                       out,info)
     
-        if args.verbose:
-            print('Done.')
+
+    # Identify spin systems to run
+    if args.spinsys is not None: # Parse the file containing a spin system description
+        with open(args.spinsys,'r') as spinFile:
+            jsonString = spinFile.read()
+            spinsysIn = json.loads(jsonString)
+            if 'shifts' in spinsysIn: # assume single spin system
+                spinsys = [spinsysIn,]
+                basename = os.path.basename(args.spinsys)
+                prefix, suffix = os.path.splitext(basename)
+                spinsToSim = [prefix,]
+            else: # Assume multiple systems and create a list
+                spinsys = []
+                spinsToSim = []
+                for systems in spinsysIn:
+                    spinsys.append(spinsysIn[systems])
+                    spinsToSim.append(systems)
+
+    else:
+        # Read built in spin system file
+        spinSystems = simutils.readBuiltInSpins()
+
+        if args.batch is not None: 
+            # Parse file containing list of the known metabolites. Extract these from that list
+            if os.path.isfile(args.batch):
+                with open(args.batch,'r') as batchFile:
+                    metabsRequested = batchFile.readlines()
+                    metabsRequested = [l.rstrip() for l in metabsRequested if l!='\n']
+            else:
+                raise ValueError('batch argument expects a file name.')
+
+        elif args.metab is not None: # Parse sting of metabolites that (hopefully) match known metabolites
+            metabsRequested = args.metab.split(',')
+        else:
+            raise ValueError('Unknown spin system imput.')
+
+        spinsys = []
+        spinsToSim = []
+        for metab in metabsRequested:
+            sysmetab = 'sys'+metab
+            if sysmetab in spinSystems:
+                spinsys.append(spinSystems[sysmetab])
+                spinsToSim.append(metab)
+            else:
+                print(f'{metab}({sysmetab}) not recognised.')
+        print(f'Identified spinsystems: {spinsToSim}')
+
+    
+    # Loop over the spin systems (list)
+    for iDx,(s,name) in enumerate(zip(spinsys,spinsToSim)):
+        print(f'Running simulation on {name} ({iDx+1}/{len(spinsToSim)}).')
+        sToSave = copy.deepcopy(s) # Make a copy here as some bits of s are converted to np.arrays inside simulator.
+        # Run simulation
+        if isinstance(s,list):
+            combinedScaledFID = []
+            for ss in s:
+                FID,ax = sim.simseq(ss,seqParams)
+                combinedScaledFID.append(FID*ss['scaleFactor'])
+            combinedScaledFID = np.sum(combinedScaledFID,axis=0)
+
+        else:    
+            FID,ax = sim.simseq(s,seqParams)
+            combinedScaledFID = FID*s['scaleFactor']
+
+        # Form results dictionary
+        outputDict = {}
+        outputDict.update({'seq':seqParams})
+        basisDict = {}
+        basisDict.update({'basis_re':np.real(combinedScaledFID).tolist()})
+        basisDict.update({'basis_im':np.imag(combinedScaledFID).tolist()})
+        basisDict.update({'basis_dwell':1/seqParams['Rx_SW']})
+        basisDict.update({'basis_centre':ax['centreFreq']})
+        basisDict.update({'basis_width':seqParams['Rx_LW']})
+        outputDict.update({'basis':basisDict}) 
+        outputDict.update({'spinSys':sToSave})
+        metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+        outputDict.update({'meta':metaDict})
+        # Save to json file.
+        fileOut = os.path.join(args.output,name+'.json')
+        with open(fileOut, 'w', encoding='utf-8') as f:
+            json.dump(outputDict, f, ensure_ascii=False, indent='\t')
         
     
 
