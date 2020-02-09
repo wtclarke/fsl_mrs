@@ -172,6 +172,7 @@ def main():
         basisDict.update({'basis_dwell':1/seqParams['Rx_SW']})
         basisDict.update({'basis_centre':ax['centreFreq']})
         basisDict.update({'basis_width':seqParams['Rx_LW']})
+        basisDict.update({'basis_name':name})
         outputDict.update({'basis':basisDict}) 
         outputDict.update({'spinSys':sToSave})
         metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}

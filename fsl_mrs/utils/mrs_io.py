@@ -13,6 +13,7 @@ import numpy as np
 import re
 import scipy.signal as ss
 import nibabel as nib
+import json
 
 # Generic I/O functions
 
@@ -172,6 +173,35 @@ def readLCModelBasis(filename,N=None,doifft=True):
     
     return data, metabo, header
 
+def readFSLBasis(filename,N=None,dofft=False):
+    with open(filename,'r') as basisFile:
+        jsonString = basisFile.read()
+        basisFileParams = json.loads(jsonString)
+        if 'basis' in basisFileParams:
+            basis = basisFileParams['basis']
+            
+            data = np.array(basis['basis_re'])+1j*np.array(basis['basis_im'])
+
+            if dofft: # Go to frequency domain from timedomain
+                data = np.fft.fftshift(np.fft.fft(data))
+
+            # Resample if necessary? --> should not be allowed actually
+            if N is not None:
+                if N != data.shape[0]:
+                    data = ss.resample(data,N)
+
+            header = {'centralFrequency':basis['basis_centre'],
+                    'bandwidth':1/basis['basis_dwell'],
+                    'dwelltime':basis['basis_dwell'],
+                    'fwhm':basis['basis_width']}
+            # header['echotime'] Not clear how to calculate this in the general case.
+            
+            metabo = basis['basis_name']
+            
+        else: #No basis information found
+            raise ValueError('FSL basis file must have a ''basis'' field.')
+
+    return data, metabo, header
 
 def saveRAW(filename,FID,info=None):
     """
