@@ -173,6 +173,33 @@ def readLCModelBasis(filename,N=None,doifft=True):
     
     return data, metabo, header
 
+# Read a folder containing json files in the FLS basis style.
+# Optionally allows recalculation of the FID using the stored density matrix.
+# This will take longer but avoids the need for interpolation.
+# It also allows for arbitrary shifting of the readout central frequency
+def readFSLBasisFiles(basisFolder,readoutShift=4.65,bandwidth=None,points=None):
+    if not os.path.isdir(basisFolder):
+        raise ValueError(' ''basisFolder'' must be a folder containing basis json files.')
+    # loop through all files in folder 
+    basisfiles = sorted(glob.glob(os.path.join(basisFolder,'*.json')))
+    basis,names,header = [],[],[]
+    for bfile in basisfiles:        
+        if bandwidth is None or points is None:
+            # If simple read operation call readFSLBasis
+            b, n, h  = readFSLBasis(bfile)
+            basis.append(b)
+            names.append(n)
+            header.append(h)
+        else:
+            # If recalculation requested loop through files calling readAndGenFSLBasis
+            b, n, h  = readAndGenFSLBasis(bfile,readoutShift,bandwidth,points)
+            basis.append(b)
+            names.append(n)
+            header.append(h)
+    basis = np.array(basis)        
+    return basis,names,header
+
+# Read the FID within the FSL basis json file. Returns equivalent outputs to the LCModel style basis files.
 def readFSLBasis(filename,N=None,dofft=False):
     with open(filename,'r') as basisFile:
         jsonString = basisFile.read()
@@ -202,6 +229,58 @@ def readFSLBasis(filename,N=None,dofft=False):
             raise ValueError('FSL basis file must have a ''basis'' field.')
 
     return data, metabo, header
+
+# Load an FSL basis file.
+# Recalculate the FID on a defined time axis.
+# Relies on all fields being populated appropriately
+def readAndGenFSLBasis(file,readoutShift,bandwidth,points):
+    from fsl_mrs.denmatsim import utils as simutils
+    with open(file,'r') as basisFile:
+        jsonString = basisFile.read()
+        basisFileParams = json.loads(jsonString)
+    
+    if 'MM' in basisFileParams:
+        import fsl_mrs.utils.misc as misc
+        FID, metabo, header = readFSLBasis(file)
+        old_dt = 1/header['bandwidth']
+        new_dt = 1/bandwidth
+        FID     = misc.ts_to_ts(FID,old_dt,new_dt,points)
+        return FID, metabo, header
+
+    if 'seq' not in basisFileParams:
+        raise ValueError('To recalculate the basis json must contain a seq field containing a B0 field.')
+    else:
+        B0 = basisFileParams['seq']['B0']
+        if 'Rx_Phase' not in basisFileParams['seq']:
+            rxphs = 0
+        else:
+            rxphs = basisFileParams['seq']['Rx_Phase']
+    
+    if 'spinSys' not in basisFileParams:
+        raise ValueError('To recalculate the basis json must contain a spinSys field.')
+    else:
+        spins = basisFileParams['spinSys']
+
+    if 'outputDensityMatrix' not in basisFileParams:
+        raise ValueError('To recalculate the basis json must contain a outputDensityMatrix field.')
+    else:
+        p = []
+        for re,im in zip(basisFileParams['outputDensityMatrix']['re'],basisFileParams['outputDensityMatrix']['im']):
+            p.append(np.array(re)+1j*np.array(im))
+        if len(p)==1:
+            p = p[0] # deal with single spin system case
+    
+    lw = basisFileParams['basis']['basis_width']
+    FID = simutils.FIDFromDensityMat(p,spins,B0,points,1/bandwidth,lw,offset=readoutShift,recieverPhs=rxphs)
+        
+    metabo = basisFileParams['basis']['basis_name']
+    cf = basisFileParams['basis']['basis_centre']
+    header = {'centralFrequency':basisFileParams['basis']['basis_centre'],
+                    'bandwidth':bandwidth,
+                    'dwelltime':1/bandwidth,
+                    'fwhm':lw}
+
+    return FID, metabo, header
 
 def saveRAW(filename,FID,info=None):
     """

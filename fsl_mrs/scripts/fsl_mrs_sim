@@ -152,16 +152,22 @@ def main():
         print(f'Running simulation on {name} ({iDx+1}/{len(spinsToSim)}).')
         sToSave = copy.deepcopy(s) # Make a copy here as some bits of s are converted to np.arrays inside simulator.
         # Run simulation
+        densityMatriciesRe = []
+        densityMatriciesIm = []
         if isinstance(s,list):
-            combinedScaledFID = []
+            combinedScaledFID = []            
             for ss in s:
-                FID,ax = sim.simseq(ss,seqParams)
+                FID,ax,pmat = sim.simseq(ss,seqParams)
                 combinedScaledFID.append(FID*ss['scaleFactor'])
+                densityMatriciesRe.append(np.real(pmat).tolist())
+                densityMatriciesIm.append(np.imag(pmat).tolist())
             combinedScaledFID = np.sum(combinedScaledFID,axis=0)
 
         else:    
-            FID,ax = sim.simseq(s,seqParams)
+            FID,ax,pmat = sim.simseq(s,seqParams)
             combinedScaledFID = FID*s['scaleFactor']
+            densityMatriciesRe.append(np.real(pmat).tolist())
+            densityMatriciesIm.append(np.imag(pmat).tolist())
 
         # Form results dictionary
         outputDict = {}
@@ -175,8 +181,10 @@ def main():
         basisDict.update({'basis_name':name})
         outputDict.update({'basis':basisDict}) 
         outputDict.update({'spinSys':sToSave})
+        densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
+        outputDict.update({'outputDensityMatrix':densmatdict})
         metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
-        outputDict.update({'meta':metaDict})
+        outputDict.update({'meta':metaDict})        
         # Save to json file.
         fileOut = os.path.join(args.output,name+'.json')
         with open(fileOut, 'w', encoding='utf-8') as f:

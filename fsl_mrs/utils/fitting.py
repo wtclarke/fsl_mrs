@@ -412,8 +412,10 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         br = np.linalg.pinv(np.real(B[:,0::2]))@np.real(err[:,None])
         bi = np.linalg.pinv(np.imag(B[:,1::2]))@np.imag(err[:,None])
         b0 = np.concatenate((br,bi),axis=1)
-        x0[mrs.numBasis+2*g+2:] = b0.flatten()
-    
+        if model == 'lorentzian':
+            x0[mrs.numBasis+2*g+2:] = b0.flatten()
+        elif model == 'voigt':
+            x0[mrs.numBasis+3*g+2:] = b0.flatten()
         
     # Fitting
     if method == 'Newton':
@@ -553,7 +555,8 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         results.conc_h2o = quantify(mrs,con,ref='Cr',to_h2o=True,scale=1)
     else:
         results.conc_h2o = con*0
-    results.conc_cr  = quantify(mrs,con,ref='Cr',to_h2o=False,scale=1)
+    if 'Cr' in mrs.names:
+        results.conc_cr  = quantify(mrs,con,ref='Cr',to_h2o=False,scale=1)
     if 'PCr' in mrs.names:
         results.conc_cr_pcr = quantify(mrs,con,ref=['Cr','PCr'],to_h2o=False,scale=1)
     
