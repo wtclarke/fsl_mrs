@@ -12,8 +12,8 @@ setup(name='FSL_MRS',
       author=['Saad Jbabdi'],
       author_email=['saad@fmrib.ox.ac.uk'],
       url='www.fmrib.ox.ac.uk/fsl',
-      packages=['fsl_mrs','fsl_mrs.utils','fsl_mrs.denmatsim'],
-      package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle'],'fsl_mrs.denmatsim':['spinSystems.json']},
+      packages=['fsl_mrs','fsl_mrs.utils','fsl_mrs.denmatsim','fsl_mrs.mmbasis'],
+      package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle'],'fsl_mrs.denmatsim':['spinSystems.json'],'fsl.mmbasis':['mmbasis.json']},
       install_requires=install_requires,
       scripts=['fsl_mrs/scripts/fsl_mrs','fsl_mrs/scripts/fsl_mrsi','fsl_mrs/scripts/fsl_mrs_preproc','fsl_mrs/scripts/fsl_mrs_sim','fsl_mrs/scripts/mrs_vis']               
      )
