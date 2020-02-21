@@ -1,5 +1,6 @@
 # Test the loading functions 
 import fsl_mrs.utils.mrs_io as mrsio
+import fsl_mrs.utils.mrs_io.fsl_io as fslio
 from fsl_mrs.utils import plotting
 import numpy as np
 import os.path as op
@@ -111,5 +112,11 @@ def test_read_Basis():
     assert np.isclose(convertToLimitedSpec(basis_lcm[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03).all
 
 def test_fslBasisRegen():
+    pointsToGen = 10
     basis_fsl,names_fsl,headers_fsl = mrsio.read_basis(BasisTestData['fsl'])
-    basis_fsl2,names_fsl2,headers_fsl2 = mrsio.read_basis(BasisTestData['fsl'])
+    basis_fsl2,names_fsl2,headers_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],readoutShift=4.65,bandwidth=4000,points=pointsToGen)
+
+    assert np.isclose(basis_fsl2,basis_fsl[:10,:]).all()
+    assert names_fsl2 == names_fsl
+    for r in headerReqFields:
+        assert headers_fsl[0][r] == headers_fsl2[0][r]       
