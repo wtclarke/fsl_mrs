@@ -368,11 +368,11 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
          fig
      """
     def project(x,proj):
-        if proj is 'real':
+        if proj == 'real':
             return np.real(x)
-        elif proj is 'imag':
+        elif proj == 'imag':
             return np.imag(x)
-        elif proj is 'angle':
+        elif proj == 'angle':
             return np.angle(x)
         else:
             return np.abs(x)
@@ -563,11 +563,11 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
          fig
      """
     def project(x,proj):
-        if proj is 'real':
+        if proj == 'real':
             return np.real(x)
-        elif proj is 'imag':
+        elif proj == 'imag':
             return np.imag(x)
-        elif proj is 'angle':
+        elif proj == 'angle':
             return np.angle(x)
         else:
             return np.abs(x)
