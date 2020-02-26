@@ -31,8 +31,8 @@ def readjMRUItxt(filename,unpack_header=True):
     header = {}
     data   = [] 
     recordData = False
-    with open(filename,'r') as f:
-        for line in f:
+    with open(filename,'r') as txtfile:
+        for line in txtfile:
             headerComp = headerRe.match(line)
             if headerComp:
                 value = headerComp[2].strip()                
@@ -88,3 +88,7 @@ def read_txtBasis_files(txtfiles):
 
     basis = np.array(basis).conj().T
     return basis,names,header
+
+# Write functions
+def writejMRUItxt(fileout,FID,paramDict):
+    pass

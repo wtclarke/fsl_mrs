@@ -40,7 +40,28 @@ def main():
     optional.add_argument('-o','--output',default='.',
                           required=False,type=str,metavar='<str>',
                           help='output folder')
+
+    optional.add_argument('-r','--raw',action="store_true",
+                            help='Output LCModel Style Raw files')
+
+    optional.add_argument('-j','--jmrui',action="store_true",
+                            help='Output jMRUI Style txt files')
+
+    optional.add_argument('-a','--addref',action="store_true",
+                            help='Add 0 ppm reference to all outputs')
+
+    optional.add_argument('--lcmIN',type=str,
+                            required=False,metavar='<str>',
+                            help='Location to enter into lcm IN file.')
     
+    optional.add_argument('--MM',type=str,
+                            required=False,metavar='<str>',
+                            help='JSON file containing MM FID to add to the basis output.')
+
+    optional.add_argument('-e','--outputTE',type=float,
+                            required=False,metavar='ECHOTIME',
+                            help='Echo time value in ms for output files (no effect on simulation).')
+
     # optional.add_argument('--verbose',action="store_true",
     #                help='spit out verbose info')
     optional.add_argument('--overwrite',action="store_true",
@@ -63,6 +84,7 @@ def main():
     import numpy as np
     from fsl_mrs.denmatsim import simseq as sim
     from fsl_mrs.denmatsim import utils as simutils
+    from fsl_mrs.utils.mrs_io import fsl_io,lcm_io,jmrui_io
     #from fsl_mrs.utils import mrs_io
     # ######################################################
 
@@ -146,6 +168,18 @@ def main():
                 print(f'{metab}({sysmetab}) not recognised.')
         print(f'Identified spinsystems: {spinsToSim}')
 
+    if args.addref:
+        # Add an extra spin system to the list with a single resonance at 0 ppm
+        # Yes, this isn't the most efficent way of doing this, but this is a one 
+        # spin system.
+        zeroRefSS = spinSystems['sysRef0ppm']
+        for iDx,s in enumerate(spinsys):
+            if isinstance(spinsys[iDx],dict):
+                spinsys[iDx] = [spinsys[iDx],zeroRefSS]
+            elif isinstance(spinsys[iDx],list):
+                spinsys[iDx] = spinsys[iDx] +[zeroRefSS]
+            else:
+                raise ValueError('spinsys[iDx] should either be a dict or list of dicts')
     
     # Loop over the spin systems (list)
     for iDx,(s,name) in enumerate(zip(spinsys,spinsToSim)):
@@ -169,9 +203,6 @@ def main():
             densityMatriciesRe.append(np.real(pmat).tolist())
             densityMatriciesIm.append(np.imag(pmat).tolist())
 
-        # Form results dictionary
-        outputDict = {}
-        outputDict.update({'seq':seqParams})
         basisDict = {}
         basisDict.update({'basis_re':np.real(combinedScaledFID).tolist()})
         basisDict.update({'basis_im':np.imag(combinedScaledFID).tolist()})
@@ -179,18 +210,69 @@ def main():
         basisDict.update({'basis_centre':ax['centreFreq']})
         basisDict.update({'basis_width':seqParams['Rx_LW']})
         basisDict.update({'basis_name':name})
-        outputDict.update({'basis':basisDict}) 
-        outputDict.update({'spinSys':sToSave})
-        densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
-        outputDict.update({'outputDensityMatrix':densmatdict})
-        metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
-        outputDict.update({'meta':metaDict})        
-        # Save to json file.
-        fileOut = os.path.join(args.output,name+'.json')
-        with open(fileOut, 'w', encoding='utf-8') as f:
-            json.dump(outputDict, f, ensure_ascii=False, indent='\t')
-        
+
+        if args.raw:
+            fileOut = os.path.join(args.output,name+'.RAW')
+            info = {'ID':name,'VOLUME':1.0,'TRAMP':1.0}
+            lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
+        elif args.jmrui:
+            fileOut = os.path.join(args.output,name+'.txt')
+            #jmrui_io.savetxt(fileOut,basisDict)
+        else:
+            # Form results dictionary
+            outputDict = {}
+            outputDict.update({'seq':seqParams})            
+            outputDict.update({'basis':basisDict}) 
+            outputDict.update({'spinSys':sToSave})
+            densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
+            outputDict.update({'outputDensityMatrix':densmatdict})
+            metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+            outputDict.update({'meta':metaDict})        
+            # Save to json file.
+            fileOut = os.path.join(args.output,name+'.json')
+            fsl_io.writeJSON(fileOut,outputDict)
     
+    # Additional write steps for MM and LCM baisis generation
+    if args.MM is not None:
+        # Read in file
+        MMBasisFID = fsl_io.readJSON(args.MM) # Input should be the same as the format of basisDict above
+
+        # Write MM FID to the correct format
+        if args.raw:
+            fileOut = os.path.join(args.output,'Mac.RAW')
+            combinedScaledFID = np.array(MMBasisFID['basis_re'])+1j*np.array(MMBasisFID['basis_im'])
+            info = {'ID':'Mac','VOLUME':1.0,'TRAMP':1.0}
+            lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
+        elif args.jmrui:
+            fileOut = os.path.join(args.output,name+'.txt')
+            #jmrui_io.savetxt(fileOut,basisDict)
+        else:
+            # Form results dictionary
+            outputDict = {}
+            outputDict.update({'seq':None})            
+            outputDict.update({'basis':MMBasisFID}) 
+            outputDict.update({'MM':True})
+            metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+            outputDict.update({'meta':metaDict})        
+            # Save to json file.
+            fileOut = os.path.join(args.output,'Mac.json')
+            fsl_io.writeJSON(fileOut,outputDict)
+        # Add MM to list of metabs
+        spinsToSim = spinsToSim +['Mac'] 
+        
+
+    if args.lcmIN is not None:
+        # Create .IN file that can be used to create LCModel .basis file from raw files
+        inputSeqBaseName,_ = os.path.splitext(os.path.basename(args.seqFile))
+        outputBaseName = args.lcmIN 
+        
+        outfile = fileOut = os.path.join(args.output,'lcm.IN')
+        shift = seqParams['centralShift']
+        if args.outputTE is not None:
+            lcm_io.writeLcmInFile(outfile,spinsToSim,outputBaseName,inputSeqBaseName,basisDict,echotime = args.outputTE)            
+        else:
+            lcm_io.writeLcmInFile(outfile,spinsToSim,outputBaseName,inputSeqBaseName,basisDict)   
+
 
 if __name__ == '__main__':
     main()

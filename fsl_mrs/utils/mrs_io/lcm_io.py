@@ -189,7 +189,7 @@ def siv_basis_header(header):
     return metabo, shifts
 
 # Write functions
-def saveRAW(filename,FID,info=None):
+def saveRAW(filename,FID,info=None,conj=False):
     """
       Save .RAW file
 
@@ -200,17 +200,102 @@ def saveRAW(filename,FID,info=None):
       info     : dict
              Stores info[key] = value in header
     """
-
-    header = '$NMID\n'
-    if info is not None:
-        for key,val in info.items():
-            header += '{} = {}\n'.format(key,val)
-    header += '$END'
+    # info (and NMID) section must contain FMTDAT
+    if info is None:
+        info = {'FMTDAT':'(2E16.6)'}
+    elif 'FMTDAT' not in info:
+        info.update({'FMTDAT':'(2E16.6)'} )
 
     rFID = np.real(FID)[:,None]
-    iFID = np.imag(FID)[:,None]
-    
+    if conj:
+        iFID = -1.0*np.imag(FID)[:,None]
+    else:
+        iFID = np.imag(FID)[:,None]
 
-    np.savetxt(filename,
-               np.append(rFID,iFID,axis=1),
-               header=header)
+    with open(filename, 'w') as my_file:
+        writeLCMSection(my_file,'NMID',info)
+
+        for (r,i) in zip(rFID,iFID):
+            my_file.write(f'{float(r):16.6E}{float(i):16.6E}\n')
+
+
+def writeLcmInFile(outfile,meabNames,outDir,seqname,basisDict,shift=0.0,echotime = 'Insert echo time in ms here'):
+    """
+      Save a LCModel .IN file (for basis creation)
+
+      Parameters
+      ----------
+      outfile   : string
+      meabNames : list of stings
+      outDir    : string
+            Path to location of makebasis call 
+      seqname   : string
+      basisDict : dict
+            Stores info[key] = value in header
+      shift     : float
+            Rx chemical shift to apply to reference
+            peak position indicator
+      echotime  : float
+            Echo time in ms
+    """
+    seqPar = {'seq':seqname,
+            'echot':echotime,
+            'fwhmba':basisDict['basis_width']/basisDict['basis_centre']}
+        
+    nmall={'hzpppm':basisDict['basis_centre'],
+            'deltat':basisDict['basis_dwell'],
+            'nunfil':len(basisDict['basis_re']),
+            'filbas':os.path.join(outDir,seqname+'.BASIS'),
+            'filps':os.path.join(outDir,seqname+'.PS'),
+            'autosc':False,
+            'autoph':False,
+            'idbasi':seqname}
+    nmeachList = []
+    for n in meabNames:
+        nmeachList.append({'filraw':os.path.join(outDir,n+'.RAW'),
+                            'metabo':n,
+                            'degzer':0,
+                            'degppm':0,
+                            'conc':1.0,
+                            'ppmapp':[0.1-shift,-0.4-shift]})
+
+    # Write file
+    with open(outfile, 'w') as my_file:
+        #Write seqpar section
+        writeLCMSection(my_file,'seqPar',seqPar)
+        #Write nmall section
+        writeLCMSection(my_file,'nmall',nmall)   
+        #Write nmeach sections
+        for n in nmeachList:
+            writeLCMSection(my_file,'nmeach',n)           
+
+def writeLCMSection(fobj,sectiontitle,paramdict):
+    """
+    Write a subsection in an LCModel style file.
+    Lines have a white space at the start and the section 
+    is bracketed with " $sectiontitle" and " $END"
+    
+    Parameters
+      ----------
+        fobj            :   file object
+        sectiontitle    :   string
+        paramdict       :   dict
+                Dictionary where each key value pair 
+                will be printed on a new line.
+    """
+    write = lambda x: fobj.write(' '+x+'\n')
+    write(f'${sectiontitle}')
+    for k in paramdict:
+        if isinstance(paramdict[k],str):
+            write(f'{k}=\'{paramdict[k]}\'')
+        elif isinstance(paramdict[k],bool):
+            if paramdict[k]:
+                write(f'{k}=.true')
+            else:
+                write(f'{k}=.false')
+        elif isinstance(paramdict[k],list):
+            tmpString = ','.join(map(str, paramdict[k]))
+            write(f'{k}={tmpString}')
+        else:
+            write(f'{k}={paramdict[k]}')
+    write('$END')
