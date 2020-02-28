@@ -33,6 +33,22 @@ def hz2ppm(cf,hz,shift=True):
     else:
         return 1E6 *hz/cf
 
+def FIDToSpec(FID):
+    """ Convert FID to spectrum"""
+    def scaleFID(x):
+        x[0] *= 0.5
+        return x
+    x = np.fft.fftshift(np.fft.fft(scaleFID(FID)))/len(FID)
+    return x
+
+def SpecToFID(spec):
+    """ Convert spectrum to FID"""
+    def scaleFID(x):
+        x[0] *= 2
+        return x
+    x = scaleFID(np.fft.fftshift(np.fft.fftshift(spec))*len(spec))
+    return x
+
 def filter(mrs,FID,ppmlim,filter_type='bandpass'):
     """
        Filter in/out frequencies defined in ppm

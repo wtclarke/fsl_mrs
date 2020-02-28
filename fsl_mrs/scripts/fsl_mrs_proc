@@ -1,0 +1,286 @@
+#!/usr/bin/env python
+
+# fsl_mrs_proc - script for individual MRS preprocessing stages
+#
+# Author:   Will Clarke <william.clarke@ndcn.ox.ac.uk>
+#           Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#
+# Copyright (C) 2020 University of Oxford 
+# SHBASECOPYRIGHT
+
+# Quick imports
+#import argparse
+import configargparse
+
+from fsl_mrs import __version__
+from fsl_mrs.utils.splash import splash
+
+
+def main():
+    # Parse command-line arguments
+    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
+
+    p.add_argument('-v','--version', action='version', version=__version__)
+
+    sp = p.add_subparsers(title='subcommands', description='Preprocessing subcommands')
+
+    # Coil combination subcommand
+    ccparser = sp.add_parser('coilcombine',help='Combine coils.')
+    ccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
+    ccparser.add_argument('-r','--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
+    ccparser.add_argument('--noprewhiten',help='Don''t prewhiten data before coil combination',action="store_false")
+    ccparser.set_defaults(func=coilcombine)
+
+    # Average subcommand
+    avgparser = sp.add_parser('average',help='Average FIDs.')
+    avgparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
+    avgparser.add_argument('--avgfiles',help='Average across files',action="store_true")
+    avgparser.add_argument('--dim',help='Select dimension to average across',type=int)
+    avgparser.set_defaults(func=average)
+
+    #Align subcommand - frequency/phase alignment
+    alignparser = sp.add_parser('align',help='Average FIDs.')
+    alignparser.add_argument('--file',help='FIDs to align',type=str, nargs='+',required=True)
+    alignparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>')
+    alignparser.set_defaults(func=align)
+
+    # ECC subcommand - eddy current correction
+    eccparser = sp.add_parser('ecc',help='Eddy current correction')     
+    eccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
+    eccparser.add_argument('--reference',help='Phase reference data file(s)',type=str, nargs='+',required=True)
+    eccparser.set_defaults(func=ecc)
+
+    # remove subcommand - remove peak using HLSVD
+    hlsvdparser = sp.add_parser('remove',help='Remove peak (default water) using HLSVD.') 
+    hlsvdparser.add_argument('--file',help='Data file(s)',type=str, nargs='+',required=True)
+    hlsvdparser.add_argument('--ppm',help='ppm limits of removal window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default = [4.5,4.8])
+    hlsvdparser.set_defaults(func=remove)
+
+    # tshift subcommand - shift/truncate/resample in timedomain
+    tshiftparser = sp.add_parser('tshift',help='shift/truncate/resample in timedomain.') 
+    tshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    tshiftparser.add_argument('--tshiftStart',help='Time shift at start (ms), negative pads with zeros, positive truncates',type=float,default = 0.0)
+    tshiftparser.add_argument('--tshiftEnd',help='Time shift at end (ms), negative truncates, positive pads with zeros',type=float,default = 0.0)
+    tshiftparser.add_argument('--samples',help='Resample to N points in FID.',type=int)
+    tshiftparser.set_defaults(func=tshift)
+
+    # fshift subcommand - shift in frequency domain
+    fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.') 
+    fshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    fshiftparser.add_argument('--shiftppm',help='Shift (ppm scale)',type=float)
+    fshiftparser.add_argument('--shifthz',help='Shift (Hz scale)',type=float)
+
+    # Arguments not assiciated with subcommands
+    required     = p.add_argument_group('required arguments')
+    optional     = p.add_argument_group('additional options')
+
+    # REQUIRED ARGUMENTS 
+    required.add_argument('--output',
+                          required=True,type=str,metavar='<str>',
+                          help='output folder')
+
+    # ADDITONAL OPTIONAL ARGUMENTS    
+    optional.add_argument('--overwrite',action="store_true",
+                          help='overwrite existing output folder')
+    optional.add_argument('--conjugate',action="store_true",
+                          help='apply conjugate to FID')
+    optional.add_argument('--filename',type=str,metavar='<str>',
+                          help='Override output file name.')    
+    optional.add_argument('--verbose',action="store_true",
+                          help='spit out verbose info')
+    optional.add_argument('--central_frequency',default=None,type=float,
+                           help='central frequency in Hz')
+    optional.add_argument('--dwell_time',default=None,type=float,
+                           help='dwell time in seconds')
+    optional.add('--config', required=False, is_config_file=True, help='configuration file')
+
+    # Parse command-line arguments
+    args = p.parse_args()
+    
+    # Output kickass splash screen
+    if args.verbose:
+        splash(logo='mrs')
+    
+    # Parse file arguments    
+    datafiles,reffiles = parsefilearguments(args)
+
+    # Handle data loading
+    dataList = loadData(datafiles,refdatafiles=reffiles,conjugate=args.conjugate,cf=args.central_frequency,dt=args.dwell_time)
+    # Call function - pass dict like view of args for compatibility with other modules
+    dataout = args.func(dataList,vars(args))
+    # Write data
+    writeData(dataout,args)
+    
+# ######################################################
+# DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
+import time, os, sys, shutil, warnings
+import numpy as np
+from fsl_mrs.utils import preproc
+from fsl_mrs.utils import mrs_io
+from fsl_mrs.utils.mrs_io import fsl_io
+# ######################################################
+
+def parsefilearguments(args):
+    # print(args.file)
+    datafiles = args.file
+    if 'reference' in args:
+        # print(args.reference)
+        reffiles = args.reference
+    else:
+        reffiles = None
+
+    return datafiles,reffiles
+
+# Data I/O functions
+def loadData(datafiles,refdatafiles=None,conjugate=False,cf=None,dt=None):
+    datalist = []
+    # Load data into datacontainer
+    if refdatafiles and len(refdatafiles)==len(datafiles):
+        for f,r in zip(datafiles,refdatafiles):
+            data,header = mrs_io.read_FID(f)
+            ref,refheader = mrs_io.read_FID(r)
+            if conjugate:
+                data = data.conj()
+                ref = ref.conj()
+
+            datalist.append(preproc.datacontainer(data,
+                                                header,
+                                                os.path.basename(f),
+                                                reference=ref,
+                                                refheader=refheader,
+                                                reffilename=os.path.basename(r)))
+    elif refdatafiles and len(refdatafiles)==1:
+        ref,refheader = mrs_io.read_FID(refdatafiles[0])
+        if conjugate:
+            ref = ref.conj()
+
+        for f in datafiles:
+            data,header = mrs_io.read_FID(f)
+            if conjugate:
+                data = data.conj()
+                
+            datalist.append(preproc.datacontainer(data,
+                                                header,
+                                                os.path.basename(f),
+                                                reference=ref,
+                                                refheader=refheader,
+                                                reffilename=os.path.basename(refdatafiles[0])))
+    elif refdatafiles and len(refdatafiles)!=len(datafiles):
+        raise ValueError('Pass one reference file, an equal number of references as data files or none.')
+    else:
+        for f in datafiles:
+            data,header = mrs_io.read_FID(f)
+            if conjugate:
+                data = data.conj()
+            datalist.append(preproc.datacontainer(data,header,os.path.basename(f)))
+    return datalist
+
+def writeData(dataobj,args):
+    for iDx,d in enumerate(dataobj):
+        if args.filename is None:
+            fileout = os.path.join(args.output,d.datafilename)
+        elif len(dataobj)==1:
+            fileout = os.path.join(args.output,args.filename+'.nii.gz')
+        else:
+            fileout = os.path.join(args.output,args.filename+f'_{iDx:03.0f}.nii.gz')
+        
+        fsl_io.saveNIFTI(fileout,d.data,d.dataheader)
+    
+# Preprocessing functions    
+def coilcombine(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        # If reference data is not loaded
+        if d.reference is None:
+            combmain = preproc.combine_FIDs(d.data,'svd',do_prewhiten=~args['noprewhiten'])
+        else:
+            # Otherwise
+            combW,refWeights = preproc.combine_FIDs(d.reference,'svd_weights',do_prewhiten=~args['noprewhiten'])
+            combmain = preproc.combine_FIDs(d.data,'weighted',weights=refWeights)           
+        
+        # Reuse the file name as it's likely the coil uncombined data was all in one file anyway
+        fileout = d.datafilename
+        dataout.append(preproc.datacontainer(combmain,d.dataheader,fileout))
+
+    return dataout
+
+def average(dataobj,args):
+    dataout = []
+    if args['avgfiles']:        
+        # Average data across all input files, outputing data the shape of any one file
+        # combine_FIDs 'mean' takes mean across last dimension.
+        allFileData = np.array([d.data for d in dataobj])
+        meandata = preproc.combine_FIDs(allFileData.T,'mean').T
+        dataout.append(preproc.datacontainer(meandata,dataobj[0].dataheader,dataobj[0].datafilename))
+
+    elif args['dim']:
+        for d in dataobj:
+            # permute the selected dimension to the last
+            meandata = preproc.combine_FIDs(np.moveaxis(d.data,args['dim'],-1),'mean')
+            meandata = np.moveaxis(meandata,-1,args['dim'])
+            dataout.append(preproc.datacontainer(meandata,d.dataheader,d.datafilename))
+    else:
+        raise RuntimeError('Neither avgfiles or dim arguments specified averaging dimension uncertain.')
+
+    return dataout
+
+def align(dataobj,args):
+    FIDlist = [d.data for d in dataobj]
+    bandwidth = dataobj[0].dataheader['bandwidth']
+    centralFrequency = dataobj[0].dataheader['centralFrequency']
+
+    alignedFIDS = preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False)
+
+    dataout = []
+    for f,d in zip(alignedFIDS,dataobj):
+        dataout.append(preproc.datacontainer(f,d.dataheader,d.datafilename))
+
+    return dataout
+
+
+def ecc(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        corrected = preproc.eddy_correct(d.data,d.reference)
+        dataout.append(preproc.datacontainer(corrected,d.dataheader,d.datafilename))
+    return dataout
+
+def remove(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        freqlimits = (np.array(args['ppm'])-4.65)*d.dataheader['centralFrequency']
+        removed = preproc.hlsvd(d.data,d.dataheader['dwelltime'],freqlimits)
+        dataout.append(preproc.datacontainer(removed,d.dataheader,d.datafilename))
+    return dataout
+
+def tshift(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        shifted = preproc.timeshift(d.data,
+                                    d.dataheader['dwelltime'],
+                                    args['tshiftStart'],
+                                    args['tshiftEnd'],
+                                    args['samples'])
+        dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
+
+    return dataout
+
+def fshift(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        if args['shiftppm'] is not None:            
+            shift = args['shiftppm']*d.dataheader['centralFrequency']
+        elif args['shifthz'] is not None:            
+            shift = args['shifthz']
+        else:
+            raise ValueError('Specify --shiftppm or --shifthz.')
+
+        shifted = preproc.timeshift(d.data,
+                                    d.dataheader['dwelltime'],
+                                    shift)
+        dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
+
+    return dataout
+
+if __name__ == '__main__':
+    main()

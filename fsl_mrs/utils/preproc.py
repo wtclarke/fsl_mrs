@@ -9,11 +9,15 @@
 
 import numpy as np
 from scipy.signal import tukey
+from dataclasses import dataclass
 
 # tmp
-from scipy.sparse.linalg import svds
+# from scipy.sparse.linalg import svds
+from scipy.optimize import minimize
+import hlsvdpro
 
 from fsl_mrs.utils import misc
+from fsl_mrs.core import MRS
 
 # Functions
 #    apodize --> check!
@@ -28,6 +32,17 @@ from fsl_mrs.utils import misc
 # QC measures?
 #    Peak signal / noise variance (between coils / channels)
 # 
+
+
+@dataclass
+class datacontainer:
+    '''Class for keeping track of data and reference data together.'''
+    data: np.array
+    dataheader: dict
+    datafilename: str
+    reference: np.array = None
+    refheader: dict = None
+    reffilename: str = None
 
 
 def truncate(FID,k,first_or_last='last'):
@@ -153,7 +168,7 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
         if verbose:
             print(' ---- iteration {} ----\n'.format(iter))
         target = get_target_FID(FIDlist,target='nearest_to_mean')
-        MRSargrgs = {'FID':target,'bw':bandwidth,'cf':centralFrequency}
+        MRSargs = {'FID':target,'bw':bandwidth,'cf':centralFrequency}
         mrs = MRS(**MRSargs)
         for idx,FID in enumerate(all_FIDs):
             if verbose:
@@ -173,7 +188,7 @@ def dephase(FIDlist):
     """
     return [fid*np.exp(-1j*np.angle(fid[0])) for fid in FIDlist]
 
-def prewhiten(FIDlist,prop=.1):
+def prewhiten(FIDlist,prop=.1,C=None):
     """
        Uses noise covariance to prewhiten data
 
@@ -181,27 +196,30 @@ def prewhiten(FIDlist,prop=.1):
     -----------
     FIDlist : list of FIDs
     prop    : proportion of data used to estimate noise covariance
+    C       : noise covariance matrix, if provided it is not measured from data.
 
     Returns : 
     list of FIDs
     pre-whitening matrix
+    noise covariance matrix
     """
     FIDs = np.asarray(FIDlist,dtype=np.complex)
-    # Estimate noise covariance
-    start = int((1-prop)*FIDs.shape[1])
-    # Raise warning if not enough samples
-    if (FIDs.shape[1]-start)<1.5*FIDs.shape[0]:
-        raise(Warning('You may not have enough samples to robustly estimate the noise covariance'))
-    C     = np.cov(FIDs[:,start:])
-    D,V   = np.linalg.eigh(C)
+    if C is None:
+        # Estimate noise covariance
+        start = int((1-prop)*FIDs.shape[0])
+        # Raise warning if not enough samples
+        if (FIDs.shape[0]-start)<1.5*FIDs.shape[1]:
+            raise(Warning('You may not have enough samples to robustly estimate the noise covariance'))
+        C     = np.cov(FIDs[start:,:],rowvar=False)
+
+    D,V   = np.linalg.eigh(C,UPLO='U') #UPLO = 'U' to match matlab implementation    
     # Pre-whitening matrix
-    W     = np.diag(1/np.sqrt(D))@np.conj(V.T)
+    W     = V@np.diag(1/np.sqrt(D))
     # Pre-whitened data
-    FIDs = W@FIDs
-    return list(FIDs),W
+    FIDs = FIDs@W
+    return FIDs,W,C
 
-
-def svd_reduce(FIDlist,W=None,return_alpha=False):
+def svd_reduce(FIDlist,W=None,C=None,return_alpha=False):
     """
     Combine different channels by SVD method
     Based on C.T. Rodgers and M.D. Robson, Magn Reson Med 63:881–891, 2010
@@ -218,37 +236,65 @@ def svd_reduce(FIDlist,W=None,return_alpha=False):
     array-like (sensitivities) - optional
     """
     FIDs  = np.asarray(FIDlist)
-    #U,S,V = np.linalg.svd(FIDs)
-    U,S,V = svds(FIDs,k=1)  #this is much faster
+    U,S,V = np.linalg.svd(FIDs,full_matrices=False)
+    # U,S,V = svds(FIDs,k=1)  #this is much faster but fails for two coil case
+
+    nCoils = FIDs.shape[1]
+    svdQuality = ((S[0]/np.linalg.norm(S))*np.sqrt(nCoils)-1)/(np.sqrt(nCoils)-1)
 
     # get arbitrary amplitude
-    iW = np.eye(FIDs.shape[0])
+    iW = np.eye(FIDs.shape[1])
     if W is not None:
         iW = np.linalg.inv(W)
-    amp  = np.linalg.norm(np.mean(iW@FIDs,axis=0))
+    amp = V[0,:]@iW
     
+    # arbitrary scaling here such that the first coil weight is real and positive
+    svdRescale = np.linalg.norm(amp)*(amp[0]/np.abs(amp[0]))
+
     # combined channels
-    FID = amp*V[0,:].T
+    FID = U[:,0]*S[0]*svdRescale
 
     if return_alpha:
-        # sensitivities per channel
-        if W is not None:
-            alpha = iW@U[:,0]
-        else:
-            alpha = U[:,0]
+        # sensitivities per channel        
+        # alpha = amp/svdRescale # equivalent to svdCoilAmplitudes in matlab implementation
 
+        # Instead incorporate the effect of the whitening stage as well.
+        if C is None:
+            C = np.eye(FIDs.shape[1])        
+        scaledAmps = (amp/svdRescale).conj().T
+        alpha = np.linalg.inv(C)@scaledAmps * svdRescale.conj() * svdRescale    
         return FID,alpha
     else:
         return FID
 
-def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_correct=False):
+def weightedCombination(FIDlist,weights):
     """
-       Combine FIDs (either from multiple coils or multiple averages
+    Combine different FIDS with different complex weights
+
+    Parameters:
+    -----------
+    FIDlist      : list of FIDs
+    weights      : complex weights
+
+    Returns:
+    --------
+    array-like (FID)    
+    """
+    FIDs  = np.asarray(FIDlist)
+    
+    # combined channels
+    FID = np.sum(FIDs*weights[None,:],axis=1)
+
+    return FID
+
+def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_correct=False,weights=None):
+    """
+       Combine FIDs (either from multiple coils or multiple averages)
     
     Parameters:
     -----------
     FIDlist   : list of FIDs
-    method    : one of 'mean', 'svd'
+    method    : one of 'mean', 'svd', 'svd_weights', 'weighted'
     prewhiten : bool
     dephase   : bool
 
@@ -260,8 +306,9 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
 
     # Pre-whitening
     W = None
+    C = None
     if do_prewhiten:
-        FIDlist,W = prewhiten(FIDlist)
+        FIDlist,W,C = prewhiten(FIDlist)
 
     # Dephasing
     if do_dephase:
@@ -269,14 +316,19 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
 
     # Combining channels
     if method == 'mean':
-        return sum(FIDlist) / len(FIDlist)
+        # return sum(FIDlist) / len(FIDlist)
+        return np.mean(FIDlist,axis=-1)
     elif method == 'svd':
         return svd_reduce(FIDlist,W)
+    elif method == 'svd_weights':
+        return svd_reduce(FIDlist,W,C,return_alpha=True)
+    elif method == 'weighted':
+        return weightedCombination(FIDlist,weights)
     else:
         raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
 
 
-def eddy_correct(FIDmet,FIDw):
+def eddy_correct(FIDmet,FIDPhsRef):
     """
     Subtract water phase from metab phase
     Typically do this after coil combination
@@ -284,11 +336,49 @@ def eddy_correct(FIDmet,FIDw):
     Parameters:
     -----------
     FIDmet : array-like (FID for the metabolites)
-    FIDw   : array-like (water FID)
+    FIDPhsRef   : array-like (Phase reference FID)
 
     Returns:
     --------
     array-like (corrected metabolite FID)
     """
+    phsRef = np.angle(FIDPhsRef)
+    return np.abs(FIDmet) * np.exp(1j*(np.angle(FIDmet)-phsRef))
 
-    return FIDmet / np.exp(1j*np.angle(FIDw))
+def hlsvd(FID,dwelltime,frequencylimit,numSingularValues=50):
+    nsv_found, singular_values, frequencies, damping_factors, amplitudes, phases = hlsvdpro.hlsvd(FID,numSingularValues,dwelltime)
+
+    # convert to np array
+    frequencies = np.asarray(frequencies)
+    damping_factors = np.asarray(damping_factors)
+    amplitudes = np.asarray(amplitudes)
+    phases = np.asarray(phases)
+
+    # Limit by frequencies
+    limitIndicies = (frequencies > frequencylimit[0]) & (frequencies < frequencylimit[1])
+
+    sumFID = np.zeros(FID.shape,dtype=np.complex128)
+    timeAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+
+    for use,f,d,a,p in zip(limitIndicies,frequencies,damping_factors,amplitudes,phases):
+        if use:
+            sumFID += a * np.exp((timeAxis/d) + 1j*2*np.pi * (f*timeAxis+p/360.0))
+
+    return FID - sumFID
+
+def timeshift(FID,dwelltime,shiftstart,shiftend,samples=None):
+    originalTAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+    if samples is None:        
+        newDT = dwelltime
+    else:
+        newDT = dwelltime * (FID.size/samples)
+    newTAxis = np.arange(originalTAxis[0]+shiftstart,originalTAxis[-1]+shiftend,newDT)
+    FID = np.interp(newTAxis,originalTAxis,FID)
+
+    return FID
+
+def freqshift(FID,dwelltime,shift):
+    tAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+    phaseRamp = 2*np.pi*tAxis*shift
+    FID = FID * np.exp(1j*phaseRamp)
+    return FID

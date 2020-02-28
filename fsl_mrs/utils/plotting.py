@@ -17,18 +17,13 @@ import nibabel as nib
 import scipy.ndimage as ndimage
 import itertools as it
 
-
-from fsl_mrs.utils.misc import hz2ppm
+from fsl_mrs.utils.misc import hz2ppm,FIDToSpec
 
 def FID2Spec(x):
     """
        Turn FID to spectrum for plotting
     """
-    def scaleFID(x):
-        x[0] *= 0.5
-        return x
-    x = np.fft.fftshift(np.fft.fft(scaleFID(np.conj(x))))
-    #x = np.fft.fft(np.conj(x))
+    x = FIDToSpec(x)
     return x
 
 

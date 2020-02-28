@@ -19,7 +19,7 @@ from fsl_mrs.utils.splash import splash
 
 def main():
     # Parse command-line arguments
-    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
+    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Complete Preprocessing")
 
     p.add_argument('-v','--version', action='version', version=__version__)
 

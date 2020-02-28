@@ -19,15 +19,17 @@ def readNIFTI(datafile,squeezeSVS=True):
     data = np.asanyarray(data_hdr.dataobj)
     # look for json sidecar file
     jsonParams = readJSONSidecar(datafile)
-    # Sort out header - must contain mandatory fields. Add nifti header and json header as nested dicts
+    # Sort out header - must contain mandatory fields. Add a nifti header which is unfortunately quite
+    # heavy weight as it is the whole loaded object. Add a json header as a nested dict if there is
+    # a sidecar file.
     # Reciever bandwidth and dwelltime can either be fetched from the nifti header or the json
     # central frequency is currently only sotred in the json.
     if jsonParams is None:
         dwell = data_hdr.header['pixdim'][4]
         bw = 1/dwell
-        header ={'nifti':data_hdr.header,'centralFrequency':None,'dwelltime':dwell,'bandwidth':bw}
+        header ={'nifti':data_hdr,'centralFrequency':None,'dwelltime':dwell,'bandwidth':bw}
     else:
-        header ={'nifti':data_hdr.header,
+        header ={'nifti':data_hdr,
                 'json':jsonParams,
                 'centralFrequency':jsonParams['ImagingFrequency'],
                 'dwelltime':jsonParams['Dwelltime'],
@@ -41,9 +43,20 @@ def readNIFTI(datafile,squeezeSVS=True):
 
     return data,header
 
-def saveNIFTI(datafile,data,affine):
-    img = nib.Nifti1Image(data,affine=affine)
+def saveNIFTI(datafile,data,header,affine=None):
+    if 'nifti' not in header and affine is None:
+        raise ValueError('To save a nifti file the header must contain a nifti field or an affine must be specifed')
+    if affine:
+        affineToUse = affine
+    else:
+        affineToUse = header['nifti'].affine
+    
+    img = nib.Nifti1Image(data,affine=affineToUse)
     nib.save(img,datafile)
+
+    if 'json' in header:
+        writeJSONSidecar(datafile,header['json'])
+
     return
 
 # JSON sidecar I/O
