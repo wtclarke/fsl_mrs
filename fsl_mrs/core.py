@@ -107,7 +107,7 @@ class MRS(object):
         self.centralFrequency = centralFrequency 
         self.bandwidth        = bandwidth 
         
-        self.dwellTime        = 1/self.bandwidth;
+        self.dwellTime        = 1/self.bandwidth
 
         
         self.timeAxis         = np.linspace(self.dwellTime,
@@ -145,7 +145,7 @@ class MRS(object):
                                                self.numPoints)
 
         
-    def ppmlim_to_range(self,ppmlim=None):
+    def ppmlim_to_range(self,ppmlim=None,shift=True):
         """
            turns ppmlim into data range
 
@@ -161,9 +161,12 @@ class MRS(object):
            int : last position
         """
         if ppmlim is not None:
-            axis   = np.flipud(np.fft.fftshift(self.ppmAxisShift))
-            first  = np.argmin(np.abs(axis[:int(self.numPoints/2)]-ppmlim[0]))
-            last   = np.argmin(np.abs(axis[:int(self.numPoints/2)]-ppmlim[1]))
+            if shift:
+                ppm2range = lambda x: np.argmin(np.abs(self.ppmAxisShift-x))
+            else:
+                ppm2range = lambda x: np.argmin(np.abs(self.ppmAxis-x))
+            first = ppm2range(ppmlim[0])
+            last  = ppm2range(ppmlim[1])
             if first>last:
                 first,last = last,first
         else:
@@ -311,56 +314,6 @@ class MRS(object):
             self.add_peak(ppm,name,gamma,sigma)
 
         return len(ppmlist)
-                
-    # I/O functions  [NOW OBSOLETE?]
-    @staticmethod 
-    def read(filename,TYPE='RAW'):
-        """
-          Read data file
-
-          Parameters
-          ----------
-
-          filename : string
-          TYPE     : string
-
-          Outputs
-          -------
-
-          numpy array : data 
-          string list : header information 
-        """
-        if TYPE == 'RAW':
-            data,header = io.readLCModelRaw(filename)
-        else:
-            raise Exception('Unknow file type {}'.format(TYPE))
-        return data, header
-    
-    def read_data(self,filename,TYPE='RAW'):
-        """
-          Read data file and update acq params
-
-          Parameters
-          ----------
-
-          filename : string
-          TYPE     : string
-
-        """
-        self.datafile = filename
-        FID, header   = self.read(filename,TYPE)
-        self.set_FID(FID)
-
-        if header['centralFrequency'] is None:
-            header['centralFrequency'] = 123.2E6
-            warnings.warn('Cannot determine central Frequency from input. Setting to default of 123.2E6 Hz')
-        if header['bandwidth'] is None:
-            header['bandwidth'] = 4000
-            warnings.warn('Cannot determine bandwidth. Setting to default of 4000Hz.')
-
-        
-        self.set_acquisition_params(centralFrequency=header['centralFrequency'],
-                                    bandwidth=header['bandwidth'])
 
 
     def set_FID(self,FID):
@@ -371,49 +324,99 @@ class MRS(object):
         self.numPoints   = self.FID.size
         self.Spec        = np.fft.fft(self.FID)
         
-    
-    def read_basis_files(self,basisfiles,TYPE='RAW',ignore=[]):
-        """
-           Reads basis file and extracts name of metabolite from file name
-           Assumes .RAW files are FIDs (not spectra)
-           Should change this to reading metabolite name from header
-        """
-        self.numBasis = 0
-        self.basis = []
-        self.names = []
-        for iDx,file in enumerate(basisfiles):
-            data,_ = self.read(file,TYPE)
-            name = os.path.splitext(os.path.split(file)[-1])[-2]
-            if name not in ignore:
-                self.names.append(name)
-                self.basis.append(data)
-                self.numBasis +=1
-        self.basis = np.asarray(self.basis).astype(np.complex).T
-        #self.basis = self.basis - self.basis.mean(axis=0)
-    
-    def read_basis_from_folder(self,folder,TYPE='RAW',ignore=[]):
-        """
-           Reads all .RAW files from folder assuming they are all metabolite FIDs
-        """
-        basisfiles = sorted(glob.glob(os.path.join(folder,'*.'+TYPE)))
-        self.read_basis_files(basisfiles,ignore=ignore)
+                  
+    # I/O functions  [NOW OBSOLETE?]
+    # @staticmethod 
+    # def read(filename,TYPE='RAW'):
+    #     """
+    #       Read data file
 
-    def read_basis_from_file(self,filename):
-        """
-           Reads single basis (.BASIS) file assuming it is spectra (not FIDs)
-        """
-        self.basis, self.names, header = io.readLCModelBasis(filename,self.numPoints)
+    #       Parameters
+    #       ----------
 
-        if header['dwelltime'] is not None:
-            self.set_acquisition_params_basis(header['dwelltime'])
-            self.resample_basis()
+    #       filename : string
+    #       TYPE     : string
+
+    #       Outputs
+    #       -------
+
+    #       numpy array : data 
+    #       string list : header information 
+    #     """
+    #     if TYPE == 'RAW':
+    #         data,header = io.readLCModelRaw(filename)
+    #     else:
+    #         raise Exception('Unknow file type {}'.format(TYPE))
+    #     return data, header
+    
+    # def read_data(self,filename,TYPE='RAW'):
+    #     """
+    #       Read data file and update acq params
+
+    #       Parameters
+    #       ----------
+
+    #       filename : string
+    #       TYPE     : string
+
+    #     """
+    #     self.datafile = filename
+    #     FID, header   = self.read(filename,TYPE)
+    #     self.set_FID(FID)
+
+    #     if header['centralFrequency'] is None:
+    #         header['centralFrequency'] = 123.2E6
+    #         warnings.warn('Cannot determine central Frequency from input. Setting to default of 123.2E6 Hz')
+    #     if header['bandwidth'] is None:
+    #         header['bandwidth'] = 4000
+    #         warnings.warn('Cannot determine bandwidth. Setting to default of 4000Hz.')
+
         
-        self.numBasis = len(self.names)
+    #     self.set_acquisition_params(centralFrequency=header['centralFrequency'],
+    #                                 bandwidth=header['bandwidth'])
 
-    def read_h2o(self,filename,TYPE='RAW'):
-        """
-           Reads H2O file 
-        """
-        self.H2O, header = self.read(filename, TYPE)
+    # def read_basis_files(self,basisfiles,TYPE='RAW',ignore=[]):
+    #     """
+    #        Reads basis file and extracts name of metabolite from file name
+    #        Assumes .RAW files are FIDs (not spectra)
+    #        Should change this to reading metabolite name from header
+    #     """
+    #     self.numBasis = 0
+    #     self.basis = []
+    #     self.names = []
+    #     for iDx,file in enumerate(basisfiles):
+    #         data,_ = self.read(file,TYPE)
+    #         name = os.path.splitext(os.path.split(file)[-1])[-2]
+    #         if name not in ignore:
+    #             self.names.append(name)
+    #             self.basis.append(data)
+    #             self.numBasis +=1
+    #     self.basis = np.asarray(self.basis).astype(np.complex).T
+    #     #self.basis = self.basis - self.basis.mean(axis=0)
+    
+    # def read_basis_from_folder(self,folder,TYPE='RAW',ignore=[]):
+    #     """
+    #        Reads all .RAW files from folder assuming they are all metabolite FIDs
+    #     """
+    #     basisfiles = sorted(glob.glob(os.path.join(folder,'*.'+TYPE)))
+    #     self.read_basis_files(basisfiles,ignore=ignore)
+
+    # def read_basis_from_file(self,filename):
+    #     """
+    #        Reads single basis (.BASIS) file assuming it is spectra (not FIDs)
+    #     """
+    #     self.basis, self.names, header = io.readLCModelBasis(filename,self.numPoints)
+
+    #     if header['dwelltime'] is not None:
+    #         self.set_acquisition_params_basis(header['dwelltime'])
+    #         self.resample_basis()
+        
+    #     self.numBasis = len(self.names)
+
+    # def read_h2o(self,filename,TYPE='RAW'):
+    #     """
+    #        Reads H2O file 
+    #     """
+    #     self.H2O, header = self.read(filename, TYPE)
         
         

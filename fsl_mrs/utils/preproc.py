@@ -19,14 +19,11 @@ import hlsvdpro
 from fsl_mrs.utils import misc
 from fsl_mrs.core import MRS
 
-# Functions
-#    apodize --> check!
-#    phase_freq_align --> check!
-#    channel_combine --> check!
-#    eddy_correct : subtract water FID phase from metab FID
+# Functions:
+# align_FID
+# apodize
 
 # TODO
-# residual water removal
 # outlier removal (of individual repeats)
 
 # QC measures?
@@ -68,26 +65,55 @@ def truncate(FID,k,first_or_last='last'):
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
-
-def apodize(FID):
+def pad(FID,k,first_or_last='last'):
     """
-       FID Apodization
-
-    TODO: optional choice of filter
-
+    Pad parts of a FID
+    
     Parameters:
     -----------
-     FID : array-like
+    FID           : array-like
+    k             : int (number of timepoints to add)
+    first_or_last : either 'first' or 'last' (which bit to pad)
+
     Returns:
     --------
-    Array-like
+    array-like
     """
-    window = tukey(FID.size * 2)[FID.size:]
+    FID_pad = FID.copy()
+    
+    if first_or_last == 'first':
+        return np.pad(FID_pad,(k,0))
+    elif first_or_last == 'last':
+        return np.pad(FID_pad,(0,k))
+    else:
+        raise(Exception("Last parameter must either be 'first' or 'last'"))
+
+
+def apodize(FID,dwelltime,broadening,filter='exp'):
+    """ Apodize FID
+    
+    Args:
+        FID (ndarray): Time domain data
+        dwelltime (float): dwelltime in seconds
+        broadening (tuple,float): shift in Hz
+        filter (str,optional):'exp','l2g'
+
+    Returns:
+        FID (ndarray): Apodised FID
+    """
+    taxis = np.linspace(0,dwelltime*FID.size,FID.size)
+    if filter=='exp':
+        Tl = 1/broadening[0]
+        window = np.exp(-taxis/Tl)
+    elif filter=='l2g':
+        Tl = 1/broadening[0]
+        Tg = 1/broadening[1]
+        window = np.exp(taxis/Tl)*np.exp(taxis**2/Tg**2)
     return window*FID
 
 
 # Phase-Freq alignment functions
-def align_FID(mrs,src_FID,tgt_FID,ppmlim=None):
+def align_FID(mrs,src_FID,tgt_FID,ppmlim=None,shift=True):
     """
        Phase and frequency alignment
 
@@ -107,13 +133,13 @@ def align_FID(mrs,src_FID,tgt_FID,ppmlim=None):
     def shift_phase_freq(FID,phi,eps,extract=True):        
         sFID = np.exp(-1j*phi)*misc.shift_FID(mrs,FID,eps)
         if extract:
-            sFID = misc.extract_spectrum(mrs,sFID,ppmlim=ppmlim)
+            sFID = misc.extract_spectrum(mrs,sFID,ppmlim=ppmlim,shift=shift)
         return sFID
     def cf(p):
         phi    = p[0] #phase shift
         eps    = p[1] #freq shift
         FID    = shift_phase_freq(src_FID,phi,eps)
-        target = misc.extract_spectrum(mrs,tgt_FID,ppmlim=ppmlim)
+        target = misc.extract_spectrum(mrs,tgt_FID,ppmlim=ppmlim,shift=shift)
         xx     = np.linalg.norm(FID-target)
         return xx
     x0  = np.array([0,0])
@@ -139,7 +165,7 @@ def get_target_FID(FIDlist,target='mean'):
         raise(Exception('Unknown target type {}'.format(target)))
 
 
-def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verbose=False):
+def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verbose=False,shift=True):
     """
     Algorithm:
        Average spectra
@@ -164,6 +190,7 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
     list of FID aligned to each other
     """
     all_FIDs = FIDlist.copy()
+    
     for iter in range(niter):
         if verbose:
             print(' ---- iteration {} ----\n'.format(iter))
@@ -173,7 +200,7 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
         for idx,FID in enumerate(all_FIDs):
             if verbose:
                 print('... aligning FID number {}'.format(idx),end='\r')
-            all_FIDs[idx] = align_FID(mrs,FID,target,ppmlim=ppmlim)
+            all_FIDs[idx] = align_FID(mrs,FID,target,ppmlim=ppmlim,shift=shift)
         if verbose:
             print('\n')
     return all_FIDs
@@ -280,10 +307,12 @@ def weightedCombination(FIDlist,weights):
     --------
     array-like (FID)    
     """
-    FIDs  = np.asarray(FIDlist)
-    
-    # combined channels
-    FID = np.sum(FIDs*weights[None,:],axis=1)
+    if isinstance(FIDlist,list):
+        FIDlist  = np.asarray(FIDlist)
+    if isinstance(weights,list):
+        weights = np.asarray(weights)
+    # combine channels
+    FID = np.sum(FIDlist*weights[None,:],axis=1)
 
     return FID
 
@@ -293,7 +322,7 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
     
     Parameters:
     -----------
-    FIDlist   : list of FIDs
+    FIDlist   : list of FIDs or array with time dimension first
     method    : one of 'mean', 'svd', 'svd_weights', 'weighted'
     prewhiten : bool
     dephase   : bool
@@ -303,6 +332,9 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
     array-like
 
     """
+
+    if isinstance(FIDlist,list):
+        FIDlist = np.asarray(FIDlist).T
 
     # Pre-whitening
     W = None
@@ -316,7 +348,6 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
 
     # Combining channels
     if method == 'mean':
-        # return sum(FIDlist) / len(FIDlist)
         return np.mean(FIDlist,axis=-1)
     elif method == 'svd':
         return svd_reduce(FIDlist,W)
@@ -346,6 +377,17 @@ def eddy_correct(FIDmet,FIDPhsRef):
     return np.abs(FIDmet) * np.exp(1j*(np.angle(FIDmet)-phsRef))
 
 def hlsvd(FID,dwelltime,frequencylimit,numSingularValues=50):
+    """ Run HLSVDPRO on FID
+    
+    Args:
+        FID (ndarray): Time domain data
+        dwelltime (float): dwell time in seconds
+        frequencylimit (tuple): Limit deletion of singular values in this range 
+        numSingularValues (int, optional): Max number of singular values
+
+    Returns:
+        FID (ndarray): Modified FID
+    """
     nsv_found, singular_values, frequencies, damping_factors, amplitudes, phases = hlsvdpro.hlsvd(FID,numSingularValues,dwelltime)
 
     # convert to np array
@@ -367,18 +409,42 @@ def hlsvd(FID,dwelltime,frequencylimit,numSingularValues=50):
     return FID - sumFID
 
 def timeshift(FID,dwelltime,shiftstart,shiftend,samples=None):
-    originalTAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+    """ Shift data on time axis
+    
+    Args:
+        FID (ndarray): Time domain data
+        dwelltime (float): dwell time in seconds
+        shiftstart (float): Shift start point in seconds 
+        shiftend (float): Shift end point in seconds
+        samples (int, optional): Resample to this number of points
+
+    Returns:
+        FID (ndarray): Shifted FID
+    """
+    originalAcqTime = dwelltime*(FID.size-1)    
+    originalTAxis = np.linspace(0,originalAcqTime,FID.size)
     if samples is None:        
         newDT = dwelltime
     else:
-        newDT = dwelltime * (FID.size/samples)
+        totalacqTime = originalAcqTime-shiftstart+shiftend
+        newDT = totalacqTime/samples
     newTAxis = np.arange(originalTAxis[0]+shiftstart,originalTAxis[-1]+shiftend,newDT)
-    FID = np.interp(newTAxis,originalTAxis,FID)
+    FID = np.interp(newTAxis,originalTAxis,FID,left=0.0+1j*0.0, right=0.0+1j*0.0)
 
-    return FID
+    return FID,newDT
 
 def freqshift(FID,dwelltime,shift):
-    tAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+    """ Shift data on frequency axis
+    
+    Args:
+        FID (ndarray): Time domain data
+        dwelltime (float): dwelltime in seconds
+        shift (float): shift in Hz
+
+    Returns:
+        FID (ndarray): Shifted FID
+    """
+    tAxis = np.linspace(0,dwelltime*FID.size,FID.size)
     phaseRamp = 2*np.pi*tAxis*shift
     FID = FID * np.exp(1j*phaseRamp)
     return FID

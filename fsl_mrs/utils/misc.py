@@ -11,6 +11,7 @@ import numpy as np
 from scipy.signal import butter, lfilter
 from scipy.interpolate import interp1d
 import itertools as it
+from copy import deepcopy
 
 H2O_PPM_TO_TMS = 4.65  # Shift of water to Tetramethylsilane
 
@@ -33,20 +34,46 @@ def hz2ppm(cf,hz,shift=True):
     else:
         return 1E6 *hz/cf
 
-def FIDToSpec(FID):
-    """ Convert FID to spectrum"""
+def FIDToSpec(FID,axis=0):
+    """ Convert FID to spectrum
+    
+        Performs fft along indicated axis
+        Args:
+            FID (np.array)      : array of FIDs
+            axis (int,optional) : time domain axis
+
+        Returns:
+            x (np.array)        : array of spectra
+    """
+    # By convention the first point of the fid is special cased
     def scaleFID(x):
-        x[0] *= 0.5
+        x[0,...] *= 0.5
         return x
-    x = np.fft.fftshift(np.fft.fft(scaleFID(FID)))/len(FID)
+
+    # move indicated axis into first dimension
+    # copy so we don't modify the first fid point
+    FID = np.moveaxis(FID,axis,0).copy()
+    x = np.fft.fftshift(np.fft.fft(scaleFID(FID),axis=0),axes=0)/FID.shape[0]
+    x = np.moveaxis(x,0,axis)
     return x
 
-def SpecToFID(spec):
-    """ Convert spectrum to FID"""
+def SpecToFID(spec,axis=0):
+    """ Convert spectrum to FID
+    
+        Performs fft along indicated axis
+        Args:
+            spec (np.array)     : array of spectra
+            axis (int,optional) : freq domain axis
+
+        Returns:
+            x (np.array)        : array of FIDs
+    """
     def scaleFID(x):
         x[0] *= 2
         return x
-    x = scaleFID(np.fft.fftshift(np.fft.fftshift(spec))*len(spec))
+    spec = np.moveaxis(spec,axis,0).copy()
+    x = scaleFID(np.fft.ifft(np.fft.fftshift(spec,axes=0),axis=0)*spec.shape[0])
+    x = np.moveaxis(x,0,axis)
     return x
 
 def filter(mrs,FID,ppmlim,filter_type='bandpass'):
@@ -358,7 +385,7 @@ def blur_FID_Voigt(mrs,FID,gamma,sigma):
        array-like
     """
     t = mrs.timeAxis
-    FID_blurred = np.fft.ifft(np.fft.fft(multiply(FID,np.exp(-t*(gamma+t*sigma**2/2))),axis=0),axis=0)
+    FID_blurred = multiply(FID,np.exp(-t*(gamma+t*sigma**2/2)))
     return FID_blurred
 
 
@@ -392,7 +419,7 @@ def create_peak(mrs,ppm,gamma=0,sigma=0):
     
     return x
 
-def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2)):
+def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2),shift=True):
     """
        Extracts spectral interval
     
@@ -404,8 +431,8 @@ def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2)):
     Returns:
        array-like
     """
-    spec        = np.fft.fft(FID,axis=0)
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+    spec        = FIDToSpec(FID)
+    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim,shift=shift)
     spec        = spec[first:last]
     
     return spec

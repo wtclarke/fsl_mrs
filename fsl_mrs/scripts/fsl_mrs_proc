@@ -56,13 +56,27 @@ def main():
     hlsvdparser.add_argument('--ppm',help='ppm limits of removal window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default = [4.5,4.8])
     hlsvdparser.set_defaults(func=remove)
 
-    # tshift subcommand - shift/truncate/resample in timedomain
-    tshiftparser = sp.add_parser('tshift',help='shift/truncate/resample in timedomain.') 
+    # tshift subcommand - shift/resample in timedomain
+    tshiftparser = sp.add_parser('tshift',help='shift/resample in timedomain.') 
     tshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
     tshiftparser.add_argument('--tshiftStart',help='Time shift at start (ms), negative pads with zeros, positive truncates',type=float,default = 0.0)
     tshiftparser.add_argument('--tshiftEnd',help='Time shift at end (ms), negative truncates, positive pads with zeros',type=float,default = 0.0)
     tshiftparser.add_argument('--samples',help='Resample to N points in FID.',type=int)
     tshiftparser.set_defaults(func=tshift)
+
+    # truncate
+    truncateparser = sp.add_parser('truncate',help='truncate by integer points in timedomain.') 
+    truncateparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    truncateparser.add_argument('--points',help='Points to add/remove (+/-)',type=int,default = 0)
+    truncateparser.add_argument('--pos',help=' ''first'' or ''last'' (default)',type=str,default = 'last')
+    truncateparser.set_defaults(func=truncate)
+
+    # apodize
+    apodparser = sp.add_parser('apodize',help='Apodize FID.') 
+    apodparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    apodparser.add_argument('--filter',help='Filter choice, either ''exp'' (default) or ''l2g''.',type=str,default = 'exp')
+    apodparser.add_argument('--amount',help='Amount of broadening. In Hz for exp mode. Use space separated list for l2g.',type=float,nargs='+')
+    apodparser.set_defaults(func=apodize)
 
     # fshift subcommand - shift in frequency domain
     fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.') 
@@ -256,14 +270,41 @@ def remove(dataobj,args):
 def tshift(dataobj,args):
     dataout = []
     for d in dataobj:
-        shifted = preproc.timeshift(d.data,
+        shifted,newDT = preproc.timeshift(d.data,
                                     d.dataheader['dwelltime'],
                                     args['tshiftStart'],
                                     args['tshiftEnd'],
                                     args['samples'])
+        d.dataheader['dwelltime'] = newDT
+        d.dataheader['bandwidth'] = 1/newDT
         dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
 
     return dataout
+
+def truncate(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        if args['points']>0:
+            newFID = preproc.pad(d.data,args['points'],args['pos'])
+        elif args['points']<0:
+            newFID = preproc.truncate(d.data,args['points'],args['pos'])
+        else:
+            newFID = d.data
+        
+        dataout.append(preproc.datacontainer(newFID,d.dataheader,d.datafilename))
+    return dataout
+
+def apodize(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        broadended = preproc.apodize(d.data,
+                            d.dataheader['dwelltime'],
+                            args['amount'],
+                            filter= args['filter'])
+        dataout.append(preproc.datacontainer(broadended,d.dataheader,d.datafilename))
+
+    return dataout
+
 
 def fshift(dataobj,args):
     dataout = []
