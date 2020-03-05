@@ -42,6 +42,7 @@ def main():
     alignparser = sp.add_parser('align',help='Average FIDs.')
     alignparser.add_argument('--file',help='FIDs to align',type=str, nargs='+',required=True)
     alignparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>')
+    alignparser.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
     alignparser.set_defaults(func=align)
 
     # ECC subcommand - eddy current correction
@@ -83,6 +84,22 @@ def main():
     fshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
     fshiftparser.add_argument('--shiftppm',help='Shift (ppm scale)',type=float)
     fshiftparser.add_argument('--shifthz',help='Shift (Hz scale)',type=float)
+    fshiftparser.set_defaults(func=fshift)
+
+    # unlike subcomand - find FIDs that are unlike
+    unlikeparser = sp.add_parser('unlike',help='Identify unlike FIDs.') 
+    unlikeparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    unlikeparser.add_argument('--sd',help='Exclusion limit (# of SD from mean,default=1.96)',type=float,default=1.96)
+    unlikeparser.add_argument('--iter',help='Iterations of algorithm.',type=int,default=2)
+    unlikeparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=None)
+    unlikeparser.add_argument('--outputBad',help='Output failed FIDs',action="store_true")
+    unlikeparser.set_defaults(func=unlike)
+
+    # Phasing - based on maximum point in range
+    phaseparser = sp.add_parser('phase',help='Phase spectrum based on maximum point in range') 
+    phaseparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    phaseparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
+    phaseparser.set_defaults(func=phase)
 
     # Arguments not assiciated with subcommands
     required     = p.add_argument_group('required arguments')
@@ -122,8 +139,18 @@ def main():
     dataList = loadData(datafiles,refdatafiles=reffiles,conjugate=args.conjugate,cf=args.central_frequency,dt=args.dwell_time)
     # Call function - pass dict like view of args for compatibility with other modules
     dataout = args.func(dataList,vars(args))
+    if isinstance(dataout,tuple):
+        additionalOutputs = dataout[1:]
+        dataout = dataout[0]
+    else:
+        additionalOutputs = None
+
     # Write data
     writeData(dataout,args)
+
+    # Output any additional arguments
+    if additionalOutputs is not None:
+        print(additionalOutputs)
     
 # ######################################################
 # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
@@ -241,9 +268,9 @@ def average(dataobj,args):
 def align(dataobj,args):
     FIDlist = [d.data for d in dataobj]
     bandwidth = dataobj[0].dataheader['bandwidth']
-    centralFrequency = dataobj[0].dataheader['centralFrequency']
+    centralFrequency = dataobj[0].dataheader['centralFrequency']*1E6
 
-    alignedFIDS = preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False)
+    alignedFIDS = preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False,target=dataobj[0].reference)
 
     dataout = []
     for f,d in zip(alignedFIDS,dataobj):
@@ -285,9 +312,9 @@ def truncate(dataobj,args):
     dataout = []
     for d in dataobj:
         if args['points']>0:
-            newFID = preproc.pad(d.data,args['points'],args['pos'])
+            newFID = preproc.pad(d.data,np.abs(args['points']),args['pos'])
         elif args['points']<0:
-            newFID = preproc.truncate(d.data,args['points'],args['pos'])
+            newFID = preproc.truncate(d.data,np.abs(args['points']),args['pos'])
         else:
             newFID = d.data
         
@@ -322,6 +349,34 @@ def fshift(dataobj,args):
         dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
 
     return dataout
+
+def unlike(dataobj,args):
+    FIDlist = [d.data for d in dataobj]
+    bandwidth = dataobj[0].dataheader['bandwidth']
+    centralFrequency = dataobj[0].dataheader['centralFrequency']
+
+    goodFIDs,badFIDs,gIndicies,bIndicies,metric = preproc.identifyUnlikeFIDs(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],sdlimit = args['sd'],iterations=args['iter'],shift=True)
+
+    dataout = []
+    for f,iDx in zip(goodFIDs,gIndicies):
+        dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename))
+
+    if args['outputBad']:
+        for f,iDx in zip(badFIDs,bIndicies):
+            dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename+'_FAIL'))
+
+    return dataout
+
+def phase(dataobj,args):
+    dataout = []
+    for d in dataobj:
+        phased = preproc.phaseCorrect(d.data,
+                            d.dataheader['bandwidth'],
+                            d.dataheader['centralFrequency']*1E6,
+                            ppmlim = args['ppm'])
+        dataout.append(preproc.datacontainer(phased,d.dataheader,d.datafilename))
+    return dataout
+
 
 if __name__ == '__main__':
     main()

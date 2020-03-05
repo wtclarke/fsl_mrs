@@ -51,7 +51,13 @@ def saveNIFTI(datafile,data,header,affine=None):
     else:
         affineToUse = header['nifti'].affine
     
-    img = nib.Nifti1Image(data,affine=affineToUse)
+    if data.ndim == 1:
+       data = data.reshape((1,1,1,data.size))     
+
+    img = nib.Nifti2Image(data,affine=affineToUse)
+
+    # insert the correct dwell time into the nifti file, it will then plot in fsleyes with the correct faxis
+    img.header['pixdim'][4] = header['dwelltime']
     nib.save(img,datafile)
 
     if 'json' in header:

@@ -250,11 +250,16 @@ def plot_spectrum(FID,bandwidth,centralFrequency,ppmlim=(0.0,4.5),proj='real',c=
     
     # Create the figure
     #plt.figure(figsize=(7,7))
-    xticks = np.linspace(ppmlim[0],ppmlim[1],10)
+    # Some nicer x ticks on the plots
+    if np.abs(ppmlim[1]-ppmlim[0])>2:
+        xticks = np.arange(np.ceil(ppmlim[0]),np.floor(ppmlim[1])+0.1,1.0)
+    else:
+        xticks = np.arange(np.around(ppmlim[0],1),np.around(ppmlim[1],1)+0.01,0.1)
+
     exec("doPlot(np.{}(data),c='{}'      ,linewidth=2,xticks=xticks)".format(proj,c))
     
     plt.tight_layout()
-    
+    plt.show()
     return plt.gcf()
     
 
@@ -273,6 +278,7 @@ def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=No
     plt.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
     plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
 
+    plt.autoscale(enable=True, axis='y', tight=True)
     
     avg=0
     for FID in FIDlist:
@@ -285,9 +291,35 @@ def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=No
     if plot_avg:
         avg /= len(FIDlist)
         plt.plot(ppmAxisShift,avg,color='g',linewidth=2,linestyle='-')
-        
+    
+    autoscale_y(plt.gca(),margin=0.05)
+    
     return plt.gcf()
-        
+
+def autoscale_y(ax,margin=0.1):
+    """This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
+    ax -- a matplotlib axes object
+    margin -- the fraction of the total height of the y-data to pad the upper and lower ylims"""
+
+    def get_bottom_top(line):
+            xd = line.get_xdata()
+            yd = line.get_ydata()
+            hi,lo = ax.get_xlim() # Reversed 
+            y_displayed = yd[((xd>lo) & (xd<hi))]
+            h = np.max(y_displayed) - np.min(y_displayed)
+            bot = np.min(y_displayed)-margin*h
+            top = np.max(y_displayed)+margin*h
+            return bot,top
+
+    lines = ax.get_lines()
+    bot,top = np.inf, -np.inf
+
+    for line in lines:
+        new_bot, new_top = get_bottom_top(line)
+        if new_bot < bot: bot = new_bot
+        if new_top > top: top = new_top
+
+    ax.set_ylim(bot,top)        
         
 def plot_fit_pretty(mrs,pred=None,ppmlim=(0.40,4.2),proj='real'):
     """

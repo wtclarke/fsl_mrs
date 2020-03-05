@@ -101,7 +101,7 @@ def apodize(FID,dwelltime,broadening,filter='exp'):
     Returns:
         FID (ndarray): Apodised FID
     """
-    taxis = np.linspace(0,dwelltime*FID.size,FID.size)
+    taxis = np.linspace(0,dwelltime*(FID.size-1),FID.size)
     if filter=='exp':
         Tl = 1/broadening[0]
         window = np.exp(-taxis/Tl)
@@ -151,7 +151,7 @@ def align_FID(mrs,src_FID,tgt_FID,ppmlim=None,shift=True):
 
 def get_target_FID(FIDlist,target='mean'):
     """
-    target can be 'mean' or 'first' or 'nearest_to_mean'
+    target can be 'mean' or 'first' or 'nearest_to_mean' or 'median'
     """
     if target == 'mean':
         return sum(FIDlist) / len(FIDlist)
@@ -161,11 +161,13 @@ def get_target_FID(FIDlist,target='mean'):
         avg = sum(FIDlist) / len(FIDlist)
         d   = [np.linalg.norm(fid-avg) for fid in FIDlist]
         return FIDlist[np.argmin(d)].copy()
+    elif target == 'median':
+        return np.median(np.real(np.asarray(FIDlist)),axis=0)+1j*np.median(np.imag(np.asarray(FIDlist)),axis=0)
     else:
         raise(Exception('Unknown target type {}'.format(target)))
 
 
-def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verbose=False,shift=True):
+def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verbose=False,shift=True,target=None):
     """
     Algorithm:
        Average spectra
@@ -184,6 +186,8 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
     ppmlim           : tuple
     niter            : int
     verbose          : bool
+    shift            : apply H20 shift to ppm limit
+    ref              : reference data to align to
     
     Returns:
     --------
@@ -194,7 +198,10 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
     for iter in range(niter):
         if verbose:
             print(' ---- iteration {} ----\n'.format(iter))
-        target = get_target_FID(FIDlist,target='nearest_to_mean')
+
+        if target is None:
+            target = get_target_FID(FIDlist,target='nearest_to_mean')
+
         MRSargs = {'FID':target,'bw':bandwidth,'cf':centralFrequency}
         mrs = MRS(**MRSargs)
         for idx,FID in enumerate(all_FIDs):
@@ -400,7 +407,7 @@ def hlsvd(FID,dwelltime,frequencylimit,numSingularValues=50):
     limitIndicies = (frequencies > frequencylimit[0]) & (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape,dtype=np.complex128)
-    timeAxis = np.arange(dwelltime,dwelltime*(FID.size+1),dwelltime)
+    timeAxis = np.linspace(0,dwelltime*(FID.size-1),FID.size)
 
     for use,f,d,a,p in zip(limitIndicies,frequencies,damping_factors,amplitudes,phases):
         if use:
@@ -448,3 +455,72 @@ def freqshift(FID,dwelltime,shift):
     phaseRamp = 2*np.pi*tAxis*shift
     FID = FID * np.exp(1j*phaseRamp)
     return FID
+
+def identifyUnlikeFIDs(FIDList,bandwidth,centralFrequency,sdlimit = 1.96,iterations=2,ppmlim=None,shift=True):
+    """ Identify FIDs in a list that are unlike the others
+
+    Args:
+        FIDList (list of ndarray): Time domain data
+        bandwidth (float)        : Bandwidth in Hz
+        centralFrequency (float) : Central frequency in Hz
+        sdlimit (float,optional) : Exclusion limit (number of stnadard deviations). Default = 3.
+        iterations (int,optional): Number of iterations to use.
+        ppmlim (tuple,optional)  : Limit to this ppm range
+        shift (bool,optional)    : Apply H20 shft
+
+    Returns:
+        goodFIDS (list of ndarray): FIDs that passed the criteria
+        badFIDS (list of ndarray): FIDs that failed the likeness critera
+        rmIndicies (list of int): Indicies of those FIDs that have been removed
+        metric (list of floats): Likeness metric of each FID
+    """
+
+    # Calculate the FID to compare to
+    target = get_target_FID(FIDList,target='median')
+
+    if ppmlim is not None:
+        MRSargs = {'FID':target,'bw':bandwidth,'cf':centralFrequency}
+        mrs = MRS(**MRSargs)
+        target = misc.extract_spectrum(mrs,target,ppmlim=ppmlim,shift=shift)
+        compareList = [misc.extract_spectrum(mrs,f,ppmlim=ppmlim,shift=shift) for f in FIDList]
+    else:
+        compareList = [misc.FIDToSpec(f) for f in FIDList]
+        target = misc.FIDToSpec(target)
+    
+    # Do the comparison    
+    for idx in range(iterations):
+        metric = []
+        for data in compareList:
+            metric.append(np.linalg.norm(data-target))            
+        metric = np.asarray(metric)
+        metric_avg = np.mean(metric)
+        metric_std = np.std(metric)
+
+        goodFIDs,badFIDs,rmIndicies,keepIndicies = [],[],[],[]
+        for iDx,(data,m) in enumerate(zip(FIDList,metric)):
+            if m > ((sdlimit*metric_std)+metric_avg) or m < (-(sdlimit*metric_std)+metric_avg):
+                badFIDs.append(data)
+                rmIndicies.append(iDx)
+            else:
+                goodFIDs.append(data)
+                keepIndicies.append(iDx)
+
+        target = get_target_FID(goodFIDs,target='median')
+        if ppmlim is not None:
+            target = misc.extract_spectrum(mrs,target,ppmlim=ppmlim,shift=shift)
+        else:
+            target = misc.FIDToSpec(target)
+    
+
+    return goodFIDs,badFIDs,keepIndicies,rmIndicies,metric.tolist()
+
+def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
+    #Find maximum of absolute spectrum in ppm limit
+    MRSargs = {'FID':FID,'bw':bw,'cf':cf}
+    mrs = MRS(**MRSargs)
+    spec = misc.extract_spectrum(mrs,FID,ppmlim=ppmlim,shift=shift)
+
+    maxIndex = np.argmax(np.abs(spec))
+    phaseAngle = np.angle(spec[maxIndex])
+    
+    return FID * np.exp(1j*-phaseAngle)

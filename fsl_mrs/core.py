@@ -30,50 +30,53 @@ class MRS(object):
     """
       MRS Class - container for FID, Basis, and sequence info
     """
-    def __init__(self,FID=None,basis=None,names=None,H2O=None,cf=None,bw=None):
+    def __init__(self,FID=None,header=None,basis=None,names=None,basis_hdr=None,H2O=None,cf=None,bw=None):
         
-        # Read in class input
+        # Read in class data input
         # (now copying the data - looks ugly but better than referencing.
         # now I can run multiple times with different setups)
-        self.FID               = FID.copy()
-        self.basis             = basis
-        if basis is not None:
-            self.basis         = basis.copy()
+        self.set_FID(FID)
         if H2O is not None:
             self.H2O           = H2O.copy()
         else:
             self.H2O           = None
-        self.centralFrequency  = cf     # Hz
-        self.bandwidth         = bw     # Hz
-        self.names             = names
-        if names is not None:
-            self.names         = names.copy()
 
-
-        # Set remaining class attributes
-        self.Spec              = None        
-        self.numPoints         = None
-        self.numBasis          = None
-        
-        # Constants 
-        self.dwellTime         = None   # time between sampling points of FID
-        self.timeAxis          = None   # seconds
-        self.frequencyAxis     = None   # Hz
-        self.ppmAxis           = None   # Chemical shift in ppm
-        self.ppmAxisShift      = None   # Shift from water
-        self.ppmAxisFlip       = None   # flipped axis
-        self.metab_groups      = None
-        self.basis_dwellTime   = None
-        self.basis_bandwidth   = None
-
-        
-        if FID is not None:
-            self.set_FID(FID)
-        if basis is not None:
-            self.numBasis = basis.shape[1]
-            
-        if (cf is not None) and (bw is not None):
+        # Set FID class attributes
+        if header is not None:
+            self.set_acquisition_params(centralFrequency=header['centralFrequency'],bandwidth=header['bandwidth'])
+        elif (cf is not None) and (bw is not None):
             self.set_acquisition_params(centralFrequency=cf,bandwidth=bw)
+        else:
+            raise ValueError('You must pass a header or bandwidth and central frequency.')
+        
+        # Set Basis info
+        if basis is not None:
+            self.basis          = basis.copy()
+            # Assume that there will always be more timepoints than basis spectra.
+            if self.basis.shape[0] < self.basis.shape[1]:
+                self.basis = self.basis.T
+            self.numBasis       = basis.shape[1]
+            self.numBasisPoints = basis.shape[0]
+            
+            if (names is not None) and (basis_hdr is not None):
+                self.names         = names.copy()
+                self.set_acquisition_params_basis(basis_hdr['dwelltime'])
+            else:
+                raise ValueError('Pass basis names and header with basis.')
+
+            # Now interpolate the basis to the same time axis.
+            self.resample_basis()
+
+        else:
+            self.basis         = None
+            self.names         = None
+            self.numBasis      = None
+            self.basis_dwellTime   = None
+            self.basis_bandwidth   = None
+
+        # Other properties
+        self.metab_groups      = None
+        
             
 
     def __str__(self):
@@ -104,7 +107,12 @@ class MRS(object):
           echotime : float (unit=sec)
 
         """
-        self.centralFrequency = centralFrequency 
+        # Assume cf > 1E5, if it isn't assume that user has passed in MHz
+        if centralFrequency<1E5:
+            self.centralFrequency = centralFrequency*1E6
+        else:
+             self.centralFrequency = centralFrequency
+
         self.bandwidth        = bandwidth 
         
         self.dwellTime        = 1/self.bandwidth
@@ -126,9 +134,6 @@ class MRS(object):
         self.frequencyAxis    = self.frequencyAxis[:,None]
         self.ppmAxisShift     = self.ppmAxisShift[:,None]
 
-        # by default, basis setup like data
-        self.set_acquisition_params_basis(self.dwellTime)
-
 
     def set_acquisition_params_basis(self,dwelltime):
         """
@@ -139,10 +144,10 @@ class MRS(object):
         self.basis_bandwidth     = 1/dwelltime
         self.basis_frequencyAxis = np.linspace(-self.basis_bandwidth/2,
                                                self.basis_bandwidth/2,
-                                               self.numPoints)
+                                               self.numBasisPoints)
         self.basis_timeAxis      = np.linspace(self.basis_dwellTime,
-                                               self.basis_dwellTime*self.numPoints,
-                                               self.numPoints)
+                                               self.basis_dwellTime*self.numBasisPoints,
+                                               self.numBasisPoints)
 
         
     def ppmlim_to_range(self,ppmlim=None,shift=True):
@@ -175,15 +180,15 @@ class MRS(object):
         return int(first),int(last)
 
 
-    def resample_basis(self,dwelltime):
+    def resample_basis(self):
         """
-           Sometimes the basis is simulated using different timings (dwelltime)
+           Usually the basis is simulated using different timings/number of points
            This interpolates the basis to match the FID
         """
         # RESAMPLE BASIS FUNCTION
-        bdt    = dwelltime
-        bbw    = 1/bdt
-        bn     = self.basis.shape[0]
+        bdt    = self.basis_dwellTime
+        bbw    = self.basis_bandwidth
+        bn     = self.numBasisPoints
         
         bt     = np.linspace(bdt,bdt*bn,bn)-bdt
         fidt   = self.timeAxis.flatten()-self.dwellTime
@@ -230,7 +235,7 @@ class MRS(object):
         Conjugate FID and recalculate spectrum
         """
         self.FID  = np.conj(self.FID)
-        self.Spec = np.fft.fft(self.FID)
+        self.Spec = misc.FIDToSpec(self.FID)
 
     def ignore(self,metabs):
         """
@@ -322,7 +327,7 @@ class MRS(object):
         """
         self.FID         = FID.copy()
         self.numPoints   = self.FID.size
-        self.Spec        = np.fft.fft(self.FID)
+        self.Spec        = misc.FIDToSpec(self.FID)
         
                   
     # I/O functions  [NOW OBSOLETE?]
