@@ -28,3 +28,7 @@ def test_FIDToSpec_SpecToFID():
 
     reformedFID = misc.SpecToFID(testspec.T)
     assert np.isclose(reformedFID,testMRSI).all()
+
+    # Odd number of points - guard against fftshift/ifftshift errors
+    testFID,hdr = synth.syntheticFID(amplitude=[1],chemicalshift=[0],phase=[0],damping=[20],points=1025)
+    assert np.isclose(misc.SpecToFID(misc.FIDToSpec(testFID)),testFID).all()

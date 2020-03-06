@@ -72,7 +72,7 @@ def SpecToFID(spec,axis=0):
         x[0] *= 2
         return x
     spec = np.moveaxis(spec,axis,0).copy()
-    x = scaleFID(np.fft.ifft(np.fft.fftshift(spec,axes=0),axis=0)*spec.shape[0])
+    x = scaleFID(np.fft.ifft(np.fft.ifftshift(spec,axes=0),axis=0)*spec.shape[0])
     x = np.moveaxis(x,0,axis)
     return x
 

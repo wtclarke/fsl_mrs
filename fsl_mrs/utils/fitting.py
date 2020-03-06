@@ -143,7 +143,7 @@ def calculate_area(mrs,FID,ppmlim=None):
     """
         Calculate area 
     """
-    Spec = np.fft.fft(FID,axis=0)
+    Spec = FIDToSpec(FID,axis=0)
     if ppmlim is not None:
         first,last = mrs.ppmlim_to_range(ppmlim)
         Spec = Spec[first:last]
@@ -187,13 +187,13 @@ def init_gamma_eps(mrs):
     ppmlim = (.2,4.2)
     first,last = mrs.ppmlim_to_range(ppmlim)
     
-    y = np.fft.fft(mrs.FID)[first:last]
+    y = FIDToSpec(mrs.FID)[first:last]
     #y = np.real(y).flatten() #
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
 
     def modify_basis(mrs,gamma,eps):
         bs = mrs.basis * np.exp(-(gamma+1j*eps)*mrs.timeAxis)        
-        bs = np.fft.fft(bs,axis=0)
+        bs = FIDToSpec(bs,axis=0)
         bs = bs[first:last,:]
         #return np.real(bs) #
         return np.concatenate((np.real(bs),np.imag(bs)),axis=0)
@@ -505,7 +505,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
     # Collect more results
     results.pred_spec = forward(results.params,freq,time,basis,results.base_poly,metab_groups,g)
-    results.pred      = np.fft.ifft(results.pred_spec) # predict FID not Spec
+    results.pred      = SpecToFID(results.pred_spec) # predict FID not Spec
     
     # baseline
     if model == 'lorentzian':
@@ -517,7 +517,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
     baseline = forward(xx,mrs.frequencyAxis,mrs.timeAxis,mrs.basis,
                                 results.base_poly,metab_groups,g)
-    baseline = np.fft.ifft(baseline)
+    baseline = SpecToFID(baseline)
     results.baseline = baseline
     results.B        = b
 
@@ -532,7 +532,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
                                 B,metab_groups,g) - data    
     
     results.mse       = np.mean(np.abs(results.residuals[first:last])**2)
-    results.residuals = np.fft.ifft(results.residuals)
+    results.residuals = SpecToFID(results.residuals)
     
     if results.mcmc_samples is not None:
         results.mcmc_cov = np.ma.cov(results.mcmc_samples.T)
