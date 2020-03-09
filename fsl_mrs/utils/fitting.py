@@ -345,14 +345,15 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
     """
        Should the baseline be complex (twice the number of parameters to fit)?
     """
+
     B = []
-    x = 0*mrs.ppmAxisShift
-    x[first:last] = mrs.ppmAxisShift[first:last]-np.mean(mrs.ppmAxisShift[first:last])
+    x = np.zeros(mrs.numPoints,np.complex) #0*mrs.ppmAxisShift
+    x[first:last] = np.linspace(-1,1,last-first)
     
     for i in range(baseline_order+1):
-        regressor  = x**i           
+        regressor  = x**i
         if i>0:
-            regressor = ztransform(regressor)
+            regressor  = regressor - np.mean(regressor)
         B.append(regressor.flatten())
         B.append(1j*regressor.flatten())
     B = np.asarray(B).T
@@ -362,6 +363,27 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
     
     return B
 
+# OLD ONE - DELETE EVENTUALLY
+# def prepare_baseline_regressor(mrs, baseline_order, first, last):
+#     """
+#        Should the baseline be complex (twice the number of parameters to fit)?
+#     """
+#     B = []
+#     x = 0 * mrs.ppmAxisShift
+#     x[first:last] = mrs.ppmAxisShift[first:last] - np.mean(mrs.ppmAxisShift[first:last])
+
+#     for i in range(baseline_order + 1):
+#         regressor = x ** i
+#         if i > 0:
+#             regressor = ztransform(regressor)
+#         B.append(regressor.flatten())
+#         B.append(1j * regressor.flatten())
+#     B = np.asarray(B).T
+#     tmp = B.copy()
+#     B = 0 * B
+#     B[first:last, :] = tmp[first:last, :].copy()
+
+#     return B
 
 
 def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None,model='lorentzian',x0=None):
@@ -408,11 +430,13 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         x0= init_func(mrs,metab_groups,baseline_order)
         # Update init baseline params
         pred = forward(x0,freq,time,basis,B,metab_groups,g)
-        err  = pred-data
+        err  = data-pred
         br = np.linalg.pinv(np.real(B[:,0::2]))@np.real(err[:,None])
         bi = np.linalg.pinv(np.imag(B[:,1::2]))@np.imag(err[:,None])
-        b0 = np.concatenate((br,bi),axis=1)
-        x0[mrs.numBasis+2*g+2:] = b0.flatten()
+        b0 = np.zeros(B.shape[1])
+        b0[0::2] = br.flatten()
+        b0[1::2] = bi.flatten()
+        x0[mrs.numBasis+2*g+2:] = b0
     
         
     # Fitting
