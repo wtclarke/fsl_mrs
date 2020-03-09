@@ -186,18 +186,20 @@ class MRS(object):
            This interpolates the basis to match the FID
         """
         # RESAMPLE BASIS FUNCTION
-        bdt    = self.basis_dwellTime
-        bbw    = self.basis_bandwidth
-        bn     = self.numBasisPoints
+        # bdt    = self.basis_dwellTime
+        # bbw    = self.basis_bandwidth
+        # bn     = self.numBasisPoints
         
-        bt     = np.linspace(bdt,bdt*bn,bn)-bdt
-        fidt   = self.timeAxis.flatten()-self.dwellTime
+        # bt     = np.linspace(bdt,bdt*bn,bn)-bdt
+        # fidt   = self.timeAxis.flatten()-self.dwellTime
         
-        f      = interp1d(bt,self.basis,axis=0)
-        newiFB = f(fidt)
+        # f      = interp1d(bt,self.basis,axis=0)
+        # newiFB = f(fidt)       
         
-        self.basis = newiFB
-        
+        self.basis = misc.ts_to_ts(self.basis,self.basis_dwellTime,self.dwellTime,self.numPoints)
+        self.basis_dwellTime = self.dwellTime
+        self.basis_bandwidth = 1/self.dwellTime
+        self.numBasisPoints = self.numPoints
 
         
     # Helper functions
@@ -217,12 +219,12 @@ class MRS(object):
 
         """
         first,last = self.ppmlim_to_range(ppmlim)
-        Spec1 = np.real(np.fft.fft(self.FID))[first:last]
-        Spec2 = np.real(np.fft.fft(np.conj(self.FID)))[first:last]
+        Spec1 = np.real(misc.FIDToSpec(self.FID))[first:last]
+        Spec2 = np.real(misc.FIDToSpec(np.conj(self.FID)))[first:last]
         
         if np.linalg.norm(misc.detrend(Spec1,deg=4)) < np.linalg.norm(misc.detrend(Spec2,deg=4)):
             if repare is False:
-                warnings.warn('YOU MAY NEED TO CONJUGATE YOU FID!!!')
+                warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
                 return -1
             else:
                 self.conj_FID()
@@ -236,6 +238,46 @@ class MRS(object):
         """
         self.FID  = np.conj(self.FID)
         self.Spec = misc.FIDToSpec(self.FID)
+
+    def check_Basis(self,ppmlim=(.2,4.2),repare=False):
+        """
+           Check if Basis needs to be conjugated
+           by looking at total power within ppmlim range
+
+        Parameters
+        ----------
+        ppmlim : list
+        repare : if True applies conjugation to basis
+
+        Returns
+        -------
+        0 if check successful and -1 if not (also issues warning)
+
+        """
+        first,last = self.ppmlim_to_range(ppmlim)
+
+        conjOrNot = []
+        for b in self.basis.T:
+            Spec1 = np.real(misc.FIDToSpec(b))[first:last]
+            Spec2 = np.real(misc.FIDToSpec(np.conj(b)))[first:last]            
+            if np.linalg.norm(misc.detrend(Spec1,deg=4)) < np.linalg.norm(misc.detrend(Spec2,deg=4)):
+                conjOrNot.append(1.0)
+
+        if (sum(conjOrNot)/len(conjOrNot))>0.5:
+            if repare is False:
+                warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
+                return -1
+            else:
+                self.conj_Basis()
+                return 1
+            
+        return 0
+
+    def conj_Basis(self):
+        """
+        Conjugate FID and recalculate spectrum
+        """
+        self.basis  = np.conj(self.basis)
 
     def ignore(self,metabs):
         """

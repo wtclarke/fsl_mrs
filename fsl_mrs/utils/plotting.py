@@ -17,7 +17,7 @@ import nibabel as nib
 import scipy.ndimage as ndimage
 import itertools as it
 
-from fsl_mrs.utils.misc import hz2ppm,FIDToSpec
+from fsl_mrs.utils.misc import hz2ppm,FIDToSpec,SpecToFID
 
 def FID2Spec(x):
     """
@@ -143,7 +143,7 @@ def plot_fit_new(mrs,ppmlim=(0.40,4.2)):
     """
     axis   = np.flipud(mrs.ppmAxisFlip)
     spec   = np.flipud(np.fft.fftshift(mrs.Spec))
-    pred   = np.fft.fft(mrs.pred)
+    pred   = FIDToSpec(mrs.pred)
     pred   = np.flipud(np.fft.fftshift(pred))
 
     if mrs.baseline is not None:
@@ -378,11 +378,13 @@ def plot_fit_pretty(mrs,pred=None,ppmlim=(0.40,4.2),proj='real'):
 
     return fig
 
+# plotly imports
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.figure_factory as ff
+from plotly.subplots import make_subplots  
 
-
-
-
-def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
+def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
     """
          plot model fitting plus baseline
         
@@ -390,6 +392,8 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
          mrs    : MRS object
          res    : ResFit Object
          ppmlim : tuple
+         metabs : list of metabolite to include in pred
+         phs    : display phasing in degrees and seconds
 
     Returns
          fig
@@ -405,20 +409,40 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
             return np.abs(x)
 
     # Prepare the data
+    base   = FID2Spec(res.baseline)
     axis   = np.flipud(mrs.ppmAxisFlip)
-    data   = project(FID2Spec(mrs.FID),proj)
-    pred   = project(FID2Spec(res.pred),proj)
-    base   = project(FID2Spec(res.baseline),proj)
-    resid  = project(FID2Spec(res.residuals),proj)
+    data   = FID2Spec(mrs.FID)
+
+    if metabs is not None:
+        preds = []
+        for m in metabs:
+            preds.append(FID2Spec(pred(mrs,res,m,add_baseline=False)))    
+        preds = sum(preds)
+        preds += FID2Spec(res.baseline)
+        resid = data-preds
+    else:
+        preds   = FID2Spec(res.pred)
+        resid  = FID2Spec(res.residuals)
+
+    # phasing
+    faxis = np.squeeze(mrs.frequencyAxis) 
+    phaseTerm = np.exp(1j*(phs[0]*np.pi/180)) * np.exp(1j*2*np.pi*phs[1]*faxis)
+
+    base    *= phaseTerm
+    data    *= phaseTerm
+    preds   *= phaseTerm
+    resid   *= phaseTerm
+
+    base   = project(base,proj)
+    data   = project(data,proj)
+    preds   = project(preds,proj)
+    resid   = project(resid,proj)
 
     # y-axis range
     ymin = np.min(data)-np.min(data)/10
     ymax = np.max(data)-np.max(data)/30
 
     # Build the plot
-    import plotly.graph_objects as go
-    import plotly.figure_factory as ff
-    import pandas as pd
 
     # Table
 
@@ -426,7 +450,12 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
     df['Metab']          = mrs.names
     df['mMol/kg']        = np.round(res.conc_h2o,decimals=2)
     df['%CRLB']          = np.round(res.perc_SD[:mrs.numBasis],decimals=1)
-    df['/Cr']            = np.round(res.conc_cr,decimals=2)
+    if res.conc_cr_pcr is not None:
+        df['/tCr']            = np.round(res.conc_cr_pcr,decimals=2)
+    elif res.conc_cr is not None:
+        df['/Cr']            = np.round(res.conc_cr,decimals=2)
+    else:
+        df['unscaled']  = np.round(res.conc,decimals=2)
 
 
     fig = ff.create_table(df, height_constant=50)
@@ -446,7 +475,7 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
                         name='data',
                         line=dict(color=colors['data'],width=line_size['data']),
                         xaxis='x2', yaxis='y2')
-    trace2 = go.Scatter(x=axis, y=pred,
+    trace2 = go.Scatter(x=axis, y=preds,
                         mode='lines',
                         name='model',
                         line=dict(color=colors['pred'],width=line_size['pred']),
@@ -490,8 +519,6 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real'):
 
 
 def plot_dist_approx(mrs,res,refname='Cr'):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
 
     n = int(np.ceil(np.sqrt(mrs.numBasis)))
     fig = make_subplots(rows=n, cols=n,subplot_titles=mrs.names)
@@ -520,8 +547,6 @@ def plot_dist_approx(mrs,res,refname='Cr'):
 
 
 def plot_mcmc_corr(mrs,res):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
 
     #Greys,YlGnBu,Greens,YlOrRd,Bluered,RdBu,Reds,Blues,
     #Picnic,Rainbow,Portland,Jet,Hot,Blackbody,Earth,
@@ -530,6 +555,8 @@ def plot_mcmc_corr(mrs,res):
     fig = go.Figure()
     corr = np.ma.corrcoef(res.mcmc_samples.T)
     np.fill_diagonal(corr,np.nan)
+    corrabs = np.abs(corr)
+
     fig.add_trace(go.Heatmap(z=corr,
                      x=mrs.names,y=mrs.names,colorscale='Picnic'))
     
@@ -541,7 +568,31 @@ def plot_mcmc_corr(mrs,res):
                       yaxis = dict(
                           scaleanchor = "x",
                           scaleratio = 1,
-                        ))
+                        ),
+                        updatemenus=[
+                        dict(
+                            type = "buttons",
+                            direction = "left",
+                            buttons=list([
+                                dict(
+                                    args=[{"z":[corr],"colorscale":'Picnic'}],
+                                    label="Real",
+                                    method="restyle"
+                                ),
+                                dict(
+                                    args=[{"z":[corrabs],"colorscale":'Reds'}],
+                                    label="Abs",
+                                    method="restyle"
+                                )
+                            ]),
+                            pad={"r": 10, "t": 10},
+                            showactive=True,
+                            x=0.11,
+                            xanchor="left",
+                            y=1.1,
+                            yanchor="top"
+                        ),
+                    ])
     
     return fig
 
@@ -576,7 +627,6 @@ def plot_dist_mcmc(mrs,res,refname='Cr'):
     
     return fig
 
-
 def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
     """
          plot model fitting plus baseline
@@ -609,9 +659,6 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
 
 
     # Build the plot
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-
     fig = make_subplots(rows=1, cols=2,subplot_titles=['Real','Imag'])
     
 
@@ -666,12 +713,12 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
 #     fig.layout.margin.update({'t':50, 'b':100})
     fig.layout.update({'title': 'Fitting summary Real/Imag'})
     fig.update_layout(template = 'plotly_white')
-    fig.layout.update({'height':800,'width':1000})
+    # fig.layout.update({'height':800,'width':1000})
     
     return fig
 
 
-def pred(mrs,res,metab):
+def pred(mrs,res,metab,add_baseline=True):
     from fsl_mrs.utils import models
 
     if res.model == 'lorentzian':
@@ -694,16 +741,59 @@ def pred(mrs,res,metab):
     else:
         raise Exception('Unknown model.')
   
-    pred = forward(x,mrs.frequencyAxis,
-                            mrs.timeAxis,
-                            mrs.basis,res.base_poly,res.metab_groups,res.g)
-    pred = np.fft.ifft(pred) # predict FID not Spec
+    if add_baseline:
+        pred = forward(x,mrs.frequencyAxis,
+                                mrs.timeAxis,
+                                mrs.basis,res.base_poly,res.metab_groups,res.g)
+    else:
+        pred = forward(x,mrs.frequencyAxis,
+                                mrs.timeAxis,
+                                mrs.basis,np.zeros(res.base_poly.shape),res.metab_groups,res.g)
+    pred = SpecToFID(pred) # predict FID not Spec
     return pred
 
-def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
+
+def plot_indiv_stacked(mrs,res,ppmlim=(.2,4.2)):
     
+    colors = dict(data='rgb(67,67,67)', 
+                  indiv='rgb(253,59,59)')
+    line_size = dict(data=.5, 
+                     indiv=2)
+    fig = go.Figure()
+    axis        = np.flipud(mrs.ppmAxisFlip)
+    y_data  = np.real(FID2Spec(mrs.FID))
+    trace1 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color=colors['data'],width=line_size['data']))
+    fig.add_trace(trace1)
+
+    for i,metab in enumerate(mrs.names):
+        y_fit   = np.real(FID2Spec(pred(mrs,res,metab)))
+        trace2 = go.Scatter(x=axis, y=y_fit,
+                        mode='lines',
+                        name=metab,
+                        line=dict(color=colors['indiv'],width=line_size['indiv']))
+        fig.add_trace(trace2)
+
+    fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                                tick0=2, dtick=.5,
+                                range=[ppmlim[1],ppmlim[0]])
+    fig.layout.yaxis.update(zeroline=True, 
+                                zerolinewidth=1, 
+                                zerolinecolor='Gray',
+                                showgrid=False,showticklabels=False)
+
+    # Update the margins to add a title and see graph x-labels.
+    #     fig.layout.margin.update({'t':50, 'b':100})
+    fig.layout.update({'title': 'Individual Fitting summary'})
+    fig.update_layout(template = 'plotly_white')
+    # fig.layout.update({'height':800,'width':1000})
+
+    return fig
+
+def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
+
     colors = dict(data='rgb(67,67,67)', 
                   pred='rgb(253,59,59)')
     line_size = dict(data=.5, 
@@ -751,11 +841,7 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
                     showgrid=False,showticklabels=False)
     return fig
 
-# def plot_table_extra(mrs,res):
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots    
-import pandas as pd
-
+# def plot_table_extra(mrs,res): 
 def plot_table_qc(mrs,res):
     # QC measures
     header=["S/N","Static phase (deg)", "Linear phase (deg/ppm)"]

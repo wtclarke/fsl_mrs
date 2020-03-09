@@ -38,11 +38,11 @@ def main():
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True,type=str,metavar='<str>.RAW',
+                          required=True,type=str,metavar='<str>',
                           help='input FID file')
     required.add_argument('--basis',
                           required=True,type=str,metavar='<str>',
-                          help='.BASIS file or folder containing basis spectra (will read all .RAW files within)')
+                          help='.BASIS file or folder containing basis spectra (will read all files within)')
     required.add_argument('--output',
                           required=True,type=str,metavar='<str>',
                           help='output folder')
@@ -62,8 +62,8 @@ def main():
                    help='input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
                    help='order of baseline polynomial (default=2)')
-    fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=int,
-                              help="metabolite groups")
+    fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=str_or_int_arg,
+                              help="metabolite groups: list of groups or list of names for indept groups.")
     fitting_args.add_argument('--add_MM',type=bool,
                               help="include default macromolecule peaks")
 
@@ -83,6 +83,11 @@ def main():
                           help='do phase correction')
     optional.add_argument('--overwrite',action="store_true",
                           help='overwrite existing output folder')
+    optional.add_argument('--conj_fid',dest='conjfid',action="store_true",help='Force conjugation of FID')
+    optional.add_argument('--no_conj_fid',dest='conjfid',action="store_false",help='Forbid automatic conjugation of FID')
+    optional.add_argument('--conj_basis',dest='conjbasis',action="store_true",help='Force conjugation of basis')
+    optional.add_argument('--no_conj_basis',dest='conjbasis',action="store_false",help='Forbid automatic conjugation of basis')
+    optional.set_defaults(conjfid=None,conjbasis=None)
     optional.add('--config', required=False, is_config_file=True, help='configuration file')
 
 
@@ -152,19 +157,14 @@ def main():
         H2O,_                 = mrs_io.read_FID(args.h2o)
     else:
         H2O = None
-
-    # Squeeze the data/h2o (e.g. if from NIFTI single voxel)
-    FID = np.squeeze(FID)
-    if H2O is not None:
-        H2O = np.squeeze(H2O)
-        
+      
     # Collect useful info
     if args.central_frequency is not None:
         cf = args.central_frequency
     elif dataheader['centralFrequency'] is not None:
         cf = dataheader['centralFrequency']
         if args.verbose:
-            print('      Detected central frequency in header info cf = {} MHz'.format(cf*1E-6))
+            print(f'      Detected central frequency in header info cf = {cf:0.6f} MHz')
     else:
         raise(Exception('Cannot determine central frequency. Please either set it or include it in data header'))
 
@@ -173,35 +173,39 @@ def main():
     elif dataheader['bandwidth'] is not None:
         bw = dataheader['bandwidth']
         if args.verbose:
-            print('      Detected bandwidth in header info bw = {} Hz'.format(bw))
+            print(f'      Detected bandwidth in header info bw = {bw:0.1f} Hz')
     else:
         raise(Exception('Cannot determine bandwidth. Please either set it or include it in data header'))
-
         
-    # Resample basis?
-    if basisheader is not None:
-        if bw != basisheader['bandwidth']:
-            dwell     = 1/basisheader['bandwidth']
-            new_dwell = 1/bw
-            basis     = misc.resample_ts(basis,dwell,new_dwell)
-
-
     # Instantiate MRS object
-    MRSargs = {'FID':FID,'basis':basis,'names':names,'H2O':H2O,'cf':cf,'bw':bw}
+    MRSargs = {'FID':FID,'basis':basis,'basis_hdr':basisheader[0],'names':names,'H2O':H2O,'cf':cf,'bw':bw}
     mrs     = MRS(**MRSargs)
     
-    # Check the FID
-    conjugated = mrs.check_FID(repare=True)
-    if args.verbose:
-        if conjugated == 1:
-            raise(Warning('Warning :: FID has been checked and conjugated. Please check!'))
+    # Check the FID and basis / conjugate
+    if args.conjfid is not None:
+        if args.conjfid:
+            mrs.conj_FID()
+    else:
+        conjugated = mrs.check_FID(repare=True)
+        if args.verbose:
+            if conjugated == 1:
+                warnings.warn('FID has been checked and conjugated. Please check!',UserWarning)
+
+    if args.conjbasis is not None:
+        if args.conjbasis:
+            mrs.conj_Basis()
+    else:
+        conjugated = mrs.check_Basis(repare=True)
+        if args.verbose:
+            if conjugated == 1:
+                warnings.warn('Basis has been checked and conjugated. Please check!',UserWarning)
 
     # Do phase correction
     if args.phase_correct:
         if args.verbose:
             print('--->>  Phase correction\n')
         mrs.FID  = misc.phase_correct(mrs,mrs.FID)
-        mrs.Spec = np.fft.fft(mrs.FID)
+        mrs.Spec = misc.FIDToSpec(mrs.FID)
               
         
     # Keep/Ignore/Combine metabolites
@@ -227,10 +231,19 @@ def main():
 
     # Parse metabolite groups
     metab_groups = args.metab_groups
-    if metab_groups == 0:
-        metab_groups = [0]*mrs.numBasis
-    if len(metab_groups) != mrs.numBasis:
-        raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
+    if isinstance(metab_groups,list):
+        if isinstance(metab_groups[0],str):
+            tmp = [0]*mrs.numBasis
+            grpcounter = 0
+            for n in metab_groups:
+                grpcounter += 1
+                tmp[mrs.names.index(n)] = grpcounter
+            metab_groups = tmp
+        elif isinstance(metab_groups[0],int):
+            if metab_groups == [0]:
+                metab_groups = [0]*mrs.numBasis
+            elif len(metab_groups) != mrs.numBasis:
+                raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
 
     # Include Macromolecules? These should have their own metab groups
     if args.add_MM is not None:
@@ -300,6 +313,11 @@ def main():
     if args.verbose:
         print('\n\n\nDone.')
 
+def str_or_int_arg(x):    
+    try:                           
+        return int(x)
+    except:
+        return x
         
 if __name__ == '__main__':
     main()
