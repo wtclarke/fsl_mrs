@@ -45,13 +45,14 @@ def check_datatype(filename):
     else:
         return 'NIFTI'
 
-def read_FID(filename):
+def read_FID(filename,squeezeSVS=True):
     """
      Read FID file. Tries to detect type automatically
 
      Parameters
      ----------
      filename : str
+     squeezeSVS : optional , bool Remove signleton dimensions in nifti load of svs
 
      Returns:
      --------
@@ -62,7 +63,7 @@ def read_FID(filename):
     if data_type == 'RAW':
         data,header = lcm.readLCModelRaw(filename)
     elif data_type == 'NIFTI':
-        data,header = fsl.readNIFTI(filename)
+        data,header = fsl.readNIFTI(filename,squeezeSVS=squeezeSVS)
     elif data_type == 'TXT':
         data,header = jmrui.readjMRUItxt(filename)
     else:

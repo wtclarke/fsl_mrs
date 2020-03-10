@@ -50,7 +50,10 @@ def syntheticFID(coilamps = [1.0],
                 'taxis':taxis,
                 'faxis':freqAxis,
                 'ppmaxis':ppmaxis,
-                'inputopts':inputs
+                'inputopts':inputs,
+                'centralFrequency':centralfrequency,
+                'bandwidth':bandwidth,
+                'dwelltime':1/bandwidth
                 }
     
     return FIDs,headers 

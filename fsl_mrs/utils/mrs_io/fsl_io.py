@@ -46,7 +46,7 @@ def readNIFTI(datafile,squeezeSVS=True):
 def saveNIFTI(datafile,data,header,affine=None):
     if 'nifti' not in header and affine is None:
         raise ValueError('To save a nifti file the header must contain a nifti field or an affine must be specifed')
-    if affine:
+    if affine is not None:
         affineToUse = affine
     else:
         affineToUse = header['nifti'].affine
@@ -62,7 +62,10 @@ def saveNIFTI(datafile,data,header,affine=None):
 
     if 'json' in header:
         writeJSONSidecar(datafile,header['json'])
-
+    elif ('centralFrequency' in header) and (header['centralFrequency'] is not None): # Store the essential parameters
+        jsonheader ={'ImagingFrequency':header['centralFrequency'],
+                     'Dwelltime':header['dwelltime']}
+        writeJSONSidecar(datafile,jsonheader)
     return
 
 # JSON sidecar I/O

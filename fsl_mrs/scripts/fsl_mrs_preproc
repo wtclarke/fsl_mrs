@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# fsl_mrs_preproc - wrapper script for MRS preprocessing
+# fsl_mrs_preproc - wrapper script for single voxel MRS preprocessing
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -23,7 +23,7 @@ import os
 
 def main():
     # Parse command-line arguments
-    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Complete Preprocessing")
+    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Complete non-edited SVS Preprocessing")
 
     p.add_argument('-v','--version', action='version', version=__version__)
 
