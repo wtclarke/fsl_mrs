@@ -91,4 +91,39 @@ def read_txtBasis_files(txtfiles):
 
 # Write functions
 def writejMRUItxt(fileout,FID,paramDict):
-    pass
+
+    if isinstance(FID,list):
+        numFIDs = len(FID)
+    else:
+        numFIDs = 1
+        FID = [FID]
+
+    samplingint = paramDict['dwelltime']*1E3
+    cf = paramDict['centralFrequency']*1E6
+    with open(fileout,'w') as txtfile:
+        txtfile.write('jMRUI Data Textfile\n')
+        txtfile.write('\n')
+        txtfile.write(f'Filename: {op.basename(fileout)}\n')
+        txtfile.write('\n')
+        txtfile.write(f'PointsInDataset: {FID[0].shape[0]}\n')
+        txtfile.write(f'DatasetsInFile: {numFIDs}\n')
+        txtfile.write(f'SamplingInterval: {samplingint}\n')
+        txtfile.write(f'ZeroOrderPhase: 0E0\n')
+        txtfile.write(f'BeginTime: 0E0\n')
+        txtfile.write(f'TransmitterFrequency: {cf}\n')
+        txtfile.write(f'MagneticField: 0E0\n')
+        txtfile.write(f'TypeOfNucleus: 0E0\n')
+        txtfile.write(f'NameOfPatient: \n')
+        txtfile.write(f'DateOfExperiment: \n')
+        txtfile.write(f'Spectrometer: \n')
+        txtfile.write(f'AdditionalInfo: \n')
+        txtfile.write(f'SignalNames: {op.basename(fileout)}\n')
+        txtfile.write('\n\n')
+        txtfile.write('Signal and FFT\n')
+        txtfile.write('sig(real)	sig(imag)\n')
+        for idx,f in enumerate(FID):
+            txtfile.write(f'Signal {idx} out of {numFIDs} in file\n')
+            for t in f:
+                txtfile.write(f'{np.real(t)}\t{np.imag(t)}\n')
+            txtfile.write('\n')
+            

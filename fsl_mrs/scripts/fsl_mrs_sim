@@ -50,6 +50,9 @@ def main():
     optional.add_argument('-a','--addref',action="store_true",
                             help='Add 0 ppm reference to all outputs')
 
+    optional.add_argument('-p','--autophase',type = float,metavar='<ppm>',
+                            help='Simulate a singlet peak at <ppm> to auto-phase the basis spectra. Relative to reviever central frequency.')
+
     optional.add_argument('--lcmIN',type=str,
                             required=False,metavar='<str>',
                             help='Location to enter into lcm IN file.')
@@ -85,6 +88,7 @@ def main():
     from fsl_mrs.denmatsim import simseq as sim
     from fsl_mrs.denmatsim import utils as simutils
     from fsl_mrs.utils.mrs_io import fsl_io,lcm_io,jmrui_io
+    from fsl_mrs.utils.misc import FIDToSpec
     #from fsl_mrs.utils import mrs_io
     # ######################################################
 
@@ -168,6 +172,31 @@ def main():
                 print(f'{metab}({sysmetab}) not recognised.')
         print(f'Identified spinsystems: {spinsToSim}')
 
+    # Auto phase adjustment
+    # breakpoint()
+    if args.autophase is not None:
+        # Construct a single spin spin system
+        if 'centralShift' in seqParams:
+            apshift = args.autophase+seqParams['centralShift']
+        else:
+            apshift = args.autophase
+        apsystem = {'shifts':np.array([apshift]),
+                    'j':np.array([[0.0]]),
+                    'scaleFactor':1.0}
+        # Simulate it
+        FID,ax,pmat = sim.simseq(apsystem,seqParams)
+
+        # Determine phase adj needed 
+        FID = np.pad(FID,(0,10*8192))
+        apspec = FIDToSpec(FID)
+        maxindex = np.argmax(np.abs(apspec))
+        apPhase = np.angle(apspec[maxindex])
+        print('Auto-phase adjustment.')
+        print(f'Rx_Phase: {seqParams["Rx_Phase"]}')
+        newRx_Phase = seqParams["Rx_Phase"] - apPhase
+        seqParams["Rx_Phase"] = newRx_Phase
+        print(f'Additional phase: {apPhase}\nFinal Rx_Phase: {newRx_Phase}')
+
     if args.addref:
         # Add an extra spin system to the list with a single resonance at 0 ppm
         # Yes, this isn't the most efficent way of doing this, but this is a one 
@@ -181,6 +210,10 @@ def main():
             else:
                 raise ValueError('spinsys[iDx] should either be a dict or list of dicts')
     
+    import multiprocessing as mp
+    from functools import partial
+    global_counter = mp.Value('L')
+
     # Loop over the spin systems (list)
     for iDx,(s,name) in enumerate(zip(spinsys,spinsToSim)):
         print(f'Running simulation on {name} ({iDx+1}/{len(spinsToSim)}).')
@@ -215,22 +248,25 @@ def main():
             fileOut = os.path.join(args.output,name+'.RAW')
             info = {'ID':name,'VOLUME':1.0,'TRAMP':1.0}
             lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
-        elif args.jmrui:
+        if args.jmrui:
             fileOut = os.path.join(args.output,name+'.txt')
-            #jmrui_io.savetxt(fileOut,basisDict)
-        else:
-            # Form results dictionary
-            outputDict = {}
-            outputDict.update({'seq':seqParams})            
-            outputDict.update({'basis':basisDict}) 
-            outputDict.update({'spinSys':sToSave})
-            densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
-            outputDict.update({'outputDensityMatrix':densmatdict})
-            metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
-            outputDict.update({'meta':metaDict})        
-            # Save to json file.
-            fileOut = os.path.join(args.output,name+'.json')
-            fsl_io.writeJSON(fileOut,outputDict)
+            jmruidict = {'dwelltime':1/seqParams['Rx_SW'],
+                         'centralFrequency':ax['centreFreq']}
+            jmrui_io.writejMRUItxt(fileOut,combinedScaledFID,jmruidict)
+
+        # Always output fsl_mrs 
+        # Form results dictionary
+        outputDict = {}
+        outputDict.update({'seq':seqParams})            
+        outputDict.update({'basis':basisDict}) 
+        outputDict.update({'spinSys':sToSave})
+        densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
+        outputDict.update({'outputDensityMatrix':densmatdict})
+        metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+        outputDict.update({'meta':metaDict})        
+        # Save to json file.
+        fileOut = os.path.join(args.output,name+'.json')
+        fsl_io.writeJSON(fileOut,outputDict)
     
     # Additional write steps for MM and LCM baisis generation
     if args.MM is not None:
@@ -243,20 +279,25 @@ def main():
             combinedScaledFID = np.array(MMBasisFID['basis_re'])+1j*np.array(MMBasisFID['basis_im'])
             info = {'ID':'Mac','VOLUME':1.0,'TRAMP':1.0}
             lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
-        elif args.jmrui:
-            fileOut = os.path.join(args.output,name+'.txt')
-            #jmrui_io.savetxt(fileOut,basisDict)
-        else:
-            # Form results dictionary
-            outputDict = {}
-            outputDict.update({'seq':None})            
-            outputDict.update({'basis':MMBasisFID}) 
-            outputDict.update({'MM':True})
-            metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
-            outputDict.update({'meta':metaDict})        
-            # Save to json file.
-            fileOut = os.path.join(args.output,'Mac.json')
-            fsl_io.writeJSON(fileOut,outputDict)
+        if args.jmrui:
+            fileOut = os.path.join(args.output,'Mac.txt')
+            combinedScaledFID = np.array(MMBasisFID['basis_re'])+1j*np.array(MMBasisFID['basis_im'])
+            jmruidict = {'dwelltime':1/seqParams['Rx_SW'],
+                         'centralFrequency':ax['centreFreq']}
+            jmrui_io.writejMRUItxt(fileOut,combinedScaledFID,jmruidict)
+        
+        # Always output fsl_mrs 
+        # Form results dictionary
+        outputDict = {}
+        outputDict.update({'seq':None})            
+        outputDict.update({'basis':MMBasisFID}) 
+        outputDict.update({'MM':True})
+        metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+        outputDict.update({'meta':metaDict})        
+        # Save to json file.
+        fileOut = os.path.join(args.output,'Mac.json')
+        fsl_io.writeJSON(fileOut,outputDict)
+
         # Add MM to list of metabs
         spinsToSim = spinsToSim +['Mac'] 
         
