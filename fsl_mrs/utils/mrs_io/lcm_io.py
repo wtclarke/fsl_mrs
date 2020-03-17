@@ -219,7 +219,7 @@ def saveRAW(filename,FID,info=None,conj=False):
             my_file.write(f'{float(r):16.6E}{float(i):16.6E}\n')
 
 
-def writeLcmInFile(outfile,meabNames,outDir,seqname,basisDict,shift=0.0,echotime = 'Insert echo time in ms here'):
+def writeLcmInFile(outfile,meabNames,outDir,seqname,paramDict,shift=0.0,echotime = 'Insert echo time in ms here'):
     """
       Save a LCModel .IN file (for basis creation)
 
@@ -230,7 +230,7 @@ def writeLcmInFile(outfile,meabNames,outDir,seqname,basisDict,shift=0.0,echotime
       outDir    : string
             Path to location of makebasis call 
       seqname   : string
-      basisDict : dict
+      paramDict : dict
             Stores info[key] = value in header
       shift     : float
             Rx chemical shift to apply to reference
@@ -240,11 +240,11 @@ def writeLcmInFile(outfile,meabNames,outDir,seqname,basisDict,shift=0.0,echotime
     """
     seqPar = {'seq':seqname,
             'echot':echotime,
-            'fwhmba':basisDict['basis_width']/basisDict['basis_centre']}
+            'fwhmba':paramDict['width']/paramDict['centralFrequency']}
         
-    nmall={'hzpppm':basisDict['basis_centre'],
-            'deltat':basisDict['basis_dwell'],
-            'nunfil':len(basisDict['basis_re']),
+    nmall={'hzpppm':paramDict['centralFrequency'],
+            'deltat':paramDict['dwelltime'],
+            'nunfil':paramDict['points'],
             'filbas':os.path.join(outDir,seqname+'.BASIS'),
             'filps':os.path.join(outDir,seqname+'.PS'),
             'autosc':False,

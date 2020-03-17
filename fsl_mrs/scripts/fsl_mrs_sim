@@ -12,6 +12,12 @@
 import argparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
+# Imports required for multi-threading function
+import copy
+import numpy as np
+from fsl_mrs.denmatsim import simseq as sim
+from fsl_mrs.utils.mrs_io import fsl_io,lcm_io,jmrui_io
+import os,datetime
 
 def main():
 
@@ -83,13 +89,9 @@ def main():
     
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY    
-    import os,sys,shutil,datetime,json,copy
-    import numpy as np
-    from fsl_mrs.denmatsim import simseq as sim
+    import sys,shutil,json
     from fsl_mrs.denmatsim import utils as simutils
-    from fsl_mrs.utils.mrs_io import fsl_io,lcm_io,jmrui_io
     from fsl_mrs.utils.misc import FIDToSpec
-    #from fsl_mrs.utils import mrs_io
     # ######################################################
 
     
@@ -201,7 +203,7 @@ def main():
         # Add an extra spin system to the list with a single resonance at 0 ppm
         # Yes, this isn't the most efficent way of doing this, but this is a one 
         # spin system.
-        zeroRefSS = spinSystems['sysRef0ppm']
+        zeroRefSS = {"shifts":[0], "j":[[0]],"scaleFactor":1.0}
         for iDx,s in enumerate(spinsys):
             if isinstance(spinsys[iDx],dict):
                 spinsys[iDx] = [spinsys[iDx],zeroRefSS]
@@ -214,61 +216,13 @@ def main():
     from functools import partial
     global_counter = mp.Value('L')
 
-    # Loop over the spin systems (list)
-    for iDx,(s,name) in enumerate(zip(spinsys,spinsToSim)):
-        print(f'Running simulation on {name} ({iDx+1}/{len(spinsToSim)}).')
-        sToSave = copy.deepcopy(s) # Make a copy here as some bits of s are converted to np.arrays inside simulator.
-        # Run simulation
-        densityMatriciesRe = []
-        densityMatriciesIm = []
-        if isinstance(s,list):
-            combinedScaledFID = []            
-            for ss in s:
-                FID,ax,pmat = sim.simseq(ss,seqParams)
-                combinedScaledFID.append(FID*ss['scaleFactor'])
-                densityMatriciesRe.append(np.real(pmat).tolist())
-                densityMatriciesIm.append(np.imag(pmat).tolist())
-            combinedScaledFID = np.sum(combinedScaledFID,axis=0)
-
-        else:    
-            FID,ax,pmat = sim.simseq(s,seqParams)
-            combinedScaledFID = FID*s['scaleFactor']
-            densityMatriciesRe.append(np.real(pmat).tolist())
-            densityMatriciesIm.append(np.imag(pmat).tolist())
-
-        basisDict = {}
-        basisDict.update({'basis_re':np.real(combinedScaledFID).tolist()})
-        basisDict.update({'basis_im':np.imag(combinedScaledFID).tolist()})
-        basisDict.update({'basis_dwell':1/seqParams['Rx_SW']})
-        basisDict.update({'basis_centre':ax['centreFreq']})
-        basisDict.update({'basis_width':seqParams['Rx_LW']})
-        basisDict.update({'basis_name':name})
-
-        if args.raw:
-            fileOut = os.path.join(args.output,name+'.RAW')
-            info = {'ID':name,'VOLUME':1.0,'TRAMP':1.0}
-            lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
-        if args.jmrui:
-            fileOut = os.path.join(args.output,name+'.txt')
-            jmruidict = {'dwelltime':1/seqParams['Rx_SW'],
-                         'centralFrequency':ax['centreFreq']}
-            jmrui_io.writejMRUItxt(fileOut,combinedScaledFID,jmruidict)
-
-        # Always output fsl_mrs 
-        # Form results dictionary
-        outputDict = {}
-        outputDict.update({'seq':seqParams})            
-        outputDict.update({'basis':basisDict}) 
-        outputDict.update({'spinSys':sToSave})
-        densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
-        outputDict.update({'outputDensityMatrix':densmatdict})
-        metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
-        outputDict.update({'meta':metaDict})        
-        # Save to json file.
-        fileOut = os.path.join(args.output,name+'.json')
-        fsl_io.writeJSON(fileOut,outputDict)
-    
-    # Additional write steps for MM and LCM baisis generation
+    # Loop over the spin systems (list) in a parallel way
+    poolFunc = partial(runSimForMetab, seqParams=seqParams, args=args) 
+    poolArgs = [(i,s,n) for i,(s,n) in enumerate(zip(spinsys,spinsToSim))]
+    pool = mp.Pool()
+    pool.starmap(poolFunc, poolArgs)    
+        
+    # Additional write steps for MM and LCM basis generation
     if args.MM is not None:
         # Read in file
         MMBasisFID = fsl_io.readJSON(args.MM) # Input should be the same as the format of basisDict above
@@ -307,12 +261,71 @@ def main():
         inputSeqBaseName,_ = os.path.splitext(os.path.basename(args.seqFile))
         outputBaseName = args.lcmIN 
         
-        outfile = fileOut = os.path.join(args.output,'lcm.IN')
-        shift = seqParams['centralShift']
+        fileOut = os.path.join(args.output,'lcm.IN')
+        inParamDict = {'width':seqParams['Rx_LW'],
+                        'centralFrequency':seqParams['B0']*42.5774,
+                        'dwelltime':1/seqParams['Rx_SW'],
+                        'points':seqParams['Rx_Points']}
         if args.outputTE is not None:
-            lcm_io.writeLcmInFile(outfile,spinsToSim,outputBaseName,inputSeqBaseName,basisDict,echotime = args.outputTE)            
+            lcm_io.writeLcmInFile(fileOut,spinsToSim,outputBaseName,inputSeqBaseName,inParamDict,echotime = args.outputTE)            
         else:
-            lcm_io.writeLcmInFile(outfile,spinsToSim,outputBaseName,inputSeqBaseName,basisDict)   
+            lcm_io.writeLcmInFile(fileOut,spinsToSim,outputBaseName,inputSeqBaseName,inParamDict)   
+
+
+def runSimForMetab(iDx,s,name,seqParams,args):
+    print(f'Running simulation on {name}.')
+    sToSave = copy.deepcopy(s) # Make a copy here as some bits of s are converted to np.arrays inside simulator.
+    # Run simulation
+    densityMatriciesRe = []
+    densityMatriciesIm = []
+    if isinstance(s,list):
+        combinedScaledFID = []            
+        for ss in s:
+            FID,ax,pmat = sim.simseq(ss,seqParams)
+            combinedScaledFID.append(FID*ss['scaleFactor'])
+            densityMatriciesRe.append(np.real(pmat).tolist())
+            densityMatriciesIm.append(np.imag(pmat).tolist())
+        combinedScaledFID = np.sum(combinedScaledFID,axis=0)
+
+    else:    
+        FID,ax,pmat = sim.simseq(s,seqParams)
+        combinedScaledFID = FID*s['scaleFactor']
+        densityMatriciesRe.append(np.real(pmat).tolist())
+        densityMatriciesIm.append(np.imag(pmat).tolist())
+
+    basisDict = {}
+    basisDict.update({'basis_re':np.real(combinedScaledFID).tolist()})
+    basisDict.update({'basis_im':np.imag(combinedScaledFID).tolist()})
+    basisDict.update({'basis_dwell':1/seqParams['Rx_SW']})
+    basisDict.update({'basis_centre':ax['centreFreq']})
+    basisDict.update({'basis_width':seqParams['Rx_LW']})
+    basisDict.update({'basis_name':name})
+
+    if args.raw:
+        fileOut = os.path.join(args.output,name+'.RAW')
+        info = {'ID':name,'VOLUME':1.0,'TRAMP':1.0}
+        lcm_io.saveRAW(fileOut,combinedScaledFID,info=info,conj=True)
+    if args.jmrui:
+        fileOut = os.path.join(args.output,name+'.txt')
+        jmruidict = {'dwelltime':1/seqParams['Rx_SW'],
+                        'centralFrequency':ax['centreFreq']}
+        jmrui_io.writejMRUItxt(fileOut,combinedScaledFID,jmruidict)
+
+    # Always output fsl_mrs 
+    # Form results dictionary
+    outputDict = {}
+    outputDict.update({'seq':seqParams})            
+    outputDict.update({'basis':basisDict}) 
+    outputDict.update({'spinSys':sToSave})
+    densmatdict = {'re':densityMatriciesRe,'im':densityMatriciesIm}
+    outputDict.update({'outputDensityMatrix':densmatdict})
+    metaDict = {'time':datetime.datetime.now().strftime("%Y%m%d_%H%M%S"),'SimVersion':''}
+    if args.outputTE is not None:
+        metaDict.update({'TE':args.outputTE })
+    outputDict.update({'meta':metaDict})        
+    # Save to json file.
+    fileOut = os.path.join(args.output,name+'.json')
+    fsl_io.writeJSON(fileOut,outputDict)
 
 
 if __name__ == '__main__':
