@@ -33,15 +33,15 @@ def main():
 
     # Average subcommand
     avgparser = sp.add_parser('average',help='Average FIDs.')
-    avgparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
+    avgparser.add_argument('--file',help='MRS file(s)',type=str, nargs='+',required=True)
     avgparser.add_argument('--avgfiles',help='Average across files',action="store_true")
     avgparser.add_argument('--dim',help='Select dimension to average across',type=int)
     avgparser.set_defaults(func=average)
 
     #Align subcommand - frequency/phase alignment
-    alignparser = sp.add_parser('align',help='Average FIDs.')
-    alignparser.add_argument('--file',help='FIDs to align',type=str, nargs='+',required=True)
-    alignparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>')
+    alignparser = sp.add_parser('align',help='Align FIDs.')
+    alignparser.add_argument('--file',help='List of files to align',type=str, nargs='+',required=True)
+    alignparser.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
     alignparser.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
     alignparser.set_defaults(func=align)
 
@@ -92,7 +92,7 @@ def main():
     unlikeparser.add_argument('--sd',help='Exclusion limit (# of SD from mean,default=1.96)',type=float,default=1.96)
     unlikeparser.add_argument('--iter',help='Iterations of algorithm.',type=int,default=2)
     unlikeparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=None)
-    unlikeparser.add_argument('--outputBad',help='Output failed FIDs',action="store_true")
+    unlikeparser.add_argument('--outputbad',help='Output failed FIDs',action="store_true")
     unlikeparser.set_defaults(func=unlike)
 
     # Phasing - based on maximum point in range
@@ -100,6 +100,16 @@ def main():
     phaseparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
     phaseparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
     phaseparser.set_defaults(func=phase)
+
+    # subtraction - subtraction of FIDs
+    subtractparser = sp.add_parser('subtract',help='Subtract two FIDs') 
+    subtractparser.add_argument('--file',help='Two data files to subtract (second from first)',type=str, nargs=2,required=True)
+    subtractparser.set_defaults(func=subtract)
+
+    # add - addition of FIDs
+    subtractparser = sp.add_parser('add',help='Add two FIDs') 
+    subtractparser.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
+    subtractparser.set_defaults(func=add)
 
     # Arguments not assiciated with subcommands
     required     = p.add_argument_group('required arguments')
@@ -284,7 +294,7 @@ def align(dataobj,args):
     allFIDs = [d.data for d in dataobj]
     for ijk in np.ndindex(dataobj[0].data.shape[:3]):    
         FIDlist = [fid[ijk] for fid in allFIDs]        
-        
+
         tmpFIDS = preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False,target=dataobj[0].reference)
 
         for iDx,fid in enumerate(tmpFIDS):
@@ -397,7 +407,7 @@ def unlike(dataobj,args):
     for f,iDx in zip(goodFIDs,gIndicies):
         dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename))
 
-    if args['outputBad']:
+    if args['outputbad']:
         for f,iDx in zip(badFIDs,bIndicies):
             dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename+'_FAIL'))
 
@@ -413,6 +423,18 @@ def phase(dataobj,args):
                                 d.dataheader['centralFrequency']*1E6,
                                 ppmlim = args['ppm'])
         dataout.append(preproc.datacontainer(phased,d.dataheader,d.datafilename))
+    return dataout
+
+def subtract(dataobj,args):
+    dataout = []
+    subtracted = preproc.subtract(dataobj[0].data,dataobj[1].data)
+    dataout.append(preproc.datacontainer(subtracted,dataobj[0].dataheader,dataobj[0].datafilename))
+    return dataout
+
+def add(dataobj,args):
+    dataout = []
+    added = preproc.add(dataobj[0].data,dataobj[1].data)
+    dataout.append(preproc.datacontainer(added,dataobj[0].dataheader,dataobj[0].datafilename))
     return dataout
 
 

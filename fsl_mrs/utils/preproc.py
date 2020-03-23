@@ -515,6 +515,18 @@ def identifyUnlikeFIDs(FIDList,bandwidth,centralFrequency,sdlimit = 1.96,iterati
     return goodFIDs,badFIDs,keepIndicies,rmIndicies,metric.tolist()
 
 def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
+    """ Phase correction based on the phase of a maximum point.
+
+    Args:
+        FID (ndarray): Time domain data
+        bw (float): bandwidth
+        cf (float): central frequency in Hz
+        ppmlim (tuple,optional)  : Limit to this ppm range
+        shift (bool,optional)    : Apply H20 shft
+
+    Returns:
+        FID (ndarray): Phase corrected FID
+    """
     #Find maximum of absolute spectrum in ppm limit
     MRSargs = {'FID':FID,'bw':bw,'cf':cf}
     mrs = MRS(**MRSargs)
@@ -524,3 +536,11 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
     phaseAngle = np.angle(spec[maxIndex])
     
     return FID * np.exp(1j*-phaseAngle)
+
+def subtract(FID1,FID2):
+    """ Subtract FID2 from FID1."""
+    return FID1-FID2
+
+def add(FID1,FID2):
+    """ Subtract FID2 to FID1."""
+    return FID1+FID2
