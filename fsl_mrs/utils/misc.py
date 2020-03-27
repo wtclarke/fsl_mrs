@@ -76,6 +76,40 @@ def SpecToFID(spec,axis=0):
     x = np.moveaxis(x,0,axis)
     return x
 
+def calculateAxes(bandwidth,centralFrequency,points):
+    dwellTime = 1/bandwidth
+    timeAxis         = np.linspace(dwellTime,
+                                    dwellTime*points,
+                                    points)  
+    frequencyAxis    = np.linspace(-bandwidth/2,
+                                    bandwidth/2,
+                                    points)        
+    ppmAxis          = hz2ppm(centralFrequency,
+                                    frequencyAxis,shift=False)
+    ppmAxisShift     = hz2ppm(centralFrequency,
+                                    frequencyAxis,shift=True)
+
+    return {'time':timeAxis,'freq':frequencyAxis,'ppm':ppmAxis,'ppmshift':ppmAxisShift}
+
+def checkCFUnits(cf,units='Hz'):
+    """ Check the units of central frequency and adjust if required."""
+    # Assume cf in Hz > 1E5, if it isn't assume that user has passed in MHz
+    if cf<1E5:
+        if units.lower()=='hz':
+            cf *= 1E6
+        elif units.lower()=='mhz':
+            pass
+        else:
+            raise ValueError('Only Hz or MHz defined')
+    else:
+        if units.lower()=='hz':
+            pass
+        elif units.lower()=='mhz':
+            cf /= 1E6
+        else:
+            raise ValueError('Only Hz or MHz defined')
+    return cf
+
 def filter(mrs,FID,ppmlim,filter_type='bandpass'):
     """
        Filter in/out frequencies defined in ppm
@@ -351,7 +385,7 @@ def shift_FID(mrs,FID,eps):
        array-like
     """
     t           = mrs.timeAxis
-    FID_shifted = multiply(FID,np.exp(-1j*t*eps))
+    FID_shifted = multiply(FID,np.exp(-1j*2*np.pi*t*eps))
     
     return FID_shifted
  

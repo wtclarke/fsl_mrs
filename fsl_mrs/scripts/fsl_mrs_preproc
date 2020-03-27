@@ -199,12 +199,12 @@ def main():
     # Frequency and phase align the FIDs
     if args.verbose:
         print('... Average FIDs ...')
-    FIDlist = preproc.phase_freq_align(FIDlist,bw,cf,ppmlim=(0,4.2),niter=2)
-    Reflist = preproc.phase_freq_align(Reflist,bw,cf,ppmlim=(0,4.2),niter=2)
+    FIDlist,_,_ = preproc.phase_freq_align(FIDlist,bw,cf,ppmlim=(0,4.2),niter=2)
+    Reflist,_,_ = preproc.phase_freq_align(Reflist,bw,cf,ppmlim=(0,4.2),niter=2)
     if args.quant is not None:
-        quantlist = preproc.phase_freq_align(quantlist,bw,cf,ppmlim=(0,4.2),niter=2)
+        quantlist,_,_ = preproc.phase_freq_align(quantlist,bw,cf,ppmlim=(0,4.2),niter=2)
     if args.ecc is not None:
-        ecclist = preproc.phase_freq_align(ecclist,bw,cf,ppmlim=(0,4.2),niter=2)
+        ecclist,_,_ = preproc.phase_freq_align(ecclist,bw,cf,ppmlim=(0,4.2),niter=2)
         
     # Average the data (if asked to do so - this might not be the case for FMRS)
     # Force everything to stay as a list so that data writing can be agnostic of 
@@ -234,10 +234,10 @@ def main():
     if args.quant is not None:
         quantlist = [preproc.eddy_correct(fid,quantlist[0]) for fid in quantlist]
 
-    # Hlsvd
+    # HLSVD
     if args.hlsvd:
-        freqlimits = np.array([-0.15,0.15])*cf/1E6
-        FIDlist = [preproc.hlsvd(fid,dt,freqlimits) for fid in FIDlist]
+        hlsvdlimits = [-0.15,0.15]
+        FIDlist = [preproc.hlsvd(fid,dt,cf,hlsvdlimits) for fid in FIDlist]
     
     if args.leftshift:
         iterFunction = lambda flist : [preproc.truncate(fid,args.leftshift,first_or_last='first') for fid in flist]
@@ -248,7 +248,7 @@ def main():
         FIDComblist = iterFunction(FIDComblist)
 
     # Apply phasing based on a single peak (Cr)
-    iterFunction = lambda flist,ppm : [preproc.phaseCorrect(fid,bw,cf,ppmlim=ppm) for fid in flist]
+    iterFunction = lambda flist,ppm : [preproc.phaseCorrect(fid,bw,cf,ppmlim=ppm)[0] for fid in flist]
     FIDlist = iterFunction(FIDlist,(2.8,3.2))
     Reflist = iterFunction(Reflist,(4.6,4.7))
     if args.quant is not None:

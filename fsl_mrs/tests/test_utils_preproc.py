@@ -80,20 +80,17 @@ def test_phase_freq_align():
         testFIDs,testHdrs = syn.syntheticFID(amplitude = [1,1],chemicalshift=[-2+s,3],phase=[p,0.0],points=2048,noisecovariance=[[1E-1]])
         shiftedFIDs.append(testFIDs[0])
 
-    MRSargs = {'FID':shiftedFIDs[0],'bw':testHdrs['inputopts']['bandwidth'],'cf':testHdrs['inputopts']['centralfrequency']*1E6}
-    mrs = MRS(**MRSargs)
-
     # Align across shifted peak
-    alignedFIDs = preproc.phase_freq_align(shiftedFIDs,testHdrs['inputopts']['bandwidth'],
-                                        testHdrs['inputopts']['centralfrequency']*1E6,
+    alignedFIDs,_,_ = preproc.phase_freq_align(shiftedFIDs,testHdrs['bandwidth'],
+                                        testHdrs['centralFrequency']*1E6,
                                         niter=2,verbose=False,ppmlim=(-2.2,-1.7),shift=False)
  
     meanFID = preproc.combine_FIDs(alignedFIDs,'mean')
     assert np.max(np.abs(FIDToSpec(meanFID)))>0.09
 
     # Align across fixed peak
-    alignedFIDs = preproc.phase_freq_align(shiftedFIDs,testHdrs['inputopts']['bandwidth'],
-                                        testHdrs['inputopts']['centralfrequency']*1E6,
+    alignedFIDs,_,_ = preproc.phase_freq_align(shiftedFIDs,testHdrs['bandwidth'],
+                                        testHdrs['centralFrequency']*1E6,
                                         niter=2,verbose=False,ppmlim=(2,4),shift=False)
  
     meanFID = preproc.combine_FIDs(alignedFIDs,'mean')
@@ -132,8 +129,14 @@ def test_apodize():
 def test_hlsvd():
     # low noise
     testFIDs,testHdrs = syn.syntheticFID(noisecovariance=[[1E-6]],amplitude=[1.0,1.0],chemicalshift=[-2,0])
-    flimits = testHdrs['inputopts']['centralfrequency'] *np.array([-2.5,-1.5])
-    removedFID = preproc.hlsvd(testFIDs[0],1/testHdrs['inputopts']['bandwidth'],flimits,numSingularValues=20)
+    limits = [-2.5,-1.5]
+    # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
+    removedFID = preproc.hlsvd(testFIDs[0],
+                                testHdrs['dwelltime'],
+                                testHdrs['centralFrequency'],
+                                limits,
+                                limitUnits = 'ppm',
+                                numSingularValues=20)
 
     onResFID = np.exp(-testHdrs['inputopts']['damping'][1]*testHdrs['taxis'])
 
@@ -157,3 +160,55 @@ def test_pad_truncate():
     mockFID = np.full((1024),1.0)
     testFID = preproc.truncate(mockFID,2,first_or_last='first')
     assert testFID.size==1022
+
+def test_phaseCorrect():
+    testFIDs,testHdrs = syn.syntheticFID(amplitude=[1.0],chemicalshift=[0.0],phase=[np.pi/2],noisecovariance=[[1E-5]])
+    corrected,phs,pos=preproc.phaseCorrect(testFIDs[0],testHdrs['bandwidth'],testHdrs['centralFrequency'],ppmlim=(-0.5,0.5),shift=False)
+    assert np.isclose(phs,-np.pi/2,atol=1E-2)
+
+
+def test_add_subtract():
+    mockFID = np.random.random(1024)+1j*np.random.random(1024)
+    mockFID2 = mockFID.copy()
+    testFID = preproc.add(mockFID,mockFID2)
+    assert np.allclose(testFID,mockFID*2.0)
+ 
+    testFID = preproc.subtract(mockFID,mockFID2)
+    assert np.allclose(testFID,np.zeros(1024))
+
+def test_align_diff():
+    shift0 = np.random.randn(10)*0.15
+    phs = np.random.randn(10)*0.1*np.pi
+    shiftedFIDs0 = []
+    shiftedFIDs1 = []
+    for s0,p in zip(shift0,phs):
+        testFIDs,testHdrs = syn.syntheticFID(amplitude = [1,1],chemicalshift=[-2+s0,3+s0],phase=[p+np.pi,p],damping=[100,100],points=2048,noisecovariance=[[1E-6]])
+        shiftedFIDs0.append(testFIDs[0])
+
+        testFIDs,testHdrs = syn.syntheticFID(amplitude = [1,1],chemicalshift=[-2,3],phase=[0,0],damping=[100,100],points=2048,noisecovariance=[[1E-6]])
+        shiftedFIDs1.append(testFIDs[0])
+
+    testFIDs0,_ = syn.syntheticFID(amplitude = [2,1],chemicalshift=[-2,3],phase=[np.pi,0],damping=[100,100],points=2048,noisecovariance=[[1E-6]])
+    testFIDs1,_ = syn.syntheticFID(amplitude = [2,1],chemicalshift=[-2,3],phase=[0,0],damping=[100,100],points=2048,noisecovariance=[[1E-6]])
+    
+    tgt = testFIDs0[0]+testFIDs1[0]
+    mrs = MRS(FID=tgt,header=testHdrs)
+
+    sub0_aa,sub1_aa,phi,eps = preproc.phase_freq_align_diff(shiftedFIDs0,shiftedFIDs1,testHdrs['bandwidth'],testHdrs['centralFrequency'],target=tgt,shift=False,ppmlim=(-5,5))
+    # align.phase_freq_align_diff_report(shiftedFIDs0,shiftedFIDs1,sub0_aa,sub1_aa,testHdrs,eps,phi,shift=False,ppmlim=(-5,5))
+
+    shiftInHz = shift0*testHdrs['centralFrequency']
+    assert np.allclose(eps,shiftInHz,atol=1E-0)
+    assert np.allclose(phi,phs,atol=1E-0)
+
+def test_shiftToRef():
+    testFIDs,testHdrs = syn.syntheticFID(amplitude = [1,0],chemicalshift=[-2.1,0],phase=[0,0],points=1024,noisecovariance=[[1E-3]])
+
+    shiftFID,_ = preproc.shiftToRef(testFIDs[0],-2.0,testHdrs['bandwidth'],testHdrs['centralFrequency'],ppmlim=(-2.2,-2.0),shift=False)
+
+    mrs = MRS(FID=shiftFID,header=testHdrs)
+
+    maxindex = np.argmax(mrs.getSpectrum(shift=False))
+    position = mrs.getAxes(axis='ppm')[maxindex]
+    
+    assert np.isclose(position,-2.0,atol=1E-1)

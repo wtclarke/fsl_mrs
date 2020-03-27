@@ -67,7 +67,7 @@ def read_FID(filename,squeezeSVS=True):
     elif data_type == 'TXT':
         data,header = jmrui.readjMRUItxt(filename)
     else:
-        raise(Exception('Cannot read data format {}'.format(data_type)))
+        raise ValueError(f'Cannot read data format {data_type} for file {filename}.')
     return data,header
 
 # Basis reading functions

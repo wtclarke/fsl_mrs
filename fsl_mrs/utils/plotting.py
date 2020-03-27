@@ -26,6 +26,27 @@ def FID2Spec(x):
     x = FIDToSpec(x)
     return x
 
+def styleSpectrumAxes(ax,xlabel='ppm',ylabel='re'):
+    ax.set_yticks([0.0])
+    if ylabel=='re':
+        ax.set_ylabel('Re(signal) (a.u.)')
+    elif ylabel=='im':
+        ax.set_ylabel('Im(signal) (a.u.)')
+    elif ylabel=='abs':
+        ax.set_ylabel('|signal| (a.u.)')
+
+    if xlabel=='ppm':
+        ax.set_xlabel('$\delta$ (ppm)')
+    elif xlabel=='hz':
+        ax.set_xlabel('Frequency (Hz)')
+
+    ax.autoscale(enable=True, axis='x', tight=True)
+    ax.invert_xaxis()
+    ax.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
+    ax.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
+
+
+
 
 def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,baseline=None,proj='real'):
     """

@@ -81,14 +81,15 @@ class MRS(object):
 
     def __str__(self):
         out  = '------- MRS Object ---------\n'
-        out += '     FID.shape             = {}\n'.format(self.FID.shape)
-        out += '     basis.shape           = {}\n'.format(self.basis.shape)
+        out += '     FID.shape             = {}\n'.format(self.FID.shape)        
         out += '     FID.centralFreq (MHz) = {}\n'.format(self.centralFrequency/1e6)
         out += '     FID.centralFreq (T)   = {}\n'.format(self.centralFrequency/H1_gamma/1e6)        
         out += '     FID.bandwidth (Hz)    = {}\n'.format(self.bandwidth)
         out += '     FID.dwelltime (s)     = {}\n'.format(self.dwellTime)
-        out += '     Metabolites           = {}\n'.format(self.names)
-        out += '     numBasis              = {}\n'.format(self.numBasis)
+        if self.basis is not None:
+            out += '     basis.shape           = {}\n'.format(self.basis.shape)
+            out += '     Metabolites           = {}\n'.format(self.names)
+            out += '     numBasis              = {}\n'.format(self.numBasis)
         out += '     timeAxis              = {}\n'.format(self.timeAxis.shape)
         out += '     freqAxis              = {}\n'.format(self.frequencyAxis.shape)
         
@@ -107,27 +108,21 @@ class MRS(object):
           echotime : float (unit=sec)
 
         """
-        # Assume cf > 1E5, if it isn't assume that user has passed in MHz
-        if centralFrequency<1E5:
-            self.centralFrequency = centralFrequency*1E6
-        else:
-             self.centralFrequency = centralFrequency
+        # Store CF in Hz
+        self.centralFrequency = misc.checkCFUnits(centralFrequency)        
 
         self.bandwidth        = bandwidth 
         
         self.dwellTime        = 1/self.bandwidth
 
-        
-        self.timeAxis         = np.linspace(self.dwellTime,
-                                            self.dwellTime*self.numPoints,
-                                            self.numPoints)  
-        self.frequencyAxis    = np.linspace(-self.bandwidth/2,
-                                            self.bandwidth/2,
-                                            self.numPoints)        
-        self.ppmAxis          = misc.hz2ppm(self.centralFrequency,
-                                            self.frequencyAxis,shift=False)
-        self.ppmAxisShift     = misc.hz2ppm(self.centralFrequency,
-                                            self.frequencyAxis,shift=True)
+        axes = misc.calculateAxes(self.bandwidth,
+                                  self.centralFrequency,
+                                  self.numPoints)
+
+        self.timeAxis         = axes['time']  
+        self.frequencyAxis    = axes['freq']         
+        self.ppmAxis          = axes['ppm']  
+        self.ppmAxisShift     = axes['ppmshift']  
         self.ppmAxisFlip      = np.flipud(self.ppmAxisShift)
         # turn into column vectors
         self.timeAxis         = self.timeAxis[:,None]
@@ -149,7 +144,26 @@ class MRS(object):
                                                self.basis_dwellTime*self.numBasisPoints,
                                                self.numBasisPoints)
 
-        
+    def getSpectrum(self,ppmlim=None,shift=True):
+        spectrum = misc.FIDToSpec(self.FID)
+        f,l = self.ppmlim_to_range(ppmlim,shift=shift)
+        return spectrum[f:l]
+    
+    def getAxes(self,axis='ppmshift',ppmlim=None):        
+        if axis.lower() == 'ppmshift':
+            f,l = self.ppmlim_to_range(ppmlim,shift=True)
+            return self.ppmAxisShift[f:l]
+        elif axis.lower() == 'ppm':
+            f,l = self.ppmlim_to_range(ppmlim,shift=False)
+            return self.ppmAxis[f:l]
+        elif axis.lower() == 'freq':
+            f,l = self.ppmlim_to_range(ppmlim,shift=False)
+            return self.frequencyAxis[f:l]
+        elif axis.lower() == 'time':
+            return self.timeAxis
+        else:
+            raise ValueError('axis must be one of ppmshift, ppm, freq or time.')
+
     def ppmlim_to_range(self,ppmlim=None,shift=True):
         """
            turns ppmlim into data range

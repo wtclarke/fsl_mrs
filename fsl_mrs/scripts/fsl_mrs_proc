@@ -45,6 +45,14 @@ def main():
     alignparser.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
     alignparser.set_defaults(func=align)
 
+    #Align difference spectra subcommand - frequency/phase alignment
+    alignDparser = sp.add_parser('align-diff',help='Align subspectra for differencing.')
+    alignDparser.add_argument('--file',help='Subspectra 1 - List of files to align',type=str, nargs='+',required=True)
+    alignDparser.add_argument('--reference',help='Subspectra 2 - List of files to align',type=str, nargs='+',required=True)
+    alignDparser.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
+    alignDparser.add_argument('--diff_type',help='add (default) or subtract.',type=str,required=False,default='add')    
+    alignDparser.set_defaults(func=aligndiff)
+
     # ECC subcommand - eddy current correction
     eccparser = sp.add_parser('ecc',help='Eddy current correction')     
     eccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
@@ -82,8 +90,11 @@ def main():
     # fshift subcommand - shift in frequency domain
     fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.') 
     fshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    fshiftparser.add_argument('--shiftppm',help='Shift (ppm scale)',type=float)
-    fshiftparser.add_argument('--shifthz',help='Shift (Hz scale)',type=float)
+    fshiftparser.add_argument('--shiftppm',help='Apply fixed shift (ppm scale)',type=float)
+    fshiftparser.add_argument('--shifthz',help='Apply fixed shift (Hz scale)',type=float)
+    fshiftparser.add_argument('--shiftRef',help='Shift to reference (default = Cr)',action="store_true")
+    fshiftparser.add_argument('--ppm',help='Shift maximum point in this range to target (must specify --target).',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
+    fshiftparser.add_argument('--target',help='Target position (must be used with ppm). Default = 3.027',type=float,default=3.027)
     fshiftparser.set_defaults(func=fshift)
 
     # unlike subcomand - find FIDs that are unlike
@@ -163,6 +174,7 @@ def main():
 import os #time,sys, shutil, warnings
 import numpy as np
 from fsl_mrs.utils import preproc
+from fsl_mrs.utils.preproc.general import datacontainer
 from fsl_mrs.utils.mrs_io import check_datatype
 from fsl_mrs.utils.mrs_io import fsl_io
 # ######################################################
@@ -200,7 +212,7 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
                 data = data.conj()
                 ref = ref.conj()
 
-            datalist.append(preproc.datacontainer(data,
+            datalist.append(datacontainer(data,
                                                 header,
                                                 os.path.basename(f),
                                                 reference=ref,
@@ -216,7 +228,7 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
             if conjugate:
                 data = data.conj()
                 
-            datalist.append(preproc.datacontainer(data,
+            datalist.append(datacontainer(data,
                                                 header,
                                                 os.path.basename(f),
                                                 reference=ref,
@@ -229,7 +241,7 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
             data,header = fsl_io.readNIFTI(f,squeezeSVS=False)
             if conjugate:
                 data = data.conj()
-            datalist.append(preproc.datacontainer(data,header,os.path.basename(f)))
+            datalist.append(datacontainer(data,header,os.path.basename(f)))
     return datalist
 
 def writeData(dataobj,args):
@@ -263,7 +275,7 @@ def coilcombine(dataobj,args):
 
         # Reuse the file name as it's likely the coil uncombined data was all in one file anyway
         fileout = d.datafilename
-        dataout.append(preproc.datacontainer(combmain,d.dataheader,fileout))
+        dataout.append(datacontainer(combmain,d.dataheader,fileout))
 
     return dataout
 
@@ -273,15 +285,15 @@ def average(dataobj,args):
         # Average data across all input files, outputing data the shape of any one file
         # combine_FIDs 'mean' takes mean across last dimension.
         allFileData = np.array([d.data for d in dataobj])
-        meandata = preproc.combine_FIDs(allFileData.T,'mean').T
-        dataout.append(preproc.datacontainer(meandata,dataobj[0].dataheader,dataobj[0].datafilename))
+        meandata = preproc.combine_FIDs(allFileData.T,'mean')
+        dataout.append(datacontainer(meandata,dataobj[0].dataheader,dataobj[0].datafilename))
 
     elif args['dim']:
         for d in dataobj:
             # permute the selected dimension to the last
             meandata = preproc.combine_FIDs(np.moveaxis(d.data,args['dim'],-1),'mean')
             meandata = np.moveaxis(meandata,-1,args['dim'])
-            dataout.append(preproc.datacontainer(meandata,d.dataheader,d.datafilename))
+            dataout.append(datacontainer(meandata,d.dataheader,d.datafilename))
     else:
         raise RuntimeError('Neither avgfiles or dim arguments specified averaging dimension uncertain.')
 
@@ -295,14 +307,42 @@ def align(dataobj,args):
     for ijk in np.ndindex(dataobj[0].data.shape[:3]):    
         FIDlist = [fid[ijk] for fid in allFIDs]        
 
-        tmpFIDS = preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False,target=dataobj[0].reference)
+        tmpFIDS,_,_= preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False,target=dataobj[0].reference)
 
         for iDx,fid in enumerate(tmpFIDS):
             allFIDs[iDx][ijk,...] = fid
         
     dataout = []
     for f,d in zip(allFIDs,dataobj):
-        dataout.append(preproc.datacontainer(f,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(f,d.dataheader,d.datafilename))
+
+    return dataout
+
+def aligndiff(dataobj,args):
+    # This currently contains a bit of a hack - I use reference
+    # as a way to load the sub spectra that won't be shifted
+    bandwidth = dataobj[0].dataheader['bandwidth']
+    centralFrequency = dataobj[0].dataheader['centralFrequency']*1E6
+    allFIDs0 = [d.data for d in dataobj]
+    allFIDs1 = [d.reference for d in dataobj]
+    for ijk in np.ndindex(dataobj[0].data.shape[:3]):    
+        FIDlist0 = [fid[ijk] for fid in allFIDs0]        
+        FIDlist1 = [fid[ijk] for fid in allFIDs1]
+
+        tmpFIDS0,tmpFIDS1,_,_= preproc.phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,ppmlim=args['ppm'],diffType=args['diff_type'])
+
+        for iDx,(fid0,fid1) in enumerate(zip(tmpFIDS0,tmpFIDS1)):
+            allFIDs0[iDx][ijk,...] = fid0
+            allFIDs1[iDx][ijk,...] = fid1
+        
+    dataout = []
+    for f0,f1,d in zip(allFIDs0,allFIDs1,dataobj):
+        dataout.append(datacontainer(f0,
+                                d.dataheader,
+                                d.datafilename,
+                                reference=f1,
+                                refheader=d.refheader,
+                                reffilename=d.reffilename))
 
     return dataout
 
@@ -313,18 +353,22 @@ def ecc(dataobj,args):
         corrected = np.zeros(d.data.shape,dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
             corrected[ijk] = preproc.eddy_correct(d.data[ijk],d.reference[ijk])
-        dataout.append(preproc.datacontainer(corrected,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(corrected,d.dataheader,d.datafilename))
     return dataout
 
 def remove(dataobj,args):
     dataout = []
     for d in dataobj:
-        freqlimits = (np.array(args['ppm'])-4.65)*d.dataheader['centralFrequency']
+        limits = args['ppm']
         removed = np.zeros(d.data.shape,dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
-            removed[ijk] = preproc.hlsvd(d.data[ijk],d.dataheader['dwelltime'],freqlimits)
+            removed[ijk] = preproc.hlsvd(d.data[ijk],
+                                        d.dataheader['dwelltime'],
+                                        d.dataheader['centralFrequency'],
+                                        limits,
+                                        limitUnits = 'ppm+shift')
 
-        dataout.append(preproc.datacontainer(removed,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(removed,d.dataheader,d.datafilename))
     return dataout
 
 def tshift(dataobj,args):
@@ -340,7 +384,7 @@ def tshift(dataobj,args):
 
         d.dataheader['dwelltime'] = newDT
         d.dataheader['bandwidth'] = 1/newDT
-        dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(shifted,d.dataheader,d.datafilename))
 
     return dataout
 
@@ -358,19 +402,19 @@ def truncate(dataobj,args):
             else:
                 newFID[ijk] = d.data[ijk]
         
-        dataout.append(preproc.datacontainer(newFID,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(newFID,d.dataheader,d.datafilename))
     return dataout
 
 def apodize(dataobj,args):
     dataout = []
     for d in dataobj:
-        broadended = np.zeros(d.data.shape,dtype=np.complex128)
+        broadened = np.zeros(d.data.shape,dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
-            broadended[ijk] = preproc.apodize(d.data[ijk],
+            broadened[ijk] = preproc.apodize(d.data[ijk],
                                 d.dataheader['dwelltime'],
                                 args['amount'],
                                 filter= args['filter'])
-        dataout.append(preproc.datacontainer(broadended,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(broadened,d.dataheader,d.datafilename))
 
     return dataout
 
@@ -380,16 +424,28 @@ def fshift(dataobj,args):
     for d in dataobj:
         if args['shiftppm'] is not None:            
             shift = args['shiftppm']*d.dataheader['centralFrequency']
+            callMode = 'fixed'
         elif args['shifthz'] is not None:            
             shift = args['shifthz']
+            callMode = 'fixed'
+        elif args['shiftRef']:
+            callMode = 'ref'
         else:
             raise ValueError('Specify --shiftppm or --shifthz.')
         shifted = np.zeros(d.data.shape,dtype=np.complex128)
-        for ijk in np.ndindex(d.data.shape[:3]):        
-            shifted[ijk] = preproc.timeshift(d.data[ijk],
-                                        d.dataheader['dwelltime'],
-                                        shift)
-        dataout.append(preproc.datacontainer(shifted,d.dataheader,d.datafilename))
+        for ijk in np.ndindex(d.data.shape[:3]):
+            if callMode == 'fixed':        
+                shifted[ijk] = preproc.freqshift(d.data[ijk],
+                                            d.dataheader['dwelltime'],
+                                            shift)
+            elif callMode == 'ref':        
+                shifted[ijk],_ = preproc.shiftToRef(d.data[ijk],
+                                            args['target'],
+                                            d.dataheader['bandwidth'],
+                                            d.dataheader['centralFrequency'],
+                                            ppmlim=args['ppm'])
+
+        dataout.append(datacontainer(shifted,d.dataheader,d.datafilename))
 
     return dataout
 
@@ -405,11 +461,11 @@ def unlike(dataobj,args):
 
     dataout = []
     for f,iDx in zip(goodFIDs,gIndicies):
-        dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename))
+        dataout.append(datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename))
 
     if args['outputbad']:
         for f,iDx in zip(badFIDs,bIndicies):
-            dataout.append(preproc.datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename+'_FAIL'))
+            dataout.append(datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename+'_FAIL'))
 
     return dataout
 
@@ -418,25 +474,24 @@ def phase(dataobj,args):
     for d in dataobj:
         phased = np.zeros(d.data.shape,dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):    
-            phased[ijk] = preproc.phaseCorrect(d.data[ijk],
+            phased[ijk],_,_ = preproc.phaseCorrect(d.data[ijk],
                                 d.dataheader['bandwidth'],
                                 d.dataheader['centralFrequency']*1E6,
                                 ppmlim = args['ppm'])
-        dataout.append(preproc.datacontainer(phased,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(phased,d.dataheader,d.datafilename))
     return dataout
 
 def subtract(dataobj,args):
     dataout = []
     subtracted = preproc.subtract(dataobj[0].data,dataobj[1].data)
-    dataout.append(preproc.datacontainer(subtracted,dataobj[0].dataheader,dataobj[0].datafilename))
+    dataout.append(datacontainer(subtracted,dataobj[0].dataheader,dataobj[0].datafilename))
     return dataout
 
 def add(dataobj,args):
     dataout = []
     added = preproc.add(dataobj[0].data,dataobj[1].data)
-    dataout.append(preproc.datacontainer(added,dataobj[0].dataheader,dataobj[0].datafilename))
+    dataout.append(datacontainer(added,dataobj[0].dataheader,dataobj[0].datafilename))
     return dataout
-
 
 if __name__ == '__main__':
     main()
