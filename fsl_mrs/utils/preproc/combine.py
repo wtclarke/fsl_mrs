@@ -153,45 +153,138 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
         raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
 
 
-def combine_FIDs_report(inFIDs,outFID,hdr,fileout=None,ncha=2):
+def combine_FIDs_report(inFIDs,outFID,hdr,fileout=None,ncha=2,ppmlim = (0.0,6.0),method='not specified',html=None):
     """ Take list of FIDs that are passed to combine and output
 
     If uncombined data it will display ncha channels (default 2).
     """
-    from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
-    from fsl_mrs.utils.plotting import styleSpectrumAxes
-
+    import plotly.graph_objects as go    
+    from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
+    from matplotlib.pyplot import cm
     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
 
     # Assemble data to plot
     toPlotIn = []
+    colourVecIn = []
+    legendIn = []
     if isinstance(inFIDs,list):    
-        for fid in inFIDs:
+        for idx,fid in enumerate(inFIDs):
             if inFIDs[0].ndim>1:
                 toPlotIn.extend([toMRSobj(f) for f in fid[:,:ncha].T])
+                colourVecIn.extend([idx/len(inFIDs)]*ncha)
+                legendIn.extend([f'FID #{idx}: CHA #{jdx}' for jdx in range(ncha)])
             else:
                 toPlotIn.append(toMRSobj(fid))
+                colourVecIn.append(idx/len(inFIDs))
+                legendIn.append(f'FID #{idx}')
             
     elif inFIDs.ndim>1:
         toPlotIn.extend([toMRSobj(f) for f in inFIDs[:,:ncha].T])
+        colourVecIn.extend([float(jdx)/ncha for jdx in range(ncha)])
+        legendIn.extend([f'FID #0: CHA #{jdx}' for jdx in range(ncha)])
 
     toPlotOut = []
+    legendOut = []
     if outFID.ndim>1:
         toPlotOut.extend([toMRSobj(f) for f in outFID[:,:ncha].T])
+        legendOut.extend([f'Combined: CHA #{jdx}' for jdx in range(ncha)])
     else:
         toPlotOut.append(toMRSobj(outFID))
+        legendOut.append('Combined')
+
+    def addline(fig,mrs,lim,name,linestyle):
+        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+                        y=np.real(mrs.getSpectrum(ppmlim=lim)),
+                        mode='lines',
+                        name=name,
+                        line=linestyle)
+        return fig.add_trace(trace)
+
+    lines,colors,_ = plotStyles()
+    colors = cm.Spectral(np.array(colourVecIn).ravel())
+
+    fig = go.Figure()
+    for idx,fid in enumerate(toPlotIn):
+        cval = np.round(255*colors[idx,:])
+        linetmp = {'color':f'rgb({cval[0]},{cval[1]},{cval[2]})','width':1}
+        fig = addline(fig,fid,ppmlim,legendIn[idx],linetmp)
     
-    ppmlim = (0.0,6.0)
-    ax = plt.gca()
-    colourvec = [[i/len(toPlotIn)]*ncha for i in range(len(inFIDs))]
-    colors = plt.cm.Spectral(np.array(colourvec).ravel())
-    style = ['--']*len(colors)
-    ax.set_prop_cycle(color =colors,linestyle=style)
-    for fid in toPlotIn:
-        ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
-    for fid in toPlotOut:
-        ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'k-')    
-    styleSpectrumAxes(ax)
-    plt.show()
-     
+    for idx,fid in enumerate(toPlotOut):
+        fig = addline(fig,fid,ppmlim,legendOut[idx],lines['blk'])
+    plotAxesStyle(fig,ppmlim,'Combined')
+
+    # Generate report 
+    if html is not None:
+        from plotly.offline import plot
+        from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
+        from datetime import datetime
+        import os.path as op
+
+        if op.isdir(html):
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            htmlfile=op.join(html,filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
+            htmlfile = html
+        else:
+            raise ValueError('html must be file ')
+        
+        opName = 'Combination'
+        timestr = datetime.now().strftime("%H:%M:%S")
+        datestr = datetime.now().strftime("%d/%m/%Y")
+        headerinfo = 'Report for fsl_mrs.utils.preproc.combine.combine_FIDs.\n'\
+                    + f'Generated at {timestr} on {datestr}.'        
+        # Figures
+        div = plot(fig, output_type='div',include_plotlyjs='cdn')
+        figurelist = [figgroup(fig = div,
+                            name= '',
+                            foretext= f'Combination of spectra. Method = {method}',
+                            afttext= f'')]
+
+        singleReport(htmlfile,opName,headerinfo,figurelist)
+        return fig
+    else:
+        return fig
+
+#  Matplotlib
+# def combine_FIDs_report(inFIDs,outFID,hdr,fileout=None,ncha=2):
+#     """ Take list of FIDs that are passed to combine and output
+
+#     If uncombined data it will display ncha channels (default 2).
+#     """
+#     from matplotlib import pyplot as plt
+#     from fsl_mrs.core import MRS
+#     from fsl_mrs.utils.plotting import styleSpectrumAxes
+
+#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
+
+#     # Assemble data to plot
+#     toPlotIn = []
+#     if isinstance(inFIDs,list):    
+#         for fid in inFIDs:
+#             if inFIDs[0].ndim>1:
+#                 toPlotIn.extend([toMRSobj(f) for f in fid[:,:ncha].T])
+#             else:
+#                 toPlotIn.append(toMRSobj(fid))
+            
+#     elif inFIDs.ndim>1:
+#         toPlotIn.extend([toMRSobj(f) for f in inFIDs[:,:ncha].T])
+
+#     toPlotOut = []
+#     if outFID.ndim>1:
+#         toPlotOut.extend([toMRSobj(f) for f in outFID[:,:ncha].T])
+#     else:
+#         toPlotOut.append(toMRSobj(outFID))
+    
+#     ppmlim = (0.0,6.0)
+#     ax = plt.gca()
+#     colourvec = [[i/len(toPlotIn)]*ncha for i in range(len(inFIDs))]
+#     colors = plt.cm.Spectral(np.array(colourvec).ravel())
+#     style = ['--']*len(colors)
+#     ax.set_prop_cycle(color =colors,linestyle=style)
+#     for fid in toPlotIn:
+#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
+#     for fid in toPlotOut:
+#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'k-')    
+#     styleSpectrumAxes(ax)
+#     plt.show()

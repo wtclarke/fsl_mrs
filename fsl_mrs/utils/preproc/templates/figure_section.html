@@ -1,0 +1,12 @@
+<section class="container" id="{{ figName }}">
+    {% if figName %}
+    <h3>{{ figName }}</h3>
+    {% endif %}
+    {% if foretext %}
+    <p>{{ foretext }}</p>
+    {% endif %}
+    {{ figure }}
+    {% if afttext %}
+    <p>{{ afttext }}</p>
+    {% endif %}
+</section>

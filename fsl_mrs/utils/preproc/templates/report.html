@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimal-ui">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+    <link rel="stylesheet" href="https://cdn.rawgit.com/necolas/normalize.css/master/normalize.css">
+    <link rel="stylesheet" href="https://cdn.rawgit.com/milligram/milligram/master/dist/milligram.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <main class="wrapper">
+        <header class="header">
+            <section class="container">
+                <h1>{{ title }}</h1>
+                <p>This report was automatically generated.</p>
+            </section>
+        </header>
+        {% for section in sections %}
+        {{ section }}
+        {% endfor %}
+    </main>
+</body>
+</html>

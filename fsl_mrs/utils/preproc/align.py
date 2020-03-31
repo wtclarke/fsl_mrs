@@ -190,16 +190,36 @@ def phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,diffType 
     return alignedFIDs0,FIDlist1,phiOut,epsOut
 
 # Reporting functions
-def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None):
-    from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
+
+def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None,shift=True,html=None):
     from fsl_mrs.utils.preproc.combine import combine_FIDs
-    from fsl_mrs.utils.plotting import styleSpectrumAxes
-    fig, axs = plt.subplots(2, 2,figsize=(10,10))
-    axs[0,0].plot(np.array(phi)*(180.0/np.pi))
-    axs[0,0].set_ylabel(r'$\phi$ (degrees)')
-    axs[0,1].plot(eps)
-    axs[0,1].set_ylabel('Shift (Hz)')
+    import plotly.graph_objects as go    
+    from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
+    from plotly.subplots import make_subplots
+
+    # Fetch line styles
+    lines,_,_ = plotStyles()
+
+    # Make a new figure
+    fig = make_subplots(rows=1, cols=2,subplot_titles=['Phase','Shift'])
+
+    trace1 = go.Scatter(x=np.arange(1,len(phi)+1),
+                        y=np.array(phi)*(180.0/np.pi),
+                        mode='lines',
+                        name='Phase',
+                        line=lines['out'])
+    fig.add_trace(trace1,row=1,col=1)
+    fig.layout.xaxis.update(title_text='Transient #') 
+    fig.layout.yaxis.update(title_text=r'$\phi$ (degrees)')
+    
+    trace2 = go.Scatter(x=np.arange(1,len(eps)+1),
+                        y=eps,
+                        mode='lines',
+                        name='Shift',
+                        line=lines['diff'])
+    fig.add_trace(trace2,row=1,col=2)
+    fig.layout.yaxis2.update(title_text='Shift (Hz)')
+    fig.layout.xaxis2.update(title_text='Transient #')
 
     meanIn = combine_FIDs(inFIDs,'mean')
     meanOut = combine_FIDs(outFIDs,'mean')
@@ -207,40 +227,113 @@ def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None):
     meanIn = toMRSobj(meanIn)
     meanOut = toMRSobj(meanOut)
 
+    if shift:
+        axis = 'ppmshift'
+    else:
+        axis = 'ppm'
+
     toPlotIn,toPlotOut = [],[]
     for fid in inFIDs:
         toPlotIn.append(toMRSobj(fid))
     for fid in outFIDs:
         toPlotOut.append(toMRSobj(fid))
-    for fid in toPlotIn:
-            axs[1,0].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
-    axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k')        
-    styleSpectrumAxes(ax=axs[1,0])
-    for fid in toPlotOut:
-            axs[1,1].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
-    axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'k')        
-    styleSpectrumAxes(ax=axs[1,1])
-    plt.tight_layout()
-    plt.show()
 
-    fig = plt.figure(figsize=(10,10))
-    plt.plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k',label='Unaligned', linewidth=2)
-    plt.plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'r--',label='Aligned', linewidth=2)
-    styleSpectrumAxes(ax=plt.gca())
-    plt.legend()
-    plt.rcParams.update({'font.size': 12})
-    plt.show()
+    def addline(fig,mrs,lim,name,linestyle):
+        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+                        y=np.real(mrs.getSpectrum(ppmlim=lim, shift=shift)),
+                        mode='lines',
+                        name=name,
+                        line=linestyle)
+        return fig.add_trace(trace)  
+    fig2 = go.Figure()
+    for idx,fid in enumerate(toPlotIn):
+        cval = np.round(255*idx/len(toPlotIn))
+        linetmp = {'color':f'rgb(0,{cval},{cval})','width':1}
+        fig2 = addline(fig2,fid,ppmlim,f'#{idx}',linetmp)
+    fig2 = addline(fig2,meanIn,ppmlim,f'Mean - Unligned',lines['blk'])
+    plotAxesStyle(fig2,ppmlim,'Unaligned')
 
-def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,ppmlim=None,diffType='add',shift=True):
-    from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
+    fig3 = go.Figure()
+    for idx,fid in enumerate(toPlotOut):
+        cval = np.round(255*idx/len(toPlotIn))
+        linetmp = {'color':f'rgb(0,{cval},{cval})','width':1}
+        fig3 = addline(fig3,fid,ppmlim,f'#{idx}',linetmp)
+    fig3 = addline(fig3,meanIn,ppmlim,f'Mean - Unligned',lines['out'])
+    fig3 = addline(fig3,meanOut,ppmlim,f'Mean - Aligned',lines['blk'])
+    plotAxesStyle(fig3,ppmlim,'Aligned')
+
+    if html is not None:
+        from plotly.offline import plot
+        from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
+        from datetime import datetime
+        import os.path as op
+
+        if op.isdir(html):
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            htmlfile=op.join(html,filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
+            htmlfile = html
+        else:
+            raise ValueError('html must be file ')
+        
+        opName = 'Align'
+        timestr = datetime.now().strftime("%H:%M:%S")
+        datestr = datetime.now().strftime("%d/%m/%Y")
+        headerinfo = 'Report for fsl_mrs.utils.align.phase_freq_align.\n'\
+                    + f'Generated at {timestr} on {datestr}.'        
+        # Figures
+        div = plot(fig, output_type='div',include_plotlyjs='cdn')
+        figurelist = [figgroup(fig = div,
+                            name= '',
+                            foretext= f'Alignment parameters.',
+                            afttext= f'')]
+        div2 = plot(fig2, output_type='div',include_plotlyjs='cdn')
+        figurelist.append(figgroup(fig = div2,
+                            name= '',
+                            foretext= f'Transients before alignment.',
+                            afttext= f''))
+        div3 = plot(fig3, output_type='div',include_plotlyjs='cdn')
+        figurelist.append(figgroup(fig = div3,
+                            name= '',
+                            foretext= f'Transients after alignment.',
+                            afttext= f''))
+
+        singleReport(htmlfile,opName,headerinfo,figurelist)
+        return fig,fig2,fig3
+    else:
+        return fig,fig2,fig3
+    
+    
+
+def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,ppmlim=None,diffType='add',shift=True,html=None):
     from fsl_mrs.utils.preproc.combine import combine_FIDs
-    from fsl_mrs.utils.plotting import styleSpectrumAxes
-    fig, axs = plt.subplots(2, 2,figsize=(10,10))
-    axs[0,0].plot(np.array(phi)*(180.0/np.pi))
-    axs[0,0].set_ylabel(r'$\phi$ (degrees)')
-    axs[0,1].plot(eps)
-    axs[0,1].set_ylabel('Shift (Hz)')
+    import plotly.graph_objects as go    
+    from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
+    from plotly.subplots import make_subplots  
+
+    # Fetch line styles
+    lines,_,_ = plotStyles()
+
+    # Make a new figure
+    fig = make_subplots(rows=1, cols=2,subplot_titles=['Phase','Shift'])
+
+    trace1 = go.Scatter(x=np.arange(1,len(phi)+1),
+                        y=np.array(phi)*(180.0/np.pi),
+                        mode='lines',
+                        name='Phase',
+                        line=lines['out'])
+    fig.add_trace(trace1,row=1,col=1)
+    fig.layout.xaxis.update(title_text='Transient #') 
+    fig.layout.yaxis.update(title_text=r'$\phi$ (degrees)')
+    
+    trace2 = go.Scatter(x=np.arange(1,len(eps)+1),
+                        y=eps,
+                        mode='lines',
+                        name='Shift',
+                        line=lines['diff'])
+    fig.add_trace(trace2,row=1,col=2)
+    fig.layout.yaxis2.update(title_text='Shift (Hz)')
+    fig.layout.xaxis2.update(title_text='Transient #')
 
     diffFIDListIn = []
     diffFIDListOut = []
@@ -270,21 +363,168 @@ def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,p
         toPlotIn.append(toMRSobj(fid))
     for fid in diffFIDListOut:
         toPlotOut.append(toMRSobj(fid))
-    for fid in toPlotIn:
-            axs[1,0].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
-    axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
-    styleSpectrumAxes(ax=axs[1,0])
-    for fid in toPlotOut:
-            axs[1,1].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
-    axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
-    styleSpectrumAxes(ax=axs[1,1])
-    plt.tight_layout()
-    plt.show()
+    
+    def addline(fig,mrs,lim,name,linestyle):
+        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+                        y=np.real(mrs.getSpectrum(ppmlim=lim, shift=shift)),
+                        mode='lines',
+                        name=name,
+                        line=linestyle)
+        return fig.add_trace(trace)  
+    fig2 = go.Figure()
+    for idx,fid in enumerate(toPlotIn):
+        cval = np.round(255*idx/len(toPlotIn))
+        linetmp = {'color':f'rgb(0,{cval},{cval})','width':1}
+        fig2 = addline(fig2,fid,ppmlim,f'#{idx}',linetmp)
+    fig2 = addline(fig2,meanIn,ppmlim,f'Mean - Unligned',lines['blk'])
+    plotAxesStyle(fig2,ppmlim,'Unaligned')
 
-    fig = plt.figure(figsize=(10,10))
-    plt.plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k',label='Unaligned', linewidth=2)
-    plt.plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'r--',label='Aligned', linewidth=2)
-    styleSpectrumAxes(ax=plt.gca())
-    plt.legend()
-    plt.rcParams.update({'font.size': 12})
-    plt.show()
+    fig3 = go.Figure()
+    for idx,fid in enumerate(toPlotOut):
+        cval = np.round(255*idx/len(toPlotIn))
+        linetmp = {'color':f'rgb(0,{cval},{cval})','width':1}
+        fig3 = addline(fig3,fid,ppmlim,f'#{idx}',linetmp)
+    fig3 = addline(fig3,meanIn,ppmlim,f'Mean - Unligned',lines['out'])
+    fig3 = addline(fig3,meanOut,ppmlim,f'Mean - Aligned',lines['blk'])
+    plotAxesStyle(fig3,ppmlim,'Aligned')
+
+    if html is not None:
+        from plotly.offline import plot
+        from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
+        from datetime import datetime
+        import os.path as op
+
+        if op.isdir(html):
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            htmlfile=op.join(html,filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
+            htmlfile = html
+        else:
+            raise ValueError('html must be file ')
+        
+        opName = 'AlignDiff'
+        timestr = datetime.now().strftime("%H:%M:%S")
+        datestr = datetime.now().strftime("%d/%m/%Y")
+        headerinfo = 'Report for fsl_mrs.utils.align.phase_freq_align_diff.\n'\
+                    + f'Generated at {timestr} on {datestr}.'        
+        # Figures
+        div = plot(fig, output_type='div',include_plotlyjs='cdn')
+        figurelist = [figgroup(fig = div,
+                            name= '',
+                            foretext= f'Alignment parameters.',
+                            afttext= f'')]
+        div2 = plot(fig2, output_type='div',include_plotlyjs='cdn')
+        figurelist.append(figgroup(fig = div2,
+                            name= '',
+                            foretext= f'Transients before alignment.',
+                            afttext= f''))
+        div3 = plot(fig3, output_type='div',include_plotlyjs='cdn')
+        figurelist.append(figgroup(fig = div3,
+                            name= '',
+                            foretext= f'Transients after alignment.',
+                            afttext= f''))
+
+        singleReport(htmlfile,opName,headerinfo,figurelist)
+        return fig,fig2,fig3
+    else:
+        return fig,fig2,fig3
+
+# Matplotlib
+# def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None):
+#     from matplotlib import pyplot as plt
+#     from fsl_mrs.core import MRS
+#     from fsl_mrs.utils.preproc.combine import combine_FIDs
+#     from fsl_mrs.utils.plotting import styleSpectrumAxes
+#     fig, axs = plt.subplots(2, 2,figsize=(10,10))
+#     axs[0,0].plot(np.array(phi)*(180.0/np.pi))
+#     axs[0,0].set_ylabel(r'$\phi$ (degrees)')
+#     axs[0,1].plot(eps)
+#     axs[0,1].set_ylabel('Shift (Hz)')
+
+#     meanIn = combine_FIDs(inFIDs,'mean')
+#     meanOut = combine_FIDs(outFIDs,'mean')
+#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
+#     meanIn = toMRSobj(meanIn)
+#     meanOut = toMRSobj(meanOut)
+
+#     toPlotIn,toPlotOut = [],[]
+#     for fid in inFIDs:
+#         toPlotIn.append(toMRSobj(fid))
+#     for fid in outFIDs:
+#         toPlotOut.append(toMRSobj(fid))
+#     for fid in toPlotIn:
+#             axs[1,0].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
+#     axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k')        
+#     styleSpectrumAxes(ax=axs[1,0])
+#     for fid in toPlotOut:
+#             axs[1,1].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
+#     axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'k')        
+#     styleSpectrumAxes(ax=axs[1,1])
+#     plt.tight_layout()
+#     plt.show()
+
+#     fig = plt.figure(figsize=(10,10))
+#     plt.plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k',label='Unaligned', linewidth=2)
+#     plt.plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'r--',label='Aligned', linewidth=2)
+#     styleSpectrumAxes(ax=plt.gca())
+#     plt.legend()
+#     plt.rcParams.update({'font.size': 12})
+#     plt.show()
+
+# def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,ppmlim=None,diffType='add',shift=True):
+#     from matplotlib import pyplot as plt
+#     from fsl_mrs.core import MRS
+#     from fsl_mrs.utils.preproc.combine import combine_FIDs
+#     from fsl_mrs.utils.plotting import styleSpectrumAxes
+#     fig, axs = plt.subplots(2, 2,figsize=(10,10))
+#     axs[0,0].plot(np.array(phi)*(180.0/np.pi))
+#     axs[0,0].set_ylabel(r'$\phi$ (degrees)')
+#     axs[0,1].plot(eps)
+#     axs[0,1].set_ylabel('Shift (Hz)')
+
+#     diffFIDListIn = []
+#     diffFIDListOut = []
+#     for fid0i,fid1i,fid0o,fid1o in zip(inFIDs0,inFIDs1,outFIDs0,outFIDs1):
+#         if diffType.lower() == 'add':
+#             diffFIDListIn.append(add(fid1i,fid0i))
+#             diffFIDListOut.append(add(fid1o,fid0o))
+#         elif diffType.lower() == 'sub':
+#             diffFIDListIn.append(subtract(fid1i,fid0i))
+#             diffFIDListOut.append(subtract(fid1o,fid0o))
+#         else:
+#             raise ValueError('diffType must be add or sub.') 
+
+#     meanIn = combine_FIDs(diffFIDListIn,'mean')
+#     meanOut = combine_FIDs(diffFIDListOut,'mean')
+#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
+#     meanIn = toMRSobj(meanIn)
+#     meanOut = toMRSobj(meanOut)
+
+#     if shift:
+#         axis = 'ppmshift'
+#     else:
+#         axis = 'ppm'
+
+#     toPlotIn,toPlotOut = [],[]
+#     for fid in diffFIDListIn:
+#         toPlotIn.append(toMRSobj(fid))
+#     for fid in diffFIDListOut:
+#         toPlotOut.append(toMRSobj(fid))
+#     for fid in toPlotIn:
+#             axs[1,0].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
+#     axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
+#     styleSpectrumAxes(ax=axs[1,0])
+#     for fid in toPlotOut:
+#             axs[1,1].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
+#     axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
+#     styleSpectrumAxes(ax=axs[1,1])
+#     plt.tight_layout()
+#     plt.show()
+
+#     fig = plt.figure(figsize=(10,10))
+#     plt.plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k',label='Unaligned', linewidth=2)
+#     plt.plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'r--',label='Aligned', linewidth=2)
+#     styleSpectrumAxes(ax=plt.gca())
+#     plt.legend()
+#     plt.rcParams.update({'font.size': 12})
+#     plt.show()

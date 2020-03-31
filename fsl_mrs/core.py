@@ -152,15 +152,15 @@ class MRS(object):
     def getAxes(self,axis='ppmshift',ppmlim=None):        
         if axis.lower() == 'ppmshift':
             f,l = self.ppmlim_to_range(ppmlim,shift=True)
-            return self.ppmAxisShift[f:l]
+            return np.squeeze(self.ppmAxisShift[f:l])
         elif axis.lower() == 'ppm':
             f,l = self.ppmlim_to_range(ppmlim,shift=False)
-            return self.ppmAxis[f:l]
+            return np.squeeze(self.ppmAxis[f:l])
         elif axis.lower() == 'freq':
             f,l = self.ppmlim_to_range(ppmlim,shift=False)
-            return self.frequencyAxis[f:l]
+            return np.squeeze(self.frequencyAxis[f:l])
         elif axis.lower() == 'time':
-            return self.timeAxis
+            return np.squeeze(self.timeAxis)
         else:
             raise ValueError('axis must be one of ppmshift, ppm, freq or time.')
 
