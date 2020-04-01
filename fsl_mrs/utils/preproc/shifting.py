@@ -106,14 +106,13 @@ def pad(FID,k,first_or_last='last'):
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
-def shift_report(inFID,outFID,hdr,ppmlim = (0.2,4.2),html=None,function='shift'):    
+def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function='shift'):    
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots  
     from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
 
-    toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID) 
+    plotIn = MRS(FID=inFID,header=inHdr) 
+    plotOut = MRS(FID=outFID,header=outHdr) 
 
     # Fetch line styles
     lines,colors,_ = plotStyles()
@@ -164,7 +163,7 @@ def shift_report(inFID,outFID,hdr,ppmlim = (0.2,4.2),html=None,function='shift')
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
             htmlfile=op.join(html,filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html

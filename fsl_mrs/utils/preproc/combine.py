@@ -153,7 +153,7 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
         raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
 
 
-def combine_FIDs_report(inFIDs,outFID,hdr,fileout=None,ncha=2,ppmlim = (0.0,6.0),method='not specified',html=None):
+def combine_FIDs_report(inFIDs,outFID,hdr,ncha=2,ppmlim = (0.0,6.0),method='not specified',html=None):
     """ Take list of FIDs that are passed to combine and output
 
     If uncombined data it will display ncha channels (default 2).
@@ -222,7 +222,7 @@ def combine_FIDs_report(inFIDs,outFID,hdr,fileout=None,ncha=2,ppmlim = (0.0,6.0)
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
             htmlfile=op.join(html,filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html

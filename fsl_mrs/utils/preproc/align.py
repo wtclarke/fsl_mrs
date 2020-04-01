@@ -269,7 +269,7 @@ def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None,shift=True,ht
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
             htmlfile=op.join(html,filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
@@ -395,7 +395,7 @@ def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,p
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
             htmlfile=op.join(html,filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html

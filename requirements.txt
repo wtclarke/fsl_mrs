@@ -6,3 +6,5 @@ pandas
 configargparse
 argparse
 pandas
+jinja2
+beautifulsoup4

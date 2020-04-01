@@ -22,5 +22,6 @@ setup(name='FSL_MRS',
                 'fsl_mrs/scripts/fsl_mrs_preproc',
                 'fsl_mrs/scripts/fsl_mrs_proc',
                 'fsl_mrs/scripts/fsl_mrs_sim',
-                'fsl_mrs/scripts/mrs_vis']               
+                'fsl_mrs/scripts/mrs_vis',
+                'fsl_mrs/scripts/merge_mrs_reports']               
      )

@@ -99,7 +99,7 @@ def hlsvd_report(inFID,outFID,hdr,limits,limitUnits = 'ppm',plotlim = (0.2,6),ht
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S")+'.html'
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
             htmlfile=op.join(html,filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
