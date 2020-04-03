@@ -12,6 +12,15 @@ from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
 
 # Helper functions for LCModel fitting
 
+# faster than utils.misc.FIDtoSpec
+#def FIDToSpec(FID):
+#    return np.fft.fft(FID,axis=0)
+
+#def SpecToFID(FID):
+#    return np.fft.ifft(FID,axis=0)
+
+
+
 ################ TIME DOMAIN FUNCTIONS
 def LCModel_forward(x,nu,t,m):
     """
@@ -80,7 +89,7 @@ def LCModel_forward_freq(x,nu,t,m):
     eps   = x[n+1] 
     phi0  = x[n+2]  
     phi1  = x[n+3] 
-    M    = FIDToSpec(m*np.exp(-(gamma+1j*eps)*t),axis=0)
+    M    = FIDToSpec(m*np.exp(-(gamma+1j*eps)*t))
     Y_nu = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
     
     return Y_nu.flatten()
@@ -96,8 +105,8 @@ def LCModel_jac_freq(x,nu,t,m,Spec,first,last):
     m_term   = m*np.exp(-(gamma+1j*eps)*t)    
     phi_term = np.exp(-1j*(phi0+phi1*nu)) 
     
-    Fmet  = FIDToSpec(m_term,axis=0)
-    Ftmet = FIDToSpec(t*m_term,axis=0)
+    Fmet  = FIDToSpec(m_term)
+    Ftmet = FIDToSpec(t*m_term)
     cFmet = Fmet@con[:,None]
     
     Y        = LCModel_forward_freq(x,nu,t,m)
@@ -178,9 +187,9 @@ def FSLModel_transform_basis(x,nu,t,m,G,g):
     for i,gg in enumerate(G):
         tmp[:,i] = m[:,i]*E[:,gg]
     
-    M     = FIDToSpec(tmp,axis=0)
+    M     = FIDToSpec(tmp)
     
-    return SpecToFID(np.exp(-1j*(phi0+phi1*nu))*M,axis=0)
+    return SpecToFID(np.exp(-1j*(phi0+phi1*nu))*M)
     
     #return tmp
     
@@ -210,11 +219,11 @@ def FSLModel_forward(x,nu,t,m,B,G,g):
     for i,gg in enumerate(G):
         tmp[:,i] = m[:,i]*E[:,gg]
     
-    M     = FIDToSpec(tmp,axis=0)
+    M     = FIDToSpec(tmp)
     S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
 
     # add baseline
-    if B is not None:
+    if B is not None:                
         S += B@b[:,None]
     
     return S.flatten()
@@ -274,8 +283,8 @@ def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
     
     phi_term = np.exp(-1j*(phi0+phi1*nu)) 
     
-    Fmet     = FIDToSpec(m_term,axis=0)
-    Ftmet    = FIDToSpec(t*m_term,axis=0)
+    Fmet     = FIDToSpec(m_term)
+    Ftmet    = FIDToSpec(t*m_term)
     Ftmetc   = Ftmet@c
     Fmetcon = Fmet@con[:,None]
     
@@ -438,9 +447,9 @@ def FSLModel_grad_Voigt(x,nu,t,m,B,G,g,data,first,last):
     m_term = m*e_term
     
     phi_term = np.exp(-1j*(phi0+phi1*nu)) 
-    Fmet     = FIDToSpec(m_term,axis=0)
-    Ftmet    = FIDToSpec(t*m_term,axis=0)
-    Ft2sigmet   = FIDToSpec(t*t*sig_term*m_term,axis=0)
+    Fmet     = FIDToSpec(m_term)
+    Ftmet    = FIDToSpec(t*m_term)
+    Ft2sigmet   = FIDToSpec(t*t*sig_term*m_term)
     Ftmetc   = Ftmet@c
     Ft2sigmetc  = Ft2sigmet@c
     Fmetcon = Fmet@con[:,None]

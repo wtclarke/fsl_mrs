@@ -7,11 +7,10 @@
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
 
+import numpy as np
 
-from fsl_mrs.utils.models import *
-from fsl_mrs.utils.misc import *
+from fsl_mrs.utils import models, misc, mh
 from fsl_mrs.utils.constants import *
-from fsl_mrs.utils import mh
 from fsl_mrs.core import MRS
 
 from scipy.optimize import minimize,nnls
@@ -85,11 +84,10 @@ class FitRes(object):
 
         self.params_names.extend(['Phi0','Phi1'])
         
-        for i in range(baseline_order+1):
+        for i in range(0,2*(baseline_order+1),2):
             self.params_names.extend(["B_real_{}".format(i)])
+            self.params_names.extend(["B_imag_{}".format(i+1)])
 
-        for i in range(baseline_order+1):
-            self.params_names.extend(["B_imag_{}".format(i)])
 
     def to_file(self,filename,mrs=None,what='concentrations'):
         """
@@ -126,7 +124,7 @@ def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
        Print parameters 
     """
     g = max(metab_groups)+1
-    con,gamma,eps,phi0,phi1,b=FSLModel_x2param(x,mrs.numBasis,g)
+    con,gamma,eps,phi0,phi1,b=models.FSLModel_x2param(x,mrs.numBasis,g)
     print('-----------------------------------------------------------------')
     print('gamma  = {}'.format(gamma))
     print('eps    = {}'.format(eps))
@@ -143,7 +141,7 @@ def calculate_area(mrs,FID,ppmlim=None):
     """
         Calculate area 
     """
-    Spec = FIDToSpec(FID,axis=0)
+    Spec = misc.FIDToSpec(FID,axis=0)
     if ppmlim is not None:
         first,last = mrs.ppmlim_to_range(ppmlim)
         Spec = Spec[first:last]
@@ -178,111 +176,91 @@ def quantify(mrs,concentrations,ref='Cr',to_h2o=False,scale=1):
 
 
 
-def init_gamma_eps(mrs):
-    """
-       Initialise gamma/epsilon parameters
-       
-    """
-
-    ppmlim = (.2,4.2)
+# New strategy for init
+def init_params(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    
-    y = FIDToSpec(mrs.FID)[first:last]
-    #y = np.real(y).flatten() #
+    y = misc.FIDToSpec(mrs.FID)[first:last]
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
-
+    B = baseline[first:last,:].copy()
+    B = np.concatenate((np.real(B),np.imag(B)),axis=0)
+    
     def modify_basis(mrs,gamma,eps):
         bs = mrs.basis * np.exp(-(gamma+1j*eps)*mrs.timeAxis)        
-        bs = FIDToSpec(bs,axis=0)
+        bs = misc.FIDToSpec(bs,axis=0)
         bs = bs[first:last,:]
-        #return np.real(bs) #
         return np.concatenate((np.real(bs),np.imag(bs)),axis=0)
             
-    def cf(p):
+    def loss(p):
         gamma,eps = np.exp(p[0]),p[1]
-        bs        = modify_basis(mrs,gamma,eps)
-        #print(gamma)
-        #print(eps)
-        #beta,_    = nnls(bs,y)
-        beta      = np.linalg.pinv(bs)@y
-        pred      = bs@beta                
-        loss      = np.mean((pred-y)**2)
-        return loss
+        basis     = modify_basis(mrs,gamma,eps)
+        desmat    = np.concatenate((basis,B),axis=1)
+        beta      = np.real(np.linalg.pinv(desmat)@y)
+        beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis],0,None) # project onto >0 concentration
+        pred      = np.matmul(desmat,beta)
+        val       = np.mean(np.abs(pred-y)**2)    
+        return val
+        
+    x0  = np.array([np.log(1e-5),0])
+    res = minimize(loss, x0, method='Powell')
+    
+    g,e = np.exp(res.x[0]),res.x[1]
 
-    x0     = np.array([-10,0])
-    #bounds = [(0,1e3),(-1e3,1e3)]
-    #res    = minimize(cf, x0, method='TNC',bounds=bounds)
+    # get concentrations and baseline params 
+    basis  = modify_basis(mrs,g,e)
+    desmat = np.concatenate((basis,B),axis=1)
+    beta   = np.real(np.linalg.pinv(desmat)@y)
+    con    = np.clip(beta[:mrs.numBasis],0,None)
+    #con    = beta[:mrs.numBasis]
+    b      = beta[mrs.numBasis:]
+
+    return g,e,con,b
+
+
+
+# def init_FSLModel_old(mrs,metab_groups,baseline_order):
+#     """
+#        Initialise params of FSLModel
+#     """
+#     # 1. Find gamma and eps
+#     # 2. Use those to init concentrations
+#     # 3. How about phi0 and phi1?
+    
+#     # 1. gamma/eps
+
+
+#     gamma,eps,con = init_gamma_eps(mrs)
 
     
-    res    = minimize(cf, x0, method='Powell')
-    res    = minimize(cf, x0=res.x, method='Nelder-Mead')
-    res    = minimize(cf, x0=res.x, method='TNC')
+#     # Append 
+#     x0  = con   # concentrations
+        
+#     g   = max(metab_groups)+1                    # number of metab groups
+#     x0  = np.append(x0,[gamma]*g)                # gamma[0]..
+#     x0  = np.append(x0,[eps]*g)                  # eps[0]..
+#     x0  = np.append(x0,[0,0])                    # phi0 and phi1
+#     x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
     
+#     return x0
 
-    g,e    = np.exp(res.x[0]),res.x[1]
-    
-    #print([g,e])
-    return g,e
-
-def init_gamma_eps_old(mrs):
-    """
-       Initialise gamma/epsilon parameters
-       This is done by summing all the basis FIDs and
-       maximizing the correlation with the data FID
-       after shifting and blurring
-       correlation is calculated in the range [.2,4.2] ppm
-    """
-    target = mrs.FID[:,None]
-    target = extract_spectrum(mrs,target)
-    b      = np.sum(mrs.basis,axis=1)[:,None]
-    def cf(p):
-        gamma = p[0]
-        eps   = p[1]
-        bs = blur_FID(mrs,b,gamma)    
-        bs = shift_FID(mrs,bs,eps)
-        bs = extract_spectrum(mrs,bs)
-        xx = 1-correlate(bs,target)
-        return xx
-
-    x0  = np.array([0,0])
-    res = minimize(cf, x0, method='TNC',bounds=[(0,1e5),(-np.pi,np.pi)])
-    #res = minimize(cf, x0, method='Powell')
-    g   = res.x[0]
-    e   = res.x[1]
-    
-    return g,e
-
-
-def init_FSLModel(mrs,metab_groups,baseline_order):
+def init_FSLModel(mrs,metab_groups,baseline,ppmlim):
     """
        Initialise params of FSLModel
     """
-    # 1. Find gamma and eps
-    # 2. Use those to init concentrations
-    # 3. How about phi0 and phi1?
-    
-    # 1. gamma/eps
 
-
-    gamma,eps = init_gamma_eps(mrs)
-    new_basis = mrs.basis*np.exp(-(gamma+1j*eps)*mrs.timeAxis)    
-    
-    data   = np.append(np.real(mrs.FID),np.imag(mrs.FID),axis=0)
-    desmat = np.append(np.real(new_basis),np.imag(new_basis),axis=0)
-    #con    = np.real(np.linalg.pinv(desmat)@data)   
-    con,_  = nnls(desmat,data.flatten())
+    gamma,eps,con,b0 = init_params(mrs,baseline,ppmlim)
     
     # Append 
-    x0  = con   # concentrations
-        
+    x0  = con                                    # concentrations
     g   = max(metab_groups)+1                    # number of metab groups
     x0  = np.append(x0,[gamma]*g)                # gamma[0]..
     x0  = np.append(x0,[eps]*g)                  # eps[0]..
     x0  = np.append(x0,[0,0])                    # phi0 and phi1
-    x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
+    x0  = np.append(x0,b0)                       # baseline
     
     return x0
 
+
+# THE BELOW NEEDS TO BE REVISTED IN LIGHT OF THE LORENTZIAN INITIALISATION
 def init_gamma_sigma_eps(mrs):
     """
        Initialise gamma/sigma/epsilon parameters
@@ -341,19 +319,37 @@ def init_FSLModel_Voigt(mrs,metab_groups,baseline_order):
     
     return x0
 
-def prepare_baseline_regressor(mrs,baseline_order,first,last):
+# ####################################################################################
+
+
+def prepare_baseline_regressor(mrs,baseline_order,ppmlim):
     """
-       Should the baseline be complex (twice the number of parameters to fit)?
+       Complex baseline is polynomial
+
+    Parameters:
+    -----------
+    mrs            : MRS object
+    baseline_order : degree of polynomial (>=1)
+    ppmlim         : interval over which baseline is non-zero
+
+    Returns:
+    --------
+    
+    2D numpy array
     """
 
+    first,last = mrs.ppmlim_to_range(ppmlim)
+    
     B = []
-    x = np.zeros(mrs.numPoints,np.complex) #0*mrs.ppmAxisShift
+    x = np.zeros(mrs.numPoints,np.complex) 
     x[first:last] = np.linspace(-1,1,last-first)
     
     for i in range(baseline_order+1):
         regressor  = x**i
         if i>0:
-            regressor  = regressor - np.mean(regressor)
+            #regressor  = regressor - np.mean(regressor)
+            regressor  = misc.regress_out(regressor,B,keep_mean=False)
+            
         B.append(regressor.flatten())
         B.append(1j*regressor.flatten())
     B = np.asarray(B).T
@@ -363,46 +359,100 @@ def prepare_baseline_regressor(mrs,baseline_order,first,last):
     
     return B
 
-# OLD ONE - DELETE EVENTUALLY
-# def prepare_baseline_regressor(mrs, baseline_order, first, last):
-#     """
-#        Should the baseline be complex (twice the number of parameters to fit)?
-#     """
-#     B = []
-#     x = 0 * mrs.ppmAxisShift
-#     x[first:last] = mrs.ppmAxisShift[first:last] - np.mean(mrs.ppmAxisShift[first:last])
 
-#     for i in range(baseline_order + 1):
-#         regressor = x ** i
-#         if i > 0:
-#             regressor = ztransform(regressor)
-#         B.append(regressor.flatten())
-#         B.append(1j * regressor.flatten())
-#     B = np.asarray(B).T
-#     tmp = B.copy()
-#     B = 0 * B
-#     B[first:last, :] = tmp[first:last, :].copy()
+def get_bounds(num_basis,num_metab_groups,baseline_order,model,method):
+    if method == 'Newton':
+        # conc
+        bnds = [(0,None)]*num_basis
+        # gamma/sigma/eps
+        bnds.extend([(0,None)]*num_metab_groups)
+        if model == 'Voigt':
+            bnds.extend([(0,None)]*num_metab_groups)
+        bnds.extend([(None,None)]*num_metab_groups)
+        # phi0,phi1
+        bnds.extend([(None,None)]*2)
+        # baseline
+        n = (1+baseline_order)*2
+        bnds.extend([(None,None)]*n)
+        return bnds
 
-#     return B
+    elif method == 'MH':
+        MAX =  1e10
+        MIN = -1e10
+        # conc
+        LB = [0]*num_basis
+        UB = [MAX]*num_basis
+        # gamma/sigma/eps
+        LB.extend([0]*num_metab_groups)
+        UB.extend([MAX]*num_metab_groups)        
+        if model == 'Voigt':
+            LB.extend([0]*num_metab_groups)
+            UB.extend([MAX]*num_metab_groups)
+        LB.extend([MIN]*num_metab_groups)
+        UB.extend([MAX]*num_metab_groups)        
+        # phi0,phi1
+        LB.extend([MIN]*2)
+        UB.extend([MAX]*2)
+        # baseline
+        n = (1+baseline_order)*2
+        LB.extend([MIN]*n)
+        UB.extend([MAX]*n)
+
+        return LB,UB
 
 
-def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=None,model='lorentzian',x0=None):
+    else:
+        raise(Exception(f'Unknown method {method}'))
+            
+def get_fitting_mask(num_basis,num_metab_groups,baseline_order,model,
+                     fit_conc=True,fit_shape=True,fit_phase=True,fit_baseline=False):
+
+    if fit_conc:
+        mask = [1]*num_basis
+    else:
+        mask = [0]*num_basis
+    n = 2*num_metab_groups
+    if model == 'Voigt':
+        n += num_metab_groups
+    if fit_shape:
+        mask.extend([1]*n)
+    else:
+        mask.extend([0]*n)
+    if fit_phase:
+        mask.extend([1]*2)
+    else:
+        mask.extend([0]*2)
+    n = (1+baseline_order)*2
+    if fit_baseline:
+        mask.extend([1]*n)
+    else:        
+        mask.extend([0]*n)
+    return mask
+
+
+def fit_FSLModel(mrs,
+                 method='Newton',
+                 ppmlim=None,
+                 baseline_order=5,
+                 metab_groups=None,
+                 model='lorentzian',
+                 x0=None):
     """
         A simplified version of LCModel
     """
-    err_func,grad_func,forward,x2p,_ = getModelFunctions(model)
+    err_func,grad_func,forward,x2p,_ = model.getModelFunctions(model)
     if model == 'lorentzian':     
         init_func  = init_FSLModel         # initilisation of params
     elif model == 'voigt':        
         init_func  = init_FSLModel_Voigt    # initilisation of params
 
-    data       = mrs.Spec.copy()              # data
+    data       = mrs.Spec.copy()              # data copied to keep it safe
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
 
     if metab_groups is None:
         metab_groups = [0]*len(mrs.names)
 
-    # shorter names for some of the useful data
+    # shorter names for some of the useful stuff
     freq,time,basis=mrs.frequencyAxis,mrs.timeAxis,mrs.basis
 
 
@@ -411,7 +461,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     results.fill_names(mrs,baseline_order,metab_groups)
 
     # Prepare baseline
-    B                 = prepare_baseline_regressor(mrs,baseline_order,first,last)
+    B                 = prepare_baseline_regressor(mrs,baseline_order,ppmlim)
     results.base_poly = B
     
     # Constants
@@ -420,36 +470,15 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
     if x0 is None:
         # Initialise all params
-        x0= init_func(mrs,metab_groups,baseline_order)
-        # Update init baseline params
-        pred = forward(x0,freq,time,basis,B,metab_groups,g)
-        err  = data-pred
-        br = np.linalg.pinv(np.real(B[:,0::2]))@np.real(err[:,None])
-        bi = np.linalg.pinv(np.imag(B[:,1::2]))@np.imag(err[:,None])
-        b0 = np.zeros(B.shape[1])
-        b0[0::2] = br.flatten()
-        b0[1::2] = bi.flatten()
-        if model == 'lorentzian':
-            x0[mrs.numBasis+2*g+2:] = b0
-        elif model == 'voigt':
-            x0[mrs.numBasis+3*g+2:] = b0
+        x0 = init_func(mrs,metab_groups,B,ppmlim)
+        
         
     # Fitting
     if method == 'Newton':
-        # Bounds        
-        bnds = []        
-        bnds.extend([(0,None)]*mrs.numBasis) # Bounds on concentrations
-        if model == 'lorentzian':            
-            bnds.extend([(0,None)]*g) # Bounds on Gamma
-        elif model == 'voigt':
-            bnds.extend([(0,None),(0,None)]*g) # Bounds on Gamma and Sigma
-        bnds.extend([(None,None)]*g) # Bounds on eps
-        bnds.append((None,None)) # Bounds on phi0
-        bnds.append((None,None)) # Bounds on phi1       
-        bnds.extend([(None,None)]*(baseline_order+1)) # Bounds on real baseline      
-        bnds.extend([(None,None)]*(baseline_order+1)) # Bounds on imag baseline      
-        
-        res = minimize(err_func, x0, args=constants, method='TNC',jac=grad_func,bounds=bnds)
+        # Bounds
+        bounds = get_bounds(mrs.numBasis,g,baseline_order,model,method)                
+        res    = minimize(err_func, x0, args=constants,
+                          method='TNC',jac=grad_func,bounds=bounds)
         # collect results
         results.params = res.x
 
@@ -469,32 +498,12 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
         # Create maks and bounds for MH fit
         p0   = res.params
-        # Concentrations
-        mask = [1]*mrs.numBasis
-        LB   = [0.0]*mrs.numBasis
-        # Lineshape parameters (gamma, sigma)
-        if model == 'lorentzian':
-            LB.extend([0]*g)
-            mask.extend([1]*g)
-        elif model == 'voigt':
-            LB.extend([0,0]*g)
-            mask.extend([1,1]*g)
-        # Shift parameter (eps)    
-        LB.extend([-1e10]*g)
-        mask.extend([1]*g)
-        # Phase parameters
-        LB.extend([-1e10]*2)
-        mask.extend([0]*2)
-        # Baseline parameters
-        LB.extend([-1e10]*2*(baseline_order+1))
-        mask.extend([0]*2*(baseline_order+1))
-        
-        LB = np.asarray(LB)
-        mask = np.asarray(mask)
-        # Upper bounds
-        UB   = 1e10*np.ones(len(p0))
 
-        # Check that the values initilised by the newton method don't exceed these bounds (unlikely but possible with bad data)
+        LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method)                
+        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=False)        
+
+        # Check that the values initilised by the newton
+        # method don't exceed these bounds (unlikely but possible with bad data)
         for i,(p, u, l) in enumerate(zip(p0, UB, LB)):
             if p>u:        
                 p0[i]=u        
@@ -514,11 +523,11 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
 
     # Collect more results
     results.pred_spec = forward(results.params,freq,time,basis,results.base_poly,metab_groups,g)
-    results.pred      = SpecToFID(results.pred_spec) # predict FID not Spec
+    results.pred      = misc.SpecToFID(results.pred_spec) # predict FID not Spec
     
     # baseline
-    baseline = getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
-    baseline = SpecToFID(baseline)
+    baseline = model.getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
+    baseline = misc.SpecToFID(baseline)
     results.baseline = baseline
     p = x2p(results.params,mrs.numBasis,g)
     con = p[0]
@@ -529,14 +538,14 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     forward_lim = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
     
     
-    results.crlb      = calculate_crlb(results.params,forward_lim,data[first:last])
-    results.cov       = calculate_lap_cov(results.params,forward_lim,data[first:last])
+    results.crlb      = misc.calculate_crlb(results.params,forward_lim,data[first:last])
+    results.cov       = misc.calculate_lap_cov(results.params,forward_lim,data[first:last])
     results.residuals = forward(results.params,
                                 freq,time,basis,
                                 B,metab_groups,g) - data    
     
     results.mse       = np.mean(np.abs(results.residuals[first:last])**2)
-    results.residuals = SpecToFID(results.residuals)
+    results.residuals = misc.SpecToFID(results.residuals)
     
     if results.mcmc_samples is not None:
         results.mcmc_cov = np.ma.cov(results.mcmc_samples.T)
@@ -566,11 +575,11 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     
     # nuisance parameters in sensible units
     if model == 'lorentzian':
-        con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
+        con,gamma,eps,phi0,phi1,b = models.FSLModel_x2param(results.params,mrs.numBasis,g)
         results.inv_gamma_sec     = 1/gamma
         results.gamma             = gamma
     elif model == 'voigt':
-        con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
+        con,gamma,sigma,eps,phi0,phi1,b = models.FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
         results.inv_gamma_sec     = 1/gamma
         results.inv_sigma_sec     = 1/sigma
     results.phi0              = phi0
@@ -588,7 +597,7 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     #results.fwhm =  ????
     
     # Save some input options as we want to know these later in the report
-    results.model = model
+    results.model  = model
     results.method = method
 
     return results

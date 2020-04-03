@@ -8,14 +8,14 @@
 # SHBASECOPYRIGHT
 
 
-import os, glob, warnings
+import warnings
+from os.path import isfile
 
 from fsl_mrs.utils import mrs_io as io
 from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import *
 
 import numpy as np
-from scipy.interpolate import interp1d
 
 
 #------------------------------------------------
@@ -31,16 +31,27 @@ class MRS(object):
       MRS Class - container for FID, Basis, and sequence info
     """
     def __init__(self,FID=None,header=None,basis=None,names=None,basis_hdr=None,H2O=None,cf=None,bw=None):
-        
+
+        # If FID and basis are files then read data from file
+        #if FID is not None and basis is not None:
+        #    if isfile(FID) and isfile(basis):
+        #        self.from_files(FID,basis)
+        #        return
+    
         # Read in class data input
         # (now copying the data - looks ugly but better than referencing.
         # now I can run multiple times with different setups)
-        self.set_FID(FID)
+        if FID is not None:
+            self.set_FID(FID)
+        else:
+            return
+        
         if H2O is not None:
             self.H2O           = H2O.copy()
         else:
             self.H2O           = None
 
+                
         # Set FID class attributes
         if header is not None:
             self.set_acquisition_params(centralFrequency=header['centralFrequency'],bandwidth=header['bandwidth'])
@@ -60,7 +71,7 @@ class MRS(object):
             
             if (names is not None) and (basis_hdr is not None):
                 self.names         = names.copy()
-                self.set_acquisition_params_basis(basis_hdr['dwelltime'])
+                self.set_acquisition_params_basis(1/basis_hdr['bandwidth'])
             else:
                 raise ValueError('Pass basis names and header with basis.')
 
@@ -78,7 +89,22 @@ class MRS(object):
         self.metab_groups      = None
         
             
+    def from_files(self,FID_file,Basis_file):
+        FID,FIDheader       = io.read_FID(FID_file)
+        basis,names,Bheader = io.read_basis(Basis_file)
 
+        cf = FIDheader['centralFrequency']
+        bw = FIDheader['bandwidth']
+
+        MRSArgs = {'bw':bw,'cf':cf,
+                   'basis':basis,'basis_hdr':Bheader[0],
+                   'names':names}
+
+        self.__init__(FID=FID,**MRSArgs)
+
+        return
+
+        
     def __str__(self):
         out  = '------- MRS Object ---------\n'
         out += '     FID.shape             = {}\n'.format(self.FID.shape)        
@@ -276,6 +302,8 @@ class MRS(object):
             Spec2 = np.real(misc.FIDToSpec(np.conj(b)))[first:last]            
             if np.linalg.norm(misc.detrend(Spec1,deg=4)) < np.linalg.norm(misc.detrend(Spec2,deg=4)):
                 conjOrNot.append(1.0)
+            else:
+                conjOrNot.append(0.0)
 
         if (sum(conjOrNot)/len(conjOrNot))>0.5:
             if repare is False:
