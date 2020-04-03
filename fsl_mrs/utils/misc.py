@@ -492,6 +492,22 @@ def detrend(data,deg=1,keep_mean=True):
     return data - pred + m
 
 
+def regress_out(x,conf,keep_mean=True):
+    """
+    Linear deconfounding
+    """
+    if type(conf) is list:
+        confa = np.squeeze(np.asarray(conf)).T
+    else:
+        confa = conf
+    if keep_mean:
+        m = np.mean(x,axis=0)
+    else:
+        m = 0
+    return x - confa@(np.linalg.pinv(confa)@x) + m
+
+
+
 # ----- MRSI stuff ---- #
 def volume_to_list(data,mask):
     """
