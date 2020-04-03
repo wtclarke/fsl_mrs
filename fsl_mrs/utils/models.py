@@ -478,5 +478,75 @@ def FSLModel_grad_Voigt(x,nu,t,m,B,G,g,data,first,last):
     return grad
 
 
+def getModelFunctions(model):
+    """ Return the err, grad, forward and conversion functions appropriate for the model."""
+    if model == 'lorentzian':
+        err_func   = FSLModel_err          # error function
+        grad_func  = FSLModel_grad         # gradient
+        forward    = FSLModel_forward      # forward model
+        x2p        = FSLModel_x2param
+        p2x        = FSLModel_param2x            
+    elif model == 'voigt':
+        err_func   = FSLModel_err_Voigt     # error function
+        grad_func  = FSLModel_grad_Voigt    # gradient
+        forward    = FSLModel_forward_Voigt # forward model
+        x2p        = FSLModel_x2param_Voigt
+        p2x        = FSLModel_param2x_Voigt 
+    else:
+        raise Exception('Unknown model {}.'.format(model))
+    return err_func,grad_func,forward,x2p,p2x
 
+def getFittedModel(model,resParams,base_poly,metab_groups,mrs,basisSelect=None,baselineOnly = False,noBaseline = False):
+    """ Return the predicted model given some fitting parameters
+        
+        model     (str)  : Model string
+        resParams (array):
+        base_poly
+        metab_groups
+        mrs   (class obj):
+        
+    """
+    numBasis = len(mrs.names)
+    numGroups = max(metab_groups)+1
+
+    _,_,forward,x2p,p2x = getModelFunctions(model)
+
+    if noBaseline:
+        bp = np.zeros(base_poly.shape)
+    else:
+        bp = base_poly
+
+    if basisSelect is None and not baselineOnly:
+        return forward(resParams,
+                       mrs.frequencyAxis,
+                       mrs.timeAxis,
+                       mrs.basis,
+                       bp,
+                       metab_groups,
+                       numGroups)
+    elif baselineOnly:
+        p = x2p(resParams,numBasis,numGroups)        
+        p = (np.zeros(numBasis),)+p[1:]    
+        xx  = p2x(*p)
+        return forward(xx,
+                       mrs.frequencyAxis,
+                       mrs.timeAxis,
+                       mrs.basis,
+                       bp,
+                       metab_groups,
+                       numGroups)
+    elif basisSelect is not None:
+        p = x2p(resParams,numBasis,numGroups)
+        tmp = np.zeros(numBasis)
+        basisIdx = mrs.names.index(basisSelect)
+        tmp[basisIdx] = p[0][basisIdx]
+        p = (tmp,)+p[1:]             
+        xx  = p2x(*p)
+        return forward(xx,
+                       mrs.frequencyAxis,
+                       mrs.timeAxis,
+                       mrs.basis,
+                       bp,
+                       metab_groups,
+                       numGroups)
 

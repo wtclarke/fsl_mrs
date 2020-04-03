@@ -390,18 +390,11 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     """
         A simplified version of LCModel
     """
-    if model == 'lorentzian':
-        err_func   = FSLModel_err          # error function
-        grad_func  = FSLModel_grad         # gradient
-        forward    = FSLModel_forward      # forward model        
+    err_func,grad_func,forward,x2p,_ = getModelFunctions(model)
+    if model == 'lorentzian':     
         init_func  = init_FSLModel         # initilisation of params
-    elif model == 'voigt':
-        err_func   = FSLModel_err_Voigt     # error function
-        grad_func  = FSLModel_grad_Voigt    # gradient
-        forward    = FSLModel_forward_Voigt # forward model
+    elif model == 'voigt':        
         init_func  = init_FSLModel_Voigt    # initilisation of params
-    else:
-        raise Exception('Unknown model {}.'.format(model))
 
     data       = mrs.Spec.copy()              # data
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
@@ -436,32 +429,25 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         b0 = np.zeros(B.shape[1])
         b0[0::2] = br.flatten()
         b0[1::2] = bi.flatten()
-        x0[mrs.numBasis+2*g+2:] = b0
+        if model == 'lorentzian':
+            x0[mrs.numBasis+2*g+2:] = b0
+        elif model == 'voigt':
+            x0[mrs.numBasis+3*g+2:] = b0
         
     # Fitting
     if method == 'Newton':
         # Bounds        
-        bnds = []
-        for i in range(mrs.numBasis):
-            bnds.append((0,None))
-        if model == 'lorentzian':
-            for i in range(g):
-                bnds.append((0,None))
+        bnds = []        
+        bnds.extend([(0,None)]*mrs.numBasis) # Bounds on concentrations
+        if model == 'lorentzian':            
+            bnds.extend([(0,None)]*g) # Bounds on Gamma
         elif model == 'voigt':
-            for i in range(g):
-                bnds.append((0,None))
-            for i in range(g):
-                bnds.append((0,None))
-        else:
-            raise Exception('Unknown model bounds.')
-
-        for i in range(g):
-            bnds.append((None,None))
-        bnds.append((None,None))
-        bnds.append((None,None))        
-        for i in range(baseline_order+1):
-            bnds.append((None,None))
-            bnds.append((None,None))
+            bnds.extend([(0,None),(0,None)]*g) # Bounds on Gamma and Sigma
+        bnds.extend([(None,None)]*g) # Bounds on eps
+        bnds.append((None,None)) # Bounds on phi0
+        bnds.append((None,None)) # Bounds on phi1       
+        bnds.extend([(None,None)]*(baseline_order+1)) # Bounds on real baseline      
+        bnds.extend([(None,None)]*(baseline_order+1)) # Bounds on imag baseline      
         
         res = minimize(err_func, x0, args=constants, method='TNC',jac=grad_func,bounds=bnds)
         # collect results
@@ -481,29 +467,31 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
         # Init with nonlinear fit
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
+        # Create maks and bounds for MH fit
         p0   = res.params
-        mask = np.ones(mrs.numBasis)
-        LB   = np.zeros(mrs.numBasis)        
-        for i in range(g):
-            LB  = np.append(LB,0)
-            mask = np.append(mask,1)
+        # Concentrations
+        mask = [1]*mrs.numBasis
+        LB   = [0.0]*mrs.numBasis
+        # Lineshape parameters (gamma, sigma)
         if model == 'lorentzian':
-            for i in range(g):
-                LB  = np.append(LB,0)
-                mask = np.append(mask,1)
+            LB.extend([0]*g)
+            mask.extend([1]*g)
         elif model == 'voigt':
-            for i in range(g):
-                LB  = np.append(LB,0)
-                mask = np.append(mask,1)
-            for i in range(g):
-                LB  = np.append(LB,0)
-                mask = np.append(mask,1)
-        for i in range(g):
-            LB  = np.append(LB,-1e10)            
-            mask = np.append(mask,1)
-        LB  = np.append(LB,-1e10*np.ones(2+2*(baseline_order+1)))
-        mask = np.append(mask,np.zeros(2+2*(baseline_order+1)))
+            LB.extend([0,0]*g)
+            mask.extend([1,1]*g)
+        # Shift parameter (eps)    
+        LB.extend([-1e10]*g)
+        mask.extend([1]*g)
+        # Phase parameters
+        LB.extend([-1e10]*2)
+        mask.extend([0]*2)
+        # Baseline parameters
+        LB.extend([-1e10]*2*(baseline_order+1))
+        mask.extend([0]*2*(baseline_order+1))
         
+        LB = np.asarray(LB)
+        mask = np.asarray(mask)
+        # Upper bounds
         UB   = 1e10*np.ones(len(p0))
 
         # Check that the values initilised by the newton method don't exceed these bounds (unlikely but possible with bad data)
@@ -529,17 +517,12 @@ def fit_FSLModel(mrs,method='Newton',ppmlim=None,baseline_order=5,metab_groups=N
     results.pred      = SpecToFID(results.pred_spec) # predict FID not Spec
     
     # baseline
-    if model == 'lorentzian':
-        con,gamma,eps,phi0,phi1,b = FSLModel_x2param(results.params,mrs.numBasis,g)
-        xx       = FSLModel_param2x(0*con,gamma,eps,phi0,phi1,b)
-    elif model == 'voigt':
-        con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
-        xx       = FSLModel_param2x_Voigt(0*con,gamma,sigma,eps,phi0,phi1,b)
-
-    baseline = forward(xx,mrs.frequencyAxis,mrs.timeAxis,mrs.basis,
-                                results.base_poly,metab_groups,g)
+    baseline = getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
     baseline = SpecToFID(baseline)
     results.baseline = baseline
+    p = x2p(results.params,mrs.numBasis,g)
+    con = p[0]
+    b = p[-1]    
     results.B        = b
 
     
