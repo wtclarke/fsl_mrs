@@ -153,6 +153,7 @@ def main():
 
     FID,dataheader            = mrs_io.read_FID(args.data)
     basis, names, basisheader = mrs_io.read_basis(args.basis)
+    
     if args.h2o is not None:
         H2O,_                 = mrs_io.read_FID(args.h2o)
     else:
@@ -176,9 +177,15 @@ def main():
             print(f'      Detected bandwidth in header info bw = {bw:0.1f} Hz')
     else:
         raise(Exception('Cannot determine bandwidth. Please either set it or include it in data header'))
+
+    # Fix case where basis file contains no header info (e.g. .RAW)
+    if basisheader is None:
+        basisheader = {'bandwidth':bw,'dwelltime':1/bw,'centralFrequency':cf}
+    else:
+        basisheader = basisheader[0]
         
     # Instantiate MRS object
-    MRSargs = {'FID':FID,'basis':basis,'basis_hdr':basisheader[0],'names':names,'H2O':H2O,'cf':cf,'bw':bw}
+    MRSargs = {'FID':FID,'basis':basis,'basis_hdr':basisheader,'names':names,'H2O':H2O,'cf':cf,'bw':bw}
     mrs     = MRS(**MRSargs)
     
     # Check the FID and basis / conjugate
@@ -244,6 +251,8 @@ def main():
                 metab_groups = [0]*mrs.numBasis
             elif len(metab_groups) != mrs.numBasis:
                 raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
+    elif metab_groups == 0:
+        metab_groups = [0]*mrs.numBasis
 
     # Include Macromolecules? These should have their own metab groups
     if args.add_MM is not None:
@@ -294,9 +303,13 @@ def main():
     #fig = plotting.plotly_fit(mrs,res,ppmlim=ppmlim,proj='abs')
     #plotly.io.write_html(fig, file=os.path.join(args.output,'short_report.html'))
     
+
+    # Save quick summary figure
+    report.fitting_summary_fig(mrs,res,
+                               filename=os.path.join(args.output,'fit_summary.png'))
     
     
-    # Creat HTML report
+    # Create interactive HTML report
     if args.report:
         report.create_report(mrs,res,
                              filename=os.path.join(args.output,'report.html'),
@@ -307,8 +320,6 @@ def main():
                              date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
                          
 
-    report.fitting_summary_fig(mrs,res,
-                               filename=os.path.join(args.output,'fit_summary.png'))
      
     if args.verbose:
         print('\n\n\nDone.')

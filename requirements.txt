@@ -6,3 +6,4 @@ pandas
 configargparse
 argparse
 pandas
+nibabel
