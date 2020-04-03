@@ -84,11 +84,10 @@ class FitRes(object):
 
         self.params_names.extend(['Phi0','Phi1'])
         
-        for i in range(baseline_order+1):
+        for i in range(0,2*(baseline_order+1),2):
             self.params_names.extend(["B_real_{}".format(i)])
+            self.params_names.extend(["B_imag_{}".format(i+1)])
 
-        for i in range(baseline_order+1):
-            self.params_names.extend(["B_imag_{}".format(i)])
 
     def to_file(self,filename,mrs=None,what='concentrations'):
         """
