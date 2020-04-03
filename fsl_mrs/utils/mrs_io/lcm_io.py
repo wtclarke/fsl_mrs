@@ -12,7 +12,7 @@ import json
 import sys, os, glob, re
 
 # Raw file reading
-def readLCModelRaw(filename, unpack_header=True):
+def readLCModelRaw(filename, unpack_header=True,conjugate=True):
     """
     Read .RAW (or.H2O) format file
     Parameters
@@ -47,6 +47,10 @@ def readLCModelRaw(filename, unpack_header=True):
     data = np.concatenate([np.array(i) for i in data])
     data = (data[0::2] + 1j*data[1::2]).astype(np.complex)
 
+    # LCModel-specific conjugation
+    if conjugate:
+        data = np.conj(data)
+
     # Tidy header info
     if unpack_header:
         header = unpackHeader(header)
@@ -73,7 +77,7 @@ def read_basis_files(basisfiles,ignore=[]):
     return basis,names
 
 # Read .BASIS files
-def readLCModelBasis(filename,N=None,doifft=True):
+def readLCModelBasis(filename,N=None,doifft=True,conjugate=True):
     """
     Read .BASIS format file
     Parameters
@@ -92,7 +96,7 @@ def readLCModelBasis(filename,N=None,doifft=True):
     
     """
     metabo = []
-    data, header = readLCModelRaw(filename, unpack_header=False)
+    data, header = readLCModelRaw(filename, unpack_header=False, conjugate=False) #do not conjugate here - this reads a spectrum!
 
     # extract metabolite names and shifts
     metabo, shifts = siv_basis_header(header)
@@ -112,6 +116,9 @@ def readLCModelBasis(filename,N=None,doifft=True):
     # if freq domain --> turn to time domain
     if doifft:
         data = np.fft.ifft(data,axis=0)
+
+    if conjugate:
+        data = np.conj(data)
 
     # deal with single metabo case
     if len(data.shape)==1:
