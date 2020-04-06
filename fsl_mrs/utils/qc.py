@@ -33,6 +33,9 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
 
     return fwhm,snrSpec,snrPeaks
 
+class NoiseNotFoundError(ValueError):
+    pass
+
 def calcQCOnResults(mrs,res,resparams,ppmlim):
     """ Calculate QC metrics on single instance of fitting results
 
@@ -45,7 +48,16 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     for basemrs in basisMRS:
         combinedSpectrum += np.real(basemrs.getSpectrum())
     normCombSpec = combinedSpectrum/np.max(combinedSpectrum)
-    noiseRegion = np.abs(normCombSpec)<0.015
+    noiseThreshold = 0.001
+    noiseRegion = np.abs(normCombSpec)<noiseThreshold
+    # print(np.sum(noiseRegion))
+    while np.sum(noiseRegion)<100:
+        if noiseThreshold>0.1:
+            raise NoiseNotFoundError(f'Unable to identify suitable noise area. Only {np.sum(noiseRegion)} points of {normCombSpec.size} found. Minimum of 100 needed.')
+        noiseThreshold += 0.001
+        noiseRegion = np.abs(normCombSpec)<noiseThreshold
+        # print(np.sum(noiseRegion))
+    
     # Noise region OS masks
     noiseOSMask = detectOS(mrs,noiseRegion)
     combinedMask = noiseRegion&noiseOSMask
@@ -60,7 +72,7 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     basisSNR = []
     for basemrs in basisMRS:
         #FWHM
-        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=res.eps[0],ppmlim=ppmlim)        
+        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=res.gamma_hz[0],ppmlim=ppmlim)        
         fwhm.append(fwhm_curr)
 
         #Basis SNR
@@ -118,6 +130,10 @@ def matchedFilterSNR(mrs,basismrs,lw,noisemask,ppmlim):
     f,l = mrs.ppmlim_to_range(ppmlim=ppmlim)
     peakHeight = np.max(np.real(apodbasis[f:l]))
     currSNR= peakHeight/currNoise
+    # import matplotlib.pyplot as plt
+    # plt.plot(np.real(apodSpec))
+    # plt.plot(noisemask*np.max(np.real(apodSpec)))
+    # plt.show()
     # print(f'SNR: {currSNR:0.1f} ({peakHeight:0.2e}/{currNoise:0.2e}), LW: {lw:0.1f}')
     return peakHeight/currNoise
 

@@ -214,7 +214,8 @@ def FSLModel_forward(x,nu,t,m,B,G,g):
     E = np.zeros((m.shape[0],g),dtype=np.complex)
     for gg in range(g):
         E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
-    
+    # E = np.exp(-(1j*eps+gamma)*t) # THis is actually slower! But maybe more optimisable longterm with numexpr or numba
+
     tmp = np.zeros(m.shape,dtype=np.complex)
     for i,gg in enumerate(G):
         tmp[:,i] = m[:,i]*E[:,gg]

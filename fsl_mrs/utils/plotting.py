@@ -89,8 +89,9 @@ def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,baseline=None,proj='real')
 
     
     axis   = mrs.ppmAxisShift
-    first  = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[0]))
-    last   = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[1]))
+    first,last = mrs.ppmlim_to_range(ppmlim=ppmlim,shift=True)
+    # first  = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[0]))
+    # last   = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[1]))
 
 
     # turn to real numbers

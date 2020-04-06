@@ -102,15 +102,15 @@ class FitRes(object):
         import pandas as pd
         df                   = pd.DataFrame()
 
-        if what is 'concentrations':
+        if what == 'concentrations':
             df['Metab']          = mrs.names
             df['mMol/kg']        = self.conc_h2o
             df['%CRLB']          = self.perc_SD[:mrs.numBasis]
             df['/Cr']            = self.conc_cr
-        elif what is 'qc':
+        elif what == 'qc':
             df['Measure'] = ['SNR']
             df['Value']   = [self.snr]
-        elif what is 'parameters':
+        elif what == 'parameters':
             df['Parameter'] = self.params_names
             df['Value']     = self.params
 
@@ -360,7 +360,7 @@ def prepare_baseline_regressor(mrs,baseline_order,ppmlim):
     return B
 
 
-def get_bounds(num_basis,num_metab_groups,baseline_order,model,method):
+def get_bounds(num_basis,num_metab_groups,baseline_order,model,method,disableBaseline=False):
     if method == 'Newton':
         # conc
         bnds = [(0,None)]*num_basis
@@ -373,7 +373,10 @@ def get_bounds(num_basis,num_metab_groups,baseline_order,model,method):
         bnds.extend([(None,None)]*2)
         # baseline
         n = (1+baseline_order)*2
-        bnds.extend([(None,None)]*n)
+        if disableBaseline:
+            bnds.extend([(0.0,0.0)]*n)
+        else:
+            bnds.extend([(None,None)]*n)
         return bnds
 
     elif method == 'MH':
@@ -395,8 +398,12 @@ def get_bounds(num_basis,num_metab_groups,baseline_order,model,method):
         UB.extend([MAX]*2)
         # baseline
         n = (1+baseline_order)*2
-        LB.extend([MIN]*n)
-        UB.extend([MAX]*n)
+        if disableBaseline:
+            LB.extend([0.0]*n)
+            UB.extend([0.0]*n)
+        else:
+            LB.extend([MIN]*n)
+            UB.extend([MAX]*n)
 
         return LB,UB
 
@@ -440,7 +447,7 @@ def fit_FSLModel(mrs,
     """
         A simplified version of LCModel
     """
-    err_func,grad_func,forward,x2p,_ = model.getModelFunctions(model)
+    err_func,grad_func,forward,x2p,_ = models.getModelFunctions(model)
     if model == 'lorentzian':     
         init_func  = init_FSLModel         # initilisation of params
     elif model == 'voigt':        
@@ -455,6 +462,12 @@ def fit_FSLModel(mrs,
     # shorter names for some of the useful stuff
     freq,time,basis=mrs.frequencyAxis,mrs.timeAxis,mrs.basis
 
+    # Handle completely disabling basline
+    if baseline_order < 0:
+        baseline_order = 0 # Generate one order of baseline parameters
+        disableBaseline = True # But diable by setting bounds to 0
+    else:
+        disableBaseline = False
 
     # Results object
     results = FitRes(model)
@@ -476,7 +489,7 @@ def fit_FSLModel(mrs,
     # Fitting
     if method == 'Newton':
         # Bounds
-        bounds = get_bounds(mrs.numBasis,g,baseline_order,model,method)                
+        bounds = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
         res    = minimize(err_func, x0, args=constants,
                           method='TNC',jac=grad_func,bounds=bounds)
         # collect results
@@ -526,7 +539,7 @@ def fit_FSLModel(mrs,
     results.pred      = misc.SpecToFID(results.pred_spec) # predict FID not Spec
     
     # baseline
-    baseline = model.getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
+    baseline = models.getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
     baseline = misc.SpecToFID(baseline)
     results.baseline = baseline
     p = x2p(results.params,mrs.numBasis,g)
@@ -552,8 +565,8 @@ def fit_FSLModel(mrs,
         results.mcmc_cor = np.ma.corrcoef(results.mcmc_samples.T)
         results.mcmc_var = np.var(results.mcmc_samples,axis=0)
 
-    
-    results.perc_SD = np.sqrt(results.crlb) / results.params*100
+    with np.errstate(divide='ignore', invalid='ignore'):
+        results.perc_SD = np.sqrt(results.crlb) / results.params*100
     results.perc_SD[results.perc_SD>999]       = 999   # Like LCModel :)
     results.perc_SD[np.isnan(results.perc_SD)] = 999
 
@@ -575,9 +588,10 @@ def fit_FSLModel(mrs,
     
     # nuisance parameters in sensible units
     if model == 'lorentzian':
-        con,gamma,eps,phi0,phi1,b = models.FSLModel_x2param(results.params,mrs.numBasis,g)
-        results.inv_gamma_sec     = 1/gamma
+        con,gamma,eps,phi0,phi1,b = models.FSLModel_x2param(results.params,mrs.numBasis,g)        
         results.gamma             = gamma
+        results.gamma_hz          = gamma/np.pi
+        results.inv_gamma_sec     = 1/results.gamma_hz
     elif model == 'voigt':
         con,gamma,sigma,eps,phi0,phi1,b = models.FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
         results.inv_gamma_sec     = 1/gamma
@@ -589,7 +603,8 @@ def fit_FSLModel(mrs,
     results.phi1_deg_per_ppm  = phi1*np.pi/180.0 * mrs.centralFrequency / 1E6
     results.eps               = eps
     results.eps_ppm           = eps / mrs.centralFrequency * 1E6
-    results.b_norm            = b/b[0]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        results.b_norm            = b/b[0]
 
 
     # QC parameters (like LCModel)

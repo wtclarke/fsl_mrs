@@ -8,6 +8,7 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
+import scipy.fft
 from scipy.signal import butter, lfilter
 from scipy.interpolate import interp1d
 import itertools as it
@@ -45,17 +46,11 @@ def FIDToSpec(FID,axis=0):
         Returns:
             x (np.array)        : array of spectra
     """
-    # By convention the first point of the fid is special cased
-    def scaleFID(x):
-        x[0,...] *= 0.5
-        return x
-
-    # move indicated axis into first dimension
-    # copy so we don't modify the first fid point
-    FID = np.moveaxis(FID,axis,0).copy()
-    x = np.fft.fftshift(np.fft.fft(scaleFID(FID),axis=0),axes=0)/FID.shape[0]
-    x = np.moveaxis(x,0,axis)
-    return x
+    # By convention the first point of the fid is special cased   
+    FID[0] *=0.5
+    out = scipy.fft.fftshift(scipy.fft.fft(FID,axis=axis,norm='ortho'),axes=axis)
+    FID[0] *=2
+    return out
 
 def SpecToFID(spec,axis=0):
     """ Convert spectrum to FID
@@ -67,14 +62,10 @@ def SpecToFID(spec,axis=0):
 
         Returns:
             x (np.array)        : array of FIDs
-    """
-    def scaleFID(x):
-        x[0] *= 2
-        return x
-    spec = np.moveaxis(spec,axis,0).copy()
-    x = scaleFID(np.fft.ifft(np.fft.ifftshift(spec,axes=0),axis=0)*spec.shape[0])
-    x = np.moveaxis(x,0,axis)
-    return x
+    """    
+    fid = scipy.fft.ifft(scipy.fft.ifftshift(spec,axes=axis),axis=axis,norm='ortho')
+    fid[0] *= 2
+    return fid
 
 def calculateAxes(bandwidth,centralFrequency,points):
     dwellTime = 1/bandwidth

@@ -63,11 +63,14 @@ class MRS(object):
         # Set Basis info
         if basis is not None:
             self.basis          = basis.copy()
+            # Handle single basis spectra
+            if self.basis.ndim==1:
+                self.basis = self.basis[:,np.newaxis]
             # Assume that there will always be more timepoints than basis spectra.
             if self.basis.shape[0] < self.basis.shape[1]:
                 self.basis = self.basis.T
-            self.numBasis       = basis.shape[1]
-            self.numBasisPoints = basis.shape[0]
+            self.numBasis       = self.basis.shape[1]            
+            self.numBasisPoints = self.basis.shape[0]
             
             if (names is not None) and (basis_hdr is not None):
                 self.names         = names.copy()
