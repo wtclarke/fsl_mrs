@@ -227,7 +227,7 @@ def plot_waterfall(mrs,ppmlim=(0.4,4.2),proj='real',mod=True):
     return fig
 
 
-def plot_spectrum(FID,bandwidth,centralFrequency,ppmlim=(0.0,4.5),proj='real',c='k'):
+def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
     """
        Plotting the spectrum 
        ----------
@@ -240,12 +240,8 @@ def plot_spectrum(FID,bandwidth,centralFrequency,ppmlim=(0.0,4.5),proj='real',c=
               one of 'real', 'imag', 'abs', or 'angle'
 
     """
-    numPoints        = FID.size
-    frequencyAxis    = np.linspace(-bandwidth/2,
-                                   bandwidth/2,
-                                   numPoints)    
-    ppmAxisShift     = hz2ppm(centralFrequency,
-                                   frequencyAxis,shift=True)
+    
+    ppmAxisShift    = mrs.getAxes(ppmlim=ppmlim)
 
     def axes_style(plt,ppmlim,label=None,xticks=None):
         plt.xlim(ppmlim)
@@ -262,7 +258,11 @@ def plot_spectrum(FID,bandwidth,centralFrequency,ppmlim=(0.0,4.5),proj='real',c=
 
 
     # Prepare data for plotting
-    data = FID2Spec(FID)
+    if FID is not None:
+        f,l = mrs.ppmlim_to_range(ppmlim)
+        data = FIDToSpec(FID)[f:l]
+    else:
+        data = mrs.getSpectrum(ppmlim=ppmlim)
 
 
     #m = min(np.real(data))
@@ -568,19 +568,20 @@ def plot_dist_approx(mrs,res,refname='Cr'):
     return fig
 
 
-def plot_mcmc_corr(mrs,res):
+def plot_mcmc_corr(res,corr=None):
 
     #Greys,YlGnBu,Greens,YlOrRd,Bluered,RdBu,Reds,Blues,
     #Picnic,Rainbow,Portland,Jet,Hot,Blackbody,Earth,
     #Electric,Viridis,Cividis.
-    n = mrs.numBasis
+    # n = mrs.numBasis
     fig = go.Figure()
-    corr = np.ma.corrcoef(res.mcmc_samples.T)
+    if corr is None:
+        corr = res.mcmc_cor
     np.fill_diagonal(corr,np.nan)
     corrabs = np.abs(corr)
 
     fig.add_trace(go.Heatmap(z=corr,
-                     x=mrs.names,y=mrs.names,colorscale='Picnic'))
+                     x=res.metabs,y=res.metabs,colorscale='Picnic'))
     
     fig.update_layout(template = 'plotly_white',
                       font=dict(size=10),

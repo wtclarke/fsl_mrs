@@ -3,6 +3,7 @@
 # fitting.py - Fit MRS models
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
@@ -12,111 +13,9 @@ import numpy as np
 from fsl_mrs.utils import models, misc, mh
 from fsl_mrs.utils.constants import *
 from fsl_mrs.core import MRS
+from fsl_mrs.utils.results import FitRes
 
 from scipy.optimize import minimize,nnls
-
-
-class FitRes(object):
-    """
-       Collects fitting results
-    """
-    def __init__(self,model):
-        self.model        = model
-        self.params       = None
-        self.crlb         = None
-        self.mcmc_samples = None
-        self.mcmc_cov     = None
-        self.mcmc_cor     = None
-        self.mcmc_var     = None
-        self.perc_SD      = None
-        self.conc_h2o     = None
-        self.conc_cr      = None
-        self.conc_cr_pcr  = None
-        self.cov          = None
-        self.params_names = None
-        self.residuals    = None
-        self.mse          = None
-        self.base_poly    = None
-        self.pred         = None
-        self.g            = None
-        self.metab_groups = None
-        self.residuals    = None
-        
-    def __str__(self):
-        out  = "----- Fitting Results ----\n"
-        out += " names          = {}\n".format(self.params_names)
-        out += " params         = {}\n".format(self.params)
-        out += " CRLB           = {}\n".format(self.crlb)
-        out += " MSE            = {}\n".format(self.mse)
-        #out += " cov            = {}\n".format(self.cov)
-        out += " phi0 (deg)     = {}\n".format(self.phi0_deg)
-        out += " phi1 (deg/ppm) = {}\n".format(self.phi1_deg_per_ppm)
-        out += "inv_gamma_sec   = {}\n".format(self.inv_gamma_sec)
-        out += "eps_ppm         = {}\n".format(self.eps_ppm)
-        out += "b_norm          = {}\n".format(self.b_norm)
-
-        return out
-        
-        
-    def fill_names(self,mrs,baseline_order=0,metab_groups=None):
-        """
-        mrs            : MRS Object
-        baseline_order : int
-        metab_groups   : list (by default assumes single metab group)
-        """
-        self.metabs = mrs.names
-        
-        self.params_names = []
-        self.params_names.extend(mrs.names)
-
-        if metab_groups is None:
-            g = 1
-        else:
-            g = max(metab_groups)+1
-
-        self.g = g
-        self.metab_groups = metab_groups
-        
-        for i in range(g):
-            self.params_names.extend(["gamma_{}".format(i)])
-        for i in range(g):
-            self.params_names.extend(["eps_{}".format(i)])
-
-        self.params_names.extend(['Phi0','Phi1'])
-        
-        for i in range(0,2*(baseline_order+1),2):
-            self.params_names.extend(["B_real_{}".format(i)])
-            self.params_names.extend(["B_imag_{}".format(i+1)])
-
-
-    def to_file(self,filename,mrs=None,what='concentrations'):
-        """
-        Save results to a csv file
-
-        Parameters:
-        -----------
-        filename : str
-        mrs      : MRS obj (only used if what = 'concentrations')
-        what     : one of 'concentrations, 'qc', 'parameters'
-        """
-        import pandas as pd
-        df                   = pd.DataFrame()
-
-        if what == 'concentrations':
-            df['Metab']          = mrs.names
-            df['mMol/kg']        = self.conc_h2o
-            df['%CRLB']          = self.perc_SD[:mrs.numBasis]
-            df['/Cr']            = self.conc_cr
-        elif what == 'qc':
-            df['Measure'] = ['SNR']
-            df['Value']   = [self.snr]
-        elif what == 'parameters':
-            df['Parameter'] = self.params_names
-            df['Value']     = self.params
-
-        df.to_csv(filename,index=False)
-
-         
 
         
 def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
@@ -135,45 +34,6 @@ def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
     norm_con = [scale_factor*dict_con[i]/dict_con[ref_metab] for i in mrs.names]
     print(dict(zip(mrs.names,norm_con)))
     print('-----------------------------------------------------------------')
-
-
-def calculate_area(mrs,FID,ppmlim=None):
-    """
-        Calculate area 
-    """
-    Spec = misc.FIDToSpec(FID,axis=0)
-    if ppmlim is not None:
-        first,last = mrs.ppmlim_to_range(ppmlim)
-        Spec = Spec[first:last]
-    area = np.mean(np.abs(Spec),axis=0)
-    return area
-
-def quantify(mrs,concentrations,ref='Cr',to_h2o=False,scale=1):
-    """
-        Quantification
-    """
-    if isinstance(ref,list):
-        ref_con = 0
-        for met in ref:
-            ref_con += concentrations[mrs.names.index(met)]
-    else:
-        ref_con = concentrations[mrs.names.index(ref)]
-
-    if to_h2o is not True or mrs.H2O is None:
-        QuantifFactor = scale/ref_con
-    else:
-        ref_fid       = mrs.basis[:,mrs.names.index(ref)]
-        ref_area      = calculate_area(mrs,ref_con*ref_fid)
-        H2O_area      = calculate_area(mrs,mrs.H2O) 
-        refH2O_ratio  = ref_area/H2O_area
-        H2O_protons   = 2
-        ref_protons   = num_protons[ref]
-        QuantifFactor = scale*refH2O_ratio*H2O_Conc*H2O_protons/ref_protons/ref_con
-    
-    res = concentrations*QuantifFactor
-
-    return res
-
 
 
 # New strategy for init
@@ -443,7 +303,8 @@ def fit_FSLModel(mrs,
                  baseline_order=5,
                  metab_groups=None,
                  model='lorentzian',
-                 x0=None):
+                 x0=None,
+                 MHSamples=500):
     """
         A simplified version of LCModel
     """
@@ -468,15 +329,13 @@ def fit_FSLModel(mrs,
         disableBaseline = True # But diable by setting bounds to 0
     else:
         disableBaseline = False
-
-    # Results object
-    results = FitRes(model)
-    results.fill_names(mrs,baseline_order,metab_groups)
-
+   
     # Prepare baseline
     B                 = prepare_baseline_regressor(mrs,baseline_order,ppmlim)
-    results.base_poly = B
-    
+   
+    # Results object
+    results = FitRes(model,method,mrs.names,metab_groups,baseline_order,B,ppmlim)
+
     # Constants
     g         = results.g
     constants = (freq,time,basis,B,metab_groups,g,data,first,last)    
@@ -493,10 +352,10 @@ def fit_FSLModel(mrs,
         res    = minimize(err_func, x0, args=constants,
                           method='TNC',jac=grad_func,bounds=bounds)
         # collect results
-        results.params = res.x
+        results.loadResults(mrs,res.x)        
 
     elif method == 'init':
-        results.params = x0
+        results.loadResults(mrs,x0)
   
     elif method == 'MH':
         forward_mh = lambda p : forward(p,freq,time,basis,B,metab_groups,g)
@@ -524,96 +383,23 @@ def fit_FSLModel(mrs,
                 p0[i]=l
 
         # Do the fitting
-        mcmc    = mh.MH(loglik,logpr,burnin=100,njumps=500)
+        mcmc    = mh.MH(loglik,logpr,burnin=100,njumps=MHSamples)
         samples = mcmc.fit(p0,LB=LB,UB=UB,verbose=False,mask=mask)
 
         # collect results
-        results.params       = samples.mean(axis=0)
-        results.mcmc_samples = samples
+        results.loadResults(mrs,samples)
+        
     else:
         raise Exception('Unknown optimisation method.')
 
 
-    # Collect more results
-    results.pred_spec = forward(results.params,freq,time,basis,results.base_poly,metab_groups,g)
-    results.pred      = misc.SpecToFID(results.pred_spec) # predict FID not Spec
-    
-    # baseline
-    baseline = models.getFittedModel(model,results.params,results.base_poly,metab_groups,mrs,baselineOnly= True)
-    baseline = misc.SpecToFID(baseline)
-    results.baseline = baseline
-    p = x2p(results.params,mrs.numBasis,g)
-    con = p[0]
-    b = p[-1]    
-    results.B        = b
-
-    
-    forward_lim = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
-    
-    
-    results.crlb      = misc.calculate_crlb(results.params,forward_lim,data[first:last])
-    results.cov       = misc.calculate_lap_cov(results.params,forward_lim,data[first:last])
-    results.residuals = forward(results.params,
-                                freq,time,basis,
-                                B,metab_groups,g) - data    
-    
-    results.mse       = np.mean(np.abs(results.residuals[first:last])**2)
-    results.residuals = misc.SpecToFID(results.residuals)
-    
-    if results.mcmc_samples is not None:
-        results.mcmc_cov = np.ma.cov(results.mcmc_samples.T)
-        results.mcmc_cor = np.ma.corrcoef(results.mcmc_samples.T)
-        results.mcmc_var = np.var(results.mcmc_samples,axis=0)
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        results.perc_SD = np.sqrt(results.crlb) / results.params*100
-    results.perc_SD[results.perc_SD>999]       = 999   # Like LCModel :)
-    results.perc_SD[np.isnan(results.perc_SD)] = 999
-
-    
-    # LCModel-style output
-    #results.snr = np.max(np.fft(results.pred-results.baseline)[first:last]) / np.sqrt(results.mse)
-
-    # Referencing
-    results.names    = mrs.names # keep metab names
-    results.conc     = con
-    if not mrs.H2O is None:
-        results.conc_h2o = quantify(mrs,con,ref='Cr',to_h2o=True,scale=1)
-    else:
-        results.conc_h2o = con*0
-    if 'Cr' in mrs.names:
-        results.conc_cr  = quantify(mrs,con,ref='Cr',to_h2o=False,scale=1)
-    if 'PCr' in mrs.names:
-        results.conc_cr_pcr = quantify(mrs,con,ref=['Cr','PCr'],to_h2o=False,scale=1)
-    
-    # nuisance parameters in sensible units
-    if model == 'lorentzian':
-        con,gamma,eps,phi0,phi1,b = models.FSLModel_x2param(results.params,mrs.numBasis,g)        
-        results.gamma             = gamma
-        results.gamma_hz          = gamma/np.pi
-        results.inv_gamma_sec     = 1/results.gamma_hz
-    elif model == 'voigt':
-        con,gamma,sigma,eps,phi0,phi1,b = models.FSLModel_x2param_Voigt(results.params,mrs.numBasis,g)
-        results.inv_gamma_sec     = 1/gamma
-        results.inv_sigma_sec     = 1/sigma
-    results.phi0              = phi0
-    results.phi1              = phi1
-
-    results.phi0_deg          = phi0*np.pi/180.0
-    results.phi1_deg_per_ppm  = phi1*np.pi/180.0 * mrs.centralFrequency / 1E6
-    results.eps               = eps
-    results.eps_ppm           = eps / mrs.centralFrequency * 1E6
-    with np.errstate(divide='ignore', invalid='ignore'):
-        results.b_norm            = b/b[0]
-
+    # End of fitting
+    # Run relative concentration scaling to tCr in 'default' 1H MRS case.
+    if (('Cr' in results.metabs) and ('PCr' in results.metabs)):        
+        results.calculateConcScaling(mrs)
 
     # QC parameters (like LCModel)
-    results.snr  = np.max(np.abs(forward_lim(results.params))) / np.sqrt(results.mse)
-    #results.fwhm =  ????
-    
-    # Save some input options as we want to know these later in the report
-    results.model  = model
-    results.method = method
+    # results.snr  = np.max(np.abs(forward_lim(results.params))) / np.sqrt(results.mse)
 
     return results
 

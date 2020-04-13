@@ -5,6 +5,9 @@ from scipy.signal import find_peaks
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 
+class NoiseNotFoundError(ValueError):
+    pass
+
 def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     """ Calculate SNR and FWHM on fitted data
 
@@ -14,27 +17,39 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     else:
         MCMCUsed = False
 
-    if MCMCUsed:
-        # Loop over the individual MH results
-        fwhm = []
-        snrPeaks = []
-        for rp in res.mcmc_samples:
-            qcres = calcQCOnResults(mrs,res,rp,ppmlim)
-            snrPeaks.append(qcres[0])
-            fwhm.append(qcres[1])
-        snrSpec = qcres[2]
-        fwhm = np.asarray(fwhm)
-        snrPeaks = np.asarray(snrPeaks)
-    else:
-        # Pass the single Newton results
-        snrPeaks,fwhm,snrSpec = calcQCOnResults(mrs,res,res.params,ppmlim)
-        fwhm = np.asarray(fwhm)
-        snrPeaks = np.asarray(snrPeaks)
+    try:
+        if MCMCUsed:
+            # Loop over the individual MH results
+            fwhm = []
+            snrPeaks = []
+            for _,rp in res.fitResults.iterrows():
+                qcres = calcQCOnResults(mrs,res,rp,ppmlim)
+                snrPeaks.append(qcres[0])
+                fwhm.append(qcres[1])
+            snrSpec = qcres[2]
+            fwhm = np.asarray(fwhm).T
+            snrPeaks = np.asarray(snrPeaks).T
+        else:
+            # Pass the single Newton results
+            snrPeaks,fwhm,snrSpec = calcQCOnResults(mrs,res,res.params,ppmlim)
+            fwhm = np.asarray(fwhm)
+            snrPeaks = np.asarray(snrPeaks)
+    except NoiseNotFoundError:
+        outShape = (len(res.metabs),res.fitResults.shape[0])
+        fwhm = np.full(outShape,np.nan)
+        snrSpec = np.nan
+        snrPeaks = np.full(outShape,np.nan)
 
-    return fwhm,snrSpec,snrPeaks
+    # Calculate the LCModel style SNR based on peak height over SD of residual
+    first,last = mrs.ppmlim_to_range(ppmlim=res.ppmlim)
+    baseline = FIDToSpec(res.predictedFID(mrs,mode='baseline'))[first:last]
+    spectrumMinusBaseline = mrs.getSpectrum(ppmlim=res.ppmlim)-baseline
+    snrResidual_height = np.max(np.real(spectrumMinusBaseline))
+    rmse = 2.0*np.sqrt(res.mse)
+    snrResidual = snrResidual_height/rmse
 
-class NoiseNotFoundError(ValueError):
-    pass
+    return fwhm,snrSpec,snrPeaks,snrResidual
+
 
 def calcQCOnResults(mrs,res,resparams,ppmlim):
     """ Calculate QC metrics on single instance of fitting results
@@ -47,38 +62,50 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     combinedSpectrum = np.zeros(mrs.FID.size)
     for basemrs in basisMRS:
         combinedSpectrum += np.real(basemrs.getSpectrum())
-    normCombSpec = combinedSpectrum/np.max(combinedSpectrum)
-    noiseThreshold = 0.001
-    noiseRegion = np.abs(normCombSpec)<noiseThreshold
-    # print(np.sum(noiseRegion))
-    while np.sum(noiseRegion)<100:
-        if noiseThreshold>0.1:
-            raise NoiseNotFoundError(f'Unable to identify suitable noise area. Only {np.sum(noiseRegion)} points of {normCombSpec.size} found. Minimum of 100 needed.')
-        noiseThreshold += 0.001
-        noiseRegion = np.abs(normCombSpec)<noiseThreshold
-        # print(np.sum(noiseRegion))
-    
-    # Noise region OS masks
-    noiseOSMask = detectOS(mrs,noiseRegion)
-    combinedMask = noiseRegion&noiseOSMask
+
+    noisemask = idNoiseRegion(mrs,combinedSpectrum)
 
     # Calculate single spectrum SNR - based on max value of actual data in region
     # No apodisation applied.
     allSpecHeight = np.max(np.real(mrs.getSpectrum(ppmlim=ppmlim)))
-    unApodNoise = np.sqrt(2)*np.std(np.real(mrs.getSpectrum()[combinedMask]))
+    unApodNoise = noiseSD(mrs.getSpectrum(),noisemask)
     specSNR = allSpecHeight/unApodNoise
 
     fwhm = []
     basisSNR = []
     for basemrs in basisMRS:
         #FWHM
-        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=res.gamma_hz[0],ppmlim=ppmlim)        
+        baseFWHM = res.getLineShapeParams()
+        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=baseFWHM[0],ppmlim=ppmlim)        
         fwhm.append(fwhm_curr)
 
         #Basis SNR
-        basisSNR.append(matchedFilterSNR(mrs,basemrs,fwhm_curr,combinedMask,ppmlim))
+        basisSNR.append(matchedFilterSNR(mrs,basemrs,fwhm_curr,noisemask,ppmlim))
     
     return basisSNR,fwhm,specSNR
+
+def noiseSD(spectrum,noisemask):
+    """ Return noise SD. sqrt(2)*real(spectrum)"""
+    return np.sqrt(2)*np.std(np.real(spectrum[noisemask]))
+
+def idNoiseRegion(mrs,spectrum,startingNoiseThreshold = 0.001):
+    """ Identify noise region in given spectrum"""
+    normspec = np.real(spectrum)/np.max(np.real(spectrum))
+    noiseThreshold = startingNoiseThreshold
+    noiseRegion = np.abs(normspec)<noiseThreshold
+    # print(np.sum(noiseRegion))
+    while np.sum(noiseRegion)<100:
+        if noiseThreshold>0.1:
+            raise NoiseNotFoundError(f'Unable to identify suitable noise area. Only {np.sum(noiseRegion)} points of {normspec.size} found. Minimum of 100 needed.')
+        noiseThreshold += 0.001
+        noiseRegion = np.abs(normspec)<noiseThreshold
+        # print(np.sum(noiseRegion))
+    
+    # Noise region OS masks
+    noiseOSMask = detectOS(mrs,noiseRegion)
+    combinedMask = noiseRegion&noiseOSMask
+
+    return combinedMask
 
 
 def idPeaksCalcFWHM(mrs,estimatedFWHM=15.0,ppmlim=(0.2,4.2)):
@@ -87,7 +114,8 @@ def idPeaksCalcFWHM(mrs,estimatedFWHM=15.0,ppmlim=(0.2,4.2)):
     """
     fwhmInPnts = estimatedFWHM/(mrs.bandwidth/mrs.numPoints)
     spectrum = np.real(mrs.getSpectrum(ppmlim=ppmlim))
-    spectrum /= np.max(spectrum)
+    with np.errstate(divide='ignore', invalid='ignore'): 
+        spectrum /= np.max(spectrum)
     
     peaks,props = find_peaks(spectrum,prominence=(0.4,None),width=(None,estimatedFWHM*2))
     
@@ -126,7 +154,7 @@ def specApodise(mrs,amount):
 def matchedFilterSNR(mrs,basismrs,lw,noisemask,ppmlim):
     apodbasis = specApodise(basismrs,lw)
     apodSpec = specApodise(mrs,lw)
-    currNoise = np.sqrt(2)*np.std(np.real(apodSpec)[noisemask])
+    currNoise = noiseSD(apodSpec,noisemask)
     f,l = mrs.ppmlim_to_range(ppmlim=ppmlim)
     peakHeight = np.max(np.real(apodbasis[f:l]))
     currSNR= peakHeight/currNoise
