@@ -469,15 +469,16 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
     # Table
 
     df = pd.DataFrame()
-    df['Metab']          = mrs.names
-    df['mMol/kg']        = np.round(res.conc_h2o,decimals=2)
-    df['%CRLB']          = np.round(res.perc_SD[:mrs.numBasis],decimals=1)
-    if res.conc_cr_pcr is not None:
-        df['/tCr']            = np.round(res.conc_cr_pcr,decimals=2)
-    elif res.conc_cr is not None:
-        df['/Cr']            = np.round(res.conc_cr,decimals=2)
+    df['Metab']          = res.metabs
+    if res.concScalings['molality'] is not None:
+        df['mMol/kg']        = np.round(res.getConc(scaling='molality'),decimals=2)
     else:
-        df['unscaled']  = np.round(res.conc,decimals=2)
+        df['unscaled']  = np.round(res.getConc(),decimals=2)
+    df['%CRLB']          = np.round(res.perc_SD[:res.numMetabs],decimals=1)
+    if res.concScalings['internal'] is not None:
+        concstr = f'/{res.concScalings["internalRef"]}'
+        df[concstr]            = np.round(res.getConc(scaling='internal'),decimals=2)
+    
 
 
     fig = ff.create_table(df, height_constant=50)
@@ -833,7 +834,8 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
         #r = i//ncols
         con     = res.params[i]
         y_data  = np.real(FID2Spec(mrs.FID))
-        y_fit   = np.real(FID2Spec(pred(mrs,res,metab)))
+        y_fit   = np.real(FID2Spec(res.predictedFID(mrs,mode=metab,noBaseline=True)))
+        # y_fit   = np.real(FID2Spec(pred(mrs,res,metab)))
         
         trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
@@ -867,10 +869,10 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
 # def plot_table_extra(mrs,res): 
 def plot_table_qc(mrs,res):
     # QC measures
-    header=["S/N","Static phase (deg)", "Linear phase (deg/ppm)"]
-    values=[np.round(res.snr,decimals=2),
-            np.round(res.phi0_deg,decimals=5),
-            np.round(res.phi1_deg_per_ppm,decimals=5)]
+    header=["Static phase (deg)", "Linear phase (deg/ppm)"]
+    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
+    values=[np.round(p0,decimals=5),
+            np.round(p1,decimals=5)]
     table1 = dict(type='table',
                   header=dict(values=header,font=dict(size=10),align="center"),
                   cells=dict(values=values,align = "right"),                  
@@ -884,12 +886,14 @@ def plot_table_qc(mrs,res):
     return fig
 def plot_table_extras(mrs,res):
     # Gamma/Eps
-    header = ['group','linewidth (sec)','shift (ppm)','metab groups']
+    header = ['group','linewidth (Hz)','shift (ppm)','metab groups']
     values = [[],[],[],[]]
+    shift = res.getShiftParams(units='ppm')
+    lw = res.getLineShapeParams(units='Hz')
     for g in range(res.g):    
         values[0].append(g)
-        values[1].append(np.round(res.inv_gamma_sec[g],decimals=3))
-        values[2].append(np.round(res.eps_ppm[g],decimals=5))
+        values[1].append(np.round(lw[g],decimals=3))
+        values[2].append(np.round(shift[g],decimals=5))
         metabs = []
         for i,m in enumerate(mrs.names):
             if res.metab_groups[i] == g:

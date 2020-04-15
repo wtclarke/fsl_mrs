@@ -12,6 +12,7 @@ import fsl_mrs.utils.quantify as quant
 import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec,SpecToFID,calculate_crlb,calculate_lap_cov
 import numpy as np
+from copy import deepcopy
 
 class FitRes(object):
     """
@@ -28,7 +29,7 @@ class FitRes(object):
         self.baseline_order = baseline_order
         self.base_poly    = B
 
-        self.concScalings={'internal':None,'molarity':None,'molality':None}
+        self.concScalings={'internal':None,'internalRef':None,'molarity':None,'molality':None}
 
     def loadResults(self,mrs,fitResults):
         "Load fitting results and calculate some metrics"
@@ -54,10 +55,11 @@ class FitRes(object):
                                         self.metab_groups,
                                         self.g)[first:last]
         data = mrs.getSpectrum(ppmlim=self.ppmlim)
-        self.crlb      = calculate_crlb(self.params,forward_lim,data)
-        self.std       = np.sqrt(self.crlb)
+        # self.crlb      = calculate_crlb(self.params,forward_lim,data)        
         self.cov       = calculate_lap_cov(self.params,forward_lim,data)
-        self.corr      = self.cov/(self.std[:,np.newaxis] *self.std[np.newaxis,:] )
+        self.crlb      = np.diagonal(self.cov.T)
+        std            = np.sqrt(self.crlb )
+        self.corr      = self.cov/(std[:,np.newaxis]*std[np.newaxis,:] )
         self.mse       = np.mean(np.abs(FIDToSpec(self.residuals)[first:last])**2)
 
         with np.errstate(divide='ignore', invalid='ignore'):
@@ -74,18 +76,17 @@ class FitRes(object):
         self.hzperppm = mrs.centralFrequency/1E6
 
         # Calculate QC metrics
-        fwhm,snrSpec,snrPeaks,snrResidual = qc.calcQC(mrs,self,ppmlim=(0.2,4.2))
-        for m,width in zip(self.metabs,fwhm):
-            self.fitResults[f'fwhm_{m}'] = pd.Series(width, index=self.fitResults.index)
-        for m,snr in zip(self.metabs,snrPeaks):
-            self.fitResults[f'SNR_{m}'] = pd.Series(snr, index=self.fitResults.index)
-        self.SNRUnapodised = snrSpec
-        self.SNRFromResidual = snrResidual
+        self.FWHM,self.SNR = qc.calcQC(mrs,self,ppmlim=(0.2,4.2))
 
+        # Run relative concentration scaling to tCr in 'default' 1H MRS case.
+        if (('Cr' in self.metabs) and ('PCr' in self.metabs)):        
+            self.calculateConcScaling(mrs)
 
 
 
     def calculateConcScaling(self,mrs,referenceMetab=['Cr','PCr'],waterRefFID=None,tissueFractions=None,TE=None,T2='Default',waterReferenceMetab='Cr',wRefMetabProtons=5,reflimits=(2,5),verbose=False):
+        
+        self.intrefstr = '+'.join(referenceMetab)
         self.referenceMetab = referenceMetab
         self.waterReferenceMetab = waterReferenceMetab
         self.waterReferenceMetabProtons = wRefMetabProtons
@@ -111,10 +112,42 @@ class FitRes(object):
                                                             reflimits=reflimits,
                                                             verbose=verbose)
 
-            self.concScalings={'internal':internalRefScaling,'molarity':molarityScaling,'molality':molalityScaling}
+            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':molarityScaling,'molality':molalityScaling}
         else:
-            self.concScalings={'internal':internalRefScaling,'molarity':None,'molality':None}
+            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':None,'molality':None}
 
+    def combine(self,combineList):
+        """Combine two or more basis into single result"""
+        # Create extra entries in the fitResults DF , add to param_names and recalculate
+        for toComb in combineList:
+            newstr = '+'.join(toComb)            
+            ds = pd.Series(np.zeros(self.fitResults.shape[0]),index=self.fitResults.index)
+            jac = np.zeros(self.cov.shape[0])            
+            for metab in toComb:                
+                if metab not in self.metabs:
+                    raise ValueError(f'Metabolites to combine must be in res.metabs. {metab} not found.')
+                ds = ds.add(self.fitResults[metab])
+                index = self.metabs.index(metab)
+                jac[index]=1.0
+
+            self.fitResults[newstr] = pd.Series(ds, index=self.fitResults.index)
+            # self.params_names.append(newstr)
+            self.metabs.append(newstr)                        
+            newCRLB = jac@self.cov@jac
+            self.crlb = np.concatenate((self.crlb,newCRLB[np.newaxis]))    
+
+        self.numMetabs = len(self.metabs) 
+        # self.params = self.fitResults.mean().values
+        with np.errstate(divide='ignore', invalid='ignore'):
+            params = self.fitResults.mean().values
+            self.perc_SD = np.sqrt(self.crlb) / params*100
+        self.perc_SD[self.perc_SD>999]       = 999   # Like LCModel :)
+        self.perc_SD[np.isnan(self.perc_SD)] = 999
+
+        if self.method == 'MH':
+            self.mcmc_cov = self.fitResults.cov().values
+            self.mcmc_cor = self.fitResults.corr().values
+            self.mcmc_var = self.fitResults.var().values
 
     def predictedFID(self,mrs,mode='Full',noBaseline=False):
         if mode.lower() == 'full':
@@ -122,7 +155,7 @@ class FitRes(object):
         elif mode.lower() == 'baseline':
             out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,baselineOnly= True)
         elif mode in self.metabs:
-            out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,baselineOnly= False,noBaseline=noBaseline)
+            out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,basisSelect=mode,baselineOnly= False,noBaseline=noBaseline)
         else:
             raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
         return SpecToFID(out)
@@ -135,11 +168,11 @@ class FitRes(object):
         out += " CRLB           = {}\n".format(self.crlb)
         out += " MSE            = {}\n".format(self.mse)
         #out += " cov            = {}\n".format(self.cov)
-        out += " phi0 (deg)     = {}\n".format(self.phi0_deg)
-        out += " phi1 (deg/ppm) = {}\n".format(self.phi1_deg_per_ppm)
-        out += "inv_gamma_sec   = {}\n".format(self.inv_gamma_sec)
-        out += "eps_ppm         = {}\n".format(self.eps_ppm)
-        out += "b_norm          = {}\n".format(self.b_norm)
+        out += " phi0 (deg)     = {}\n".format(self.getPhaseParams()[0])
+        out += " phi1 (deg/ppm) = {}\n".format(self.getPhaseParams(phi1='deg_per_ppm')[1])
+        out += " gamma (Hz)     = {}\n".format(self.getLineShapeParams())
+        out += " eps (ppm)      = {}\n".format(self.getShiftParams())
+        out += " b_norm         = {}\n".format(self.getBaselineParams())
 
         return out
         
@@ -150,7 +183,9 @@ class FitRes(object):
         baseline_order : int
         metab_groups   : list (by default assumes single metab group)
         """
-        self.metabs = names
+        self.metabs = deepcopy(names)
+        self.original_metabs = deepcopy(names)
+        self.numMetabs = len(self.metabs)
         
         self.params_names = []
         self.params_names.extend(names)
@@ -175,30 +210,36 @@ class FitRes(object):
             self.params_names.append(f"B_imag_{i}")
 
 
-    def to_file(self,filename,mrs=None,what='concentrations'):
+    def to_file(self,filename,what='concentrations'):
         """
         Save results to a csv file
 
         Parameters:
         -----------
         filename : str
-        mrs      : MRS obj (only used if what = 'concentrations')
         what     : one of 'concentrations, 'qc', 'parameters'
         """
-        import pandas as pd
         df                   = pd.DataFrame()
 
         if what == 'concentrations':
-            df['Metab']          = mrs.names
-            df['mMol/kg']        = self.conc_h2o
-            df['%CRLB']          = self.perc_SD[:mrs.numBasis]
-            df['/Cr']            = self.conc_cr
+            df['Metab']          = self.metabs
+            df['Raw conc']       = self.getConc()
+            if self.concScalings['internal'] is not None:
+                concstr = f'/{self.concScalings["internalRef"]}'
+                df[concstr]   = self.getConc(scaling='internal')
+            if self.concScalings['molality'] is not None:
+                df['mMol/kg']        = self.getConc(scaling='molality')
+            if self.concScalings['molarity'] is not None:
+                df['mM']        = self.getConc(scaling='molarity')
+            df['%CRLB']          = self.perc_SD[:self.numMetabs]
+
         elif what == 'qc':
-            df['Measure'] = ['SNR']
-            df['Value']   = [self.snr]
+            pass
+            # snr,fwhm = self.getQCParams()
+            # df['Measure'] = ['SNR']
+            # df['Value']   = [self.snr]
         elif what == 'parameters':
-            df['Parameter'] = self.params_names
-            df['Value']     = self.params
+            df = self.fitResults.mean()
 
         df.to_csv(filename,index=False)
 
@@ -323,4 +364,5 @@ class FitRes(object):
             return bParams/np.abs(bParams[0])
 
     def getQCParams(self):
-        pass
+        """Returns peak wise SNR and FWHM (in Hz)"""
+        return self.SNR.peaks.mean(),self.FWHM.mean()

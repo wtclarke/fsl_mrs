@@ -119,7 +119,7 @@ def create_plotly_div(mrs,res):
     divs.append(div2)
 
     # MCMC results (if available)
-    if res.mcmc_cor is not None:
+    if res.method is 'MH':
         fig = plotting.plot_mcmc_corr(mrs,res)
         div3 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
         divs.append(div3)

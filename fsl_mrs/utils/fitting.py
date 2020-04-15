@@ -394,12 +394,6 @@ def fit_FSLModel(mrs,
 
 
     # End of fitting
-    # Run relative concentration scaling to tCr in 'default' 1H MRS case.
-    if (('Cr' in results.metabs) and ('PCr' in results.metabs)):        
-        results.calculateConcScaling(mrs)
-
-    # QC parameters (like LCModel)
-    # results.snr  = np.max(np.abs(forward_lim(results.params))) / np.sqrt(results.mse)
 
     return results
 

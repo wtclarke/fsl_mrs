@@ -357,24 +357,6 @@ class MRS(object):
         if metabs is not None:
             metabs = [m for m in self.names if m not in metabs]
             self.ignore(metabs)
-
-
-    def combine(self,metabs):
-        """
-         Create combined metabolite groups
-
-          Parameters
-          ----------
-
-          metabs: list of lists
-        """
-        if metabs is not None:
-            self.metab_groups = []
-            for mgroups in metabs:
-                group = []
-                for m in mgroups:
-                    group.append(m)
-                self.metab_groups.append(group)
             
 
     def add_peak(self,ppm,name,gamma=0,sigma=0):

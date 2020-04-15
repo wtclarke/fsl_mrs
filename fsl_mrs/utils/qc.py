@@ -4,6 +4,8 @@ from fsl_mrs.core import MRS
 from scipy.signal import find_peaks
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
+from collections import namedtuple
+import pandas as pd
 
 class NoiseNotFoundError(ValueError):
     pass
@@ -48,7 +50,20 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     rmse = 2.0*np.sqrt(res.mse)
     snrResidual = snrResidual_height/rmse
 
-    return fwhm,snrSpec,snrPeaks,snrResidual
+    # Assemble outputs
+    # SNR output
+    SNR = namedtuple('SNR',['spectrum','peaks','residual'])
+    snrdf = pd.DataFrame()
+    for m,snr in zip(res.metabs,snrPeaks):
+            snrdf[f'SNR_{m}'] = pd.Series(snr)            
+    SNRobj = SNR(spectrum=snrSpec,peaks=snrdf,residual=snrResidual)
+
+    fwhmdf = pd.DataFrame()
+    for m,width in zip(res.metabs,fwhm):
+            fwhmdf[f'fwhm_{m}'] = pd.Series(width)
+        
+
+    return fwhmdf,SNRobj
 
 
 def calcQCOnResults(mrs,res,resparams,ppmlim):

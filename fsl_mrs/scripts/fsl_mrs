@@ -49,7 +49,7 @@ def main():
     
     # FITTING ARGUMENTS
     fitting_args.add_argument('--algo',default='Newton',type=str,
-                   help='algorithm [Newton (fast) or MH (slow)]')
+                   help='algorithm [Newton (fast, default) or MH (slow)]')
     fitting_args.add_argument('--ignore',type=str,nargs='+',metavar='METAB',
                    help='ignore certain metabolites [repeatable]')
     fitting_args.add_argument('--keep',type=str,nargs='+',metavar='METAB',
@@ -61,7 +61,7 @@ def main():
     fitting_args.add_argument('--h2o',default=None,type=str,metavar='H2O',
                    help='input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
-                   help='order of baseline polynomial (default=2)')
+                   help='order of baseline polynomial (default=2,-1 disables)')
     fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=str_or_int_arg,
                               help="metabolite groups: list of groups or list of names for indept groups.")
     fitting_args.add_argument('--add_MM',type=bool,
@@ -71,6 +71,10 @@ def main():
     # ADDITONAL OPTIONAL ARGUMENTS
     optional.add_argument('--t1',type=str,default=None,metavar='IMAGE',
                           help='structural image (for report)')
+    optional.add_argument('--TE',type=float,default=None,metavar='TE',
+                          help='Echo time for relaxation correction (ms)')
+    optional.add_argument('--tissue_fractions',type=float,nargs=3,default=[0.5,0.5,0.0],metavar='GM WM CSF',
+                          help='Fractional tissue volumes for WM, GM, CSF. Defaults to 0.5, 0.5, 0.0.')
     optional.add_argument('--central_frequency',default=None,type=float,
                            help='central frequency in Hz')
     optional.add_argument('--dwell_time',default=None,type=float,
@@ -217,8 +221,7 @@ def main():
         
     # Keep/Ignore/Combine metabolites
     mrs.keep(args.keep)
-    mrs.ignore(args.ignore)
-    mrs.combine(args.combine)
+    mrs.ignore(args.ignore)    
 
     # Do the fitting here
     if args.verbose:
@@ -226,10 +229,7 @@ def main():
         print('    Algorithm = [{}]\n'.format(args.algo))
         start = time.time()
 
-        
-    # Do the fitting
-    if args.verbose:
-        print('     --- Run fitting --- ')
+
     ppmlim=args.ppmlim
     if ppmlim is not None:
         ppmlim=(ppmlim[0],ppmlim[1])
@@ -274,21 +274,42 @@ def main():
 
     res = fitting.fit_FSLModel(mrs,**Fitargs)
 
-
-    
+    # Quantification
+    # Echo time
+    if args.TE is not None:
+        echotime = args.TE*1E-3
+    elif 'TE' in basisheader['meta']:
+        echotime = basisheader['meta']['TE']
+        if echotime > 1.0: # Assume in ms.
+            echotime *= 1E-3
+    else:
+        echotime = None
+    # Internal and Water quantification if requested
+    if (mrs.H2O is None) or (echotime is None):
+        res.calculateConcScaling(mrs,referenceMetab=['Cr','PCr'])
+    else:        
+        tfrac = {'WM':args.tissue_fractions[0],'GM':args.tissue_fractions[1],'CSF':args.tissue_fractions[2]}
+        res.calculateConcScaling(mrs,
+                                referenceMetab=['Cr','PCr'],
+                                waterRefFID=mrs.H2O,
+                                tissueFractions=tfrac,
+                                TE=echotime,
+                                verbose=args.verbose)
+    # Combine metabolites.
+    if args.combine is not None:
+        res.combine(args.combine)
     stop = time.time()
 
     
     # Report on the fitting
     if args.verbose:
         print('    Fitting lasted          : {:.3f} secs.\n'.format(stop-start))
-        #print('    Fitted concentrations   : {}\n'.format(mrs.concentrations))
     # Save output files
     if args.verbose:
         print('--->> Saving output files to {}\n'.format(args.output))
 
 
-    res.to_file(filename=os.path.join(args.output,'results_table.csv'),mrs=mrs,what='concentrations')
+    res.to_file(filename=os.path.join(args.output,'results_table.csv'),what='concentrations')
     res.to_file(filename=os.path.join(args.output,'qc.csv'),what='qc')
     res.to_file(filename=os.path.join(args.output,'all_parameters.csv'),what='parameters')
 

@@ -42,10 +42,10 @@ def test_calcQC():
             'metab_groups':[0]}
 
     res = fit_FSLModel(synMRS_basis,**Fitargs)
-    fwhm_test,snrSpec_test,snrPeaks_test = calcQC(synMRS_basis,res,ppmlim=[2.65,6.65])
-    print(f'Measured FWHM: {fwhm_test[0]:0.1f}')
-    print(f'Measured spec SNR: {snrSpec_test:0.1f}')
-    print(f'Measured peak SNR: {snrPeaks_test[0]:0.1f}')
-    assert np.isclose(fwhm_test,trueLW,atol=1E0)
-    assert np.isclose(snrSpec_test,SNR_noApod,atol=1E1)
-    assert np.isclose(snrPeaks_test,SNR,atol=2E1)
+    fwhm_test,SNRObj = calcQC(synMRS_basis,res,ppmlim=[2.65,6.65])
+    print(f'Measured FWHM: {fwhm_test.mean().to_numpy()[0]:0.1f}')
+    print(f'Measured spec SNR: {SNRObj.spectrum:0.1f}')
+    print(f'Measured peak SNR: {SNRObj.peaks.mean().to_numpy()[0]:0.1f}')
+    assert np.isclose(fwhm_test.mean().to_numpy(),trueLW,atol=1E0)
+    assert np.isclose(SNRObj.spectrum,SNR_noApod,atol=1E1)
+    assert np.isclose(SNRObj.peaks.mean().to_numpy(),SNR,atol=2E1)
