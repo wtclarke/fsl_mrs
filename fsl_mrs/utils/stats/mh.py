@@ -11,75 +11,9 @@
 
 
 import numpy as np
-from scipy import special
+from . import dist
 
 
-########################
-#       Priors         #
-########################
-
-def gauss_logpr(x,loc=0.0,scale=1.0):
-    """
-    Gaussian prior
-
-    prior     = exp( -(x-loc)^2/2/scale^2 )/scale
-
-    Parameters
-    ----------
-    x: array-like
-       
-    loc: float, optional
-         Location parameter (mean)
-    scale: float
-         Scale parameter (standard deviation)
-
-    Returns
-    -------
-    array
-
-    """
-    
-    return (x-loc)**2/2/scale/scale + np.log(scale);
-
-
-def gamma_logpr(x,shape,scale):
-
-    """
-    Gamma prior
-
-    prior     = x^(shape-1)*exp(-x/scale)/scale^shape/Gamma(shape)
-
-    Parameters
-    ----------
-    x: array-like
-       
-    shape: float, optional
-         Shape parameter 
-    scale: float
-         Scale parameter 
-    
-    Returns
-    -------
-    array
-
-    """
-
-    return (1-shape)*np.log(x) + x/scale + shape*np.log(scale) + special.gammaln(shape);
-
-
-def inverse_logpr(x):
-
-    """
-    Inverse prior (Jeffrey's prior for scale param)
-
-    prior = 1/x
-
-    Returns
-    -------
-    array
-
-    """
-    return np.log(x)
 
 def sse(y,pred):
 
@@ -139,11 +73,16 @@ def mh_example(do_plot=True,verbose=False):
     
     # loglik
     forward  = lambda p: p[0]*np.exp(-p[1]*x)
-    #loglik   = lambda p:   np.log(np.sqrt(np.sum((y_noise - forward(p))**2)))*y.size/2
-    loglik = lambda p: sse(y_noise,forward(p))/2/p[2]**2
+    def loglik(p):
+        pred = forward(p)
+        return sse(y_noise,pred)/2/p[2]**2
     
     # logpr
-    logpr    = lambda p: gauss_logpr(p[0],loc=0,scale=10) + gauss_logpr(p[1],loc=0,scale=10) + gamma_logpr(p[2],shape=1,scale=1) 
+    def logpr(p):
+        pr  = dist.gauss_logpdf(p[0],loc=0,scale=10)
+        pr += dist.gauss_logpdf(p[1],loc=0,scale=10)
+        pr += dist.gamma_logpdf(p[2],shape=1,scale=1) 
+        return pr
 
     p0 = [1,1,0.05]
     mask = [1,1,0]
@@ -159,7 +98,7 @@ def mh_example(do_plot=True,verbose=False):
     return samples
     
 
-def test():
+def test_mh_example():
     samples = mh_example(do_plot=False)
     assert 0 < samples.mean(axis=0)[0] < 2
     assert 0 < samples.mean(axis=0)[1] < 3
@@ -311,7 +250,8 @@ class MH:
         e    = self.loglik(p)+self.logpr(p)
         acc  = np.zeros(p.size)
         rej  = np.zeros(p.size)
-        prop = np.ones(p.size)
+        prop = p0/10 #np.ones(p.size)
+        prop[prop==0] = 1
 
         samples  = np.zeros((self.njumps+self.burnin,p.size))
 

@@ -3,6 +3,7 @@
 # models.py - MRS forward models and helper functions
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <will.clarke@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
@@ -19,6 +20,10 @@ from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
 #def SpecToFID(FID):
 #    return np.fft.ifft(FID,axis=0)
 
+##################################################################################
+# ###### First implementation of LCModel-style model. This is already obsolete!  #
+# ###### Use FSLModel instead!
+# ################################
 
 
 ################ TIME DOMAIN FUNCTIONS
@@ -559,4 +564,40 @@ def getFittedModel(model,resParams,base_poly,metab_groups,mrs,basisSelect=None,b
                        bp,
                        metab_groups,
                        numGroups)
+
+
+
+
+# Utils for VB implementation
+# Only needs forward model
+# does exponentiate positive parameters (i.e. they are in log-transform)
+# ensures prediction is real by concatenating real and imag signals
+
+# ########### For VB
+# Exponentiate positive params
+def FSLModel_forward_vb(x,nu,t,m,B,G,g,first,last):
+    n     = m.shape[1]    # get number of basis functions
+
+    logcon,loggamma,eps,phi0,phi1,b = FSLModel_x2param(x,n,g)
+    con   = np.exp(logcon)
+    gamma = np.exp(loggamma)
+    
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
+    
+    tmp = np.zeros(m.shape,dtype=np.complex)
+    for i,gg in enumerate(G):
+        tmp[:,i] = m[:,i]*E[:,gg]
+    
+    M     = FIDToSpec(tmp)
+    S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
+
+    # add baseline
+    if B is not None:                
+        S += B@b[:,None]
+    
+    S = S.flatten()[first:last]
+
+    return np.concatenate((np.real(S),np.imag(S)))
 

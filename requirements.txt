@@ -1,5 +1,5 @@
 numpy
-scipy
+scipy>=1.4.1
 matplotlib
 plotly>=4.*
 pandas
