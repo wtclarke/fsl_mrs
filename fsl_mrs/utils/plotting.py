@@ -285,13 +285,7 @@ def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
     return plt.gcf()
     
 
-def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
-    numPoints        = FIDlist[0].size
-    frequencyAxis    = np.linspace(-bandwidth/2,
-                                   bandwidth/2,
-                                   numPoints)    
-    ppmAxisShift     = hz2ppm(centralFrequency,
-                              frequencyAxis,shift=True)
+def plot_spectra(MRSList,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
 
     plt.figure(figsize=(10,10))
     plt.xlim(ppmlim)
@@ -303,15 +297,16 @@ def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=No
     plt.autoscale(enable=True, axis='y', tight=True)
     
     avg=0
-    for FID in FIDlist:
-        data = np.real(FID2Spec(FID))
+    for mrs in MRSList:
+        data = np.real(mrs.getSpectrum(ppmlim=ppmlim))
+        ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
         avg += data
         plt.plot(ppmAxisShift,data,color='k',linewidth=.5,linestyle='-')
     if single_FID is not None:
-        data = np.real(FID2Spec(single_FID))
+        data = np.real(single_FID.getSpectrum(ppmlim=ppmlim))
         plt.plot(ppmAxisShift,data,color='r',linewidth=2,linestyle='-')
     if plot_avg:
-        avg /= len(FIDlist)
+        avg /= len(MRSList)
         plt.plot(ppmAxisShift,avg,color='g',linewidth=2,linestyle='-')
     
     autoscale_y(plt.gca(),margin=0.05)

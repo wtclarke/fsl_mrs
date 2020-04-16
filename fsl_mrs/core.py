@@ -246,7 +246,7 @@ class MRS(object):
 
         
     # Helper functions
-    def check_FID(self,ppmlim=(.2,4.2),repare=False):
+    def check_FID(self,ppmlim=(.2,4.2),repair=False):
         """
            Check if FID needs to be conjugated
            by looking at total power within ppmlim range
@@ -254,7 +254,7 @@ class MRS(object):
         Parameters
         ----------
         ppmlim : list
-        repare : if True applies conjugation to FID
+        repair : if True applies conjugation to FID
 
         Returns
         -------
@@ -266,7 +266,7 @@ class MRS(object):
         Spec2 = np.real(misc.FIDToSpec(np.conj(self.FID)))[first:last]
         
         if np.linalg.norm(misc.detrend(Spec1,deg=4)) < np.linalg.norm(misc.detrend(Spec2,deg=4)):
-            if repare is False:
+            if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
                 return -1
             else:
@@ -282,7 +282,7 @@ class MRS(object):
         self.FID  = np.conj(self.FID)
         self.Spec = misc.FIDToSpec(self.FID)
 
-    def check_Basis(self,ppmlim=(.2,4.2),repare=False):
+    def check_Basis(self,ppmlim=(.2,4.2),repair=False):
         """
            Check if Basis needs to be conjugated
            by looking at total power within ppmlim range
@@ -290,7 +290,7 @@ class MRS(object):
         Parameters
         ----------
         ppmlim : list
-        repare : if True applies conjugation to basis
+        repair : if True applies conjugation to basis
 
         Returns
         -------
@@ -309,7 +309,7 @@ class MRS(object):
                 conjOrNot.append(0.0)
 
         if (sum(conjOrNot)/len(conjOrNot))>0.5:
-            if repare is False:
+            if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1
             else:

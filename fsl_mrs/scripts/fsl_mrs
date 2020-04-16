@@ -197,7 +197,7 @@ def main():
         if args.conjfid:
             mrs.conj_FID()
     else:
-        conjugated = mrs.check_FID(repare=True)
+        conjugated = mrs.check_FID(repair=True)
         if args.verbose:
             if conjugated == 1:
                 warnings.warn('FID has been checked and conjugated. Please check!',UserWarning)
@@ -206,7 +206,7 @@ def main():
         if args.conjbasis:
             mrs.conj_Basis()
     else:
-        conjugated = mrs.check_Basis(repare=True)
+        conjugated = mrs.check_Basis(repair=True)
         if args.verbose:
             if conjugated == 1:
                 warnings.warn('Basis has been checked and conjugated. Please check!',UserWarning)

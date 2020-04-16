@@ -247,20 +247,17 @@ class FitRes(object):
     # Functions to return physically meaningful units from the fitting results
     def getConc(self,scaling='raw',metab=None,function='mean'):
         if function is None:
-            dfFunc = lambda m : self.fitResults[m].values
+            dfFunc = lambda m : self.fitResults[m]
         else:
-            dfFunc = lambda m : self.fitResults[m].apply(function)
+            dfFunc = lambda m : self.fitResults[m].apply(function).to_numpy()
 
         # Extract concentrations from parameters.
         if metab is not None:
             if metab not in self.metabs:
                 raise ValueError(f'{metab} is not a recognised metabolite.')
-            rawConc = np.asarray(dfFunc(metab))
-        else:
-            rawConc = []
-            for m in self.metabs:
-                rawConc.append(dfFunc(m))
-            rawConc = np.asarray(rawConc)
+            rawConc = dfFunc(metab)
+        else:            
+            rawConc = dfFunc(self.metabs)
 
         if scaling == 'raw':            
             return rawConc

@@ -216,7 +216,7 @@ def getNoiseSDDist(specIn,noiseregionmask):
     noiseOnlySpec = specIn[noiseregionmask]
 
     npoints = noiseOnlySpec.size
-    regionPoints = 100
+    regionPoints = min(100,int(npoints/10))
     
     def running_std_strides(seq, window=100):
         stride = seq.strides[0]
