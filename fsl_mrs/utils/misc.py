@@ -3,6 +3,7 @@
 # misc.py - Various utils
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
@@ -14,7 +15,7 @@ from scipy.interpolate import interp1d
 import itertools as it
 from copy import deepcopy
 
-H2O_PPM_TO_TMS = 4.65  # Shift of water to Tetramethylsilane
+from .constants import H2O_PPM_TO_TMS 
 
 
 # Convention:
@@ -413,6 +414,27 @@ def blur_FID_Voigt(mrs,FID,gamma,sigma):
     t = mrs.timeAxis
     FID_blurred = multiply(FID,np.exp(-t*(gamma+t*sigma**2/2)))
     return FID_blurred
+
+def rescale_FID(x,scale=100):
+    """
+    Useful for ensuring values are within nice range
+
+    Forces norm of 1D arrays to be = scale
+    Forces norm of column-mean of 2D arrays to be = scale (i.e. preserves relative norms of the columns)
+    
+    Parameters
+    ----------
+    x : 1D or 2D array
+    scale : float            
+    """
+    
+    y =  x.copy()
+    if y.ndim == 1:
+        factor = np.linalg.norm(y)
+    else:
+        factor = np.linalg.norm(np.mean(y,axis=1),axis=0)        
+    y =  y / factor * scale
+    return y
 
 
 def create_peak(mrs,ppm,gamma=0,sigma=0):
