@@ -3,6 +3,7 @@
 # fsl_mrs - wrapper script for MRS fitting
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Carke <william.clarke@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
@@ -92,6 +93,7 @@ def main():
     optional.add_argument('--conj_basis',dest='conjbasis',action="store_true",help='Force conjugation of basis')
     optional.add_argument('--no_conj_basis',dest='conjbasis',action="store_false",help='Forbid automatic conjugation of basis')
     optional.set_defaults(conjfid=None,conjbasis=None)
+    optional.add_argument('--no_rescale',action="store_false",help='Forbid rescaling of FID/basis/H2O.')
     optional.add('--config', required=False, is_config_file=True, help='configuration file')
 
 
@@ -157,9 +159,17 @@ def main():
 
     FID,dataheader            = mrs_io.read_FID(args.data)
     basis, names, basisheader = mrs_io.read_basis(args.basis)
+
+    
+    # Rescale FID and basis to have nice range
+    if not args.no_rescale:
+        FID   = misc.rescale_FID(FID,scale=100)
+        basis = misc.rescale_FID(basis,scale=100)
     
     if args.h2o is not None:
         H2O,_                 = mrs_io.read_FID(args.h2o)
+        if not args.no_rescale:
+            H2O   = misc.rescale_FID(H2O,scale=100)
     else:
         H2O = None
       
@@ -219,7 +229,7 @@ def main():
         mrs.Spec = misc.FIDToSpec(mrs.FID)
               
         
-    # Keep/Ignore/Combine metabolites
+    # Keep/Ignore metabolites
     mrs.keep(args.keep)
     mrs.ignore(args.ignore)    
 
@@ -278,10 +288,13 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE*1E-3
-    elif 'TE' in basisheader['meta']:
-        echotime = basisheader['meta']['TE']
-        if echotime > 1.0: # Assume in ms.
-            echotime *= 1E-3
+    elif 'meta' in basisheader:
+        if 'TE' in basisheader['meta']:
+            echotime = basisheader['meta']['TE']
+            if echotime > 1.0: # Assume in ms.
+                echotime *= 1E-3
+            else:
+                echotime = None
     else:
         echotime = None
     # Internal and Water quantification if requested
