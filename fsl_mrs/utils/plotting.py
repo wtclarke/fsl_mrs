@@ -577,7 +577,7 @@ def plot_mcmc_corr(res,corr=None):
     corrabs = np.abs(corr)
 
     fig.add_trace(go.Heatmap(z=corr,
-                     x=res.metabs,y=res.metabs,colorscale='Picnic'))
+                     x=res.original_metabs,y=res.original_metabs,colorscale='Picnic'))
     
     fig.update_layout(template = 'plotly_white',
                       font=dict(size=10),
