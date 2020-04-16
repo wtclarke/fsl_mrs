@@ -10,7 +10,8 @@
 
 import numpy as np
 
-from fsl_mrs.utils import models, misc, mh
+from fsl_mrs.utils import models, misc
+from fsl_mrs.utils.stats import mh,vb
 from fsl_mrs.utils.constants import *
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.results import FitRes
@@ -308,11 +309,11 @@ def fit_FSLModel(mrs,
     """
         A simplified version of LCModel
     """
-    err_func,grad_func,forward,x2p,_ = models.getModelFunctions(model)
+    err_func,grad_func,forward,x2p,p2x = models.getModelFunctions(model)
     if model == 'lorentzian':     
-        init_func  = init_FSLModel         # initilisation of params
+        init_func  = init_FSLModel         # initialisation of params
     elif model == 'voigt':        
-        init_func  = init_FSLModel_Voigt    # initilisation of params
+        init_func  = init_FSLModel_Voigt    # initialisation of params
 
     data       = mrs.Spec.copy()              # data copied to keep it safe
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
@@ -323,10 +324,10 @@ def fit_FSLModel(mrs,
     # shorter names for some of the useful stuff
     freq,time,basis=mrs.frequencyAxis,mrs.timeAxis,mrs.basis
 
-    # Handle completely disabling basline
+    # Handle completely disabling baseline
     if baseline_order < 0:
         baseline_order = 0 # Generate one order of baseline parameters
-        disableBaseline = True # But diable by setting bounds to 0
+        disableBaseline = True # But disable by setting bounds to 0
     else:
         disableBaseline = False
    
@@ -388,6 +389,40 @@ def fit_FSLModel(mrs,
 
         # collect results
         results.loadResults(mrs,samples)
+
+    elif method == 'VB':
+        import warnings
+        warnings.warn('VB method still under development!',UserWarning)
+
+        # init with nonlinear fitting
+        res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
+                            metab_groups=metab_groups,baseline_order=baseline_order,model=model)
+        x0   = res.params
+
+        # log-transform positive params
+        con,gamma,eps,phi0,phi1,b = x2p(x0,mrs.numBasis,g)
+        con[con<=0]     = 1e-10
+        gamma[gamma<=0] = 1e-10
+        logcon,loggamma = np.log(con),np.log(gamma)
+        vbx0 = p2x(logcon,loggamma,eps,phi0,phi1,b)
+
+        # run VB fitting
+        vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb)
+        datasplit = np.concatenate((np.real(data[first:last]),np.imag(data[first:last])))
+        args      = [freq,time,basis,B,metab_groups,g,first,last]                
+        
+        res_vb    = vbmodel.fit(y=datasplit,
+                                x0=vbx0,
+                                verbose=False,
+                                monitor=True,
+                                args=args)
+                
+        # de-log
+        logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
+        x = p2x(np.exp(logcon),np.exp(loggamma),eps,phi0,phi1,b)
+
+        # collect results
+        results.loadResults(mrs,x)
         
     else:
         raise Exception('Unknown optimisation method.')
