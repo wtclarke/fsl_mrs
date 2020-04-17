@@ -246,7 +246,7 @@ class MRS(object):
 
         
     # Helper functions
-    def check_FID(self,ppmlim=(.2,4.2),repare=False):
+    def check_FID(self,ppmlim=(.2,4.2),repair=False):
         """
            Check if FID needs to be conjugated
            by looking at total power within ppmlim range
@@ -282,7 +282,7 @@ class MRS(object):
         self.FID  = np.conj(self.FID)
         self.Spec = misc.FIDToSpec(self.FID)
 
-    def check_Basis(self,ppmlim=(.2,4.2),repare=False):
+    def check_Basis(self,ppmlim=(.2,4.2),repair=False):
         """
            Check if Basis needs to be conjugated
            by looking at total power within ppmlim range
