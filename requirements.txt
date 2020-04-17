@@ -9,3 +9,4 @@ pandas
 jinja2
 beautifulsoup4
 nibabel
+hlsvdpro
