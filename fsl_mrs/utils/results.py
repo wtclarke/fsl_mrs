@@ -21,9 +21,9 @@ class FitRes(object):
     def __init__(self,model,method,names,metab_groups,baseline_order,B,ppmlim):
         """ Short class initilisation """ 
         # Initilise some basic parameters - includes fitting options
-        # Populate parameter names        
+        # Populate parameter names
+        self.model        = model        
         self.fill_names(names,baseline_order=baseline_order,metab_groups=metab_groups)
-        self.model        = model
         self.method        = method
         self.ppmlim       = ppmlim
         self.baseline_order = baseline_order
@@ -200,6 +200,10 @@ class FitRes(object):
         
         for i in range(g):
             self.params_names.append(f'gamma_{i}')
+        if self.model.lower() == 'voigt':
+            for i in range(g):
+                self.params_names.append(f'sigma_{i}')
+
         for i in range(g):
             self.params_names.append(f"eps_{i}")
 
@@ -346,11 +350,35 @@ class FitRes(object):
                 gamma *= 1/(np.pi*self.hzperppm)
             else:
                 raise ValueError('Units must be Hz or ppm.')
-            return gamma
+            combined = gamma
+            return combined,gamma
         elif self.model=='voigt':
-            raise Exception('TO DO.')
+            if function is None:
+                gamma = np.zeros([self.fitResults.shape[0],self.g])
+                sigma = np.zeros([self.fitResults.shape[0],self.g])
+                for g in range(self.g):
+                    gamma[:,g] = self.fitResults[f'gamma_{g}'].values
+                    sigma[:,g] = self.fitResults[f'sigma_{g}'].values
+            else:
+                gamma = []
+                sigma = []
+                for g in range(self.g):
+                    gamma.append(self.fitResults[f'gamma_{g}'].apply(function))
+                    sigma.append(self.fitResults[f'sigma_{g}'].apply(function))
+                gamma = np.asarray(gamma) 
+                sigma = np.asarray(sigma)
 
-            # return gamma,sigma
+            if units.lower() =='hz':
+                gamma *= 1/(np.pi)
+                sigma *= 1/(np.pi)
+            elif units.lower() == 'ppm':
+                gamma *= 1/(np.pi*self.hzperppm)
+                sigma *= 1/(np.pi*self.hzperppm)
+            else:
+                raise ValueError('Units must be Hz or ppm.')
+
+            combined = gamma/2 + np.sqrt((gamma**2/4.0)+(sigma*2*np.log(2))**2)
+            return combined,gamma,sigma
         
     def getBaselineParams(self):
         """ Return normalised complex baseline parameters."""

@@ -40,7 +40,7 @@ def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
 # New strategy for init
 def init_params(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    y = misc.FIDToSpec(mrs.FID)[first:last]
+    y = mrs.getSpectrum(ppmlim=ppmlim)
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
     B = baseline[first:last,:].copy()
     B = np.concatenate((np.real(B),np.imag(B)),axis=0)
@@ -77,32 +77,6 @@ def init_params(mrs,baseline,ppmlim):
     return g,e,con,b
 
 
-
-# def init_FSLModel_old(mrs,metab_groups,baseline_order):
-#     """
-#        Initialise params of FSLModel
-#     """
-#     # 1. Find gamma and eps
-#     # 2. Use those to init concentrations
-#     # 3. How about phi0 and phi1?
-    
-#     # 1. gamma/eps
-
-
-#     gamma,eps,con = init_gamma_eps(mrs)
-
-    
-#     # Append 
-#     x0  = con   # concentrations
-        
-#     g   = max(metab_groups)+1                    # number of metab groups
-#     x0  = np.append(x0,[gamma]*g)                # gamma[0]..
-#     x0  = np.append(x0,[eps]*g)                  # eps[0]..
-#     x0  = np.append(x0,[0,0])                    # phi0 and phi1
-#     x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
-    
-#     return x0
-
 def init_FSLModel(mrs,metab_groups,baseline,ppmlim):
     """
        Initialise params of FSLModel
@@ -120,63 +94,59 @@ def init_FSLModel(mrs,metab_groups,baseline,ppmlim):
     
     return x0
 
-
-# THE BELOW NEEDS TO BE REVISTED IN LIGHT OF THE LORENTZIAN INITIALISATION
-def init_gamma_sigma_eps(mrs):
-    """
-       Initialise gamma/sigma/epsilon parameters
-       This is done by summing all the basis FIDs and
-       maximizing the correlation with the data FID
-       after shifting and blurring
-       correlation is calculated in the range [.2,4.2] ppm
-    """
-    target = mrs.FID[:,None]
-    target = extract_spectrum(mrs,target)
-    b      = np.sum(mrs.basis,axis=1)[:,None]
-    def cf(p):
-        gamma = p[0]
-        sigma = p[1]
-        eps   = p[2]
-        bs = blur_FID_Voigt(mrs,b,gamma,sigma)    
-        bs = shift_FID(mrs,bs,eps)
-        bs = extract_spectrum(mrs,bs)
-        xx = 1-correlate(bs,target)
-        return xx
-
-    x0  = np.array([1,0,0])
-    res = minimize(cf, x0, method='Powell')
-    g   = res.x[0]
-    s   = res.x[1]
-    e   = res.x[2]
-        
-    return g,s,e
-
-def init_FSLModel_Voigt(mrs,metab_groups,baseline_order):
-    """
-       Initialise params of FSLModel
-    """
-    # 1. Find theta, k and eps
-    # 2. Use those to init concentrations
-    # 3. How about phi0 and phi1?
+def init_params_voigt(mrs,baseline,ppmlim):
+    first,last = mrs.ppmlim_to_range(ppmlim)
+    y = mrs.getSpectrum(ppmlim=ppmlim)
+    y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
+    B = baseline[first:last,:].copy()
+    B = np.concatenate((np.real(B),np.imag(B)),axis=0)
     
-    # 1. theta/k/eps
-    gamma,sigma,eps = init_gamma_sigma_eps(mrs)
+    def modify_basis(mrs,gamma,sigma,eps):
+        bs = mrs.basis * np.exp(-(gamma+(sigma**2*mrs.timeAxis)+1j*eps)*mrs.timeAxis)        
+        bs = misc.FIDToSpec(bs,axis=0)
+        bs = bs[first:last,:]
+        return np.concatenate((np.real(bs),np.imag(bs)),axis=0)
+            
+    def loss(p):
+        gamma,sigma,eps = np.exp(p[0]),np.exp(p[1]),p[2]
+        basis     = modify_basis(mrs,gamma,sigma,eps)
+        desmat    = np.concatenate((basis,B),axis=1)
+        beta      = np.real(np.linalg.pinv(desmat)@y)
+        beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis],0,None) # project onto >0 concentration
+        pred      = np.matmul(desmat,beta)
+        val       = np.mean(np.abs(pred-y)**2)    
+        return val
         
-    new_basis = mrs.basis*np.exp(-(1j*eps+gamma+mrs.timeAxis*sigma**2)*mrs.timeAxis)
+    x0  = np.array([np.log(1e-5),np.log(1e-5),0])
+    res = minimize(loss, x0, method='Powell')
+    
+    g,s,e = np.exp(res.x[0]),np.exp(res.x[1]),res.x[2]
 
-    data   = np.append(np.real(mrs.FID),np.imag(mrs.FID),axis=0)
-    desmat = np.append(np.real(new_basis),np.imag(new_basis),axis=0)            
-    con    = np.real(np.linalg.pinv(desmat)@data)   
-                
+    # get concentrations and baseline params 
+    basis  = modify_basis(mrs,g,s,e)
+    desmat = np.concatenate((basis,B),axis=1)
+    beta   = np.real(np.linalg.pinv(desmat)@y)
+    con    = np.clip(beta[:mrs.numBasis],0,None)
+    #con    = beta[:mrs.numBasis]
+    b      = beta[mrs.numBasis:]
+
+    return g,s,e,con,b
+
+
+def init_FSLModel_Voigt(mrs,metab_groups,baseline,ppmlim):
+    """
+       Initialise params of FSLModel for Voigt linesahapes
+    """
+    gamma,sigma,eps,con,b0 = init_params_voigt(mrs,baseline,ppmlim)
+
     # Append 
     x0 = con
-        
     g   = max(metab_groups)+1                  # number of metab groups
     x0  = np.append(x0,[gamma]*g)              # gamma[0]..
     x0  = np.append(x0,[sigma]*g)              # sigma[0]..
     x0  = np.append(x0,[eps]*g)                # eps[0]..
     x0  = np.append(x0,[0,0])                  # phi0 and phi1
-    x0  = np.append(x0,[0]*2*(baseline_order+1)) # baseline
+    x0  = np.append(x0,b0)                     # baseline
     
     return x0
 
@@ -227,7 +197,7 @@ def get_bounds(num_basis,num_metab_groups,baseline_order,model,method,disableBas
         bnds = [(0,None)]*num_basis
         # gamma/sigma/eps
         bnds.extend([(0,None)]*num_metab_groups)
-        if model == 'Voigt':
+        if model.lower() == 'voigt':
             bnds.extend([(0,None)]*num_metab_groups)
         bnds.extend([(None,None)]*num_metab_groups)
         # phi0,phi1
@@ -249,7 +219,7 @@ def get_bounds(num_basis,num_metab_groups,baseline_order,model,method,disableBas
         # gamma/sigma/eps
         LB.extend([0]*num_metab_groups)
         UB.extend([MAX]*num_metab_groups)        
-        if model == 'Voigt':
+        if model.lower() == 'voigt':
             LB.extend([0]*num_metab_groups)
             UB.extend([MAX]*num_metab_groups)
         LB.extend([MIN]*num_metab_groups)
@@ -280,7 +250,7 @@ def get_fitting_mask(num_basis,num_metab_groups,baseline_order,model,
     else:
         mask = [0]*num_basis
     n = 2*num_metab_groups
-    if model == 'Voigt':
+    if model.lower() == 'voigt':
         n += num_metab_groups
     if fit_shape:
         mask.extend([1]*n)
@@ -310,9 +280,9 @@ def fit_FSLModel(mrs,
         A simplified version of LCModel
     """
     err_func,grad_func,forward,x2p,p2x = models.getModelFunctions(model)
-    if model == 'lorentzian':     
+    if model.lower() == 'lorentzian':     
         init_func  = init_FSLModel         # initialisation of params
-    elif model == 'voigt':        
+    elif model.lower() == 'voigt':        
         init_func  = init_FSLModel_Voigt    # initialisation of params
 
     data       = mrs.Spec.copy()              # data copied to keep it safe
@@ -399,15 +369,27 @@ def fit_FSLModel(mrs,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
         x0   = res.params
 
-        # log-transform positive params
-        con,gamma,eps,phi0,phi1,b = x2p(x0,mrs.numBasis,g)
-        con[con<=0]     = 1e-10
-        gamma[gamma<=0] = 1e-10
-        logcon,loggamma = np.log(con),np.log(gamma)
-        vbx0 = p2x(logcon,loggamma,eps,phi0,phi1,b)
+        
 
         # run VB fitting
-        vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb)
+        if model.lower()=='lorentzian':
+            # log-transform positive params
+            con,gamma,eps,phi0,phi1,b = x2p(x0,mrs.numBasis,g)
+            con[con<=0]     = 1e-10
+            gamma[gamma<=0] = 1e-10
+            logcon,loggamma = np.log(con),np.log(gamma)
+            vbx0 = p2x(logcon,loggamma,eps,phi0,phi1,b)
+            vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb)
+        elif model.lower()=='voigt':
+            # log-transform positive params
+            con,gamma,sigma,eps,phi0,phi1,b = x2p(x0,mrs.numBasis,g)
+            con[con<=0]     = 1e-10
+            gamma[gamma<=0] = 1e-10
+            sigma[sigma<=0] = 1e-10
+            logcon,loggamma,logsigma = np.log(con),np.log(gamma),np.log(sigma)
+            vbx0 = p2x(logcon,loggamma,logsigma,eps,phi0,phi1,b)
+            vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb_voigt)
+
         datasplit = np.concatenate((np.real(data[first:last]),np.imag(data[first:last])))
         args      = [freq,time,basis,B,metab_groups,g,first,last]                
         
@@ -418,8 +400,12 @@ def fit_FSLModel(mrs,
                                 args=args)
                 
         # de-log
-        logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
-        x = p2x(np.exp(logcon),np.exp(loggamma),eps,phi0,phi1,b)
+        if model.lower()=='lorentzian':
+            logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
+            x = p2x(np.exp(logcon),np.exp(loggamma),eps,phi0,phi1,b)
+        elif model.lower()=='voigt':
+            logcon,loggamma,logsigma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
+            x = p2x(np.exp(logcon),np.exp(loggamma),np.exp(logsigma),eps,phi0,phi1,b)
 
         # collect results
         results.loadResults(mrs,x)

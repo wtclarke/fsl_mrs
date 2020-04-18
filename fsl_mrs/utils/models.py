@@ -13,146 +13,8 @@ from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
 
 # Helper functions for LCModel fitting
 
-# faster than utils.misc.FIDtoSpec
-#def FIDToSpec(FID):
-#    return np.fft.fft(FID,axis=0)
-
-#def SpecToFID(FID):
-#    return np.fft.ifft(FID,axis=0)
-
-##################################################################################
-# ###### First implementation of LCModel-style model. This is already obsolete!  #
-# ###### Use FSLModel instead!
-# ################################
-
-
-################ TIME DOMAIN FUNCTIONS
-def LCModel_forward(x,nu,t,m):
-    """
-    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1]
-    """
-    n     = m.shape[1]
-    con   = x[:n] 
-    gamma = x[n] 
-    eps   = x[n+1] 
-    phi0  = x[n+2]  
-    phi1  = x[n+3] 
-    M    = np.fft.fft(m*np.exp(-(gamma+1j*eps)*t),axis=0)
-    Y_nu = np.exp(-1j*(phi0+phi1*nu)) * (M @ con[:,None])
-    Y_t  = np.fft.ifft(Y_nu,axis=0)
-    
-    return Y_t.flatten()
-
-def LCModel_jac(x,nu,t,m,FID,first=None,last=None):
-    n     = m.shape[1]
-    con   = x[:n] 
-    gamma = x[n] 
-    eps   = x[n+1] 
-    phi0  = x[n+2]  
-    phi1  = x[n+3] 
-    
-    m_term   = m*np.exp(-(gamma+1j*eps)*t)
-    phi_term = np.exp(-1j*(phi0+phi1*nu)) 
-    
-    Fmet  = np.fft.fft(m_term,axis=0)
-    cFmet = Fmet@con[:,None]
-    
-    Y        = LCModel_forward(x,nu,t,m)
-    Y        = Y[:,None]
-    dYdc     = np.fft.ifft(phi_term*Fmet,axis=0)
-    dYdgamma = np.fft.ifft(phi_term*(np.fft.fft(   -t*m_term,axis=0)@con[:,None]),axis=0)
-    dYdeps   = np.fft.ifft(phi_term*(np.fft.fft(-1j*t*m_term,axis=0)@con[:,None]),axis=0)
-    dYdphi0  = np.fft.ifft(-1j*   phi_term*cFmet,axis=0)
-    dYdphi1  = np.fft.ifft(-1j*nu*phi_term*cFmet,axis=0)    
-    
-    dY  = np.concatenate((dYdc,dYdgamma,dYdeps,dYdphi0,dYdphi1),axis=1)
-
-    jac = np.real(np.sum(Y*np.conj(dY)+np.conj(Y)*dY - np.conj(FID[:,None])*dY - FID[:,None]*np.conj(dY),axis=0))
-    
-    return jac
-
-def LCModel_err(x,nu,t,m,y,first,last):
-    pred = LCModel_forward(x,nu,t,m)
-    return np.sum(np.absolute(y[first:last]-pred[first:last])**2)
-
-
-def LCModel_approxCovariance(x,n,nu,t,m,FID):
-    noise   = error_fun(x,n,nu,t,m,y)    
-    J     = LCModel_jac(x,n,nu,t,m,FID)
-    H     = J[:,None]@J[:,None].T
-    C     = np.diag(np.linalg.inverse(H))*noise
-    return C
-    
-################ FREQUENCY DOMAIN FUNCTIONS
-def LCModel_forward_freq(x,nu,t,m):
-    """
-    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1]
-    """
-    n     = m.shape[1]
-    con   = x[:n] 
-    gamma = x[n] 
-    eps   = x[n+1] 
-    phi0  = x[n+2]  
-    phi1  = x[n+3] 
-    M    = FIDToSpec(m*np.exp(-(gamma+1j*eps)*t))
-    Y_nu = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
-    
-    return Y_nu.flatten()
-
-def LCModel_jac_freq(x,nu,t,m,Spec,first,last):
-    n     = m.shape[1]
-    con   = x[:n] 
-    gamma = x[n] 
-    eps   = x[n+1] 
-    phi0  = x[n+2]  
-    phi1  = x[n+3] 
-    
-    m_term   = m*np.exp(-(gamma+1j*eps)*t)    
-    phi_term = np.exp(-1j*(phi0+phi1*nu)) 
-    
-    Fmet  = FIDToSpec(m_term)
-    Ftmet = FIDToSpec(t*m_term)
-    cFmet = Fmet@con[:,None]
-    
-    Y        = LCModel_forward_freq(x,nu,t,m)
-    dYdc     = phi_term*Fmet
-    dYdgamma = phi_term*(-Ftmet@con[:,None])
-    dYdeps   = phi_term*(-1j*Ftmet@con[:,None])
-    dYdphi0  = -1j*   phi_term*cFmet
-    dYdphi1  = -1j*nu*phi_term*cFmet   
-
-    # Only compute within a range
-    Y         = Y[first:last,None]
-    Spec      = Spec[first:last,None]
-    dYdc      = dYdc[first:last,:]
-    dYdgamma  = dYdgamma[first:last]
-    dYdeps    = dYdeps[first:last]
-    dYdphi0   = dYdphi0[first:last]
-    dYdphi1   = dYdphi1[first:last]
-    
-    dY  = np.concatenate((dYdc,dYdgamma,dYdeps,dYdphi0,dYdphi1),axis=1)
-
-    jac = np.real(np.sum(Y*np.conj(dY)+np.conj(Y)*dY - np.conj(Spec)*dY - Spec*np.conj(dY),axis=0))
-
-    # bit quicker?
-
-    #err = Y-Spec 
-    #jac = np.sum(dY*np.conj(err) + np.conj(dY)*err,axis=0)
-
-    return jac #np.real(jac)
-
-def LCModel_err_freq(x,nu,t,m,data,first,last):
-    pred = LCModel_forward_freq(x,nu,t,m)                                         
-    err  = data[first:last]-pred[first:last]
-    sse  = np.real(np.sum(err*np.conj(err))) 
-    return sse
-
-    
-
 
 # ##################### FSL MODEL
-# Modifications on LCModel to be listed here
-#
 
 def FSLModel_x2param(x,n,g):
     """
@@ -601,3 +463,29 @@ def FSLModel_forward_vb(x,nu,t,m,B,G,g,first,last):
 
     return np.concatenate((np.real(S),np.imag(S)))
 
+def FSLModel_forward_vb_voigt(x,nu,t,m,B,G,g,first,last):
+    n     = m.shape[1]    # get number of basis functions
+
+    logcon,loggamma,logsigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(x,n,g)
+    con   = np.exp(logcon)
+    gamma = np.exp(loggamma)
+    sigma = np.exp(logsigma)
+
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg]+t*sigma[gg]**2)*t).flatten()
+
+    tmp = np.zeros(m.shape,dtype=np.complex)
+    for i,gg in enumerate(G):
+        tmp[:,i] = m[:,i]*E[:,gg]
+    
+    M     = FIDToSpec(tmp)
+    S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])
+
+    # add baseline
+    if B is not None:                
+        S += B@b[:,None]
+    
+    S = S.flatten()[first:last]
+
+    return np.concatenate((np.real(S),np.imag(S)))

@@ -91,7 +91,7 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     for basemrs in basisMRS:
         #FWHM
         baseFWHM = res.getLineShapeParams()
-        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=baseFWHM[0],ppmlim=ppmlim)        
+        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=np.max(baseFWHM[0]),ppmlim=ppmlim)        
         fwhm.append(fwhm_curr)
 
         #Basis SNR
