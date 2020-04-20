@@ -243,7 +243,7 @@ class FitRes(object):
             # df['Measure'] = ['SNR']
             # df['Value']   = [self.snr]
         elif what == 'parameters':
-            df['Name']  = self.params_names
+            df['Name']  = self.fitResults.columns
             df['Value'] = self.fitResults.mean().to_numpy()
             
         df.to_csv(filename,index=False,header=True)
