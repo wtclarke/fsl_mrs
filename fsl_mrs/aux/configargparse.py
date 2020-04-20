@@ -164,10 +164,22 @@ class DefaultConfigFileParser(ConfigFileParser):
                 value = key_value_match.group("value")
 
                 if value.startswith("[") and value.endswith("]"):
+                    # breakpoint()
                     # handle special case of lists
                     value = [elem.strip() for elem in value[1:-1].split(",")]
 
-                items[key] = value
+                if key in items:
+                    # If key is already in the dict then convert the value to a list and append
+                    if isinstance(items[key],list):
+                        if isinstance(items[key][0],list):
+                            items[key].append(value)
+                        else:
+                            items[key] = [items[key],value]
+                    else:
+                        items[key] = [items[key],value]
+                else:
+                    # Else - just add
+                    items[key] = value
                 continue
 
             raise ConfigFileParserException("Unexpected line {} in {}: {}".format(i,
@@ -741,7 +753,7 @@ class ArgumentParser(argparse.ArgumentParser):
                 self.error("Unexpected value for %s: '%s'. Expecting 'true', "
                            "'false', 'yes', 'no', '1' or '0'" % (key, value))
         elif isinstance(value, list):
-            accepts_list = (isinstance(action, argparse._StoreAction) and 
+            accepts_list = (isinstance(action, (argparse._StoreAction, argparse._AppendAction)) and 
                  action.nargs in ('+', '*')) or (
                  isinstance(action, argparse._StoreAction) and
                      isinstance(action.nargs, int) and action.nargs > 1)

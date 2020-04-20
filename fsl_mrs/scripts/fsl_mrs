@@ -101,7 +101,7 @@ def main():
     
     # Parse command-line arguments
     args = p.parse_args()
-    breakpoint()
+    
     # Output kickass splash screen
     if args.verbose:
         splash(logo='mrs')
