@@ -429,6 +429,11 @@ def rescale_FID(x,scale=100):
     """
     
     y =  x.copy()
+
+    if type(y) is list:
+        factor = np.linalg.norm(sum(y)/len(y))
+        return [yy/factor*scale for yy in y],1/factor * scale
+    
     if y.ndim == 1:
         factor = np.linalg.norm(y)
     else:
