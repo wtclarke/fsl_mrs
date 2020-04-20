@@ -355,14 +355,23 @@ class FitRes(object):
 
             # return gamma,sigma
         
-    def getBaselineParams(self):
+    def getBaselineParams(self,complex=True,normalise=True):
         """ Return normalised complex baseline parameters."""
         bParams = []
-        for g in range(self.g):
-            bParams.append(self.fitResults[f'B_real_{g}'].mean()+1j*self.fitResults[f'B_imag_{g}'].mean())
+        for b in range(self.baseline_order+1):
+            breal = self.fitResults[f'B_real_{b}'].mean()
+            bimag = self.fitResults[f'B_imag_{b}'].mean()
+            if complex:
+                bParams.append(breal+1j*bimag)
+            else:
+                bParams.extend([breal,bimag])
+  
         bParams = np.asarray(bParams)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            return bParams/np.abs(bParams[0])
+        if normalise:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                return bParams/np.abs(bParams[0])
+        else:
+            return bParams
 
     def getQCParams(self):
         """Returns peak wise SNR and FWHM (in Hz)"""
