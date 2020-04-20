@@ -542,7 +542,11 @@ def plot_dist_approx(res,refname='Cr'):
     n = int(np.ceil(np.sqrt(numOrigMetabs)))
     fig = make_subplots(rows=n, cols=n,subplot_titles=res.original_metabs)
     traces = []
-    ref = res.getConc()[res.metabs.index(refname)]
+    if refname is not None:
+        ref = res.getConc()[res.metabs.index(refname)]
+    else:
+        ref = 1.0
+
     for i,metab in enumerate(res.original_metabs):
         (r, c) = divmod(i, n)
         mu  = res.params[i]/ref
