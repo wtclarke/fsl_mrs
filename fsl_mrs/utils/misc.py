@@ -434,7 +434,7 @@ def rescale_FID(x,scale=100):
     else:
         factor = np.linalg.norm(np.mean(y,axis=1),axis=0)        
     y =  y / factor * scale
-    return y
+    return y,1/factor * scale
 
 
 def create_peak(mrs,ppm,gamma=0,sigma=0):

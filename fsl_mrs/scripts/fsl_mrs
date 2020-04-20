@@ -159,17 +159,9 @@ def main():
 
     FID,dataheader            = mrs_io.read_FID(args.data)
     basis, names, basisheader = mrs_io.read_basis(args.basis)
-
-    
-    # Rescale FID and basis to have nice range
-    if not args.no_rescale:
-        FID   = misc.rescale_FID(FID,scale=100)
-        basis = misc.rescale_FID(basis,scale=100)
-    
+        
     if args.h2o is not None:
         H2O,_                 = mrs_io.read_FID(args.h2o)
-        if not args.no_rescale:
-            H2O   = misc.rescale_FID(H2O,scale=100)
     else:
         H2O = None
       
@@ -207,7 +199,7 @@ def main():
         if args.conjfid:
             mrs.conj_FID()
     else:
-        conjugated = mrs.check_FID(repare=True)
+        conjugated = mrs.check_FID(repair=True)
         if args.verbose:
             if conjugated == 1:
                 warnings.warn('FID has been checked and conjugated. Please check!',UserWarning)
@@ -216,10 +208,14 @@ def main():
         if args.conjbasis:
             mrs.conj_Basis()
     else:
-        conjugated = mrs.check_Basis(repare=True)
+        conjugated = mrs.check_Basis(repair=True)
         if args.verbose:
             if conjugated == 1:
                 warnings.warn('Basis has been checked and conjugated. Please check!',UserWarning)
+    
+    # Rescale FID, H2O and basis to have nice range
+    if not args.no_rescale:
+        mrs.rescaleForFitting()
 
     # Do phase correction
     if args.phase_correct:
