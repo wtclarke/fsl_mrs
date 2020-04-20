@@ -285,13 +285,7 @@ def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
     return plt.gcf()
     
 
-def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
-    numPoints        = FIDlist[0].size
-    frequencyAxis    = np.linspace(-bandwidth/2,
-                                   bandwidth/2,
-                                   numPoints)    
-    ppmAxisShift     = hz2ppm(centralFrequency,
-                              frequencyAxis,shift=True)
+def plot_spectra(MRSList,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
 
     plt.figure(figsize=(10,10))
     plt.xlim(ppmlim)
@@ -303,15 +297,16 @@ def plot_spectra(FIDlist,bandwidth,centralFrequency,ppmlim=(0,4.5),single_FID=No
     plt.autoscale(enable=True, axis='y', tight=True)
     
     avg=0
-    for FID in FIDlist:
-        data = np.real(FID2Spec(FID))
+    for mrs in MRSList:
+        data = np.real(mrs.getSpectrum(ppmlim=ppmlim))
+        ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
         avg += data
         plt.plot(ppmAxisShift,data,color='k',linewidth=.5,linestyle='-')
     if single_FID is not None:
-        data = np.real(FID2Spec(single_FID))
+        data = np.real(single_FID.getSpectrum(ppmlim=ppmlim))
         plt.plot(ppmAxisShift,data,color='r',linewidth=2,linestyle='-')
     if plot_avg:
-        avg /= len(FIDlist)
+        avg /= len(MRSList)
         plt.plot(ppmAxisShift,avg,color='g',linewidth=2,linestyle='-')
     
     autoscale_y(plt.gca(),margin=0.05)
@@ -541,13 +536,14 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
     return fig
 
 
-def plot_dist_approx(mrs,res,refname='Cr'):
+def plot_dist_approx(res,refname='Cr'):
 
-    n = int(np.ceil(np.sqrt(mrs.numBasis)))
-    fig = make_subplots(rows=n, cols=n,subplot_titles=mrs.names)
+    numOrigMetabs = len(res.original_metabs)
+    n = int(np.ceil(np.sqrt(numOrigMetabs)))
+    fig = make_subplots(rows=n, cols=n,subplot_titles=res.original_metabs)
     traces = []
-    ref = res.params[mrs.names.index(refname)]
-    for i,metab in enumerate(mrs.names):
+    ref = res.getConc()[res.metabs.index(refname)]
+    for i,metab in enumerate(res.original_metabs):
         (r, c) = divmod(i, n)
         mu  = res.params[i]/ref
         sig = np.sqrt(res.crlb[i])/ref
@@ -582,7 +578,7 @@ def plot_mcmc_corr(res,corr=None):
     corrabs = np.abs(corr)
 
     fig.add_trace(go.Heatmap(z=corr,
-                     x=res.metabs,y=res.metabs,colorscale='Picnic'))
+                     x=res.original_metabs,y=res.original_metabs,colorscale='Picnic'))
     
     fig.update_layout(template = 'plotly_white',
                       font=dict(size=10),
@@ -620,17 +616,21 @@ def plot_mcmc_corr(res,corr=None):
     
     return fig
 
-def plot_dist_mcmc(mrs,res,refname='Cr'):
+def plot_dist_mcmc(res,refname='Cr'):
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
-    n = int(np.ceil(np.sqrt(mrs.numBasis)))
-    fig = make_subplots(rows=n, cols=n,subplot_titles=mrs.names)
+    n = int(np.ceil(np.sqrt(res.numMetabs)))
+    fig = make_subplots(rows=n, cols=n,subplot_titles=res.metabs)
     traces = []
-    ref = res.mcmc_samples[:,mrs.names.index(refname)]
-    for i,metab in enumerate(mrs.names):
+    if refname is not None:
+        ref = res.fitResults[refname].mean()
+    else:
+        ref = 1.0
+
+    for i,metab in enumerate(res.metabs):
         (r, c) = divmod(i, n)
-        x  = res.mcmc_samples[:,i] / np.mean(ref)
+        x  = res.fitResults[metab].to_numpy() / ref
         t = go.Histogram(x=x,
                          name=metab,
                         histnorm='percent',marker_color='#330C73',opacity=0.75)
@@ -647,7 +647,6 @@ def plot_dist_mcmc(mrs,res,refname='Cr'):
     for i in fig['layout']['annotations']:
         i['font'] = dict(size=10,color='#ff0000')
 
-        
     
     return fig
 
@@ -848,8 +847,8 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
     
         fig.update_layout(template = 'plotly_white',
                       showlegend=False,
-                      width = 1500,
-                      height = 3000,
+                    #   width = 1500,
+                      height = 1000,
                       font=dict(size=10),
                       title='Individual fits')
         for j in fig['layout']['annotations']:
@@ -866,9 +865,9 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
                     showgrid=False,showticklabels=False)
     return fig
 
-# def plot_table_extra(mrs,res): 
-def plot_table_qc(mrs,res):
-    # QC measures
+# def plot_table_fitparams(res): 
+def plot_table_fitparams(res):
+    # Single parameter measures
     header=["Static phase (deg)", "Linear phase (deg/ppm)"]
     p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
     values=[np.round(p0,decimals=5),
@@ -879,34 +878,53 @@ def plot_table_qc(mrs,res):
                   columnorder = [1,2,3],
                   columnwidth = [80,80,80],
                  )
-    fig = go.Figure(table1)
-    fig.update_layout(template = 'plotly_white')
-    fig.layout.update({'width':800})
 
-    return fig
-def plot_table_extras(mrs,res):
-    # Gamma/Eps
-    header = ['group','linewidth (Hz)','shift (ppm)','metab groups']
-    values = [[],[],[],[]]
+    # Fitting group Gamma/Eps
+    header2 = ['group','linewidth (Hz)','shift (ppm)','metab groups']
+    values2 = [[],[],[],[]]
     shift = res.getShiftParams(units='ppm')
     lw = res.getLineShapeParams(units='Hz')
     for g in range(res.g):    
-        values[0].append(g)
-        values[1].append(np.round(lw[g],decimals=3))
-        values[2].append(np.round(shift[g],decimals=5))
+        values2[0].append(g)
+        values2[1].append(np.round(lw[g],decimals=3))
+        values2[2].append(np.round(shift[g],decimals=5))
         metabs = []
-        for i,m in enumerate(mrs.names):
+        for i,m in enumerate(res.original_metabs):
             if res.metab_groups[i] == g:
                 metabs.append(m)                        
-        values[3].append(metabs)
-    table2 = go.Table(header=dict(values=header,font=dict(size=10),align="center"),
-                      cells=dict(values=values,align = "right"),             
+        values2[3].append(metabs)
+    table2 = go.Table(header=dict(values=header2,font=dict(size=10),align="center"),
+                      cells=dict(values=values2,align = "right"),             
                       columnorder = [1,2,3,4],
                       columnwidth = [12,12,12,64]
                  )
-    fig = go.Figure(data=table2)
+
+    fig = make_subplots(rows=1,cols=2,
+                        specs=  [[{"type": "table"},{"type": "table"}]])
+    fig.add_trace(table1,row=1, col=1)
+    fig.add_trace(table2,row=1, col=2)
     fig.update_layout(template = 'plotly_white')
-    fig.layout.update({'width':1000,'height':1000})
+    fig.layout.update({'height':300})
+
+    return fig
+def plot_table_qc(res):
+    # Peak by peak snr and fwhm
+
+    snr,fwhm = res.getQCParams()
+    pd.options.display.float_format = '${:.1f}'.format
+    df = pd.DataFrame([snr.to_numpy(),fwhm.to_numpy()],columns=res.original_metabs).T
+    df.columns = ['SNR','FWHM (Hz)']
+
+    fig = go.Figure(data=[go.Table(
+                    header=dict(values=["Metabolites"]+list(df.columns),
+                                align='left'),
+                    cells=dict(values=[df.index,df.SNR, df['FWHM (Hz)']],
+                               align='left',
+                               format=('','0.1f','0.1f')))
+                ])
+
+    fig.update_layout(template = 'plotly_white')
+    # fig.layout.update({'width':1000,'height':200})
 
     return fig
 

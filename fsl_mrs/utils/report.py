@@ -108,30 +108,30 @@ def create_plotly_div(mrs,res):
     fig = plotting.plotly_fit(mrs,res)
     divs.append(to_div(fig))
 
-    fig = plotting.plot_table_qc(mrs,res)
+    fig = plotting.plot_table_fitparams(res)
     divs.append(to_div(fig))        
-    fig = plotting.plot_table_extras(mrs,res)
+    fig = plotting.plot_table_qc(res)
     divs.append(to_div(fig))        
     
     # Approximate (Laplace) marginals
-    fig = plotting.plot_dist_approx(mrs,res)    
+    fig = plotting.plot_dist_approx(res,refname=res.concScalings['internalRef'])    
     div2 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     divs.append(div2)
 
     # MCMC results (if available)
     if res.method is 'MH':
-        fig = plotting.plot_mcmc_corr(mrs,res)
+        fig = plotting.plot_mcmc_corr(res)
         div3 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-        divs.append(div3)
-        fig = plotting.plot_dist_mcmc(mrs,res)
+        # divs.append(div3)
+        fig = plotting.plot_dist_mcmc(res,refname=res.concScalings['internalRef'])
         div4 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-        divs.append(div4)
+        divs.append([div3,div4])
 
     fig = plotting.plot_real_imag(mrs,res,ppmlim=(.2,4.2))
     div = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     divs.append(div)
     
-    fig = plotting.plot_indiv(mrs,res)
+    fig = plotting.plot_indiv_stacked(mrs,res,ppmlim=res.ppmlim)
     div = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     divs.append(div)
     
@@ -196,7 +196,16 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
     font-size : 16px;
     white-space: pre;
     margin: 1em 0;
-    }} 
+    }}
+    .container{{
+    display: flex;
+    }}
+    .fixed{{
+        width: 200px;
+    }}
+    .flex-item{{
+        flex-grow: 1;
+    }}
     </style>       
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
@@ -218,14 +227,26 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
     #    template+=voxplothtml
     
     for i,div in enumerate(divlist):
-        section="""
-        <div id='divPlotly{}'>
-        <script>
-        var plotly_data{} = {}
-        </script>
-        </div>
-        """
-        template+=section.format(i,i,div)
+        if isinstance(div,list):
+            section=f"""
+            <div id='divPlotly{i}' class='container'>
+                <div class='flex-item'>
+                    {div[0]}
+                </div>
+
+                <div class='flex-item'>
+                    {div[1]}
+                </div>
+            </div>
+            """
+            template+=section
+        else:
+            section="""
+            <div id='divPlotly{}'>
+            {}
+            </div>
+            """
+            template+=section.format(i,div)
     template+="""
     </body>    
     </html>

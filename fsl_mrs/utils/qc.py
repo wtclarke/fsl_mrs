@@ -91,7 +91,7 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     for basemrs in basisMRS:
         #FWHM
         baseFWHM = res.getLineShapeParams()
-        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=baseFWHM[0],ppmlim=ppmlim)        
+        fwhm_curr,_,_ = idPeaksCalcFWHM(basemrs,estimatedFWHM=np.max(baseFWHM[0]),ppmlim=ppmlim)        
         fwhm.append(fwhm_curr)
 
         #Basis SNR
@@ -216,7 +216,7 @@ def getNoiseSDDist(specIn,noiseregionmask):
     noiseOnlySpec = specIn[noiseregionmask]
 
     npoints = noiseOnlySpec.size
-    regionPoints = 100
+    regionPoints = min(100,int(npoints/10))
     
     def running_std_strides(seq, window=100):
         stride = seq.strides[0]
