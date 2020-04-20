@@ -246,6 +246,23 @@ class MRS(object):
 
         
     # Helper functions
+    def processForFitting(self,ppmlim=(.2,4.2),):
+        """ Apply rescaling and run the conjugation checks"""
+        self.check_FID(ppmlim=ppmlim,repair=True)
+        self.check_Basis(ppmlim=ppmlim,repair=True)
+        self.rescaleForFitting()
+
+    def rescaleForFitting(self,scale=100):
+        """ Apply rescaling across data, basis and H20"""
+        
+        scaledFID,scaling = misc.rescale_FID(self.FID,scale=scale)
+        self.set_FID(scaledFID)
+        if self.H2O is not None:
+            self.H2O *= scaling
+
+        if self.basis is not None:
+            self.basis,_ = misc.rescale_FID(self.basis,scale=scale)
+
     def check_FID(self,ppmlim=(.2,4.2),repair=False):
         """
            Check if FID needs to be conjugated

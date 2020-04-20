@@ -398,7 +398,8 @@ def fit_FSLModel(mrs,
                                 verbose=False,
                                 monitor=True,
                                 args=args)
-                
+        results.optim_out = res_vb
+
         # de-log
         if model.lower()=='lorentzian':
             logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
