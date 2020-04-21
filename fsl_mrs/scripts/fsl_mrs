@@ -346,7 +346,6 @@ def main():
                              fidfile=args.data,
                              basisfile=args.basis,
                              h2ofile=args.h2o,
-                             outdir=args.output,
                              date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
                          
 

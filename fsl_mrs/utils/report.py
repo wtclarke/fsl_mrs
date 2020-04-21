@@ -178,7 +178,7 @@ def create_vox_plot(t1file,voxfile,outdir):
     fig.save(os.path.join(outdir,'voxplot.png'))
     return
 
-def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,outdir,date):
+def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
 
     divlist= create_plotly_div(mrs,res)
 

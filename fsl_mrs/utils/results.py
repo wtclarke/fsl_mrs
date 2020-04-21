@@ -120,7 +120,9 @@ class FitRes(object):
         """Combine two or more basis into single result"""
         # Create extra entries in the fitResults DF , add to param_names and recalculate
         for toComb in combineList:
-            newstr = '+'.join(toComb)            
+            newstr = '+'.join(toComb)
+            if newstr in self.metabs:
+                continue          
             ds = pd.Series(np.zeros(self.fitResults.shape[0]),index=self.fitResults.index)
             jac = np.zeros(self.cov.shape[0])            
             for metab in toComb:                
