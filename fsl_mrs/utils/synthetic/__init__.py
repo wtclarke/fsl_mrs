@@ -1,0 +1,1 @@
+from fsl_mrs.utils.synthetic.synthetic import syntheticFID
