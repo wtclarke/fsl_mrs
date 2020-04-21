@@ -95,7 +95,7 @@ def main():
     optional.add_argument('--conj_basis',dest='conjbasis',action="store_true",help='Force conjugation of basis')
     optional.add_argument('--no_conj_basis',dest='conjbasis',action="store_false",help='Forbid automatic conjugation of basis')
     optional.set_defaults(conjfid=None,conjbasis=None)
-    optional.add_argument('--no_rescale',action="store_false",help='Forbid rescaling of FID/basis/H2O.')
+    optional.add_argument('--no_rescale',action="store_true",help='Forbid rescaling of FID/basis/H2O.')
     optional.add('--config', required=False, is_config_file=True, help='configuration file')
 
 
