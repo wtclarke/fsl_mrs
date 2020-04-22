@@ -260,7 +260,7 @@ def main():
     if  args.quant is not None:
         saveData(quantlist,hdr,args.output,'wref',datatype=datatype)
     else:
-        saveData(FIDlist,hdr,args.output,'wref',datatype=datatype)
+        saveData(Reflist,hdr,args.output,'wref',datatype=datatype)
     
     # Produce html report
     if args.verbose:
