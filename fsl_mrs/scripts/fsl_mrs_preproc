@@ -270,12 +270,13 @@ def main():
             fig = plotting.plot_world_orient(args.t1,args.data[0])
             fig.savefig(os.path.join(args.output,'voxel_location.png'))
 
-         
-    fig = plotting.plot_spectra(FIDlist=FIDComblist,
-                                bandwidth=bw,
-                                centralFrequency=cf,
+    mrsList = []
+    for fid in FIDComblist:
+        mrsList.append(MRS(FID=fid,header=hdr))    
+
+    fig = plotting.plot_spectra(mrsList,                                
                                 ppmlim=(.2,4.2),
-                                single_FID=FIDlist[0],plot_avg=True)
+                                single_FID=mrsList[0],plot_avg=True)
     fig.savefig(os.path.join(args.output,'coil_combined.png'))
 
     # Produce QC measures?
