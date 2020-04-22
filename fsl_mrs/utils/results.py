@@ -78,8 +78,9 @@ class FitRes(object):
         # Calculate QC metrics
         self.FWHM,self.SNR = qc.calcQC(mrs,self,ppmlim=(0.2,4.2))
 
-        # Run relative concentration scaling to tCr in 'default' 1H MRS case.
-        if (('Cr' in self.metabs) and ('PCr' in self.metabs)):        
+        # Run relative concentration scaling to tCr in 'default' 1H MRS case. Create combined metab at same time to avoid later errors.
+        if (('Cr' in self.metabs) and ('PCr' in self.metabs)):
+            self.combine([['Cr','PCr']])        
             self.calculateConcScaling(mrs)
 
 
