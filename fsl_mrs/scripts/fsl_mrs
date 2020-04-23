@@ -75,7 +75,7 @@ def main():
     optional.add_argument('--TE',type=float,default=None,metavar='TE',
                           help='Echo time for relaxation correction (ms)')
     optional.add_argument('--tissue_fractions',type=float,nargs=3,default=None,metavar='GM WM CSF',
-                          help='Fractional tissue volumes for WM, GM, CSF. Defaults to 0.5, 0.5, 0.0.')
+                          help='Fractional tissue volumes for WM, GM, CSF.Defaults to pure water scaling.')
     optional.add_argument('--internal_ref',type=str,default=['Cr','PCr'],nargs='+',
                           help='Metabolite(s) used as an internal reference. Defaults to tCr (Cr+PCr).')
     optional.add_argument('--central_frequency',default=None,type=float,
