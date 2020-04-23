@@ -1,4 +1,11 @@
-# create systetic data for testing
+# synthetic.py - Create synthetic data from analytic functions
+#
+# Author: Will Clarke <william.clarke@ndcn.ox.ac.uk>
+#         Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#
+# Copyright (C) 2020 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 
 def syntheticFID(coilamps = [1.0],
