@@ -94,9 +94,7 @@ class FitRes(object):
         
         internalRefScaling = quant.quantifyInternal(referenceMetab,self.getConc(),self.metabs)
 
-        if  (waterRefFID is not None) and\
-            (tissueFractions is not None) and\
-            (TE is not None):
+        if  (waterRefFID is not None) and (TE is not None):
             refFID = self.predictedFID(mrs,mode=waterReferenceMetab,noBaseline=True)
             if T2 == 'Default':                
                 Q = quant.loadDefaultQuantificationInfo(TE,tissueFractions,mrs.centralFrequency/1E6)

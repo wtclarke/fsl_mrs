@@ -19,8 +19,8 @@ def test_quantifyWater():
     dataw,headerw = mrsio.read_FID(h2ofile)
 
     mrs = MRS(FID=data,header=header,basis=basis[:,crIndex],names=['Cr'],basis_hdr=headerb[crIndex],H2O=dataw)
-    mrs.check_FID(repare=True)
-    mrs.check_Basis(repare=True)
+    mrs.check_FID(repair=True)
+    mrs.check_Basis(repair=True)
 
     Fitargs = {'ppmlim':[0.2,5.2],
            'method':'MH','baseline_order':-1,

@@ -51,7 +51,7 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
             referenceName (str): Name of reference metabolite
             concentrations (np.array): All metabolite raw concentrations
             metaboliteNames (list:str): All metabolite names           
-            refProtons (): Number of protons contributing to reference spectrum between reflimits
+            refProtons (int): Number of protons contributing to reference spectrum between reflimits
             Q (QuantificationInfo object): Contains tissue information
             reflimits (tuple:float): Limits of integration for reference metabolite
             verbose (bool): Verbose output
@@ -67,17 +67,20 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
 
     # Calculate concnetration scalings
     # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
-    conc_molal =  (SMObs *(Q.f_GM*Q.R_H2O_GM + Q.f_WM*Q.R_H2O_WM + Q.f_CSF*Q.R_H2O_CSF)/(SH2OObs*(1-Q.f_CSF)*Q.R_M)) \
-                    * (H2O_PROTONS/refProtons)\
-                    * H2O_MOLALITY
+    # conc_molal =  (SMObs *(Q.f_GM*Q.R_H2O_GM + Q.f_WM*Q.R_H2O_WM + Q.f_CSF*Q.R_H2O_CSF)/(SH2OObs*(1-Q.f_CSF)*Q.R_M)) \
+    #                 * (H2O_PROTONS/refProtons)\
+    #                 * H2O_MOLALITY
     
-    conc_molar =  (SMObs *(Q.f_GM*Q.d_GM*Q.R_H2O_GM + Q.f_WM*Q.d_WM*Q.R_H2O_WM + Q.f_CSF*Q.d_CSF*Q.R_H2O_CSF)/(SH2OObs*(1-Q.f_CSF)*Q.R_M))\
-                    * (H2O_PROTONS/refProtons)\
-                    * H2O_MOLALITY
+    # conc_molar =  (SMObs *(Q.f_GM*Q.d_GM*Q.R_H2O_GM + Q.f_WM*Q.d_WM*Q.R_H2O_WM + Q.f_CSF*Q.d_CSF*Q.R_H2O_CSF)/(SH2OObs*(1-Q.f_CSF)*Q.R_M))\
+    #                 * (H2O_PROTONS/refProtons)\
+    #                 * H2O_MOLALITY
+    
+    conc_molal = (SMObs/SH2OObs) * (H2O_PROTONS/refProtons) * Q.relaxationCorrWater_molal * Q.additionalCorr * Q.relaxationCorrMetab
+    conc_molar = (SMObs/SH2OObs) * (H2O_PROTONS/refProtons) * Q.relaxationCorrWater_molar * Q.additionalCorr * Q.relaxationCorrMetab
 
     if verbose:
-        rcorwaterconc = (Q.f_GM*Q.d_GM*Q.R_H2O_GM + Q.f_WM*Q.d_WM*Q.R_H2O_WM + Q.f_CSF*Q.d_CSF*Q.R_H2O_CSF)*H2O_MOLALITY
-        metabRelaxCorr = 1/Q.R_M
+        rcorwaterconc = Q.relaxationCorrWater_molar
+        metabRelaxCorr = Q.relaxationCorrMetab
         print(f'Metabolite area = {SMObs:0.2e}')
         print(f'Water area = {SH2OObs:0.2e}') 
         print(f'Relaxation corrected water concentration = {rcorwaterconc:0.2e}')
@@ -99,35 +102,54 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
 
 class QuantificationInfo(object):
     """ Class encapsulating the information required to run internal water quantification scaling."""
-    def __init__(self,TE,T2,tissueFractions,tissueDensity=None):
+    def __init__(self,TE,T2,tissueFractions=None,tissueDensity=None):
         """Constructor for QuantificationInfo. Requires sequence and tissue information.
 
         Args:
             TE (float): Sequence echo time in seconds
-            T2 (dict:float): Tissue T2 values. Must contain 'H2O_GM', 'H2O_WM','H2O_CSF' and 'METAB' fields. In seconds.
+            T2 (dict:float): Tissue T2 values. Must contain ('H2O_GM', 'H2O_WM','H2O_CSF') or 'H2O' and 'METAB' fields. In seconds.
             tissueFractions (dict:float): Tissue volume fractions, must contain 'WM', 'GM', 'CSF' fields.
             tissueDensity (dict:float, optional): Tissue volume fractions, must contain 'WM', 'GM', 'CSF' fields. In units of g/ml.
         """
 
-        if tissueDensity is None:
-            self.d_GM  = TISSUE_WATER_DENSITY['GM']
-            self.d_WM  = TISSUE_WATER_DENSITY['WM']
-            self.d_CSF = TISSUE_WATER_DENSITY['CSF']
+        if tissueFractions is not None:
+            if tissueDensity is None:
+                self.d_GM  = TISSUE_WATER_DENSITY['GM']
+                self.d_WM  = TISSUE_WATER_DENSITY['WM']
+                self.d_CSF = TISSUE_WATER_DENSITY['CSF']
+            else:
+                self.d_GM  = tissueDensity['GM']
+                self.d_WM  = tissueDensity['WM']
+                self.d_CSF = tissueDensity['CSF']
+
+            # tissue fractions
+            self.f_GM = tissueFractions['GM']
+            self.f_WM = tissueFractions['WM']
+            self.f_CSF = tissueFractions['CSF']
+
+            # Calculate T2 relaxation terms 
+            self.R_H2O_GM = np.exp(-TE/T2['H2O_GM'])
+            self.R_H2O_WM = np.exp(-TE/T2['H2O_WM'])
+            self.R_H2O_CSF = np.exp(-TE/T2['H2O_CSF'])
+            self.R_M = np.exp(-TE/T2['METAB'])
+
+            # Calculate parts of eqn
+            self.relaxationCorrWater_molal = (self.f_GM*self.R_H2O_GM + self.f_WM*self.R_H2O_WM + self.f_CSF*self.R_H2O_CSF)*H2O_MOLALITY
+            self.relaxationCorrWater_molar = (self.f_GM*self.d_GM*self.R_H2O_GM + self.f_WM*self.d_WM*self.R_H2O_WM + self.f_CSF*self.d_CSF*self.R_H2O_CSF)*H2O_MOLALITY
+            self.relaxationCorrMetab = 1/self.R_M
+            self.additionalCorr = 1/(1-self.f_CSF)
         else:
-            self.d_GM  = tissueDensity['GM']
-            self.d_WM  = tissueDensity['WM']
-            self.d_CSF = tissueDensity['CSF']
 
-    # tissue fractions
-        self.f_GM = tissueFractions['GM']
-        self.f_WM = tissueFractions['WM']
-        self.f_CSF = tissueFractions['CSF']
+            if 'H2O' in T2:
+                self.R_H2O = np.exp(-TE/T2['H2O'])
+            else:
+                self.R_H2O = 1.0
+            self.R_M = np.exp(-TE/T2['METAB'])
 
-    # Calculate T2 relaxation terms 
-        self.R_H2O_GM = np.exp(-TE/T2['H2O_GM'])
-        self.R_H2O_WM = np.exp(-TE/T2['H2O_WM'])
-        self.R_H2O_CSF = np.exp(-TE/T2['H2O_CSF'])
-        self.R_M = np.exp(-TE/T2['METAB'])
+            self.relaxationCorrWater_molal = self.R_H2O*H2O_MOLALITY
+            self.relaxationCorrWater_molar = self.R_H2O*H2O_MOLALITY
+            self.relaxationCorrMetab = 1/self.R_M
+            self.additionalCorr = 1.0
 
 def selectT2Values(centralFreq):
     """ Select T2 values based on field strength (7T or 3T)"""
