@@ -10,7 +10,7 @@ import numpy as np
 from fsl_mrs.utils.misc import ts_to_ts
 from fsl_mrs.utils import mrs_io
 def standardConcentrations(basisNames):
-
+    """Return standard concentrations for 1H MRS brain metabolites for those which match basis set names."""
     # These defaults are from the average of the MRS fitting challenge
     standardconcs = {'Ala':0.60,
                     'Asc':1.20,
@@ -54,7 +54,28 @@ def syntheticFromBasisFile(basisFile,
                             noisecovariance =[[0.1]],
                             bandwidth = 4000.0,
                             points = 2048):
+    """ Create synthetic data from a set of FSL-MRS basis files.
 
+    Args:
+            basisFile (str): path to directory containg basis spectra json files
+            concentrations (list or dict or None, optional ): If None, standard concentrations will be used.
+                                                        If list of same length as basis spectra, then these will be used.
+                                                        Pass dict to overide standard values for specific metabolites. Key should be metabolite name.
+            broadening (list of tuples or tuple:floats, optional): Tuple containg a gamma and sigma or a list of tuples for 
+                                                                    each basis.
+            shifting (list of floats or float, optional): Eps shift value or a list for each basis.
+            baseline (list of floats, optional): Baseline parameters. Not yet implemented
+            coilamps (list of floats, optional): If multiple coils, specify magnitude scaling.
+            coilphase (list of floats, optional): If multiple coils, specify phase.
+            noisecovariance (list of floats, optional): N coils x N coils array of noise variance/covariance.
+            bandwidth (float,optional): Bandwidth of output spectrum in Hz
+            points (int,optional): Number of points in output spectrum. 
+
+    Returns:
+        FIDs: Numpy array of synthetic FIDs
+        outHeader: Header suitable for loading FIDs into MRS object.
+        concentrations: Final concentration scalinfs
+    """
     basis,names,header = mrs_io.read_basis(basisFile)
 
     if concentrations is None:
@@ -87,7 +108,7 @@ def syntheticFromBasisFile(basisFile,
                         points = points)
 
     outHeader = {'bandwidth':bandwidth,'centralFrequency':header[0]['centralFrequency']}
-    return FIDs,outHeader
+    return FIDs,outHeader,concentrations
 
 def syntheticFromBasis(basis,
                         basis_bandwidth,
@@ -100,7 +121,7 @@ def syntheticFromBasis(basis,
                         noisecovariance =[[0.1]],
                         bandwidth = 4000.0,
                         points = 2048):
-
+    """ Create synthetic spectra from basis FIDs. Use syntheticFromBasisFile interface."""
     # sort out inputs
     numMetabs = basis.shape[1]
     if len(concentrations)!=numMetabs:
