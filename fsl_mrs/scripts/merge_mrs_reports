@@ -13,6 +13,7 @@ import argparse
 from bs4 import BeautifulSoup
 import copy
 import os.path as op
+from os import remove
 
 def main():
     # Parse command-line arguments
@@ -37,7 +38,9 @@ def main():
     optional.add_argument('-f','--filename',type=str,metavar='<str>',
                           default = 'mergedReports.html',
                           help='Output filename (default=mergedReports.html).')
-    
+
+    optional.add_argument('--delete',action="store_true",help='Delete files after successful merge.')
+
     # Parse command-line arguments
     args = parser.parse_args()
 
@@ -63,6 +66,12 @@ def main():
     outfile = op.join(args.output,args.filename)
     with open(outfile,'w') as fout:
         fout.write(str(outsoup))
+    if op.exists(outfile) and op.getsize(outfile) > 0:
+        if args.delete:            
+            for htmlfile in files:
+                remove(htmlfile)
+    else:
+        raise IOError('Merged file not written successfully.')
 
 if __name__ == '__main__':
     main()

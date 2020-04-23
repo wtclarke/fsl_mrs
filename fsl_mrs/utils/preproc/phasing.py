@@ -60,6 +60,10 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
     fig = addline(fig,plotIn,widelimit,'Unphased',lines['in'])
     fig = addline(fig,plotIn,ppmlim,'Search region',lines['emph'])    
 
+    if position is None:
+        # re-estimate here.
+        position = np.argmax(np.abs(plotIn.getSpectrum(ppmlim=ppmlim)))
+
     axis    = [plotIn.getAxes(ppmlim=ppmlim)[position]]
     y_data  = [np.real(plotIn.getSpectrum(ppmlim=ppmlim))[position]]
     trace = go.Scatter(x=axis, y=y_data,
