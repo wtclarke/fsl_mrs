@@ -56,8 +56,8 @@ class FitRes(object):
                                         self.g)[first:last]
         data = mrs.getSpectrum(ppmlim=self.ppmlim)
         # self.crlb      = calculate_crlb(self.params,forward_lim,data)        
-        self.cov       = calculate_lap_cov(self.params,forward_lim,data)
-        self.crlb      = np.diagonal(self.cov.T)
+        self.cov       = calculate_lap_cov(self.params,forward_lim,data,method='fisher')
+        self.crlb      = np.diagonal(self.cov)
         std            = np.sqrt(self.crlb )
         self.corr      = self.cov/(std[:,np.newaxis]*std[np.newaxis,:] )
         self.mse       = np.mean(np.abs(FIDToSpec(self.residuals)[first:last])**2)
@@ -72,7 +72,15 @@ class FitRes(object):
             self.mcmc_cov = self.fitResults.cov().values
             self.mcmc_cor = self.fitResults.corr().values
             self.mcmc_var = self.fitResults.var().values
+            self.mcmc_samples = self.fitResults.values
 
+        # VB metrics
+        if self.method == 'VB':
+            self.vb_cov = self.optim_out.cov
+            self.vb_var = self.optim_out.var
+            
+
+            
         self.hzperppm = mrs.centralFrequency/1E6
 
         # Calculate QC metrics
