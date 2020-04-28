@@ -193,11 +193,11 @@ def main():
         apspec = FIDToSpec(FID)
         maxindex = np.argmax(np.abs(apspec))
         apPhase = np.angle(apspec[maxindex])
-        print('Auto-phase adjustment.')
+        print(f'Auto-phase adjustment. Phasing peak position = {apshift:0.2f} ppm')
         print(f'Rx_Phase: {seqParams["Rx_Phase"]}')
-        newRx_Phase = seqParams["Rx_Phase"] - apPhase
+        newRx_Phase = seqParams["Rx_Phase"] + apPhase
         seqParams["Rx_Phase"] = newRx_Phase
-        print(f'Additional phase: {apPhase}\nFinal Rx_Phase: {newRx_Phase}')
+        print(f'Additional phase: {apPhase:0.3f}\nFinal Rx_Phase: {newRx_Phase:0.3f}')
 
     if args.addref:
         # Add an extra spin system to the list with a single resonance at 0 ppm

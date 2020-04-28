@@ -23,7 +23,7 @@ setup(name='FSL_MRS',
                 'fsl_mrs.aux'
                 ],
       package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle'],'fsl_mrs.denmatsim':['spinSystems.json'],
-      'fsl.mmbasis':['mmbasis.json'],
+      'fsl_mrs.mmbasis':['mmbasis.json'],
       'fsl_mrs.utils.preproc':['templates/*.html']},
       install_requires=install_requires,
       scripts=['fsl_mrs/scripts/fsl_mrs',
@@ -32,5 +32,6 @@ setup(name='FSL_MRS',
                 'fsl_mrs/scripts/fsl_mrs_proc',
                 'fsl_mrs/scripts/fsl_mrs_sim',
                 'fsl_mrs/scripts/mrs_vis',
-                'fsl_mrs/scripts/merge_mrs_reports']               
+                'fsl_mrs/scripts/merge_mrs_reports',
+                'fsl_mrs/scripts/make_mrs_mask']               
      )

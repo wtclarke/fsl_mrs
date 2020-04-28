@@ -36,9 +36,13 @@ def plotStyles():
     return line,colors,line_size
 
 def plotAxesStyle(fig,ppmlim,title=None):
-    fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
-                             tick0=2, dtick=.5,
-                             range=[ppmlim[1],ppmlim[0]])        
+    if ppmlim is not None:
+        fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                                tick0=2, dtick=.5,
+                                range=[ppmlim[1],ppmlim[0]])
+    else:        
+        fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                                tick0=2, dtick=.5)
     fig.layout.yaxis.update(zeroline=True, 
                              zerolinewidth=1, 
                              zerolinecolor='Gray',

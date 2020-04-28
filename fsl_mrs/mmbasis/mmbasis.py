@@ -1,13 +1,20 @@
 import numpy as np
 import json
+import os.path as op
 
 # Get the built in MM basis set
-def getMMBasis(bw,points,cf,lw=5,addShift = 0.0):
-    positions,widths,names = loadMMDescriptions()
-    taxis = np.arange(0,points*(1/bw),1/bw)
+def getMMBasis(mrs,lw=5,shift = True):
+    if shift:
+        addShift = -4.65
+    else:
+        addShift = 0.0
+    
+    positions,widths,names = loadMMDescriptions(op.join(op.dirname(__file__),'mmbasis.json'))
+    taxis = mrs.getAxes('time')-mrs.getAxes('time')[0]
     basisFIDs = []
     for p,w in zip(positions,widths):
-        curFID = genMMBasisFIDS(taxis,cf,p,w,lw,addShift=addShift)
+        curFID = genMMBasisFIDS(taxis,mrs.centralFrequency/1e6,p,w,lw,addShift=addShift)
+        curFID = curFID*np.exp(-1j*np.angle(curFID[0]))
         basisFIDs.append(curFID)
     basisFIDs = np.array(basisFIDs)
     return basisFIDs, names
@@ -37,7 +44,7 @@ def genMMBasisFIDS(taxis,cf,pos,width,lw,addShift = 0.0):
         w = np.array(w)
         cs = np.array(cs)
         peakDamp = damping/w
-        combinedFID += np.exp((-taxis/peakDamp))*np.exp((-1j*2*np.pi*(cs+addShift)*cf*taxis))
+        combinedFID += np.exp((-taxis/peakDamp))*np.exp((1j*2*np.pi*(cs+addShift)*cf*taxis))
                         
     return combinedFID
 

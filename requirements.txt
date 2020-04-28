@@ -10,3 +10,5 @@ jinja2
 beautifulsoup4
 nibabel
 hlsvdpro
+fslpy>=3.0.1
+
