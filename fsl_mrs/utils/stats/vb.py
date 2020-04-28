@@ -57,6 +57,8 @@ class NonlinVB(object):
     def __init__(self,forward=None):
         self.forward = forward
         self.priors  = None
+        self.jac     = None
+        self._lam    = 1E-4
         
 
     def set_priors(self,M0,P0,c0,s0):
@@ -81,6 +83,8 @@ class NonlinVB(object):
         s0 = beta_var0 / beta_mean0
         c0 = beta_mean0**2 / beta_var0
 
+        self.priors = [M0,P0,c0,s0]
+
         return M0,P0,c0,s0
         
     def __calc_jacobian(self,x,args=None):
@@ -89,6 +93,10 @@ class NonlinVB(object):
         of partial derivatives of model prediction with respect to
         parameters
         """
+        # if jacobian provided use it
+        if self.jac is not None:
+            return self.jac(x,*args)
+        
         J = None
         for param_idx, param_value in enumerate(x):
             xL = np.array(x)
@@ -107,8 +115,22 @@ class NonlinVB(object):
                 J = np.zeros([len(yU), len(x)], dtype=np.float32)
             J[:, param_idx] = (yU - yL) / (2*delta)            
         return J
+
+    def calc_jacobian(self,x,args=None):
+        return self.__calc_jacobian(x,args)
+
+
+    def __lam_up(self):
+        MAXIMUM = 1e3
+        self._lam = np.minimum(10* self._lam,MAXIMUM)
+
+    def __lam_down(self):
+        MINIMUM = 1e-10
+        self._lam = np.maximum(.1* self._lam,MINIMUM)
+
+        
     
-    def __update_model_params(self,k, M, P, s, c, J,M0,P0):
+    def __update_model_params(self,k, M, P, s, c, J):
         """
         Update model parameters
 
@@ -121,12 +143,32 @@ class NonlinVB(object):
         c = noise scale (prior = c0)
         J = Jacobian
         """
+        M0,P0,_,_ = self.priors
+        
         P_new = s*c*np.dot(J.transpose(), J) + P0
-        C_new = np.linalg.pinv(P_new)
-        M_new = np.dot(C_new, (s * c * np.dot(J.transpose(), (k + np.dot(J, M))) + np.dot(P0, M0)))
+        C_new = np.linalg.inv(P_new)
+
+        # L-M update for the mean
+        M_old = M.copy()
+        delta = s * c * np.dot(J.transpose(), (k + np.dot(J, M_old))) + np.dot(P0, M0) - np.dot(P_new,M_old)
+
+        # use current lambda to calc F
+        # if F goes up, accept step and decrease lambda
+        # if F goes down reject step and increase lambda        
+        F_old = self.__calc_free_energy(len(k),C_new,M_old,P_new,s,c)
+        mat   = np.linalg.inv((P_new+self._lam*np.diag(P)))        
+        M_test = M_old + np.dot(mat,delta)
+        F_new = self.__calc_free_energy(len(k),C_new,M_test,P_new,s,c)
+        if F_new < F_old:
+            M_new = M_old
+            self.__lam_up()
+        else:
+            M_new = M_test
+            self.__lam_down()
+
         return M_new, P_new
     
-    def __update_noise(self,N,k, P, J,s0,c0):
+    def __update_noise(self,N,k, P, J):
         """
         Update noise parameters
 
@@ -136,16 +178,18 @@ class NonlinVB(object):
         P = precision (prior=P0)
         J = Jacobian
         """
+        _,_,c0,s0 = self.priors
         C = np.linalg.inv(P)
         c_new = N/2 + c0
         s_new = 1/(1/s0 + 1/2 * np.dot(k.transpose(), k) + 1/2 * np.trace(np.dot(C, np.dot(J.transpose(), J))))
         return c_new, s_new
 
-    def __calc_free_energy(self,N,C,M,P,s,c,M0,P0,s0,c0):
+    def __calc_free_energy(self,N,C,M,P,s,c):
         """
         free energy is maximized in VB so this it a good thing
         to monitor especially with nonlinear models
         """
+        M0,P0,c0,s0 = self.priors
         F = (N/2+c0-c)*(np.log(s)+digamma(c)) + s*c/2*(1/s-1/s0)
         F += c*np.log(s)+loggamma(c)
         _,logdetP = np.linalg.slogdet(P)
@@ -197,8 +241,12 @@ class NonlinVB(object):
             print(f'Iteration 0: x={M}, noise={c*s}')
             
         if monitor:
-            xs = [M]
-            FE = [self.__calc_free_energy(N,C,M,P,s,c,M0,P0,s0,c0)]
+            Ms = [M]
+            Ps = [P]
+            ss = [s]
+            cs = [c]
+            FE = [self.__calc_free_energy(N,C,M,P,s,c)]
+            
 
         # Update model and noise parameters iteratively
         for idx in range(niter):
@@ -207,20 +255,34 @@ class NonlinVB(object):
             # calc Jacobian
             J  = self.__calc_jacobian(M,args)
             # update model params
-            M, P = self.__update_model_params(k, M, P, s, c, J,M0,P0)
+            M, P = self.__update_model_params(k, M, P, s, c, J)
             # update noise params
-            c, s = self.__update_noise(N,k, P, J,s0,c0)
+            c, s = self.__update_noise(N,k, P, J)            
             if verbose:
                 print(f'Iteration {idx+1}: x={M}, noise={c*s}')
             if monitor:
-                FE.append(self.__calc_free_energy(N,C,M,P,s,c,M0,P0,s0,c0))
-                xs.append(M)
+                FE.append(self.__calc_free_energy(N,C,M,P,s,c))
+                Ms.append(M)
+                Ps.append(P)
+                ss.append(s)
+                cs.append(c)
 
+        # Pick maximum F
+        FE = np.asarray(FE)
+        idx = np.argmax(FE)
+        M = Ms[idx]
+        P = Ps[idx]
+        s = ss[idx]
+        c = cs[idx]
+                
         # Collect results
         results = self.collect_results([M,P,s,c])
         if monitor:
-            results.xs = np.asarray(xs)
+            results.xs = np.asarray(Ms)
             results.FE = np.asarray(FE)
+            results.J  = self.__calc_jacobian(M,args)
+            results.residuals  = y - self.forward(M,*args)
+            
 
         # keep copy of model
         results.forward = self.forward
