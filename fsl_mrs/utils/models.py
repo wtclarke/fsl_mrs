@@ -117,7 +117,8 @@ def FSLModel_err(x,nu,t,m,B,G,g,data,first,last):
     return sse
 
 
-def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
+
+def FSLModel_forward_and_jac(x,nu,t,m,B,G,g,data,first,last):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -130,7 +131,7 @@ def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
     data : array like - frequency domain data
     first,last : range for the fitting is data[first:last]     
 
-    returns gradient vector
+    returns jacobian matrix
     """
     n     = m.shape[1]    # get number of basis functions
     #g     = max(G)+1       # get number of metabolite groups
@@ -180,11 +181,32 @@ def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
     dSdphi1   = dSdphi1[first:last]
     dSdb      = dSdb[first:last]
     
-    dS  = np.concatenate((dSdc,dSdgamma,dSdeps,dSdphi0,dSdphi1,dSdb),axis=1)
+    jac  = np.concatenate((dSdc,dSdgamma,dSdeps,dSdphi0,dSdphi1,dSdb),axis=1)
+    
+    return S,jac
 
+def FSLModel_grad(x,nu,t,m,B,G,g,data,first,last):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+    data : array like - frequency domain data
+    first,last : range for the fitting is data[first:last]     
+
+    returns gradient vector
+    """
+
+    S,dS = FSLModel_forward_and_jac(x,nu,t,m,B,G,g,data,first,last)
+    Spec = data[first:last,None]
     grad = np.real(np.sum(S*np.conj(dS)+np.conj(S)*dS - np.conj(Spec)*dS - Spec*np.conj(dS),axis=0))
     
     return grad
+
 
 # CODE FOR CHECKING THE GRADIENTS
 # cf = lambda p : FSLModel_err(p,nu,t,m,B,G,data,first,last)
@@ -462,6 +484,69 @@ def FSLModel_forward_vb(x,nu,t,m,B,G,g,first,last):
     S = S.flatten()[first:last]
 
     return np.concatenate((np.real(S),np.imag(S)))
+
+# Gradient of the forward model (not the error)
+# !!! grad wrt logparam (for those that are logged)
+#  dfdlogx = x*dfdx
+def FSLModel_grad_vb(x,nu,t,m,B,G,g,first,last):
+    n     = m.shape[1]    # get number of basis functions
+
+    logcon,loggamma,eps,phi0,phi1,b = FSLModel_x2param(x,n,g)
+    con   = np.exp(logcon)
+    gamma = np.exp(loggamma)
+    
+    # Start 
+    E = np.zeros((m.shape[0],g),dtype=np.complex)
+    for gg in range(g):
+        E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
+    
+    e_term   = np.zeros(m.shape,dtype=np.complex)
+    c        = np.zeros((con.size,g))
+    for i,gg in enumerate(G):
+        e_term[:,i] = E[:,gg]
+        c[i,gg] = con[i]
+    m_term = m*e_term
+    
+    phi_term = np.exp(-1j*(phi0+phi1*nu)) 
+    
+    Fmet     = FIDToSpec(m_term)
+    Ftmet    = FIDToSpec(t*m_term)
+    Ftmetc   = Ftmet@c
+    Fmetcon = Fmet@con[:,None]
+    
+    # Forward model 
+    S     = (phi_term*Fmetcon)
+    if B is not None:
+        S += B@b[:,None]
+        
+    # Gradients        
+    dSdc     = phi_term*Fmet
+    dSdgamma = phi_term*(-Ftmetc)
+    dSdeps   = phi_term*(-1j*Ftmetc)
+    dSdphi0  = -1j*phi_term*(Fmetcon)
+    dSdphi1  = -1j*nu*phi_term*(Fmetcon)
+    dSdb     = B
+    
+    # Only compute within a range            
+    dSdc      = dSdc[first:last,:]
+    dSdgamma  = dSdgamma[first:last,:]
+    dSdeps    = dSdeps[first:last,:]
+    dSdphi0   = dSdphi0[first:last]
+    dSdphi1   = dSdphi1[first:last]
+    dSdb      = dSdb[first:last]
+
+    dS  = np.concatenate((dSdc*con[None,:],
+                          dSdgamma*gamma[None,:],
+                          dSdeps,
+                          dSdphi0,
+                          dSdphi1,
+                          dSdb),axis=1)
+
+    dS = np.concatenate((np.real(dS),np.imag(dS)),axis=0)
+    
+    return dS
+
+
 
 def FSLModel_forward_vb_voigt(x,nu,t,m,B,G,g,first,last):
     n     = m.shape[1]    # get number of basis functions
