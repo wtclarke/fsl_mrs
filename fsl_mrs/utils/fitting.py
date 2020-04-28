@@ -11,7 +11,7 @@
 import numpy as np
 
 from fsl_mrs.utils import models, misc
-from fsl_mrs.utils.stats import mh,vb
+from fsl_mrs.utils.stats import mh,vb,dist
 from fsl_mrs.utils.constants import *
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.results import FitRes
@@ -332,8 +332,16 @@ def fit_FSLModel(mrs,
         forward_mh = lambda p : forward(p,freq,time,basis,B,metab_groups,g)
         numPoints_over_2  = (last-first)/2.0
         y      = data[first:last]
-        loglik = lambda  p : np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
-        logpr  = lambda  p : 0 
+
+        def loglik(p):
+            return np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
+
+        def logpr(p):
+            return np.sum(dist.gauss_logpdf(p,loc=np.zeros_like(p),scale=np.ones_like(p)*1E2))
+
+        
+        #loglik = lambda  p : np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
+        #logpr  = lambda  p : 0 
 
         # Setup the fitting
         # Init with nonlinear fit
@@ -392,14 +400,17 @@ def fit_FSLModel(mrs,
 
         datasplit = np.concatenate((np.real(data[first:last]),np.imag(data[first:last])))
         args      = [freq,time,basis,B,metab_groups,g,first,last]                
-        
+
+        M0,P0,s0,c0 = vbpriors(con,gamma,eps,phi0,phi1,b)
+        vbmodel.set_priors(M0,P0,s0,c0)
+
         res_vb    = vbmodel.fit(y=datasplit,
                                 x0=vbx0,
                                 verbose=False,
                                 monitor=True,
-                                args=args)
-        results.optim_out = res_vb
-
+                                args=args,niter=50)
+        results.optim_out = res_vb        
+        
         # de-log
         if model.lower()=='lorentzian':
             logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
@@ -421,6 +432,29 @@ def fit_FSLModel(mrs,
 
 
 
+def vbpriors(con,gamma,eps,phi0,phi1,b):
+    # priors
+    pcon_M0   = [np.log(1e-2)]*len(con)
+    pgamma_M0 = [np.log(1e-2)]*len(gamma)
+    peps_M0   = [0]*len(eps)
+    pphi0_M0  = 0
+    phi1_M0   = 0
+    pb_M0     = [0]*len(b)
+    M0        = models.FSLModel_param2x(pcon_M0,pgamma_M0,peps_M0,pphi0_M0,phi1_M0,pb_M0)
+    
+    pcon_P0   = [1/64]*len(con)
+    pgamma_P0 = [1/64]*len(gamma)
+    peps_P0   = [1/64]*len(eps)
+    pphi0_P0  = 1/64
+    phi1_P0   = 1/64
+    pb_P0     = [1/64]*len(b)
+    P0        = models.FSLModel_param2x(pcon_P0,pgamma_P0,peps_P0,pphi0_P0,phi1_P0,pb_P0)
+    P0        = np.diag(P0)
+    
+    s0 = 1
+    c0 = .01
+
+    return M0,P0,s0,c0
 
 
 
