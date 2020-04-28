@@ -203,22 +203,20 @@ def gradient(x, f):
       --------
       array-like
     """
-    x = x.astype(float)
-    N = x.size
+    N = len(x)
     gradient = []
     for i in range(N):
         eps = abs(x[i]) *  np.finfo(np.float32).eps 
         if eps==0: 
             eps = 1e-5
-        xx0 = 1. * x[i]
-        f0 = f(x)
-        x[i] = x[i] + eps
-        f1 = f(x)
-        #gradient.append(np.asscalar(np.array([f1 - f0]))/eps)
-        gradient.append((f1-f0)/eps)
-        x[i] = xx0
+        xl = np.array(x)
+        xu = np.array(x)
+        xl[i] -= eps
+        xu[i] += eps
+        fl = f(xl)
+        fu = f(xu)        
+        gradient.append((fu-fl)/(2*eps))
     return np.array(gradient)
-
 
 
 #Hessian Matrix
@@ -235,19 +233,21 @@ def hessian (x, f):
        --------
        matrix
     """
-    N = x.size
-    hessian = np.zeros((N,N)) 
+    N = len(x)
+    hessian = []
     gd_0 = gradient( x, f)
     eps = np.linalg.norm(gd_0) * np.finfo(np.float32).eps 
     if eps==0: 
         eps = 1e-5
     for i in range(N):
+        hessian.append([])
         xx0 = 1.*x[i]
         x[i] = xx0 + eps
         gd_1 =  gradient(x, f)
-        hessian[:,i] = ((gd_1 - gd_0)/eps).reshape(x.shape[0])
+        for j in range(N):
+            hessian[i].append((gd_1[j,:] - gd_0[j,:])/eps)
         x[i] =xx0
-    return hessian
+    return np.asarray(hessian)
 
 def hessian_diag(x,f):
     """
@@ -326,31 +326,63 @@ def calculate_crlb(x,f,data):
     
     return crlb
 
-def calculate_lap_cov(x,f,data,sig2=None):
+def calculate_lap_cov(x,f,data,sig2=None,method='fisher'):
     """
-       Calculate approximate covariance using
-       Fisher information matrix
+      Calculate approximate covariance using
+      Fisher information matrix
+
+      Assumes forward model is data=f(x)+N(0,sig^2)
+      
 
       Parameters:
        x : array-like
        f : function
        data : array-like
        sig2 : optional noise variance 
+       method : 'fisher' or 'hessian'
 
       Returns:
         2D array    
     """
+    x = np.asarray(x)
     N = x.size
-    C = np.zeros((N,N))
+    C = np.zeros((N,N)) # covariance
     if sig2 is None:        
         sig2 = np.var(data-f(x))
     grad = gradient(x,f)
-    for i in range(N):
-        for j in range(N):
-            fij = np.real(grad[i])*np.real(grad[j]) + np.imag(grad[i])*np.imag(grad[j])
-            C[i,j] = np.sum(fij)/sig2
+    
+    # if method == 'hessian':
+    #     hess = hessian(x,f)
+    #     err  = data-f(x)
+    # for i in range(N):
+    #     gi = grad[i]
+    #     for j in range(N):
+    #         gj = grad[j]
+    #         gigj = np.abs(gi*np.conj(gj)+np.conj(gi)*gj)
+    #         if method == 'hessian':                
+    #             C[i,j] = np.sum(gigj + 2*err*hess[i,j])
+    #         else:
+    #             C[i,j] = np.sum(gigj)
+            
+    # C = np.linalg.pinv(C/2/sig2)
 
-    C = np.linalg.pinv(C)
+    J = np.concatenate((np.real(grad),np.imag(grad)),axis=1)
+    P0 = np.diag(np.ones(N)*1E-5)
+    P = np.dot(J,J.transpose()) / sig2
+    C = np.linalg.inv(P+P0)
+
+    
+    return C
+
+def calculate_lap_cov_with_grad(x,f,df,args,sig2=None):
+    grad = df(x,*args)
+    if sig2 is None:        
+        sig2 = np.var(data-f(x,*args))
+    J = np.concatenate((np.real(grad),np.imag(grad)),axis=1)
+    P0 = np.diag(np.ones(N)*1E-5)
+    P = np.dot(J,J.transpose()) / sig2
+    C = np.linalg.inv(P+P0)
+    
     return C
 
 
