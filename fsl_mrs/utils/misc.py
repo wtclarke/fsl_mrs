@@ -494,7 +494,7 @@ def create_peak(mrs,ppm,gamma=0,sigma=0):
     
     freq = ppm2hz(mrs.centralFrequency,ppm)
     t    = mrs.timeAxis 
-    x    = np.exp(-1j*2*np.pi*freq*t).flatten()
+    x    = np.exp(1j*2*np.pi*freq*t).flatten()
     
     if gamma>0 or sigma>0:
         x = blur_FID_Voigt(mrs,x,gamma,sigma)

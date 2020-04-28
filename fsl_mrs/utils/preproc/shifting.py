@@ -197,7 +197,7 @@ def reportStrings(funcName):
     elif funcName.lower() == 'freqshift':
         operation = 'Frequency domain shift'
         description = 'Fixed shift in frequency domain.'
-    elif funcName.lower() == 'shiftToRef':
+    elif funcName.lower() == 'shifttoref':
         operation = 'Shift to ref'
         description = 'Frequency shift to reference peak (max in range).'
     elif funcName.lower() == 'truncate':
@@ -211,7 +211,7 @@ def reportStrings(funcName):
         funcName = '####'
         description = 'Unspecified shift operation.'
     else:
-        raise ValueError('Not recognised as function.')
+        raise ValueError(f'{funcName} not recognised as function.')
 
     return operation,funcName,description
 

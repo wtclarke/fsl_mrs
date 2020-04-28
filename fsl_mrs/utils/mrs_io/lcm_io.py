@@ -196,7 +196,7 @@ def siv_basis_header(header):
     return metabo, shifts
 
 # Write functions
-def saveRAW(filename,FID,info=None,conj=False):
+def saveRAW(filename,FID,info=None,hdr=None,conj=False):
     """
       Save .RAW file
 
@@ -207,6 +207,13 @@ def saveRAW(filename,FID,info=None,conj=False):
       info     : dict
              Stores info[key] = value in header
     """
+    # Seq par section
+    if hdr is not None:
+        seqpar_header = {'hzpppm':info['centralFrequency']/1E6,
+                        'dwellTime':info['dwelltime'],
+                        'NumberOfPoints':FID.size,
+                        'echot':0.0}   
+
     # info (and NMID) section must contain FMTDAT
     if info is None:
         info = {'FMTDAT':'(2E16.6)'}
@@ -220,6 +227,8 @@ def saveRAW(filename,FID,info=None,conj=False):
         iFID = np.imag(FID)[:,None]
 
     with open(filename, 'w') as my_file:
+        if hdr is not None:
+            writeLCMSection(my_file,'SEQPAR',seqpar_header)
         writeLCMSection(my_file,'NMID',info)
 
         for (r,i) in zip(rFID,iFID):

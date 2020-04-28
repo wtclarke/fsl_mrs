@@ -3,40 +3,53 @@
 # mrs_vis - quick MRS visualisation
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
 
 import sys
+import argparse
 
 def main():
-    nargs = len(sys.argv) - 1
-    if nargs < 3:
-        print('\nUsage : mrs_vis <FIDfile> <centralFrequency (Hz)> <dwellTime (sec)> [True/False]\n')
-        exit()
+    p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tools')
+    p.add_argument('file',type=str,metavar='FILE or DIR',
+                          help='NIfTI file or directory of basis sets')
+    p.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
+                   help='limit the fit to a freq range (default=(.2,4.2))')                      
+    
+    args = p.parse_args()
 
-    FIDfile = sys.argv[1]
-    cf      = float(sys.argv[2])
-    dt      = float(sys.argv[3])
-    conj    = False
-    if nargs==4:
-        if sys.argv[4] == 'True':
-            conj = True
-
-    from fsl_mrs.utils.plotting import plot_spectrum
-    from fsl_mrs.utils.mrs_io import read_FID
+    from fsl_mrs.utils.plotting import plot_spectrum,FID2Spec
+    from fsl_mrs.utils.mrs_io import read_FID,read_basis
     import matplotlib.pyplot as plt
+    import os.path as op
+    from fsl_mrs.core import MRS
+    import numpy as np
 
-    FID,_     = read_FID(FIDfile)
-    if len(FID.shape) > 1:
-        FID = FID.flatten()
-    if conj:
-        from numpy import conjugate as conj
-        FID = conj(FID)
+    # breakpoint()
+    if op.isdir(args.file):
+        basis,names,basishdr = read_basis(args.file)
+        fid = np.zeros(basis.shape[0])
+        
+        mrs = MRS(FID=fid,header=basishdr[0],basis=basis,names=names,basis_hdr=basishdr[0])
+        mrs.check_Basis(repair=True)
+        f,l = mrs.ppmlim_to_range(ppmlim=args.ppmlim)
+        plt.figure(figsize=(8,8))
+        for idx,n in enumerate(names):
+            plt.plot(mrs.getAxes(ppmlim=args.ppmlim),np.real(FID2Spec(mrs.basis[:,idx]))[f:l],label=n)
+        plt.gca().invert_xaxis()
+        plt.xlabel('Chemical shift (ppm)')
+        plt.legend()
+        plt.show() 
+    elif op.isfile(args.file):
+        fid,header = read_FID(args.file)
+        mrs = MRS(FID=fid,header=header)
+        mrs.check_FID(repair=True)
 
-    plt.figure(figsize=(8,8))
-    fig     = plot_spectrum(FID,1/dt,cf,ppmlim=(.2,4.2))
-    plt.show()
+        plt.figure(figsize=(8,8))
+        fig     = plot_spectrum(mrs,ppmlim=args.ppmlim)
+        plt.show()    
     
 
 if __name__ == '__main__':

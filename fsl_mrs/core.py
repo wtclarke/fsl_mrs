@@ -406,6 +406,22 @@ class MRS(object):
 
         return len(ppmlist)
 
+    def add_expt_MM(self,lw=5):
+        """
+           Add experimental MM basis derived from AA residues
+           
+        Parameters
+        ----------
+    
+        lw : Linewidth of basis spectra
+        """
+        from fsl_mrs.mmbasis.mmbasis import getMMBasis
+
+        basisFIDs, names = getMMBasis(self,lw=lw,shift = True)
+        for basis,n in zip(basisFIDs, names):
+            self.basis = np.append(self.basis,basis[:,np.newaxis],axis=1)
+            self.names.append('MM_'+n)
+            self.numBasis += 1
 
     def set_FID(self,FID):
         """

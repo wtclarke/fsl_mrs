@@ -118,9 +118,9 @@ def main():
     subtractparser.set_defaults(func=subtract)
 
     # add - addition of FIDs
-    subtractparser = sp.add_parser('add',help='Add two FIDs') 
-    subtractparser.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
-    subtractparser.set_defaults(func=add)
+    addparser = sp.add_parser('add',help='Add two FIDs') 
+    addparser.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
+    addparser.set_defaults(func=add)
 
     # Arguments not assiciated with subcommands
     required     = p.add_argument_group('required arguments')
@@ -368,8 +368,8 @@ def aligndiff(dataobj,args):
         tmpFIDS0,tmpFIDS1,phi,eps= preproc.phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,ppmlim=args['ppm'],diffType=args['diff_type'])
 
         if args['generateReports'] and np.prod(dataobj[0].data.shape[:3])==1:
-            from fsl_mrs.utils.preproc.align import phase_freq_align_report_diff   
-            phase_freq_align_report_diff(FIDlist0,FIDlist1,tmpFIDS0,tmpFIDS1,
+            from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report   
+            phase_freq_align_diff_report(FIDlist0,FIDlist1,tmpFIDS0,tmpFIDS1,
                                     dataobj[0].dataheader,
                                     phi,eps,
                                     ppmlim=args['ppm'],
