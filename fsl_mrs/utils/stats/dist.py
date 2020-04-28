@@ -93,3 +93,28 @@ def uniform_logpdf(x):
     """
     return 0*x
 
+
+def lognorm2stats(loc,scale):
+    mu = np.exp(loc+scale**2/2)
+    sig = np.sqrt(mu**2*(np.exp(scale**2-1)))
+    return mu,sig
+
+# quick plotting
+import matplotlib.pyplot as plt
+def plot_gausspdf(loc,scale,interval=None,numpoints=100):
+    if interval is None:
+        interval = np.linspace(loc-3*scale,loc+3*scale,numpoints)
+    value = -(interval-loc)**2/2/scale**2
+    value = np.exp(value-np.max(value))
+    value = value/np.sum(value)
+    fig = plt.plot(interval,value)
+    return fig
+
+def plot_lognormpdf(loc,scale,interval=None,numpoints=100):
+    if interval is None:
+        interval = np.linspace(1E-10,np.exp(loc)+2*np.exp(loc),numpoints)
+    value = -(np.log(interval)-loc)**2/2/scale**2
+    value = np.exp(value-np.max(value))/interval
+    value = value/np.sum(value)
+    fig = plt.plot(interval,value)
+    return fig
