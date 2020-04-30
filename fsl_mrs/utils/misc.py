@@ -326,7 +326,7 @@ def calculate_crlb(x,f,data):
     
     return crlb
 
-def calculate_lap_cov(x,f,data,sig2=None,method='fisher'):
+def calculate_lap_cov(x,f,data,sig2=None):
     """
       Calculate approximate covariance using
       Fisher information matrix
@@ -339,38 +339,21 @@ def calculate_lap_cov(x,f,data,sig2=None,method='fisher'):
        f : function
        data : array-like
        sig2 : optional noise variance 
-       method : 'fisher' or 'hessian'
 
       Returns:
         2D array    
     """
     x = np.asarray(x)
     N = x.size
-    C = np.zeros((N,N)) # covariance
     if sig2 is None:        
         sig2 = np.var(data-f(x))
     grad = gradient(x,f)
     
-    # if method == 'hessian':
-    #     hess = hessian(x,f)
-    #     err  = data-f(x)
-    # for i in range(N):
-    #     gi = grad[i]
-    #     for j in range(N):
-    #         gj = grad[j]
-    #         gigj = np.abs(gi*np.conj(gj)+np.conj(gi)*gj)
-    #         if method == 'hessian':                
-    #             C[i,j] = np.sum(gigj + 2*err*hess[i,j])
-    #         else:
-    #             C[i,j] = np.sum(gigj)
-            
-    # C = np.linalg.pinv(C/2/sig2)
-
     J = np.concatenate((np.real(grad),np.imag(grad)),axis=1)
     P0 = np.diag(np.ones(N)*1E-5)
     P = np.dot(J,J.transpose()) / sig2
     C = np.linalg.inv(P+P0)
-
+    
     
     return C
 
