@@ -78,6 +78,8 @@ class FitRes(object):
         if self.method == 'VB':
             self.vb_cov = self.optim_out.cov
             self.vb_var = self.optim_out.var
+            std = np.sqrt(self.vb_var)
+            self.vb_corr = self.vb_cov/(std[:,np.newaxis]*std[np.newaxis,:] )
             
 
             

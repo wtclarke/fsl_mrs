@@ -31,7 +31,7 @@ def syntheticFID(coilamps = [1.0],
     if noisecovariance.shape != (ncoils,ncoils):
         raise ValueError('noisecovariance must be ncoils x ncoils.')
 
-    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points)
+    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points) + 1j*np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points)
 
     dwelltime = 1/bandwidth
     taxis = np.linspace(0.0,dwelltime*(points-1),points)

@@ -14,6 +14,7 @@ from fsl_mrs.aux import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
+import json
 
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
@@ -65,7 +66,7 @@ def main():
                    help='order of baseline polynomial (default=2,-1 disables)')
     fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=str_or_int_arg,
                               help="metabolite groups: list of groups or list of names for indept groups.")
-    fitting_args.add_argument('--add_MM',type=bool,
+    fitting_args.add_argument('--add_MM',action="store_true",
                               help="include default macromolecule peaks")
 
     
@@ -74,8 +75,8 @@ def main():
                           help='structural image (for report)')
     optional.add_argument('--TE',type=float,default=None,metavar='TE',
                           help='Echo time for relaxation correction (ms)')
-    optional.add_argument('--tissue_fractions',type=float,nargs=3,default=None,metavar='GM WM CSF',
-                          help='Fractional tissue volumes for WM, GM, CSF.Defaults to pure water scaling.')
+    optional.add_argument('--tissue_frac',type=tissue_frac_arg,action=TissueFracAction,nargs='+',default=None,metavar='GM WM CSF OR json',
+                          help='Fractional tissue volumes for WM, GM, CSF or json segmentation file. Defaults to pure water scaling.')
     optional.add_argument('--internal_ref',type=str,default=['Cr','PCr'],nargs='+',
                           help='Metabolite(s) used as an internal reference. Defaults to tCr (Cr+PCr).')
     optional.add_argument('--central_frequency',default=None,type=float,
@@ -263,7 +264,7 @@ def main():
         metab_groups = [0]*mrs.numBasis
 
     # Include Macromolecules? These should have their own metab groups
-    if args.add_MM is not None:
+    if args.add_MM:
         if not args.verbose:
             print('Adding macromolecules')
         nMM = mrs.add_MM_peaks()
@@ -298,19 +299,18 @@ def main():
     # Internal and Water quantification if requested
     if (mrs.H2O is None) or (echotime is None):
         res.calculateConcScaling(mrs,referenceMetab=args.internal_ref)
-    elif args.tissue_fractions is None:
+    elif args.tissue_frac is None:
         res.calculateConcScaling(mrs,
                                 referenceMetab=args.internal_ref,
                                 waterRefFID=mrs.H2O,
                                 tissueFractions=None,
                                 TE=echotime,
                                 verbose=args.verbose)
-    else:        
-        tfrac = {'WM':args.tissue_fractions[0],'GM':args.tissue_fractions[1],'CSF':args.tissue_fractions[2]}
+    else:
         res.calculateConcScaling(mrs,
                                 referenceMetab=args.internal_ref,
                                 waterRefFID=mrs.H2O,
-                                tissueFractions=tfrac,
+                                tissueFractions=args.tissue_frac,
                                 TE=echotime,
                                 verbose=args.verbose)
     # Combine metabolites.
@@ -367,6 +367,22 @@ def str_or_int_arg(x):
         return int(x)
     except:
         return x
+
+def tissue_frac_arg(x):
+    try:
+        with open(x) as jsonFile:
+            jsonString = jsonFile.read()                   
+        return json.loads(jsonString)
+    except:
+        return float(x)
+
+class TissueFracAction(configargparse.Action):
+    """Sort out tissue fraction types. Should return dict"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        if isinstance(values[0],dict):
+            setattr(namespace,self.dest, values[0])
+        else:
+            setattr(namespace,self.dest, {'WM':values[0],'GM':values[1],'CSF':values[2]})
         
 if __name__ == '__main__':
     main()

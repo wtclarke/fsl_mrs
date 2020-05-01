@@ -887,7 +887,7 @@ def plot_table_fitparams(res):
     header2 = ['group','linewidth (Hz)','shift (ppm)','metab groups']
     values2 = [[],[],[],[]]
     shift = res.getShiftParams(units='ppm')
-    lw = res.getLineShapeParams(units='Hz')
+    lw = res.getLineShapeParams(units='Hz')[0] # Only take combined values
     for g in range(res.g):    
         values2[0].append(g)
         values2[1].append(np.round(lw[g],decimals=3))

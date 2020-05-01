@@ -155,7 +155,7 @@ def syntheticFromBasis(basis,
     if noisecovariance.shape != (ncoils,ncoils):
         raise ValueError('noisecovariance must be ncoils x ncoils.')
 
-    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points)
+    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points) + 1j*np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points)
 
     # Interpolate basis
     dwelltime = 1/bandwidth
