@@ -19,26 +19,20 @@ def simulated(ID=1):
     """
     ID = 1 up to 28
     """
-    datafolder  = '/Users/saad/Desktop/Spectroscopy/datasets_LCModel'
-    basisfolder = '/Users/saad/Desktop/Spectroscopy/basisset_LCModel'
-
+    fileDir = os.path.dirname(__file__)
+    datafolder  = os.path.join(fileDir,'../pkg_data/mrs_fitting_challenge/datasets_JMRUI')
+    basisfolder = os.path.join(fileDir,'../pkg_data/mrs_fitting_challenge/basisset_JMRUI')
 
     # Load data and basis
-    FID,FIDheader = mrs_io.read_FID(os.path.join(datafolder,'dataset{}.RAW'.format(ID)))
+    FID,FIDheader = mrs_io.read_FID(os.path.join(datafolder,f'dataset{ID}_WS.txt'))
+    FIDW,_ = mrs_io.read_FID(os.path.join(datafolder,f'dataset{ID}_nWS.txt'))
     basis,names,Bheader = mrs_io.read_basis(basisfolder)
-
-    # Rescale for extra robustness
-    FID,_   = misc.rescale_FID(FID,100)
-    basis,_ = misc.rescale_FID(basis,100)
-
-    cf = 123.2E6
-    bw = 4000
-
-    Bheader = {'bandwidth':bw,'dwelltime':1/bw,'centralFrequency':cf}
-    MRSArgs = {'bw':bw,'cf':cf,'basis':basis,'names':names,'basis_hdr':Bheader}
-
-
+  
+    MRSArgs = {'header':FIDheader,'basis':basis,'names':names,'basis_hdr':Bheader[0],'H2O':FIDW}
+    
     mrs = MRS(FID=FID,**MRSArgs)
+    # Check orientation and rescale for extra robustness
+    mrs.processForFitting()
 
     return mrs
 
