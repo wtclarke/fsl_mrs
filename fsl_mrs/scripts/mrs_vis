@@ -20,15 +20,16 @@ def main():
     
     args = p.parse_args()
 
-    from fsl_mrs.utils.plotting import plot_spectrum,FID2Spec
+    from fsl_mrs.utils.plotting import plot_spectrum,FID2Spec,plot_spectra
     from fsl_mrs.utils.mrs_io import read_FID,read_basis
     import matplotlib.pyplot as plt
     import os.path as op
     from fsl_mrs.core import MRS
     import numpy as np
+    from fsl_mrs.utils.preproc.combine import combine_FIDs
 
     # breakpoint()
-    if op.isdir(args.file):
+    if op.isdir(args.file) or op.splitext(op.basename(args.file))[1].upper()=='.BASIS':
         basis,names,basishdr = read_basis(args.file)
         fid = np.zeros(basis.shape[0])
         
@@ -44,13 +45,22 @@ def main():
         plt.show() 
     elif op.isfile(args.file):
         fid,header = read_FID(args.file)
-        mrs = MRS(FID=fid,header=header)
-        mrs.check_FID(repair=True)
-
-        plt.figure(figsize=(8,8))
-        fig     = plot_spectrum(mrs,ppmlim=args.ppmlim)
-        plt.show()    
-    
+        if fid.ndim==1:
+            mrs = MRS(FID=fid,header=header)
+            mrs.check_FID(repair=True)
+            fig     = plot_spectrum(mrs,ppmlim=args.ppmlim)
+            plt.show()
+        else:
+            mrs_list = []
+            for f in fid.T:
+                tmpmrs = MRS(FID=f,header=header)
+                tmpmrs.check_FID(repair=True)
+                mrs_list.append(tmpmrs)
+            fidList = [m.FID for m in mrs_list]
+            combfid = combine_FIDs(fidList,'svd',do_prewhiten=True)
+            single_mrs = MRS(FID=combfid,header=header)
+            fig     = plot_spectra(mrs_list,ppmlim=args.ppmlim,single_FID=single_mrs)
+            plt.show()
 
 if __name__ == '__main__':
     main()
