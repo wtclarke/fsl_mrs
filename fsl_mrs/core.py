@@ -427,6 +427,8 @@ class MRS(object):
         """
           Sets the FID and calculates spectrum
         """
+        if FID.ndim >1:
+            raise ValueError(f'MRS objects only handle one FID at a time. FID shape is {FID.shape}.')
         self.FID         = FID.copy()
         self.numPoints   = self.FID.size
         self.Spec        = misc.FIDToSpec(self.FID)

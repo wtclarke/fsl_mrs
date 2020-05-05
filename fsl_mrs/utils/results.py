@@ -56,7 +56,7 @@ class FitRes(object):
                                         self.g)[first:last]
         data = mrs.getSpectrum(ppmlim=self.ppmlim)
         # self.crlb      = calculate_crlb(self.params,forward_lim,data)        
-        self.cov       = calculate_lap_cov(self.params,forward_lim,data,method='fisher')
+        self.cov       = calculate_lap_cov(self.params,forward_lim,data)
         self.crlb      = np.diagonal(self.cov)
         std            = np.sqrt(self.crlb )
         self.corr      = self.cov/(std[:,np.newaxis]*std[np.newaxis,:] )

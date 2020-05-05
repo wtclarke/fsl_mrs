@@ -345,12 +345,15 @@ def fit_FSLModel(mrs,
 
         # Setup the fitting
         # Init with nonlinear fit
+        baseline_order = -1 if disableBaseline else baseline_order
+        
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
+        baseline_order = 0 if disableBaseline else baseline_order
         # Create maks and bounds for MH fit
         p0   = res.params
 
-        LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method)                
+        LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
         mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=False)        
 
         # Check that the values initilised by the newton
@@ -373,8 +376,10 @@ def fit_FSLModel(mrs,
         warnings.warn('VB method still under development!',UserWarning)
 
         # init with nonlinear fitting
+        baseline_order = -1 if disableBaseline else baseline_order
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
+        baseline_order = 0 if disableBaseline else baseline_order
         x0   = res.params
 
         
@@ -401,7 +406,7 @@ def fit_FSLModel(mrs,
         datasplit = np.concatenate((np.real(data[first:last]),np.imag(data[first:last])))
         args      = [freq,time,basis,B,metab_groups,g,first,last]                
 
-        M0,P0,s0,c0 = vbpriors(con,gamma,eps,phi0,phi1,b)
+        M0,P0,s0,c0 = vbpriors(x0,x2p,p2x,model.lower(),mrs.numBasis,g)
         vbmodel.set_priors(M0,P0,s0,c0)
 
         res_vb    = vbmodel.fit(y=datasplit,
@@ -432,7 +437,13 @@ def fit_FSLModel(mrs,
 
 
 
-def vbpriors(con,gamma,eps,phi0,phi1,b):
+def vbpriors(x0,x2p,p2x,model,numbasis,g):
+
+    if model=='lorentzian':
+        con,gamma,eps,phi0,phi1,b = x2p(x0,numbasis,g)
+    elif model=='voigt':
+        con,gamma,sigma,eps,phi0,phi1,b = x2p(x0,numbasis,g)
+
     # priors
     pcon_M0   = [np.log(1e-2)]*len(con)
     pgamma_M0 = [np.log(1e-2)]*len(gamma)
@@ -440,15 +451,23 @@ def vbpriors(con,gamma,eps,phi0,phi1,b):
     pphi0_M0  = 0
     phi1_M0   = 0
     pb_M0     = [0]*len(b)
-    M0        = models.FSLModel_param2x(pcon_M0,pgamma_M0,peps_M0,pphi0_M0,phi1_M0,pb_M0)
-    
+    if model=='lorentzian':
+        M0        = p2x(pcon_M0,pgamma_M0,peps_M0,pphi0_M0,phi1_M0,pb_M0)
+    elif model=='voigt':
+        psigma_M0 = [np.log(1e-2)]*len(sigma)
+        M0        = p2x(pcon_M0,pgamma_M0,psigma_M0,peps_M0,pphi0_M0,phi1_M0,pb_M0)
+
     pcon_P0   = [1/64]*len(con)
     pgamma_P0 = [1/64]*len(gamma)
     peps_P0   = [1/64]*len(eps)
     pphi0_P0  = 1/64
     phi1_P0   = 1/64
     pb_P0     = [1/64]*len(b)
-    P0        = models.FSLModel_param2x(pcon_P0,pgamma_P0,peps_P0,pphi0_P0,phi1_P0,pb_P0)
+    if model=='lorentzian':
+        P0        = p2x(pcon_P0,pgamma_P0,peps_P0,pphi0_P0,phi1_P0,pb_P0)
+    elif model=='voigt':
+        psigma_P0 = [1/64]*len(sigma)
+        P0        = p2x(pcon_P0,pgamma_P0,psigma_P0,peps_P0,pphi0_P0,phi1_P0,pb_P0)
     P0        = np.diag(P0)
     
     s0 = 1

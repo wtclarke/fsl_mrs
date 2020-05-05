@@ -68,6 +68,8 @@ def main():
                               help="metabolite groups: list of groups or list of names for indept groups.")
     fitting_args.add_argument('--add_MM',action="store_true",
                               help="include default macromolecule peaks")
+    fitting_args.add_argument('--lorentzian',action="store_true",
+                              help="Enable purely lorentzian broadening (default is Voigt)")                          
 
     
     # ADDITONAL OPTIONAL ARGUMENTS
@@ -267,14 +269,20 @@ def main():
     if args.add_MM:
         if not args.verbose:
             print('Adding macromolecules')
-        nMM = mrs.add_MM_peaks()
+        nMM = mrs.add_MM_peaks(gamma=10,sigma=20)
         G   = [i+max(metab_groups)+1 for i in range(nMM)]
         metab_groups += G
 
-
-    Fitargs = {'ppmlim':ppmlim,
+    if args.lorentzian:
+        Fitargs = {'ppmlim':ppmlim,
                'method':args.algo,'baseline_order':args.baseline_order,
-               'metab_groups':metab_groups}
+               'metab_groups':metab_groups,
+               'model':'lorentzian'}
+    else:
+        Fitargs = {'ppmlim':ppmlim,
+               'method':args.algo,'baseline_order':args.baseline_order,
+               'metab_groups':metab_groups,
+               'model':'voigt'}
 
     if args.verbose:
         print(mrs)
