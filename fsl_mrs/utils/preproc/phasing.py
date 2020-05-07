@@ -2,11 +2,14 @@ import numpy as np
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
 from fsl_mrs.utils.preproc.shifting import pad
+from fsl_mrs.utils.preproc.remove import hlsvd
 def applyPhase(FID,phaseAngle):
     return FID * np.exp(1j*phaseAngle)
 
 def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
     """ Phase correction based on the phase of a maximum point.
+
+    HLSVD is used to remove peaks outside the limits to flatten baseline first.
 
     Args:
         FID (ndarray): Time domain data
@@ -18,8 +21,12 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
     Returns:
         FID (ndarray): Phase corrected FID
     """
+    # Run HLSVD to remove peaks outside limits
+    fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
+    fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
+
     #Find maximum of absolute spectrum in ppm limit
-    padFID = pad(FID,FID.size*3)
+    padFID = pad(fid_hlsvd,FID.size*3)
     MRSargs = {'FID':padFID,'bw':bw,'cf':cf}
     mrs = MRS(**MRSargs)
     spec = extract_spectrum(mrs,padFID,ppmlim=ppmlim,shift=shift)

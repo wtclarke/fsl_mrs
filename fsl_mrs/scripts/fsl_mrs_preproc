@@ -259,7 +259,7 @@ def main():
 
     # HLSVD
     if args.hlsvd:
-        hlsvdlimits = [-0.15,0.15]
+        hlsvdlimits = [-0.35,0.35]
         reportlist = copy.deepcopy(FIDlist)
         FIDlist = [preproc.hlsvd(fid,dt,cf,hlsvdlimits) for fid in FIDlist]
         if args.report:
@@ -278,16 +278,25 @@ def main():
             # Report
             preproc.shifting.shift_report(reportlist[0],FIDlist[0],hdr,hdr,html=args.output,function='truncate')
 
+    # Apply shift to reference 
+    iterFunction = lambda flist : [preproc.shiftToRef(fid,3.027,bw,cf,ppmlim=(2.9,3.1))[0] for fid in flist]
+    reportlist = copy.deepcopy(FIDlist)
+    FIDlist = iterFunction(FIDlist)
+    FIDComblist = iterFunction(FIDComblist)
+    if args.report:
+        # Report
+        preproc.shifting.shift_report(reportlist[0],FIDlist[0],hdr,hdr,html=args.output,function='shifttoref')
+
     # Apply phasing based on a single peak (Cr)
     iterFunction = lambda flist,ppm : [preproc.phaseCorrect(fid,bw,cf,ppmlim=ppm)[0] for fid in flist]
     reportlist = copy.deepcopy(FIDlist)
-    FIDlist = iterFunction(FIDlist,(2.8,3.2))
+    FIDlist = iterFunction(FIDlist,(2.9,3.1))
     reportlist2 = copy.deepcopy(Reflist)
     Reflist = iterFunction(Reflist,(4.6,4.7))
     if args.quant is not None:
         reportlist2 = copy.deepcopy(quantlist)
         quantlist = iterFunction(quantlist,(4.6,4.7))
-    FIDComblist = iterFunction(FIDComblist,(2.8,3.2))
+    FIDComblist = iterFunction(FIDComblist,(2.9,3.1))
     if args.report:
         # Report
         preproc.phasing.phaseCorrect_report(reportlist[0],FIDlist[0],hdr,None,ppmlim=(2.8,3.2),html=args.output)
