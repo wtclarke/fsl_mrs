@@ -275,7 +275,8 @@ def fit_FSLModel(mrs,
                  metab_groups=None,
                  model='lorentzian',
                  x0=None,
-                 MHSamples=500):
+                 MHSamples=500,
+                 vb_iter=50):
     """
         A simplified version of LCModel
     """
@@ -391,8 +392,8 @@ def fit_FSLModel(mrs,
             con[con<=0]     = 1e-10
             gamma[gamma<=0] = 1e-10
             logcon,loggamma = np.log(con),np.log(gamma)
-            vbx0 = p2x(logcon,loggamma,eps,phi0,phi1,b)
-            vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb)
+            vbx0 = p2x(logcon,loggamma,eps,phi0,phi1,b)            
+            vb_fwd = models.FSLModel_forward_vb
         elif model.lower()=='voigt':
             # log-transform positive params
             con,gamma,sigma,eps,phi0,phi1,b = x2p(x0,mrs.numBasis,g)
@@ -401,27 +402,37 @@ def fit_FSLModel(mrs,
             sigma[sigma<=0] = 1e-10
             logcon,loggamma,logsigma = np.log(con),np.log(gamma),np.log(sigma)
             vbx0 = p2x(logcon,loggamma,logsigma,eps,phi0,phi1,b)
-            vbmodel   = vb.NonlinVB(models.FSLModel_forward_vb_voigt)
-
+            vb_fwd = models.FSLModel_forward_vb_voigt
+        
         datasplit = np.concatenate((np.real(data[first:last]),np.imag(data[first:last])))
         args      = [freq,time,basis,B,metab_groups,g,first,last]                
 
         M0,P0,s0,c0 = vbpriors(x0,x2p,p2x,model.lower(),mrs.numBasis,g)
-        vbmodel.set_priors(M0,P0,s0,c0)
+
+        # Masking
+        vbx0 = np.asarray(vbx0)
+        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=False)
+        mask = np.asarray(mask) 
+        func,vbx0,vbx0_unmasked = masked_vb_problem(vb_fwd,vbx0,mask)
+        vbmodel = vb.NonlinVB(forward=func) 
+
+        vbmodel.set_priors(M0[mask>0],P0[np.ix_(mask>0, mask>0)],s0,c0)
 
         res_vb    = vbmodel.fit(y=datasplit,
                                 x0=vbx0,
                                 verbose=False,
                                 monitor=True,
-                                args=args,niter=50)
-        results.optim_out = res_vb        
+                                args=args,niter=vb_iter)
+        results.optim_out = res_vb 
         
-        # de-log
+        # de-log and de-mask
+        vbx = vbx0_unmasked
+        vbx[mask>0] = res_vb.x
         if model.lower()=='lorentzian':
-            logcon,loggamma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
+            logcon,loggamma,eps,phi0,phi1,b = x2p(vbx,mrs.numBasis,g)
             x = p2x(np.exp(logcon),np.exp(loggamma),eps,phi0,phi1,b)
         elif model.lower()=='voigt':
-            logcon,loggamma,logsigma,eps,phi0,phi1,b = x2p(res_vb.x,mrs.numBasis,g)
+            logcon,loggamma,logsigma,eps,phi0,phi1,b = x2p(vbx,mrs.numBasis,g)
             x = p2x(np.exp(logcon),np.exp(loggamma),np.exp(logsigma),eps,phi0,phi1,b)
 
         # collect results
@@ -435,7 +446,16 @@ def fit_FSLModel(mrs,
 
     return results
 
-
+def masked_vb_problem(forward,x0,mask):
+            x_masked = x0[mask>0]
+            const = x0[mask==0]
+            x_orig = x0.copy()
+            def func(x,*args):
+                y = np.zeros(mask.size)
+                y[mask>0]  = x
+                y[mask==0] = const
+                return forward(y,*args)
+            return func,x_masked,x_orig
 
 def vbpriors(x0,x2p,p2x,model,numbasis,g):
 
@@ -456,6 +476,7 @@ def vbpriors(x0,x2p,p2x,model,numbasis,g):
     elif model=='voigt':
         psigma_M0 = [np.log(1e-2)]*len(sigma)
         M0        = p2x(pcon_M0,pgamma_M0,psigma_M0,peps_M0,pphi0_M0,phi1_M0,pb_M0)
+    M0 = np.asarray(M0)
 
     pcon_P0   = [1/64]*len(con)
     pgamma_P0 = [1/64]*len(gamma)
