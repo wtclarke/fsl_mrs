@@ -209,8 +209,8 @@ def saveRAW(filename,FID,info=None,hdr=None,conj=False):
     """
     # Seq par section
     if hdr is not None:
-        seqpar_header = {'hzpppm':info['centralFrequency']/1E6,
-                        'dwellTime':info['dwelltime'],
+        seqpar_header = {'hzpppm':hdr['centralFrequency']/1E6,
+                        'dwellTime':hdr['dwelltime'],
                         'NumberOfPoints':FID.size,
                         'echot':0.0}   
 
