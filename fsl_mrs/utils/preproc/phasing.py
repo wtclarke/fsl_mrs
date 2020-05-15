@@ -22,9 +22,12 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
         FID (ndarray): Phase corrected FID
     """
     # Run HLSVD to remove peaks outside limits
-    fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
-    fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
-
+    try:
+        fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
+        fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
+    except:
+        fid_hlsvd = FID
+        print('Phasing HLSVD failed, proceeding to phaseing.')
     #Find maximum of absolute spectrum in ppm limit
     padFID = pad(fid_hlsvd,FID.size*3)
     MRSargs = {'FID':padFID,'bw':bw,'cf':cf}

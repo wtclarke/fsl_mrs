@@ -10,6 +10,7 @@ import scipy.signal as ss
 import numpy as np
 import json
 import sys, os, glob, re
+from fsl_mrs.utils.misc import checkCFUnits
 
 # Raw file reading
 def readLCModelRaw(filename, unpack_header=True,conjugate=True):
@@ -209,10 +210,14 @@ def saveRAW(filename,FID,info=None,hdr=None,conj=False):
     """
     # Seq par section
     if hdr is not None:
-        seqpar_header = {'hzpppm':hdr['centralFrequency']/1E6,
+        if 'EchoTime' in hdr:
+            TE = hdr['EchoTime']
+        else:
+            TE = 0.0
+        seqpar_header = {'hzpppm':checkCFUnits(hdr['centralFrequency'],units='MHz'),
                         'dwellTime':hdr['dwelltime'],
                         'NumberOfPoints':FID.size,
-                        'echot':0.0}   
+                        'echot':TE}   
 
     # info (and NMID) section must contain FMTDAT
     if info is None:

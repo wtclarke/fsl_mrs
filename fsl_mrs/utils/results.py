@@ -143,7 +143,7 @@ class FitRes(object):
                 jac[index]=1.0
 
             self.fitResults[newstr] = pd.Series(ds, index=self.fitResults.index)
-            # self.params_names.append(newstr)
+            self.params_names_inc_comb.append(newstr)
             self.metabs.append(newstr)                        
             newCRLB = jac@self.cov@jac
             self.crlb = np.concatenate((self.crlb,newCRLB[np.newaxis]))    
@@ -161,6 +161,24 @@ class FitRes(object):
             self.mcmc_cor = self.fitResults.corr().values
             self.mcmc_var = self.fitResults.var().values
 
+    
+    def predictedSpec(self,mrs,mode='Full',noBaseline=False,ppmlim=None,shift=True):
+        if ppmlim == None:
+            ppmlim = self.ppmlim
+            
+        if mode.lower() == 'full':
+            out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,noBaseline=noBaseline)
+        elif mode.lower() == 'baseline':
+            out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,baselineOnly= True)
+        elif mode in self.metabs:
+            out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,basisSelect=mode,baselineOnly= False,noBaseline=noBaseline)
+        else:
+            raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
+
+        f,l = mrs.ppmlim_to_range(ppmlim=ppmlim,shift=shift)
+
+        return out[f:l]
+    
     def predictedFID(self,mrs,mode='Full',noBaseline=False):
         if mode.lower() == 'full':
             out = models.getFittedModel(self.model,self.params,self.base_poly,self.metab_groups,mrs,noBaseline=noBaseline)
@@ -225,6 +243,7 @@ class FitRes(object):
             self.params_names.append(f"B_real_{i}")
             self.params_names.append(f"B_imag_{i}")
 
+        self.params_names_inc_comb = deepcopy(self.params_names)
 
     def to_file(self,filename,what='concentrations'):
         """
@@ -413,3 +432,40 @@ class FitRes(object):
     def getQCParams(self):
         """Returns peak wise SNR and FWHM (in Hz)"""
         return self.SNR.peaks.mean(),self.FWHM.mean()
+
+    def getUncertainties(self,type='percentage'):
+        """ Return the uncertainties on concentrations.        
+        Can either be in raw, molarity or molality or percentage uncertainties.        
+        
+        """
+        abs_std = []
+        for metab in self.metabs:
+            if self.method == 'Newton':
+                index = self.params_names_inc_comb.index(metab)
+                abs_std.append(np.sqrt(self.crlb[index]))
+            elif self.method == 'MH':
+                abs_std.append(self.fitResults[metab].std())
+            elif self.method == 'VB':
+                index = self.params_names_inc_comb.index(metab)
+                abs_std.append(np.sqrt(self.vb_var[index]))
+        abs_std = np.asarray(abs_std)
+        if type.lower() == 'raw':
+            return abs_std   
+        elif type.lower() == 'molarity':
+            return abs_std * self.concScalings['molarity']
+        elif type.lower() == 'molality':
+            return abs_std * self.concScalings['molality']
+        elif type.lower() == 'internal':
+            internalRefIndex = self.metabs.index(self.concScalings['internalRef'])
+            internalRefSD = abs_std[internalRefIndex]
+            abs_std = np.sqrt(abs_std**2+internalRefSD**2) 
+            return abs_std * self.concScalings['internal']
+        elif type.lower() == 'percentage':
+            vals = self.fitResults[self.metabs].mean().to_numpy()
+            perc_SD = abs_std / vals*100
+            perc_SD[perc_SD>999] = 999   # Like LCModel :)
+            perc_SD[np.isnan(perc_SD)] = 999
+            return perc_SD
+        else:
+            raise ValueError('type must either be "absolute" or "percentage".')
+         
