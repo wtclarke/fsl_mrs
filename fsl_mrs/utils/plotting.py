@@ -401,7 +401,7 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots  
 
-def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
+def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
     """
          plot model fitting plus baseline
         
@@ -429,6 +429,9 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
     base   = FID2Spec(res.baseline)
     axis   = np.flipud(mrs.ppmAxisFlip)
     data   = FID2Spec(mrs.FID)
+
+    if ppmlim is None:
+        ppmlim = res.ppmlim
 
     if metabs is not None:
         preds = []
@@ -469,7 +472,7 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
         df['mMol/kg']        = np.round(res.getConc(scaling='molality'),decimals=2)
     else:
         df['unscaled']  = np.round(res.getConc(),decimals=2)
-    df['%CRLB']          = np.round(res.perc_SD[:res.numMetabs],decimals=1)
+    df['%CRLB']          = np.round(res.getUncertainties(),decimals=1)
     if res.concScalings['internal'] is not None:
         concstr = f'/{res.concScalings["internalRef"]}'
         df[concstr]            = np.round(res.getConc(scaling='internal'),decimals=2)
@@ -915,9 +918,10 @@ def plot_table_qc(res):
     # Peak by peak snr and fwhm
 
     snr,fwhm = res.getQCParams()
-    pd.options.display.float_format = '${:.1f}'.format
     df = pd.DataFrame([snr.to_numpy(),fwhm.to_numpy()],columns=res.original_metabs).T
     df.columns = ['SNR','FWHM (Hz)']
+    df['SNR'] = df['SNR'].map('{:.1f}'.format)
+    df['FWHM (Hz)'] = df['FWHM (Hz)'].map('{:.1f}'.format)
 
     fig = go.Figure(data=[go.Table(
                     header=dict(values=["Metabolites"]+list(df.columns),

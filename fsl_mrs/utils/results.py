@@ -284,9 +284,11 @@ class FitRes(object):
     def getConc(self,scaling='raw',metab=None,function='mean'):
         if function is None:
             dfFunc = lambda m : self.fitResults[m]
-        else:
+        elif metab is None:
             dfFunc = lambda m : self.fitResults[m].apply(function).to_numpy()
-
+        else:
+            dfFunc = lambda m : self.fitResults[m].apply(function)
+            
         # Extract concentrations from parameters.
         if metab is not None:
             if metab not in self.metabs:

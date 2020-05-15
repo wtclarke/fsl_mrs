@@ -219,11 +219,11 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
                 ref = ref.conj()
 
             datalist.append(datacontainer(data,
-                                                header,
-                                                os.path.basename(f),
-                                                reference=ref,
-                                                refheader=refheader,
-                                                reffilename=os.path.basename(r)))
+                                            header,
+                                            os.path.basename(f),
+                                            reference=ref,
+                                            refheader=refheader,
+                                            reffilename=os.path.basename(r)))
     elif refdatafiles and len(refdatafiles)==1:
         ref,refheader = fsl_io.readNIFTI(refdatafiles[0],squeezeSVS=False)
         if conjugate:
@@ -248,6 +248,9 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
             if conjugate:
                 data = data.conj()
             datalist.append(datacontainer(data,header,os.path.basename(f)))
+
+    # Sort list based on datafilename property of datacontainer
+    datalist.sort(key=lambda dataobj: dataobj.datafilename)
     return datalist
 
 def writeData(dataobj,args):
