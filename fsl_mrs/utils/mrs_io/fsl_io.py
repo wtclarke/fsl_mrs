@@ -15,6 +15,16 @@ import scipy.signal as ss
 
 # NIFTI I/O
 def readNIFTI(datafile,squeezeSVS=True):
+    """ Read nifti format file.
+    
+    Args: 
+        datafile (str)
+        squeezeSVS (optional,bool)
+        
+    Returns:
+        data
+        header
+    """
     data_hdr = nib.load(datafile)
     data = np.asanyarray(data_hdr.dataobj)
     # look for json sidecar file
