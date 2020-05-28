@@ -19,7 +19,7 @@ def test_fsl_mrs(tmp_path):
                                     '--output', tmp_path, 
                                     '--h2o', data['water'], 
                                     '--TE', '11', 
-                                    '--tissue_fractions', '0.45', '0.45', '0.1',
+                                    '--tissue_frac', '0.45', '0.45', '0.1',
                                     '--overwrite',
                                     '--combine', 'Cr', 'PCr',
                                     '--report'])

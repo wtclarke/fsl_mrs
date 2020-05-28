@@ -77,7 +77,7 @@ def main():
                           help='structural image (for report)')
     optional.add_argument('--TE',type=float,default=None,metavar='TE',
                           help='Echo time for relaxation correction (ms)')
-    optional.add_argument('--tissue_frac',type=tissue_frac_arg,action=TissueFracAction,nargs='+',default=None,metavar='GM WM CSF OR json',
+    optional.add_argument('--tissue_frac',type=tissue_frac_arg,action=TissueFracAction,nargs='+',default=None,metavar='WM GM CSF OR json',
                           help='Fractional tissue volumes for WM, GM, CSF or json segmentation file. Defaults to pure water scaling.')
     optional.add_argument('--internal_ref',type=str,default=['Cr','PCr'],nargs='+',
                           help='Metabolite(s) used as an internal reference. Defaults to tCr (Cr+PCr).')

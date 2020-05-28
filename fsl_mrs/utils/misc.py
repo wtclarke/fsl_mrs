@@ -457,14 +457,15 @@ def rescale_FID(x,scale=100):
     return y,1/factor * scale
 
 
-def create_peak(mrs,ppm,gamma=0,sigma=0):
+def create_peak(mrs,ppm,amp,gamma=0,sigma=0):
     """
         creates FID for peak at specific ppm
         
     Parameters
     ----------
     mrs : MRS object (contains time information)
-    ppm : float
+    ppm : list of floats
+    amp : list of floats
     gamma : float
             Peak Lorentzian dispersion
     sigma : float
@@ -475,17 +476,27 @@ def create_peak(mrs,ppm,gamma=0,sigma=0):
     array-like FID
     """
     
-    freq = ppm2hz(mrs.centralFrequency,ppm)
-    t    = mrs.timeAxis 
-    x    = np.exp(1j*2*np.pi*freq*t).flatten()
-    
-    if gamma>0 or sigma>0:
-        x = blur_FID_Voigt(mrs,x,gamma,sigma)
+    if isinstance(ppm,(float,int)):
+        ppm = [float(ppm),]
+    if isinstance(amp,(float,int)):
+        amp = [float(amp),]
 
-    # dephase
-    x = x*np.exp(-1j*np.angle(x[0]))
-    
-    return x
+    t    = mrs.timeAxis
+    out = np.zeros(t.shape[0],dtype=np.complex128)
+
+    for p,a in zip(ppm,amp):
+        freq = ppm2hz(mrs.centralFrequency,p)
+         
+        x    = a*np.exp(1j*2*np.pi*freq*t).flatten()
+        
+        if gamma>0 or sigma>0:
+            x = blur_FID_Voigt(mrs,x,gamma,sigma)
+
+        # dephase
+        x = x*np.exp(-1j*np.angle(x[0]))
+        out+= x
+
+    return out
 
 def extract_spectrum(mrs,FID,ppmlim=(0.2,4.2),shift=True):
     """

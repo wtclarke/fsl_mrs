@@ -431,24 +431,32 @@ class FitRes(object):
         else:
             return bParams
 
-    def getQCParams(self):
+    def getQCParams(self,metab=None):
         """Returns peak wise SNR and FWHM (in Hz)"""
-        return self.SNR.peaks.mean(),self.FWHM.mean()
+        if metab is None:
+            return self.SNR.peaks.mean(),self.FWHM.mean()
+        else:
+            return self.SNR.peaks['SNR_'+metab].mean(),self.FWHM['fwhm_'+metab].mean()
 
-    def getUncertainties(self,type='percentage'):
+
+    def getUncertainties(self,type='percentage',metab=None):
         """ Return the uncertainties on concentrations.        
         Can either be in raw, molarity or molality or percentage uncertainties.        
         
         """
         abs_std = []
-        for metab in self.metabs:
+        if metab is None:
+            metab = self.metabs
+        elif isinstance(metab,str):
+            metab = [metab,]
+        for m in metab:
             if self.method == 'Newton':
-                index = self.params_names_inc_comb.index(metab)
+                index = self.params_names_inc_comb.index(m)
                 abs_std.append(np.sqrt(self.crlb[index]))
             elif self.method == 'MH':
-                abs_std.append(self.fitResults[metab].std())
+                abs_std.append(self.fitResults[m].std())
             elif self.method == 'VB':
-                index = self.params_names_inc_comb.index(metab)
+                index = self.params_names_inc_comb.index(m)
                 abs_std.append(np.sqrt(self.vb_var[index]))
         abs_std = np.asarray(abs_std)
         if type.lower() == 'raw':
@@ -458,12 +466,19 @@ class FitRes(object):
         elif type.lower() == 'molality':
             return abs_std * self.concScalings['molality']
         elif type.lower() == 'internal':
-            internalRefIndex = self.metabs.index(self.concScalings['internalRef'])
-            internalRefSD = abs_std[internalRefIndex]
+            internal_ref = self.concScalings['internalRef']
+            if self.method == 'Newton':
+                internalRefIndex = self.metabs.index(internal_ref)
+                internalRefSD = np.sqrt(self.crlb[internalRefIndex])
+            elif self.method == 'MH':
+                internalRefSD = self.fitResults[internal_ref].std()
+            elif self.method == 'VB':
+                index = self.params_names_inc_comb.index(internal_ref)
+                internalRefSD = np.sqrt(self.vb_var[index])
             abs_std = np.sqrt(abs_std**2+internalRefSD**2) 
             return abs_std * self.concScalings['internal']
         elif type.lower() == 'percentage':
-            vals = self.fitResults[self.metabs].mean().to_numpy()
+            vals = self.fitResults[metab].mean().to_numpy()
             perc_SD = abs_std / vals*100
             perc_SD[perc_SD>999] = 999   # Like LCModel :)
             perc_SD[np.isnan(perc_SD)] = 999

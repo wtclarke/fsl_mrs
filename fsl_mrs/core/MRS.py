@@ -90,6 +90,7 @@ class MRS(object):
 
         # Other properties
         self.metab_groups      = None
+        self.scaling           = {'FID':1.0,'basis':1.0}
         
             
     def from_files(self,FID_file,Basis_file):
@@ -261,7 +262,12 @@ class MRS(object):
             self.H2O *= scaling
 
         if self.basis is not None:
-            self.basis,_ = misc.rescale_FID(self.basis,scale=scale)
+            self.basis,scaling_basis = misc.rescale_FID(self.basis,scale=scale)
+        else:
+            scaling_basis = None
+
+        self.scaling = {'FID':scaling,'basis':scaling_basis}
+         
 
     def check_FID(self,ppmlim=(.2,4.2),repair=False):
         """
@@ -356,9 +362,10 @@ class MRS(object):
 
         if metabs is not None:
             for m in metabs:
-                idx = self.names.index(m)
-                self.names.pop(idx)
-                self.basis = np.delete(self.basis,idx,axis=1)
+                names = np.asarray(self.names)
+                index = names ==m
+                self.names = names[~index].tolist()
+                self.basis = self.basis[:,~index]
             self.numBasis = len(self.names)
 
     def keep(self,metabs):
@@ -376,33 +383,41 @@ class MRS(object):
             self.ignore(metabs)
             
 
-    def add_peak(self,ppm,name,gamma=0,sigma=0):
+    def add_peak(self,ppm,amp,name,gamma=0,sigma=0):
         """
            Add peak to basis
         """
 
-        peak = misc.create_peak(self,ppm,gamma,sigma)[:,None]
+        peak = misc.create_peak(self,ppm,amp,gamma,sigma)[:,None]
         self.basis = np.append(self.basis,peak,axis=1)
         self.names.append(name)
         self.numBasis += 1
 
-    def add_MM_peaks(self,ppmlist=None,gamma=0,sigma=0):
+    def add_MM_peaks(self,ppmlist=None,amplist=None,gamma=0,sigma=0):
         """
            Add macromolecule list
            
         Parameters
         ----------
     
-        ppmlist : default is [1.7,1.4,1.2,2.0,0.9]
+        ppmlist : default is [0.9,1.7,1.4,1.2,2.0]
 
         gamma,sigma : float parameters of Voigt blurring
         """
         if ppmlist is None:
-            ppmlist = [1.7,1.4,1.2,2.0,0.9]
-        names   = ['MM'+'{:.0f}'.format(i*10).zfill(2) for i in ppmlist]
+            ppmlist = [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
+            amplist = [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
 
-        for name,ppm in zip(names,ppmlist):
-            self.add_peak(ppm,name,gamma,sigma)
+        for idx,_ in enumerate(ppmlist):
+            if isinstance(ppmlist[idx],(float,int)):
+                ppmlist[idx] = [float(ppmlist[idx]),]
+            if isinstance(amplist[idx],(float,int)):
+                amplist[idx] = [float(amplist[idx]),]
+
+        names   = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
+
+        for name,ppm,amp in zip(names,ppmlist,amplist):
+            self.add_peak(ppm,amp,name,gamma,sigma)
 
         return len(ppmlist)
 

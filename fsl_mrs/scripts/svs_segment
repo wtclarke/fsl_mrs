@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# make_mrs_mask - use fsl to make a mask from a svs voxel and T1 nifti
+# svs_segment - use fsl to make a mask from a svs voxel and T1 nifti, then produce tissue segmentation file.
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -20,7 +20,7 @@ import warnings
 
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="FSL Magnetic Resonance Spectroscopy - Merge HTML reports based on filename in directory.")
+    parser = argparse.ArgumentParser(description="FSL Magnetic Resonance Spectroscopy - Construct mask in T1 space of an SVS voxel and generate a tissue segmentation file.")
 
     parser.add_argument('svs', type=str,metavar='SVS',
                           help='SVS nifti file')
@@ -28,7 +28,7 @@ def main():
     group.add_argument('-t','--t1', type=str,metavar='T1',help='T1 nifti file')
     group.add_argument('-a','--anat', type=str,help='FSL anat directory for tissue segmentation output.')                     
     parser.add_argument('-o','--output', type=str,help='Output directory',default='.')
-    parser.add_argument('-f','--filename', type=str,help='Output file name directory',default='mask.nii.gz')
+    parser.add_argument('-f','--filename', type=str,help='Output file name',default='mask.nii.gz')
     parser.add_argument('-m','--mask_only', action="store_true",help='Only perform masking stage, do not run fsl_anat if only T1 passed.')
     args = parser.parse_args()
 

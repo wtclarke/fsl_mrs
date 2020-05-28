@@ -17,16 +17,18 @@ def main():
                           help='NIfTI file or directory of basis sets')
     p.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
                    help='limit the fit to a freq range (default=(.2,4.2))')                      
-    
+    p.add_argument('--mask',default=None,type=str,help='Mask for MRSI')
+
     args = p.parse_args()
 
     from fsl_mrs.utils.plotting import plot_spectrum,FID2Spec,plot_spectra
     from fsl_mrs.utils.mrs_io import read_FID,read_basis
     import matplotlib.pyplot as plt
     import os.path as op
-    from fsl_mrs.core import MRS
+    from fsl_mrs.core import MRS,MRSI
     import numpy as np
     from fsl_mrs.utils.preproc.combine import combine_FIDs
+    import nibabel as nib
 
     # breakpoint()
     if op.isdir(args.file) or op.splitext(op.basename(args.file))[1].upper()=='.BASIS':
@@ -44,23 +46,36 @@ def main():
         plt.legend()
         plt.show() 
     elif op.isfile(args.file):
-        fid,header = read_FID(args.file)
-        if fid.ndim==1:
-            mrs = MRS(FID=fid,header=header)
-            mrs.check_FID(repair=True)
-            fig     = plot_spectrum(mrs,ppmlim=args.ppmlim)
-            plt.show()
+        fid,header = read_FID(args.file,squeezeSVS=False)
+        if np.prod(fid.shape[:3])==1:
+            # SVS
+            fid = np.squeeze(fid)
+            if fid.ndim==1:
+                mrs = MRS(FID=fid,header=header)
+                mrs.check_FID(repair=True)
+                fig     = plot_spectrum(mrs,ppmlim=args.ppmlim)
+                plt.show()
+            else:
+                mrs_list = []
+                for f in fid.T:
+                    tmpmrs = MRS(FID=f,header=header)
+                    tmpmrs.check_FID(repair=True)
+                    mrs_list.append(tmpmrs)
+                fidList = [m.FID for m in mrs_list]
+                combfid = combine_FIDs(fidList,'svd',do_prewhiten=True)
+                single_mrs = MRS(FID=combfid,header=header)
+                fig     = plot_spectra(mrs_list,ppmlim=args.ppmlim,single_FID=single_mrs)
+                plt.show()
         else:
-            mrs_list = []
-            for f in fid.T:
-                tmpmrs = MRS(FID=f,header=header)
-                tmpmrs.check_FID(repair=True)
-                mrs_list.append(tmpmrs)
-            fidList = [m.FID for m in mrs_list]
-            combfid = combine_FIDs(fidList,'svd',do_prewhiten=True)
-            single_mrs = MRS(FID=combfid,header=header)
-            fig     = plot_spectra(mrs_list,ppmlim=args.ppmlim,single_FID=single_mrs)
-            plt.show()
+            if args.mask is not None:
+                mask_hdr = nib.load(args.mask)
+                mask = np.asanyarray(mask_hdr.dataobj)
+                if mask.ndim == 2:
+                    mask = np.expand_dims(mask,2)
+            mrsi = MRSI(fid,header,mask = mask)
+
+            mrsi.plot()
+
 
 if __name__ == '__main__':
     main()

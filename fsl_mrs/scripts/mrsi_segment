@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+
+# mrsi_segment - use fsl to segmenta T1 and register it to an mrsi scan
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2020 University of Oxford 
+# SHBASECOPYRIGHT
+
+# Quick imports
+import argparse
+import os.path as op
+from os import remove
+import nibabel as nib
+import numpy as np
+from fsl.wrappers import flirt,fsl_anat,fslroi
+from subprocess import call
+import json
+import warnings
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="FSL Magnetic Resonance Spectroscopy - register fast segmentation to mrsi.")
+
+    parser.add_argument('mrsi', type=str,metavar='MRSI',
+                          help='MRSI nifti file')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-t','--t1', type=str,metavar='T1',help='T1 nifti file')
+    group.add_argument('-a','--anat', type=str,help='FSL anat directory for tissue segmentation output.')                     
+    parser.add_argument('-o','--output', type=str,help='Output directory',default='.')
+    parser.add_argument('-f','--filename', type=str,help='Output file name',default='mrsi_seg')
+    args = parser.parse_args()
+
+     # If not prevented run fsl_anat for fast segmentation
+    if (args.anat is None) and (not args.mask_only):
+        anat = op.join(args.output,'fsl_anat')
+        fsl_anat(args.t1,out = anat, nosubcortseg=True)
+        anat += '.anat'
+    else:
+        anat = args.anat
+
+    # Make dummy nifti as nothing works with complex data
+    call(['fslcomplex','-realabs',args.mrsi,op.join(args.output,'tmp.nii.gz')])    
+    call(['fslcpgeom',args.mrsi,op.join(args.output,'tmp.nii.gz')])    
+    fslroi(op.join(args.output,'tmp.nii.gz'),op.join(args.output,'tmp.nii.gz'),0,1)
+
+    # Register the pvseg to the MRSI data using flirt
+    flirt_func = lambda i,o : flirt(i,op.join(args.output,'tmp.nii.gz'),out=o,
+                usesqform=True,
+                applyxfm=True,
+                noresampblur=True,
+                interp='nearestneighbour',
+                setbackground=0,
+                paddingsize=1)
+
+    # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2 - partial volume segmentations (CSF, GM, WM respectively)
+    flirt_func(op.join(anat,'T1_fast_pve_0.nii.gz'),op.join(args.output,args.filename+'_csf.nii.gz'))
+    flirt_func(op.join(anat,'T1_fast_pve_1.nii.gz'),op.join(args.output,args.filename+'_gm.nii.gz'))
+    flirt_func(op.join(anat,'T1_fast_pve_2.nii.gz'),op.join(args.output,args.filename+'_wm.nii.gz'))
+
+    remove(op.join(args.output,'tmp.nii.gz'))
+
+if __name__ == '__main__':
+    main()

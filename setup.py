@@ -13,6 +13,7 @@ setup(name='FSL_MRS',
       author_email=['saad@fmrib.ox.ac.uk','william.clarke@ndcn.ox.ac.uk'],
       url='www.fmrib.ox.ac.uk/fsl',
       packages=['fsl_mrs',
+                'fsl_mrs.core',
                 'fsl_mrs.utils',
                 'fsl_mrs.utils.mrs_io',
                 'fsl_mrs.utils.stats',
@@ -34,5 +35,6 @@ setup(name='FSL_MRS',
                 'fsl_mrs/scripts/fsl_mrs_sim',
                 'fsl_mrs/scripts/mrs_vis',
                 'fsl_mrs/scripts/merge_mrs_reports',
-                'fsl_mrs/scripts/make_mrs_mask']               
+                'fsl_mrs/scripts/svs_segment',
+                'fsl_mrs/scripts/mrsi_segment']               
      )

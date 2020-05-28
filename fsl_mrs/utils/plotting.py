@@ -459,8 +459,10 @@ def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
     resid   = project(resid,proj)
 
     # y-axis range
-    ymin = np.min(data)-np.min(data)/10
-    ymax = np.max(data)-np.max(data)/30
+    minval = min(np.min(base),np.min(data),np.min(preds),np.min(resid))
+    maxval = max(np.max(base),np.max(data),np.max(preds),np.max(resid))
+    ymin = minval-minval/2
+    ymax = maxval+maxval/30 
 
     # Build the plot
 
@@ -585,7 +587,7 @@ def plot_mcmc_corr(res,corr=None):
     corrabs = np.abs(corr)
 
     fig.add_trace(go.Heatmap(z=corr,
-                     x=res.original_metabs,y=res.original_metabs,colorscale='Picnic'))
+                     x=res.original_metabs,y=res.original_metabs,colorscale='Picnic',zmid=0))
     
     fig.update_layout(template = 'plotly_white',
                       font=dict(size=10),

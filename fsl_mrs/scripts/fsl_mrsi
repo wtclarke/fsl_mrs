@@ -10,336 +10,383 @@ import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-
-
-
-
-# Parse command-line arguments
-p = configargparse.ArgParser(add_config_file_help=False,
-                             description="FSL Magnetic Resonance Spectroscopy Imaging Wrapper Script") 
-
-p.add_argument('-v','--version', action='version', version=__version__)
-    
-required     = p.add_argument_group('required arguments')
-fitting_args = p.add_argument_group('fitting options')
-optional     = p.add_argument_group('additional options')
-
-
-# REQUIRED ARGUMENTS
-required.add_argument('--data',
-                      required=True,type=str,metavar='<str>.NII',
-                      help='input NIFTI file')
-required.add_argument('--basis',
-                      required=True,type=str,metavar='<str>',
-                      help='.BASIS file or folder containing basis spectra (will read all .RAW files within)')
-required.add_argument('--mask',
-                      required=True,type=str,metavar='<str>',
-                      help='mask volume')			 
-required.add_argument('--output',
-                      required=True,type=str,metavar='<str>',
-                      help='output folder')
-required.add_argument('--central_frequency',required=True,type=float,
-                      help='central frequency in Hz')
-required.add_argument('--dwell_time',required=True,type=float,
-                      help='dwell time in seconds')
-
-# FITTING ARGUMENTS
-fitting_args.add_argument('--algo',default='Newton',type=str,
-                          help='algorithm [Newton (fast) or MH (slow)]')
-fitting_args.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
-                          help='limit the fit to a freq range (default=(.2,4.2))')
-fitting_args.add_argument('--h2o',type=str,metavar='H2O',
-                          help='input H2O reference NIFTI for quantification')
-fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
-                          help='order of baseline polynomial (default=2)')
-fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=int,
-                          help="metabolite groups")
-fitting_args.add_argument('--add_MM',action="store_true",
-                          help="include default macromolecule peaks")
-
-
-
-# ADDITONAL OPTIONAL ARGUMENTS
-optional.add_argument('--conjugate',action="store_true",
-                      help='conjugate the data')
-optional.add_argument('--single_proc',action="store_true",
-                      help='do not run in parallel')
-optional.add_argument('--report',action="store_true",
-                      help='output html report')
-optional.add_argument('--verbose',action="store_true",
-                      help='spit out verbose info')
-optional.add_argument('--overwrite',action="store_true",
-                      help='overwrite existing output folder')
-optional.add('--config', required=False, is_config_file=True, help='configuration file')
-
-    
-# Parse command-line arguments
-args = p.parse_args()
-
-# Output kickass splash screen
-if args.verbose:
-    splash(logo='mrsi')
-
-
-# ######################################################
-# DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
-import time, os, sys, shutil, warnings
-import numpy as np
-from fsl_mrs.core import MRS
-from fsl_mrs.utils import mrs_io
-from fsl_mrs.utils import report
 from fsl_mrs.utils import fitting
-from fsl_mrs.utils import plotting
-from fsl_mrs.utils import misc
-import datetime
-#import plotly
-import nibabel as nib
-from functools import partial
-# ######################################################
+# NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
+
+
+
+
+def main():
+    # Parse command-line arguments
+    p = configargparse.ArgParser(add_config_file_help=False,
+                                description="FSL Magnetic Resonance Spectroscopy Imaging Wrapper Script") 
+
+    p.add_argument('-v','--version', action='version', version=__version__)
+        
+    required     = p.add_argument_group('required arguments')
+    fitting_args = p.add_argument_group('fitting options')
+    optional     = p.add_argument_group('additional options')
+
+
+    # REQUIRED ARGUMENTS
+    required.add_argument('--data',
+                        required=True,type=str,metavar='<str>.NII',
+                        help='input NIFTI file')
+    required.add_argument('--basis',
+                        required=True,type=str,metavar='<str>',
+                        help='Basis file or folder')
+    required.add_argument('--mask',
+                        required=True,type=str,metavar='<str>',
+                        help='mask volume')			 
+    required.add_argument('--output',
+                        required=True,type=str,metavar='<str>',
+                        help='output folder')
+
+    # FITTING ARGUMENTS
+    fitting_args.add_argument('--algo',default='Newton',type=str,
+                   help='algorithm [Newton (fast, default) or MH (slow)]')
+    fitting_args.add_argument('--ignore',type=str,nargs='+',metavar='METAB',
+                   help='ignore certain metabolites [repeatable]')
+    fitting_args.add_argument('--keep',type=str,nargs='+',metavar='METAB',
+                   help='only keep these metabolites')
+    fitting_args.add_argument('--combine',type=str,nargs='+',action='append',metavar='METAB',
+                   help='combine certain metabolites [repeatable]')
+    fitting_args.add_argument('--ppmlim',default=(.2,4.2),type=float,nargs=2,metavar=('LOW','HIGH'),
+                   help='limit the fit to a freq range (default=(.2,4.2))')
+    fitting_args.add_argument('--h2o',default=None,type=str,metavar='H2O',
+                   help='input .H2O file for quantification')
+    fitting_args.add_argument('--baseline_order',default=2,type=int,metavar=('ORDER'),
+                   help='order of baseline polynomial (default=2,-1 disables)')
+    fitting_args.add_argument('--metab_groups',default=0,nargs='+',type=str_or_int_arg,
+                              help="metabolite groups: list of groups or list of names for indept groups.")
+    fitting_args.add_argument('--add_MM',action="store_true",
+                              help="include default macromolecule peaks")
+    fitting_args.add_argument('--lorentzian',action="store_true",
+                              help="Enable purely lorentzian broadening (default is Voigt)")                          
 
     
-# Check if output folder exists
-overwrite = args.overwrite
-if os.path.exists(args.output):
-    if not overwrite:
-        print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
-        response = input()
-        overwrite = response.upper() == "Y"
-    if not overwrite:
-        print('Early stopping...')
-        exit()
+    # ADDITONAL OPTIONAL ARGUMENTS
+    optional.add_argument('--TE',type=float,default=None,metavar='TE',
+                          help='Echo time for relaxation correction (ms)')
+    optional.add_argument('--tissue_frac',type=str,nargs=3,default=None,
+                          help='Tissue fraction nifti files registered to MRSI volume. Supplied in order: WM, GM, CSF.')
+    optional.add_argument('--internal_ref',type=str,default=['Cr','PCr'],nargs='+',
+                          help='Metabolite(s) used as an internal reference. Defaults to tCr (Cr+PCr).')
+    optional.add_argument('--report',action="store_true",
+                          help='output html report')
+    optional.add_argument('--verbose',action="store_true",
+                          help='spit out verbose info')
+    optional.add_argument('--overwrite',action="store_true",
+                          help='overwrite existing output folder')
+    optional.add_argument('--single_proc',action="store_true",help='Disable parallel processing of voxels.')
+    optional.add_argument('--conj_fid',action="store_true",help='Force conjugation of FID')
+    optional.add_argument('--no_conj_fid',action="store_true",help='Forbid automatic conjugation of FID')
+    optional.add_argument('--conj_basis',action="store_true",help='Force conjugation of basis')
+    optional.add_argument('--no_conj_basis',action="store_true",help='Forbid automatic conjugation of basis')
+    optional.add_argument('--no_rescale',action="store_true",help='Forbid rescaling of FID/basis/H2O.')
+    optional.add('--config', required=False, is_config_file=True, help='configuration file')
+
+        
+    # Parse command-line arguments
+    args = p.parse_args()
+
+    # Output kickass splash screen
+    if args.verbose:
+        splash(logo='mrsi')
+
+
+    # ######################################################
+    # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
+    import time, os, sys, shutil, warnings
+    import numpy as np
+    from fsl_mrs import core as fslmrs
+    from fsl_mrs.utils import mrs_io
+    from fsl_mrs.utils import report
+    from fsl_mrs.utils import plotting
+    from fsl_mrs.utils import misc
+    import datetime
+    #import plotly
+    import nibabel as nib
+    from functools import partial
+    # ######################################################
+
+        
+    # Check if output folder exists
+    overwrite = args.overwrite
+    if os.path.exists(args.output):
+        if not overwrite:
+            print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
+            response = input()
+            overwrite = response.upper() == "Y"
+        if not overwrite:
+            print('Early stopping...')
+            exit()
+        else:
+            shutil.rmtree(args.output)
+            os.mkdir(args.output)
     else:
-        shutil.rmtree(args.output)
         os.mkdir(args.output)
-else:
-    os.mkdir(args.output)
 
 
-# Save chosen arguments
-with open(os.path.join(args.output,"options.txt"),"w") as f:
-    f.write(str(args))
-    f.write("\n--------\n")
-    f.write(p.format_values())
-        
-        
-#######  Do the work #######
-
-# Read data/h2o/basis
-if args.verbose:
-    print('--->> Load data\n')
-    print('      FID   : {}'.format(args.data))
-data_hdr = nib.load(args.data)
-if args.h2o is not None:
-    if args.verbose:
-        print('      H2O   : {}'.format(args.h2o))
-    h2o_hdr  = nib.load(args.h2o)
-if args.verbose:
-    print('      mask  : {}'.format(args.mask))
-mask_hdr = nib.load(args.mask)
-
-numPoints                 = data_hdr.shape[-1]
-if args.verbose:
-    print('      basis : {}'.format(args.basis))
-basis, names, basisheader = mrs_io.readLCModelBasis(args.basis,numPoints)
-numBasis                  = basis.shape[1]
-
-# Get array data
-data = np.asanyarray(data_hdr.dataobj)
-if args.conjugate:
-    data = np.conj(data)
-if args.h2o is not None:
-    h2o  = np.asanyarray(h2o_hdr.dataobj) 
-mask = np.asanyarray(mask_hdr.dataobj) 
-if data.shape[:3] != mask.shape:
-    mask = mask[:,:,None]
-
-# data as list (for parallel proc)
-fid_list = misc.volume_to_list(data,mask)
-if args.h2o is not None:
-    h2o_list = misc.volume_to_list(h2o,mask)
-
-
-
-# # Resample basis?
-cf = args.central_frequency
-bw = 1/args.dwell_time
-# if bw != basisheader['bandwidth']:
-#     dwell     = 1/basisheader['bandwidth']
-#     new_dwell = 1/bw
-#     basis     = misc.resample_ts(basis,dwell,new_dwell)
-
-# ppmlim for fitting
-ppmlim=args.ppmlim
-if ppmlim is not None:
-    ppmlim=(ppmlim[0],ppmlim[1])
-
-# Parse metabolite groups
-metab_groups = args.metab_groups
-if metab_groups == 0:
-    metab_groups = [0]*numBasis
-if len(metab_groups) != numBasis:
-    raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),numBasis)))
-
-
-# Store info in disctionaries to be passed to MRS and fitting
-MRSargs = {'basis':basis,'names':names,'cf':cf,'bw':bw}
-Fitargs = {'ppmlim':ppmlim,
-           'method':args.algo,'baseline_order':args.baseline_order,
-           'model':'lorentzian'}
-
-import multiprocessing as mp
-from functools import partial
-global_counter = mp.Value('L')
-
-
-# Define some ugly local functions for parallel processing
-def runvoxel(FIDH2O,MRSargs,Fitargs):
-    mrs = MRS(FID=FIDH2O[0],H2O=FIDH2O[1],**MRSargs)        
-    #mrs.check_FID(repare=True)
-    if args.add_MM:
-        n = mrs.add_MM_peaks()
-        new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
-        new_metab_groups = metab_groups + new_metab_groups
-    else:
-        new_metab_groups = metab_groups.copy()
-    res = fitting.fit_FSLModel(mrs, **Fitargs,metab_groups=new_metab_groups)   
-    with global_counter.get_lock():
-        global_counter.value += 1
-    return res
-
-def parallel_runs(data_list):
-    pool    = mp.Pool(processes=mp.cpu_count())
-    func    = partial(runvoxel, MRSargs=MRSargs, Fitargs=Fitargs) 
-    results = pool.map_async(func, data_list)
-    return results
-
-    
-# Fitting
-if args.verbose:
-    print('\n--->> Start fitting\n\n')
-    print('    Algorithm = [{}]\n'.format(args.algo))
-
-warnings.filterwarnings("ignore")
-if args.single_proc:
-    if args.verbose:
-        print('    Running sequentially (are you sure about that?) ')
-    results = []
-    for idx,FID in enumerate(fid_list):
-        if args.verbose:
-            print('{}/{} voxels fitted'.format(idx,len(fid_list))) #,end='\r')
-        mrs = MRS(FID=FID,H2O=h2o_list[idx],**MRSargs)
-        #mrs.check_FID(repare=True)
-        n = mrs.add_MM_peaks()
-        new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
-        new_metab_groups = metab_groups + new_metab_groups
-        res = fitting.fit_FSLModel(mrs, **Fitargs,metab_groups=new_metab_groups)   
-        results.append(res)
-else:
-    if args.verbose:
-        print('    Parallelising over {} workers '.format(mp.cpu_count()))
-    t0  = time.time()
-    results = parallel_runs(zip(fid_list,h2o_list))
-
-    while not results.ready():
-        if args.verbose:
-            print('{}/{} voxels completed'.format(global_counter.value,len(fid_list)), end='\r')
-        time.sleep(1)
-    if args.verbose:
-        print('{}/{} voxels completed'.format(global_counter.value,len(fid_list)), end='\r')
-        print('\n\nFitting done in {:0f} secs.'.format(time.time()-t0))
-
-
-    if not results.successful():
-        raise(Exception("Fitting unsuccessful :-(((((("))
-    else:
-        results = results.get()
+    # Save chosen arguments
+    with open(os.path.join(args.output,"options.txt"),"w") as f:
+        f.write(str(args))
+        f.write("\n--------\n")
+        f.write(p.format_values())
             
-# Save output files
-if args.verbose:
-    print('--->> Saving output files to {}\n'.format(args.output))
-    
-# ResFit --> Images
-# Store concentrations, uncertainties, residuals, predictions
+            
+    #######  Do the work #######
 
-# All params
-folder = os.path.join(args.output,'all_params')
-os.mkdir(folder)
-params = np.asarray([r.params for r in results])
-names  = results[0].params_names
-report.save_params(params,names,data_hdr,mask,folder)
+    # Read files
+    mrsi = fslmrs.MRSI.from_files(args.data,
+                        basis_file=args.basis,
+                        H2O_file=args.h2o)
 
-# All params
-folder = os.path.join(args.output,'all_perc_crlb')
-os.mkdir(folder)
-params = np.asarray([r.perc_SD for r in results])
-names  = results[0].params_names
-report.save_params(params,names,data_hdr,mask,folder)
+    def loadNii(f):
+        nii = np.asanyarray(nib.load(f).dataobj)
+        if nii.ndim == 2:
+            nii = np.expand_dims(nii,2)
+        return nii
 
-# Concentrations
-folder = os.path.join(args.output,'conc')
-os.mkdir(folder)
-params = np.asarray([r.conc for r in results])
-names  = results[0].names
-report.save_params(params,names,data_hdr,mask,folder)
+    if args.mask is not None:        
+        mask = loadNii(args.mask)
+        mrsi.set_mask(mask)
 
-# Concentrations/Cr
-if results[0].conc_cr is not None:
-    folder = os.path.join(args.output,'conc_cr')
-    os.mkdir(folder)
-    params = np.asarray([r.conc_cr for r in results])
-    names  = results[0].names
-    report.save_params(params,names,data_hdr,mask,folder)
+    if args.tissue_frac is not None:
+        #WM, GM, CSF
+        wm = loadNii(args.tissue_frac[0])
+        gm = loadNii(args.tissue_frac[1])
+        csf = loadNii(args.tissue_frac[2]) 
+        mrsi.set_tissue_seg(csf,wm,gm)
 
-# Concentrations/Cr+Pcr
-if results[0].conc_cr_pcr is not None:
-    folder = os.path.join(args.output,'conc_cr_pcr')
-    os.mkdir(folder)
-    params = np.asarray([r.conc_cr_pcr for r in results])
-    names  = results[0].names
-    report.save_params(params,names,data_hdr,mask,folder)
+    # Set mrs output options from MRSI class object
+    mrsi.conj_basis     = args.conj_basis
+    mrsi.no_conj_basis  = args.no_conj_basis
+    mrsi.conj_FID       = args.conj_fid
+    mrsi.no_conj_FID    = args.no_conj_fid
+    mrsi.rescale        = not args.no_rescale
+    mrsi.keep = args.keep
+    mrsi.ignore = args.ignore
 
-# Concentrations/H2O
-if results[0].conc_h2o is not None:
-    folder = os.path.join(args.output,'conc_h2o')
-    os.mkdir(folder)
-    params = np.asarray([r.conc_h2o for r in results])
-    names  = results[0].names
-    report.save_params(params,names,data_hdr,mask,folder)
+    # ppmlim for fitting
+    ppmlim=args.ppmlim
+    if ppmlim is not None:
+        ppmlim=(ppmlim[0],ppmlim[1])
 
-# Store predictions
-pred_list = [r.pred for r in results]
-pred_vol  = misc.list_to_volume(pred_list,mask,dtype=np.complex)
-# check if data has been conjugated and if so conjugate the predictions
-if args.conjugate:
-    pred_vol = np.conjugate(pred_vol)
-#FID   = fid_list[0] 
-#Spec1 = np.fft.fft(FID)
-#Spec2 = np.fft.fft(np.conj(FID))
-#mrs = MRS(FID=fid_list[0],**MRSargs)
-#first,last = mrs.ppmlim_to_range(ppmlim)
-#if np.linalg.norm(Spec1[first:last]) < np.linalg.norm(Spec2[first:last]):
-#    print('Data has been conjugated')
-#    pred_vol = np.conj(pred_vol)
-#else:
-#    print('Data has NOT been conjugated')
-img       = nib.Nifti1Image(pred_vol,affine=data_hdr.affine,header=data_hdr.header)
-filename  = os.path.join(os.path.join(args.output,'pred.nii.gz'))
-nib.save(img, filename)
+    # Store info in disctionaries to be passed to MRS and fitting
 
-# MSE
-mse_list = [r.mse for r in results]
-mse_vol  = misc.list_to_volume(mse_list,mask)
-img       = nib.Nifti1Image(mse_vol,affine=data_hdr.affine)
-filename  = os.path.join(os.path.join(args.output,'mse.nii.gz'))
-nib.save(img, filename)
+    if args.lorentzian:
+        Fitargs = {'ppmlim':ppmlim,
+               'method':args.algo,'baseline_order':args.baseline_order,
+               'model':'lorentzian'}
+    else:
+        Fitargs = {'ppmlim':ppmlim,
+               'method':args.algo,'baseline_order':args.baseline_order,
+               'model':'voigt'}
 
-# SNR
-snr_list = [r.snr for r in results]
-snr_vol  = misc.list_to_volume(snr_list,mask)
-img       = nib.Nifti1Image(snr_vol,affine=data_hdr.affine)
-filename  = os.path.join(os.path.join(args.output,'snr.nii.gz'))
-nib.save(img, filename)
+            # Echo time
+        if args.TE is not None:
+            echotime = args.TE*1E-3
+        elif 'meta' in mrsi.basis_hdr:
+            if 'TE' in mrsi.basis_hdr['meta']:
+                echotime = mrsi.basis_hdr['meta']['TE']
+                if echotime > 1.0: # Assume in ms.
+                    echotime *= 1E-3
+                else:
+                    echotime = None
+        else:
+            echotime = None
 
 
-if args.verbose:
-    print('\n\n\nDone.')
+    import multiprocessing as mp
+    from functools import partial
+    import logging,sys
+    # logger = mp.log_to_stderr()
+    # logger.setLevel(logging.INFO)
+
+    global_counter = mp.Value('L')
+
+      
+    # Fitting
+    if args.verbose:
+        print('\n--->> Start fitting\n\n')
+        print(f'    Algorithm = [{args.algo}]\n')
+
+    warnings.filterwarnings("ignore")
+    if args.single_proc:
+        if args.verbose:
+            print('    Running sequentially (are you sure about that?) ')
+        results = []
+        for idx,mrs in enumerate(mrsi):            
+            res = runvoxel(mrs,args,Fitargs,echotime)
+            results.append(res)
+            if args.verbose:
+                print(f'{idx+1}/{mrsi.num_masked_voxels} voxels completed')
+    else:
+        if args.verbose:
+            print(f'    Parallelising over {mp.cpu_count()} workers ')
+        t0  = time.time()
+        func = partial(runvoxel,args=args,Fitargs=Fitargs,echotime=echotime)
+        with mp.Pool(processes=mp.cpu_count()) as p:
+            pp  = PoolProgress(p)
+            results = p.map_async(func,mrsi)
+            pp.track(results)
+        results = results.get()       
+       
+                
+    # Save output files
+    if args.verbose:
+        print(f'--->> Saving output files to {args.output}\n')
+        
+    # Results --> Images
+    # Store concentrations, uncertainties, residuals, predictions, 
+    # Output:
+    # 1) concs - folders with N_metabs x 3D nifti for each scaling (raw,internal,molarity,molality)
+    # 2) uncertainties - N_metabs x 3D nifti as percentage 
+    # 3) qc - 2 x N_metabs x 3D nifti for SNR and fwhm
+    # 4) fit - predicted, residuals and baseline?
+
+    # Generate the folders
+    concs_folder = os.path.join(args.output,'concs')
+    uncer_folder = os.path.join(args.output,'uncertainties')
+    qc_folder = os.path.join(args.output,'qc')
+    fit_folder = os.path.join(args.output,'fit')
+
+    os.mkdir(concs_folder)
+    os.mkdir(uncer_folder)
+    os.mkdir(qc_folder)
+    os.mkdir(fit_folder)
+
+    #Extract concentrations
+    indicies  = [res[1] for res in results]
+    scalings = ['raw',]
+    if results[0][0].concScalings['internal'] is not None:
+        scalings.append('internal')
+    if results[0][0].concScalings['molarity'] is not None:
+        scalings.append('molarity')
+    if results[0][0].concScalings['molality'] is not None:
+        scalings.append('molality')
+
+    metabs = results[0][0].metabs
+    for scale in scalings:
+        cur_fldr = os.path.join(concs_folder,scale)
+        os.mkdir(cur_fldr)
+        for metab in metabs:
+            metab_conc_list = [res[0].getConc(scaling=scale,metab=metab) for res in results]
+            file_nm = os.path.join(cur_fldr,metab+'.nii.gz')
+            mrsi.write_output(metab_conc_list,file_nm,indicies=indicies,cleanup=True,dtype=float)
+
+    # Uncertainties 
+    for metab in results[0][0].metabs:
+        metab_sd_list = [res[0].getUncertainties(metab=metab) for res in results]
+        file_nm = os.path.join(uncer_folder,metab+'_sd.nii.gz')
+        mrsi.write_output(metab_sd_list,file_nm,indicies=indicies,cleanup=True,dtype=float)
+
+    # qc - SNR & FWHM
+    for metab in results[0][0].original_metabs:
+        metab_fwhm_list = [res[0].getQCParams(metab=metab)[1] for res in results]
+        file_nm = os.path.join(qc_folder,metab+'_fwhm.nii.gz')
+        mrsi.write_output(metab_fwhm_list,file_nm,indicies=indicies,cleanup=True,dtype=float)
+
+        metab_snr_list = [res[0].getQCParams(metab=metab)[0] for res in results]
+        file_nm = os.path.join(qc_folder,metab+'_snr.nii.gz')
+        mrsi.write_output(metab_snr_list,file_nm,indicies=indicies,cleanup=True,dtype=float)
+
+    # fit
+    # check if data has been conjugated and if so conjugate the predictions - To Do?
+    mrs_scale = mrsi.get_scalings_in_order()
+    pred_list = []
+    for res,scale in zip(results,mrs_scale):
+        pred_list.append(res[0].pred/scale['FID'])
+    file_nm = os.path.join(fit_folder,'fit.nii.gz')
+    mrsi.write_output(pred_list,file_nm,indicies=indicies,cleanup=False,dtype=np.complex128)
+
+    res_list = []
+    for res,scale in zip(results,mrs_scale):
+        res_list.append(res[0].residuals/scale['FID'])
+    file_nm = os.path.join(fit_folder,'residual.nii.gz')
+    mrsi.write_output(res_list,file_nm,indicies=indicies,cleanup=False,dtype=np.complex128)
+
+    baseline_list = []
+    for res,scale in zip(results,mrs_scale):
+        baseline_list.append(res[0].baseline/scale['FID'])
+    file_nm = os.path.join(fit_folder,'baseline.nii.gz')
+    mrsi.write_output(baseline_list,file_nm,indicies=indicies,cleanup=False,dtype=np.complex128)
+
+    if args.verbose:
+        print('\n\n\nDone.')
+
+
+def runvoxel(mrs_in,args,Fitargs,echotime):
+        mrs,index,tissue_seg = mrs_in
+
+         # Parse metabolite groups
+        metab_groups = args.metab_groups
+        if isinstance(metab_groups,list):
+            if isinstance(metab_groups[0],str):
+                tmp = [0]*mrs.numBasis
+                grpcounter = 0
+                for n in metab_groups:
+                    grpcounter += 1
+                    tmp[mrsi.names.index(n)] = grpcounter
+                metab_groups = tmp
+            elif isinstance(metab_groups[0],int):
+                if metab_groups == [0]:
+                    metab_groups = [0]*mrs.numBasis
+                elif len(metab_groups) != mrs.numBasis:
+                    raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
+        elif metab_groups == 0:
+            metab_groups = [0]*mrs.numBasis
+
+        if args.add_MM:
+            n = mrs.add_MM_peaks(gamma=40,sigma=30)
+            new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
+            new_metab_groups = metab_groups + new_metab_groups
+        else:
+            new_metab_groups = metab_groups.copy()
+        res = fitting.fit_FSLModel(mrs, **Fitargs,metab_groups=new_metab_groups)
+
+        # Quantification
+        # Internal and Water quantification if requested
+        if (mrs.H2O is None) or (echotime is None):
+            res.calculateConcScaling(mrs,referenceMetab=args.internal_ref)
+        elif tissue_seg is None:
+            res.calculateConcScaling(mrs,
+                                    referenceMetab=args.internal_ref,
+                                    waterRefFID=mrs.H2O,
+                                    tissueFractions=None,
+                                    TE=echotime,
+                                    verbose=args.verbose)
+        else:
+            res.calculateConcScaling(mrs,
+                                    referenceMetab=args.internal_ref,
+                                    waterRefFID=mrs.H2O,
+                                    tissueFractions=tissue_seg,
+                                    TE=echotime,
+                                    verbose=args.verbose)
+        # Combine metabolites.
+        if args.combine is not None:
+            res.combine(args.combine)
+
+        return res,index
+
+def str_or_int_arg(x):    
+    try:                           
+        return int(x)
+    except:
+        return x
+
+import time
+class PoolProgress:
+  def __init__(self,pool,update_interval=3):
+    self.pool            = pool
+    self.update_interval = update_interval
+  def track(self, job):
+    task = self.pool._cache[job._job]
+    while task._number_left>0:
+      print("Voxels remaining = {0}".format(task._number_left*task._chunksize))
+      time.sleep(self.update_interval)
+
+if __name__ == '__main__':
+    main()
+

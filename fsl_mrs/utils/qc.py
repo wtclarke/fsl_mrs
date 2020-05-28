@@ -7,6 +7,8 @@ from numpy.lib.stride_tricks import as_strided
 from collections import namedtuple
 import pandas as pd
 
+SNR = namedtuple('SNR',['spectrum','peaks','residual'])
+
 class NoiseNotFoundError(ValueError):
     pass
 
@@ -51,8 +53,7 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     snrResidual = snrResidual_height/rmse
 
     # Assemble outputs
-    # SNR output
-    SNR = namedtuple('SNR',['spectrum','peaks','residual'])
+    # SNR output    
     snrdf = pd.DataFrame()
     for m,snr in zip(res.metabs,snrPeaks):
             snrdf[f'SNR_{m}'] = pd.Series(snr)            
