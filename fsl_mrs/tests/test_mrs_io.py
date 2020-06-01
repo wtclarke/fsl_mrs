@@ -21,8 +21,6 @@ def test_read_FID_SVS():
     data_nifti,header_nifti = mrsio.read_FID(SVSTestData['nifti'])
     data_raw,header_raw = mrsio.read_FID(SVSTestData['raw'])
     data_txt,header_txt = mrsio.read_FID(SVSTestData['txt'])
-    
-    data_raw = data_raw.conj()
 
     # Check that the data from each of these matches - it should they are all the same bit of data.
     datamean = np.mean([data_nifti,data_raw,data_txt],axis=0)
@@ -95,7 +93,10 @@ def test_read_Basis():
             assert np.isclose(headers_txt[0][r],headerMean)
             assert np.isclose(headers_lcm[0][r],headerMean)
     
-    
+    # Conjugate fsl and jMRUI
+    basis_fsl = basis_fsl.conj()
+    basis_txt = basis_txt.conj()
+
     # Test that all contain roughly the same data when scaled.
     metabToCheck = 'Cr'
     checkIdx = names_raw.index('Cr')
@@ -105,11 +106,17 @@ def test_read_Basis():
                        convertToLimitedSpec(basis_raw[:,checkIdx]),
                        convertToLimitedSpec(basis_txt[:,checkIdx]),
                        convertToLimitedSpec(basis_lcm[:,checkIdx])],axis=0)
-    
-    assert np.isclose(convertToLimitedSpec(basis_fsl[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03).all()
-    assert np.isclose(convertToLimitedSpec(basis_raw[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03).all
-    assert np.isclose(convertToLimitedSpec(basis_txt[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03).all
-    assert np.isclose(convertToLimitedSpec(basis_lcm[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03).all
+    # breakpoint()
+    # import matplotlib.pyplot as plt
+    # plt.plot(convertToLimitedSpec(basis_fsl[:,checkIdx]))
+    # plt.plot(convertToLimitedSpec(basis_raw[:,checkIdx]),'--')
+    # plt.plot(convertToLimitedSpec(basis_txt[:,checkIdx]),'-.')
+    # plt.plot(convertToLimitedSpec(basis_lcm[:,checkIdx]),':')
+    # plt.show()
+    assert np.allclose(convertToLimitedSpec(basis_fsl[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03)
+    assert np.allclose(convertToLimitedSpec(basis_raw[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03)
+    assert np.allclose(convertToLimitedSpec(basis_txt[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03)
+    assert np.allclose(convertToLimitedSpec(basis_lcm[:,checkIdx]),meanSpec,rtol=2e-01, atol=1e-03)
 
 def test_fslBasisRegen():
     pointsToGen = 10

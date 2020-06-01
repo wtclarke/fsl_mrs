@@ -276,6 +276,7 @@ def fit_FSLModel(mrs,
                  model='lorentzian',
                  x0=None,
                  MHSamples=500,
+                 disable_mh_priors = False,
                  vb_iter=50):
     """
         A simplified version of LCModel
@@ -337,29 +338,31 @@ def fit_FSLModel(mrs,
         def loglik(p):
             return np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
 
-        # def logpr(p):     
-        #     return np.sum(dist.gauss_logpdf(p,loc=np.zeros_like(p),scale=np.ones_like(p)*1E2))
 
-        def logpr(p):
-            prior = 0
-            if model.lower()=='lorentzian':
-                con,gamma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
-                prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
-                prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
-                prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
-                prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*10/180)))   
-                prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
-                prior += 0  
-            elif model.lower()=='voigt':
-                con,gamma,sigma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
-                prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
-                prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
-                prior += np.sum(dist.gauss_logpdf(sigma,loc=np.ones_like(sigma)*5*np.pi,scale=np.ones_like(sigma)*2.5*np.pi))
-                prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
-                prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*5/180)))   
-                prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
-                prior += 0             
-            return prior
+        if disable_mh_priors:
+            def logpr(p):     
+                return np.sum(dist.gauss_logpdf(p,loc=np.zeros_like(p),scale=np.ones_like(p)*1E2))
+        else:
+            def logpr(p):
+                prior = 0
+                if model.lower()=='lorentzian':
+                    con,gamma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
+                    prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
+                    prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
+                    prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
+                    prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*10/180)))   
+                    prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
+                    prior += 0  
+                elif model.lower()=='voigt':
+                    con,gamma,sigma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
+                    prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
+                    prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
+                    prior += np.sum(dist.gauss_logpdf(sigma,loc=np.ones_like(sigma)*5*np.pi,scale=np.ones_like(sigma)*2.5*np.pi))
+                    prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
+                    prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*5/180)))   
+                    prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
+                    prior += 0             
+                return prior
 
         
         #loglik = lambda  p : np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2

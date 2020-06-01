@@ -52,4 +52,4 @@ def test_quantifyWater():
     print(res.getConc(scaling='molarity'))
 
     assert np.allclose(res.getConc(scaling='internal'),1.0)
-    assert np.allclose(res.getConc(scaling='molarity'),10.72,atol=1E-1)
+    assert np.allclose(res.getConc(scaling='molarity'),10.59,atol=1E-1)

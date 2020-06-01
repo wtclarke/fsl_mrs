@@ -17,18 +17,17 @@ def test_freqshift():
 
     assert freqOfMax < 5 and freqOfMax > -5
 
-# Test timeshift by 1) counting points, 2) undoing 1st order phase of fid with begin time.
+# Test timeshift
 def test_timeshift():
     # Create data with lots of points and some begin time delay
-    testFID,testHdrs = syn.syntheticFID(begintime=0.001,points=4096,noisecovariance=[[0.0]])
-
-    assert ~(np.real(FIDToSpec(testFID))>0.0).all() # Check starting conditions
+    testFID,testHdrs = syn.syntheticFID(begintime=-0.001,points=4096,noisecovariance=[[0.0]])
+    testFID2,testHdrs2 = syn.syntheticFID(begintime=0.000,points=4096,noisecovariance=[[0.0]])
 
     # Reduce points and pad to remove first order phase 
-    shiftedFID,_ = preproc.timeshift(testFID[0],1/testHdrs['inputopts']['bandwidth'],-0.001,0.0,samples=2048)
+    shiftedFID,_ = preproc.timeshift(testFID[0],1/testHdrs['inputopts']['bandwidth'],0.001,0.0,samples=4096)
 
-    assert shiftedFID.size == 2048
-    assert (np.real(FIDToSpec(shiftedFID)+0.005)>0.0).all()
+    # assert shiftedFID.size == 2048
+    assert np.allclose(shiftedFID,testFID2[0],atol=1E-1)
 
 # Test combine_FIDs:
 # Test mean by calculating mean of anti phase signals
@@ -169,11 +168,10 @@ def test_phaseCorrect():
 
 def test_add_subtract():
     mockFID = np.random.random(1024)+1j*np.random.random(1024)
-    mockFID2 = mockFID.copy()
-    testFID = preproc.add(mockFID,mockFID2)
-    assert np.allclose(testFID,mockFID*2.0)
+    testFID = preproc.add(mockFID.copy(),mockFID.copy())    
+    assert np.allclose(testFID,(mockFID*2.0)/2.0) # Averaging op
  
-    testFID = preproc.subtract(mockFID,mockFID2)
+    testFID = preproc.subtract(mockFID.copy(),mockFID.copy())
     assert np.allclose(testFID,np.zeros(1024))
 
 def test_align_diff():

@@ -24,7 +24,8 @@ def test_preproc(tmp_path):
                         ['--ecc',]+allfiles_ecc+
                         ['--hlsvd',
                         '--leftshift','1',
-                         '--overwrite'])
+                         '--overwrite',
+                        '--report' ])
     print(retcode)
     assert retcode==0
-    assert op.isfile(op.join(tmp_path,'coil_combined.png'))
+    assert op.isfile(op.join(tmp_path,'mergedReports.html'))

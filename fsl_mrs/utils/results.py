@@ -291,8 +291,13 @@ class FitRes(object):
             
         # Extract concentrations from parameters.
         if metab is not None:
-            if metab not in self.metabs:
-                raise ValueError(f'{metab} is not a recognised metabolite.')
+            if isinstance(metab,list):
+                for mm in metab:
+                    if mm not in self.metabs:
+                        raise ValueError(f'{mm} is not a recognised metabolite.')
+            else:
+                if metab not in self.metabs:
+                    raise ValueError(f'{metab} is not a recognised metabolite.')
             rawConc = dfFunc(metab)
         else:            
             rawConc = dfFunc(self.metabs)
@@ -333,11 +338,11 @@ class FitRes(object):
             raise ValueError('phi0 must be degrees or radians')
         
         if phi1.lower() == 'seconds':
-            p1 *= 1/(2*np.pi)
+            p1 *= -1.0/(2*np.pi)
         elif phi1.lower() == 'deg_per_ppm':
-            p1 *= 180.0/np.pi * self.hzperppm
+            p1 *= -180.0/np.pi * self.hzperppm
         elif phi1.lower() == 'deg_per_hz':
-            p1 *= 180.0/np.pi * 1.0
+            p1 *= -180.0/np.pi * 1.0
         else:
             raise ValueError('phi1 must be seconds or deg_per_ppm or deg_per_hz ')
 

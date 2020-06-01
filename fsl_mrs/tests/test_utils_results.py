@@ -17,7 +17,7 @@ def data():
     phases = [0,0,0]
     g = [0,0,0]
     basisNames = ['Cr','PCr','NAA']
-    begintime = 0.0001
+    begintime = 0.00005
 
     basisFIDs = []
     for idx,_ in enumerate(amplitude):
@@ -27,7 +27,7 @@ def data():
                                         linewidth=[lw[idx]/5],
                                         phase=[phases[idx]],
                                         g=[g[idx]],
-                                        begintime=begintime)
+                                        begintime=0)
         basisFIDs.append(tmp[0])
     basisFIDs = np.asarray(basisFIDs)
 
@@ -36,7 +36,8 @@ def data():
                                      amplitude=amplitude,
                                      linewidth=lw,
                                      phase=phases,
-                                     g=g)
+                                     g=g,
+                                     begintime=begintime)
 
     synMRS = MRS(FID =synFID[0],header=synHdr,basis =basisFIDs,basis_hdr=basisHdr,names=basisNames)
 
@@ -44,7 +45,8 @@ def data():
     Fitargs = {'ppmlim':[0.2,4.2],
             'method':'MH','baseline_order':-1,
             'metab_groups':metab_groups,
-            'MHSamples':100}
+            'MHSamples':100,
+            'disable_mh_priors':True}
     
     res = fit_FSLModel(synMRS,**Fitargs)
 
@@ -64,7 +66,7 @@ def test_peakcombination(data):
 
     assert 'Cr+PCr' in res.metabs
     assert np.allclose(fittedconcs,amplitudes,atol=1E-1)
-    assert np.allclose(fittedRelconcs,amplitudes/(amplitudes[0]+amplitudes[1]),atol=1E-1)
+    assert np.allclose(fittedRelconcs,amplitudes/(amplitudes[0]+amplitudes[1]),atol=2E-1)
 
 def test_units(data):
     res = data[0]
@@ -72,7 +74,7 @@ def test_units(data):
     # Phase
     p0,p1 = res.getPhaseParams(phi0='degrees',phi1='seconds')    
     assert np.isclose(p0,0.0,atol=1E-1)
-    assert np.isclose(p1,0.0001,atol=1E-5)
+    assert np.isclose(p1,0.00005,atol=3E-5)
 
     # Shift
     shift = res.getShiftParams(units='ppm')
@@ -81,8 +83,8 @@ def test_units(data):
     assert np.isclose(shift_hz,0.1*123.0,atol=1E-1)
 
     # Linewidth
-    lw = res.getLineShapeParams(units='Hz')
-    lw_ppm = res.getLineShapeParams(units='ppm')
+    lw = res.getLineShapeParams(units='Hz')[0]
+    lw_ppm = res.getLineShapeParams(units='ppm')[0]
     assert np.isclose(lw,8.0,atol=1E-1) #10-2
     assert np.isclose(lw_ppm,8.0/123.0,atol=1E-1)
 

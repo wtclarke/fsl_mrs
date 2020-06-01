@@ -14,9 +14,9 @@ def test_noisecov():
                     points= 32768)
 
     outcov = np.cov(np.asarray(testFID))
-    print(inputnoisecov)
-    print(outcov)
-    assert np.isclose(outcov,inputnoisecov,atol=1E-1).all()
+
+    # Noise cov is for both real and imag, so multiply by 2
+    assert np.isclose(outcov,2*inputnoisecov,atol=1E-1).all()
 
 def test_syntheticFID():
     testFID,hdr = syn.syntheticFID(noisecovariance=[[0.0]],points=16384)
@@ -36,4 +36,4 @@ def test_syntheticFID():
     spec /= np.max(np.abs(spec))
     testSpec /= np.max(np.abs(testSpec))
 
-    assert np.isclose(spec,FIDToSpec(testFID),atol = 1E-2,rtol = 1E0).all()
+    assert np.isclose(spec,FIDToSpec(testFID[0]),atol = 1E-2,rtol = 1E0).all()

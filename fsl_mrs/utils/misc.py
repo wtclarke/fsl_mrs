@@ -47,10 +47,13 @@ def FIDToSpec(FID,axis=0):
         Returns:
             x (np.array)        : array of spectra
     """
-    # By convention the first point of the fid is special cased   
-    FID[0] *=0.5
+    # By convention the first point of the fid is special cased
+    ss = [slice(None) for i in range(FID.ndim)]
+    ss[axis] = slice(0,1)
+    ss = tuple(ss)   
+    FID[ss] *=0.5
     out = scipy.fft.fftshift(scipy.fft.fft(FID,axis=axis,norm='ortho'),axes=axis)
-    FID[0] *=2
+    FID[ss] *=2
     return out
 
 def SpecToFID(spec,axis=0):
@@ -65,7 +68,10 @@ def SpecToFID(spec,axis=0):
             x (np.array)        : array of FIDs
     """    
     fid = scipy.fft.ifft(scipy.fft.ifftshift(spec,axes=axis),axis=axis,norm='ortho')
-    fid[0] *= 2
+    ss = [slice(None) for i in range(fid.ndim)]
+    ss[axis] = slice(0,1)
+    ss = tuple(ss)   
+    fid[ss] *= 2
     return fid
 
 def calculateAxes(bandwidth,centralFrequency,points):
