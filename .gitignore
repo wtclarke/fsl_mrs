@@ -8,3 +8,13 @@ __pycache__
 /dist
 test
 TODO
+/docs/**/_build
+.vscode
+.coverage
+*.code-workspace
+fsl_mrs/pkg_data/mrs_fitting_challenge/datasets1_21.mat
+example_usage/data/
+example_usage/fsl_mrs_preproc/
+example_usage/fsl_mrs_preproc_simple/
+example_usage/fsl_mrs_proc/
+example_usage/report.html
