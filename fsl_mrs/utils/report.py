@@ -99,41 +99,40 @@ import nibabel as nib
 
 
 def create_plotly_div(mrs,res):
-    divs=[]
+    divs={}
 
     def to_div(fig):
-        return plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
+        return plotly.offline.plot(fig,
+                                   output_type='div',
+                                   include_plotlyjs='cdn')
     
     # Summary plot
     fig = plotting.plotly_fit(mrs,res)
-    divs.append(to_div(fig))
+    divs['summary'] = to_div(fig)
 
-    fig = plotting.plot_table_fitparams(res)
-    divs.append(to_div(fig))        
+    # tables
+    #  nuisance
+    fig = plotting.plot_table_lineshape_phase(res)
+    divs['table-lineshape-phase'] = to_div(fig)
+    #  qc
     fig = plotting.plot_table_qc(res)
-    divs.append(to_div(fig))        
-    
-    # Approximate (Laplace) marginals
-    fig = plotting.plot_dist_approx(res,refname=res.concScalings['internalRef'])    
-    div2 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-    divs.append(div2)
+    divs['table-qc'] = to_div(fig)        
 
     # MCMC results (if available)
     if res.method == 'MH':
-        fig = plotting.plot_mcmc_corr(res)
-        div3 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-        # divs.append(div3)
-        fig = plotting.plot_dist_mcmc(res,refname=res.concScalings['internalRef'])
-        div4 = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-        divs.append([div3,div4])
-
+        fig1 = plotting.plot_corr(res,title='MCMC Correlations')
+        fig2 = plotting.plot_dist_mcmc(res,refname=res.concScalings['internalRef'])
+    else:
+        fig1 = plotting.plot_corr(res,corr=res.corr,title='Laplace approx Correlations')
+        fig2 = plotting.plot_dist_approx(res,refname=res.concScalings['internalRef'])    
+    divs['corr']       = to_div(fig1)
+    divs['posteriors'] = to_div(fig2)
+    
     fig = plotting.plot_real_imag(mrs,res,ppmlim=(.2,4.2))
-    div = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-    divs.append(div)
+    divs['real-imag'] = to_div(fig) #plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     
     fig = plotting.plot_indiv_stacked(mrs,res,ppmlim=res.ppmlim)
-    div = plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-    divs.append(div)
+    divs['indiv'] = to_div(fig) #plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     
     return divs
 
@@ -180,13 +179,13 @@ def create_vox_plot(t1file,voxfile,outdir):
 
 def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
 
-    divlist= create_plotly_div(mrs,res)
+    divs= create_plotly_div(mrs,res)
 
     #if t1 is not None:
     #    create_vox_plot(t1file=t1,outdir=outdir)
 
     
-    template = """<!DOCTYPE html>
+    template = f"""<!DOCTYPE html>
     <html>
     <head>
     <style>
@@ -197,56 +196,98 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     white-space: pre;
     margin: 1em 0;
     }}
-    .container{{
-    display: flex;
-    }}
     .fixed{{
         width: 200px;
     }}
     .flex-item{{
         flex-grow: 1;
     }}
+
     </style>       
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
     <body>
-    <h1>FSL MRS Report</h1>
+    <div class="header">
+    <center><h1>FSL MRS Report</h1></center>
+    <hr>
     <pre>
-    Date        : {}
-    FID         : {}
-    Basis       : {}
-    H2O         : {}
+    Date        : {date}
+    FID         : {fidfile}
+    Basis       : {basisfile}
+    H2O         : {h2ofile}
     </pre>
+    </div>
+    <hr>
+    <center>
+    <a href="#summary">Summary</a> - 
+    <a href="#nuisance">Nuisance</a> - 
+    <a href="#qc">QC</a> - 
+    <a href="#uncertainty">Uncertainty</a> - 
+    <a href="#realimag">Real/Imag</a> - 
+    <a href="#metabs">Metabs</a>
+    </center>
     <hr>      
-    """.format(date,fidfile,basisfile,h2ofile)
+    """
 
+    
+    # Summary section
+    section=f"""
+    <h1><a name="summary">Summary</a></h1>    
+    <div id=fit>{divs['summary']}</div>
+    <hr>
+    """
+    template+=section
+    
+    
+    # Tables section
+    section=f"""
+    <h1><a name="nuisance">Nuisance parameters</a></h1>    
+    <div style="width:70%">{divs['table-lineshape-phase']}</div>
+    
+    <hr>
+    <h1><a name="qc">QC parameters</a></h1>
+    <div style="width:70%">{divs['table-qc']}</div>
+    <hr>
+    """
+    template+=section
+    
+    # Dist section
+    section=f"""
+    <h1><a name="uncertainty">Uncertainties</a></h1>
+    <table width=100%>
+    <tr>
+    <th style="vertical-align:top">{divs['corr']}</th>
+    <th style="vertical-align:top">{divs['posteriors']}</th>
+    </tr>
+    </table>
+    <hr>
+    """
+    template+=section
+
+    # Real/imag section
+    section=f"""
+    <h1><a name="realimag">Fitting summary (real/imag)</a></h1>
+    {divs['real-imag']}
+    <hr>
+    """
+    template+=section
+    
+    # Indiv spectra section
+    section=f"""
+    <h1><a name="metabs">Individual metabolite spectra</a></h1>
+    {divs['indiv']}
+    <hr>
+    """
+    template+=section
+    
     # add voxplot?
     #if t1 is not None:
     #    create_vox_plot(t1file,voxfile,outdir)
     #    voxplothtml='<p><img src="voxplot.png">voxplot</img></p>'
     #    template+=voxplothtml
     
-    for i,div in enumerate(divlist):
-        if isinstance(div,list):
-            section=f"""
-            <div id='divPlotly{i}' class='container'>
-                <div class='flex-item'>
-                    {div[0]}
-                </div>
 
-                <div class='flex-item'>
-                    {div[1]}
-                </div>
-            </div>
-            """
-            template+=section
-        else:
-            section="""
-            <div id='divPlotly{}'>
-            {}
-            </div>
-            """
-            template+=section.format(i,div)
+    # End of report
     template+="""
     </body>    
     </html>

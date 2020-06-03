@@ -453,8 +453,8 @@ def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
     preds   *= phaseTerm
     resid   *= phaseTerm
 
-    base   = project(base,proj)
-    data   = project(data,proj)
+    base    = project(base,proj)
+    data    = project(data,proj)
     preds   = project(preds,proj)
     resid   = project(resid,proj)
 
@@ -479,15 +479,12 @@ def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
         concstr = f'/{res.concScalings["internalRef"]}'
         df[concstr]            = np.round(res.getConc(scaling='internal'),decimals=2)
     
-
-
-    fig = ff.create_table(df, height_constant=50)
-    for i in range(len(fig.layout.annotations)):
-        fig.layout.annotations[i].font.size = 16
+    tab = create_table(df)
+    
         
     colors = dict(data='rgb(67,67,67)', 
                   pred='rgb(253,59,59)',
-                  base='rgb(170,170,170)',
+                  base='rgb(0,150,242)',
                   resid='rgb(170,170,170)')
     line_size = dict(data=1, 
                      pred=2,
@@ -497,45 +494,50 @@ def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
                         mode='lines',
                         name='data',
                         line=dict(color=colors['data'],width=line_size['data']),
-                        xaxis='x2', yaxis='y2')
+                        )
     trace2 = go.Scatter(x=axis, y=preds,
                         mode='lines',
                         name='model',
                         line=dict(color=colors['pred'],width=line_size['pred']),
-                        xaxis='x2', yaxis='y2')
+                        )
     trace3 = go.Scatter(x=axis, y=base,
                         mode='lines',
                         name='baseline',
                         line=dict(color=colors['base'],width=line_size['base']),
-                        xaxis='x2', yaxis='y2')
+                        )
     trace4 = go.Scatter(x=axis, y=resid,
                         mode='lines',
                         name='residuals',
                         line=dict(color=colors['resid'],width=line_size['resid']),
-                        xaxis='x2', yaxis='y2')
+                        )
 
 
-    fig.add_traces([trace1,trace2,trace3,trace4])
-    fig['layout']['xaxis2'] = {}
-    fig['layout']['yaxis2'] = {}
+    fig = make_subplots(rows=1, cols=2,
+                        column_widths=[0.4, 0.6],
+                        horizontal_spacing=0.03,
+                        specs=[[{'type':'table'},{'type':'scatter'}]])
 
-    fig.layout.xaxis.update({'domain': [0, .35]})
-    fig.layout.xaxis2.update({'domain': [0.4, 1.]})
-    fig.layout.xaxis2.update(title_text='Chemical shift (ppm)',
-                             tick0=2, dtick=.5,
-                             range=[ppmlim[1],ppmlim[0]])
-    # The graph's yaxis MUST BE anchored to the graph's xaxis
-    fig.layout.yaxis2.update({'anchor': 'x2'})
-    fig.layout.yaxis2.update(zeroline=True, 
-                             zerolinewidth=1, 
-                             zerolinecolor='Gray',
-                             showgrid=False,showticklabels=False,
-                             range=[ymin,ymax])
-    
-    # Update the margins to add a title and see graph x-labels.
-    fig.layout.margin.update({'t':50, 'b':100})
-    fig.layout.update({'title': 'Fitting summary'})
+    fig.add_trace(tab,row=1,col=1)
+    fig.add_trace(trace1,row=1,col=2)
+    fig.add_trace(trace2,row=1,col=2)
+    fig.add_trace(trace3,row=1,col=2)
+    fig.add_trace(trace4,row=1,col=2)
+
+
     fig.update_layout(template = 'plotly_white')
+
+    fig.update_xaxes({'domain': [0.4, 1.]},row=1,col=2)
+    fig.update_xaxes(title_text='Chemical shift (ppm)',
+                     tick0=2, dtick=.5,
+                     range=[ppmlim[1],ppmlim[0]])
+    
+
+    fig.update_yaxes(zeroline=True, 
+                     zerolinewidth=1, 
+                     zerolinecolor='Gray',
+                     showgrid=False,showticklabels=False,
+                     range=[ymin,ymax])
+    
     fig.layout.update({'height':800})
     
     return fig
@@ -567,14 +569,15 @@ def plot_dist_approx(res,refname='Cr'):
                       showlegend=False,
                       font=dict(size=10),
                       title='Approximate marginal distributions (ref={})'.format(refname),
-                      height=800,width=800)
+                      height=700,width=700)
     for i in fig['layout']['annotations']:
         i['font'] = dict(size=10,color='#ff0000')
-    
+    fig.update_layout(autosize=True)
+
     return fig
 
 
-def plot_mcmc_corr(res,corr=None):
+def plot_corr(res,corr=None,title='Correlation'):
 
     #Greys,YlGnBu,Greens,YlOrRd,Bluered,RdBu,Reds,Blues,
     #Picnic,Rainbow,Portland,Jet,Hot,Blackbody,Earth,
@@ -591,9 +594,9 @@ def plot_mcmc_corr(res,corr=None):
     
     fig.update_layout(template = 'plotly_white',
                       font=dict(size=10),
-                      title='MCMC correlation',
-                      width = 700,
-                      height = 700,
+                      title=title,
+                      width = 600,
+                      height = 600,
                       yaxis = dict(
                           scaleanchor = "x",
                           scaleratio = 1,
@@ -609,7 +612,7 @@ def plot_mcmc_corr(res,corr=None):
                                     method="restyle"
                                 ),
                                 dict(
-                                    args=[{"z":[corrabs],"colorscale":'Reds'}],
+                                    args=[{"z":[corrabs],"colorscale":'Picnic'}],
                                     label="Abs",
                                     method="restyle"
                                 )
@@ -622,7 +625,8 @@ def plot_mcmc_corr(res,corr=None):
                             yanchor="top"
                         ),
                     ])
-    
+    fig.update_layout(autosize=True)
+
     return fig
 
 def plot_dist_mcmc(res,refname='Cr'):
@@ -656,7 +660,8 @@ def plot_dist_mcmc(res,refname='Cr'):
     for i in fig['layout']['annotations']:
         i['font'] = dict(size=10,color='#ff0000')
 
-    
+    fig.update_layout(autosize=True)
+
     return fig
 
 def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
@@ -743,7 +748,7 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
     
     # Update the margins to add a title and see graph x-labels.
 #     fig.layout.margin.update({'t':50, 'b':100})
-    fig.layout.update({'title': 'Fitting summary Real/Imag'})
+    #fig.layout.update({'title': 'Fitting summary Real/Imag'})
     fig.update_layout(template = 'plotly_white')
     # fig.layout.update({'height':800,'width':1000})
     
@@ -818,7 +823,7 @@ def plot_indiv_stacked(mrs,res,ppmlim=(.2,4.2)):
 
     # Update the margins to add a title and see graph x-labels.
     #     fig.layout.margin.update({'t':50, 'b':100})
-    fig.layout.update({'title': 'Individual Fitting summary'})
+    #fig.layout.update({'title': 'Individual Fitting summary'})
     fig.update_layout(template = 'plotly_white')
     # fig.layout.update({'height':800,'width':1000})
 
@@ -874,70 +879,169 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
                     showgrid=False,showticklabels=False)
     return fig
 
-# def plot_table_fitparams(res): 
-def plot_table_fitparams(res):
-    # Single parameter measures
-    header=["Static phase (deg)", "Linear phase (deg/ppm)"]
-    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
-    values=[np.round(p0,decimals=5),
-            np.round(p1,decimals=5)]
-    table1 = dict(type='table',
-                  header=dict(values=header,font=dict(size=10),align="center"),
-                  cells=dict(values=values,align = "right"),                  
-                  columnorder = [1,2,3],
-                  columnwidth = [80,80,80],
-                 )
 
-    # Fitting group Gamma/Eps
-    header2 = ['group','linewidth (Hz)','shift (ppm)','metab groups']
-    values2 = [[],[],[],[]]
+def create_table(df):
+    """
+    Generate plotly graphical Table from pandas dataframe
+    """    
+    n      = df.shape[0]
+    colors = ['#F2F2F2','white']*n  # alternating row colors
+
+    header = dict(values=['<b>'+x+'</b>' for x in list(df.columns)],
+                  fill_color='#41476C',
+                  align='left',
+                  font={'color':'white'})
+
+    cells  = dict(values=[df[x] for x in list(df.columns)],
+                  fill_color=[colors*2],
+                  align='left')
+    
+    tab = go.Table(header=header,
+                   cells=cells,visible=True)
+ 
+
+    return tab
+
+def plot_table_lineshape_phase(res):
     shift = res.getShiftParams(units='ppm')
-    lw = res.getLineShapeParams(units='Hz')[0] # Only take combined values
-    for g in range(res.g):    
-        values2[0].append(g)
-        values2[1].append(np.round(lw[g],decimals=3))
-        values2[2].append(np.round(shift[g],decimals=5))
+    lw    = res.getLineShapeParams(units='Hz')[0] # Only take combined values
+    
+    # Get the lineshape params
+    header = ['Metab group','linewidth (Hz)','shift (ppm)']
+    values = [[],[],[]]
+    for g in range(res.g):            
+        values[1].append(np.round(lw[g],decimals=3))
+        values[2].append(np.round(shift[g],decimals=5))
         metabs = []
         for i,m in enumerate(res.original_metabs):
             if res.metab_groups[i] == g:
                 metabs.append(m)                        
-        values2[3].append(metabs)
-    table2 = go.Table(header=dict(values=header2,font=dict(size=10),align="center"),
-                      cells=dict(values=values2,align = "right"),             
-                      columnorder = [1,2,3,4],
-                      columnwidth = [12,12,12,64]
-                 )
+        values[0].append(', '.join(metabs))
+    # Fill dataframe
+    df1     = pd.DataFrame()
+    for h,v in zip(header,values):
+        df1[h] = v
+    # create table
+    tab1 = create_table(df1)
 
-    fig = make_subplots(rows=1,cols=2,
-                        specs=  [[{"type": "table"},{"type": "table"}]])
-    fig.add_trace(table1,row=1, col=1)
-    fig.add_trace(table2,row=1, col=2)
+    # Get phase params
+    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
+    # Fill dataframe
+    df = pd.DataFrame()
+    df['Static phase (deg)']     = [np.round(p0,decimals=5)]
+    df['Linear phase (deg/ppm)'] = [np.round(p1,decimals=5)]
+    # create table
+    tab2 = create_table(df)
+
+
+    fig = make_subplots(rows=1, cols=2,
+                        column_widths=[3/5, 2/5],
+                        horizontal_spacing=0.03,
+                        specs=[[{'type':'table'},{'type':'table'}]],
+                        subplot_titles=['Lineshape params','Phase params'])
+
+    fig.add_trace(tab1,row=1,col=1)
+    fig.add_trace(tab2,row=1,col=2)
+
     fig.update_layout(template = 'plotly_white')
-    fig.layout.update({'height':300})
+    
+    fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
 
     return fig
+
+def plot_table_lineshape(res):
+    """
+    Creates a table summarising fitted lineshape parameters for each metab group
+    """
+    
+    shift = res.getShiftParams(units='ppm')
+    lw    = res.getLineShapeParams(units='Hz')[0] # Only take combined values
+
+    
+    df     = pd.DataFrame()
+    header = ['Metab group','linewidth (Hz)','shift (ppm)']
+    values = [[],[],[]]
+    for g in range(res.g):            
+        values[1].append(np.round(lw[g],decimals=3))
+        values[2].append(np.round(shift[g],decimals=5))
+        metabs = []
+        for i,m in enumerate(res.original_metabs):
+            if res.metab_groups[i] == g:
+                metabs.append(m)                        
+        values[0].append(', '.join(metabs))
+
+    for h,v in zip(header,values):
+        df[h] = v
+
+    tab = create_table(df)
+    fig = go.Figure(data=[tab])
+    fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
+
+    return fig
+
+    # fig = ff.create_table(df, height_constant=50)
+    # for i in range(len(fig.layout.annotations)):
+    #     fig.layout.annotations[i].font.size = 16
+    
+    # fig.layout.update(title={'text': 'Lineshape parameters'},font={'size':20})
+    # fig.update_layout(template = 'plotly_white')
+   
+    # return fig
+
+
+def plot_table_phase(res):
+    """
+    Creates a table summarising the fitted phase parameters
+    """
+    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
+    
+    df = pd.DataFrame()
+    df['Static phase (deg)']     = [np.round(p0,decimals=5)]
+    df['Linear phase (deg/ppm)'] = [np.round(p1,decimals=5)]
+
+    tab = create_table(df)
+    fig = go.Figure(data=[tab])
+    fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
+
+    return fig
+
+    # fig = ff.create_table(df, height_constant=50)
+    # for i in range(len(fig.layout.annotations)):
+    #     fig.layout.annotations[i].font.size = 16
+    
+    # fig.layout.update(title={'text': 'Phase parameters'},font={'size':20})
+    # fig.update_layout(template = 'plotly_white')
+    # fig.update_layout()
+    
+    #return fig
+
+
 def plot_table_qc(res):
     # Peak by peak snr and fwhm
 
     snr,fwhm = res.getQCParams()
-    df = pd.DataFrame([snr.to_numpy(),fwhm.to_numpy()],columns=res.original_metabs).T
-    df.columns = ['SNR','FWHM (Hz)']
+    df = pd.DataFrame() 
+    
+    df['Metab']     = res.original_metabs
+    df['SNR'] = snr.to_numpy()  
+    df['FWHM (Hz)'] = fwhm.to_numpy() 
     df['SNR'] = df['SNR'].map('{:.1f}'.format)
-    df['FWHM (Hz)'] = df['FWHM (Hz)'].map('{:.1f}'.format)
-
-    fig = go.Figure(data=[go.Table(
-                    header=dict(values=["Metabolites"]+list(df.columns),
-                                align='left'),
-                    cells=dict(values=[df.index,df.SNR, df['FWHM (Hz)']],
-                               align='left',
-                               format=('','0.1f','0.1f')))
-                ])
-
-    fig.update_layout(template = 'plotly_white')
-    # fig.layout.update({'width':1000,'height':200})
+    df['FWHM (Hz)'] = df['FWHM (Hz)'].map('{:.1f}'.format)    
+    
+    
+    tab = create_table(df)
+    fig = go.Figure(data=[tab])
+    fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
 
     return fig
 
+    #fig = ff.create_table(df, height_constant=30)
+    #for i in range(len(fig.layout.annotations)):
+    #    fig.layout.annotations[i].font.size = 16
+
+    #fig.layout.update(title={'text': 'QC parameters'},font={'size':20})
+    #fig.update_layout(template = 'plotly_white')
+    #return fig
 
 
 # ----------- Imaging
