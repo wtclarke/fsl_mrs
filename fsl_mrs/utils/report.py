@@ -137,52 +137,49 @@ def create_plotly_div(mrs,res):
     return divs
 
 
-def create_vox_plot(t1file,voxfile,outdir):
-    def ijk2xyz(ijk,affine):    
-        return affine[:3, :3].dot(ijk) + affine[:3, 3]
-    def xyz2ijk(xyz,affine):
-        inv_affine = np.linalg.inv(affine)
-        return inv_affine[:3, :3].dot(xyz) + inv_affine[:3, 3]
-    def do_plot(slice,rect):
-        vmin = np.quantile(slice,.01)
-        vmax = np.quantile(slice,.99)
-        plt.imshow(slice, cmap="gray", origin="lower",vmin=vmin,vmax=vmax)
-        plt.plot(rect[:, 1], rect[:, 0],c='#FF4646',linewidth=2)
-        plt.xticks([])
-        plt.yticks([])
+# def create_vox_plot(t1file,voxfile,outdir):
+#     def ijk2xyz(ijk,affine):    
+#         return affine[:3, :3].dot(ijk) + affine[:3, 3]
+#     def xyz2ijk(xyz,affine):
+#         inv_affine = np.linalg.inv(affine)
+#         return inv_affine[:3, :3].dot(xyz) + inv_affine[:3, 3]
+#     def do_plot(slice,rect):
+#         vmin = np.quantile(slice,.01)
+#         vmax = np.quantile(slice,.99)
+#         plt.imshow(slice, cmap="gray", origin="lower",vmin=vmin,vmax=vmax)
+#         plt.plot(rect[:, 1], rect[:, 0],c='#FF4646',linewidth=2)
+#         plt.xticks([])
+#         plt.yticks([])
 
-    t1      = nib.load(t1file)
-    vox     = nib.load(voxfile)
-    t1_data = t1.get_fdata()
+#     t1      = nib.load(t1file)
+#     vox     = nib.load(voxfile)
+#     t1_data = t1.get_fdata()
 
-    # centre of MRS voxel in T1 voxel space (or is it the corner?)
-    ijk   = xyz2ijk(ijk2xyz([0,0,0],vox.affine),t1.affine)
-    i,j,k = ijk
-    # half size of MRS voxel (careful this assumes 1mm resolution T1)
-    si,sj,sk = np.diag(vox.affine[:3,:3])/2
-    # Do the plotting
-    fig = plt.figure(figsize=(15,10))
-    plt.subplot(1,3,1)
-    slice = np.squeeze(t1_data[int(i),:,:])
-    rect  = np.asarray([[j-sj,k-sk],[j+sj,k-sk],[j+sj,k+sk],[j-sj,k+sk],[j-sj,k-sk]])
-    do_plot(slice,rect)
-    plt.subplot(1,3,2)
-    slice = np.squeeze(t1_data[:,int(j),:])
-    rect  = np.asarray([[i-si,k-sk],[i+si,k-sk],[i+si,k+sk],[i-si,k+sk],[i-si,k-sk]])
-    do_plot(slice,rect)
-    plt.subplot(1,3,3)
-    slice = np.squeeze(t1_data[:,:,int(k)])
-    rect  = np.asarray([[i-si,j-sj],[i+si,j-sj],[i+si,j+sj],[i-si,j+sj],[i-si,j-sj]])
-    do_plot(slice,rect)
-    fig.save(os.path.join(outdir,'voxplot.png'))
-    return
+#     # centre of MRS voxel in T1 voxel space (or is it the corner?)
+#     ijk   = xyz2ijk(ijk2xyz([0,0,0],vox.affine),t1.affine)
+#     i,j,k = ijk
+#     # half size of MRS voxel (careful this assumes 1mm resolution T1)
+#     si,sj,sk = np.diag(vox.affine[:3,:3])/2
+#     # Do the plotting
+#     fig = plt.figure(figsize=(15,10))
+#     plt.subplot(1,3,1)
+#     slice = np.squeeze(t1_data[int(i),:,:])
+#     rect  = np.asarray([[j-sj,k-sk],[j+sj,k-sk],[j+sj,k+sk],[j-sj,k+sk],[j-sj,k-sk]])
+#     do_plot(slice,rect)
+#     plt.subplot(1,3,2)
+#     slice = np.squeeze(t1_data[:,int(j),:])
+#     rect  = np.asarray([[i-si,k-sk],[i+si,k-sk],[i+si,k+sk],[i-si,k+sk],[i-si,k-sk]])
+#     do_plot(slice,rect)
+#     plt.subplot(1,3,3)
+#     slice = np.squeeze(t1_data[:,:,int(k)])
+#     rect  = np.asarray([[i-si,j-sj],[i+si,j-sj],[i+si,j+sj],[i-si,j+sj],[i-si,j-sj]])
+#     do_plot(slice,rect)
+#     fig.save(os.path.join(outdir,'voxplot.png'))
+#     return
 
 def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
 
     divs= create_plotly_div(mrs,res)
-
-    #if t1 is not None:
-    #    create_vox_plot(t1file=t1,outdir=outdir)
 
     
     template = f"""<!DOCTYPE html>
@@ -206,7 +203,7 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     </style>       
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
-    <body>
+    <body style="background-color:white">
     <div class="header">
     <center><h1>FSL MRS Report</h1></center>
     <hr>
@@ -224,7 +221,8 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     <a href="#qc">QC</a> - 
     <a href="#uncertainty">Uncertainty</a> - 
     <a href="#realimag">Real/Imag</a> - 
-    <a href="#metabs">Metabs</a>
+    <a href="#metabs">Metabs</a> - 
+    <a href="#methods">Methods</a>
     </center>
     <hr>      
     """
@@ -237,7 +235,12 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     <hr>
     """
     template+=section
-    
+
+    # Location
+    voxpngfile=os.path.join(os.path.split(filename)[0],"voxel_location.png")
+    voxplothtml=f'<h1>Voxel location</h1><img src="{voxpngfile}" alt="Voxel location" width="700"></img><hr>'
+    template+=voxplothtml
+
     
     # Tables section
     section=f"""
@@ -279,13 +282,19 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     <hr>
     """
     template+=section
-    
-    # add voxplot?
-    #if t1 is not None:
-    #    create_vox_plot(t1file,voxfile,outdir)
-    #    voxplothtml='<p><img src="voxplot.png">voxplot</img></p>'
-    #    template+=voxplothtml
-    
+
+
+    # Details of the methods
+    #methodsfile="/path/to/file"
+    #methods = np.readtxt(methodsfile)
+    from fsl_mrs import __version__
+    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}. Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke W, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    section=f"""
+    <h1><a name="methods">Analysis methods</a></h1>
+    <div>{methods}</div>
+    <hr>
+    """
+    template+=section
 
     # End of report
     template+="""
