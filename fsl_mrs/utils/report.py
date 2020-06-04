@@ -97,14 +97,13 @@ import nibabel as nib
 #         super().parse(self.html_template, outname, mrs=self.mrs)
 
 
-
+def to_div(fig):
+    return plotly.offline.plot(fig,
+                               output_type='div',
+                               include_plotlyjs='cdn')
 def create_plotly_div(mrs,res):
     divs={}
 
-    def to_div(fig):
-        return plotly.offline.plot(fig,
-                                   output_type='div',
-                                   include_plotlyjs='cdn')
     
     # Summary plot
     fig = plotting.plotly_fit(mrs,res)
@@ -136,6 +135,69 @@ def create_plotly_div(mrs,res):
     
     return divs
 
+
+def static_image(imgfile):
+    import plotly.graph_objects as go
+    from PIL import Image
+    img = Image.open(imgfile)
+    # Create figure
+    fig = go.Figure()
+
+    # Constants
+    img_width  = img.width
+    img_height = img.height
+    scale_factor = 0.5
+
+    # Add invisible scatter trace.
+    fig.add_trace(
+        go.Scatter(
+            x=[0, img_width * scale_factor],
+            y=[0, img_height * scale_factor],
+            mode="markers",
+            marker_opacity=0
+        )
+    )
+
+    # Configure axes
+    fig.update_xaxes(
+        visible=False,
+        range=[0, img_width * scale_factor]
+    )
+
+    fig.update_yaxes(
+        visible=False,
+        range=[0, img_height * scale_factor],
+        # the scaleanchor attribute ensures that the aspect ratio stays constant
+        scaleanchor="x"
+    )
+
+    # Add image
+    fig.add_layout_image(
+        dict(
+            x=0,
+            sizex=img_width * scale_factor,
+            y=img_height * scale_factor,
+            sizey=img_height * scale_factor,
+            xref="x",
+            yref="y",
+            opacity=1.0,
+            layer="below",
+            sizing="stretch",
+            source=img)
+    )
+    
+    # Configure other layout
+    fig.update_layout(
+        width=img_width * scale_factor,
+        height=img_height * scale_factor,
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
+    )
+
+    # Disable the autosize on double click because it adds unwanted margins around the image
+    # More detail: https://plotly.com/python/configuration-options/
+    #fig.show(config={'doubleClick': 'reset'})
+
+    return fig
 
 # def create_vox_plot(t1file,voxfile,outdir):
 #     def ijk2xyz(ijk,affine):    
@@ -238,9 +300,11 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
 
     # Location
     voxpngfile=os.path.join(os.path.split(filename)[0],"voxel_location.png")
-    voxplothtml=f'<h1>Voxel location</h1><img src="{voxpngfile}" alt="Voxel location" width="700"></img><hr>'
-    template+=voxplothtml
+    #voxplothtml=f'<h1>Voxel location</h1><img src="{voxpngfile}" alt="Voxel location" width="700"></img><hr>'
+    #template+=voxplothtml
 
+    fig = static_image(voxpngfile)
+    template+=f"<h1>Voxel location</h1><div>{to_div(fig)}</div><hr>"
     
     # Tables section
     section=f"""
@@ -288,7 +352,7 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     #methodsfile="/path/to/file"
     #methods = np.readtxt(methodsfile)
     from fsl_mrs import __version__
-    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}. Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke W, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke W, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
     section=f"""
     <h1><a name="methods">Analysis methods</a></h1>
     <div>{methods}</div>
