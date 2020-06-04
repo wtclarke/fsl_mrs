@@ -138,9 +138,9 @@ def create_plotly_div(mrs,res):
     if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['info']['q_info'],'f_GM'):
         Q = res.concScalings['info']['q_info']
         quant_df = pd.DataFrame()
-        quant_df['Tissue-water densities'] = [Q.d_GM,Q.d_WM,Q.d_CSF]
+        quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM,Q.d_WM,Q.d_CSF]
         quant_df['Tissue volume fractions'] = [Q.f_GM,Q.f_WM,Q.f_CSF]
-        quant_df['Water T2s'] = [Q.T2['H2O_GM'],Q.T2['H2O_WM'],Q.T2['H2O_CSF']]
+        quant_df['Water T2 (ms)'] = [Q.T2['H2O_GM']*1000,Q.T2['H2O_WM']*1000,Q.T2['H2O_CSF']*1000]
         quant_df.index = ['GM', 'WM', 'CSF']
         quant_df.index.name = 'Tissue'
         quant_df.reset_index(inplace=True)
@@ -378,23 +378,68 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
         if  hasattr(res.concScalings['info']['q_info'],'f_GM'):
             section=f"""
             <h1><a name="quantification">Quantification information</a></h1>
-            {divs['quant_table']}            
-            <p>The metabolite T<sub>2</sub> is {1000*Q.T2['METAB']} ms.<br>
-            The sequence echo time (T<sub>E</sub>) is {1000*Q.TE} ms.<br>
-            <p>The T<sub>2</sub> relaxation corrected water concentration is {relax_water_conc:0.0f} mmol/kg.<br>
-            The metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>) is {metabRelaxCorr:0.2f}.<br>
-            <p>The final raw concentration to molarity and molality scalings are {res.concScalings["molarity"]:0.2f} and {res.concScalings["molality"]:0.2f}.
+            <div style="width:70%">{divs['quant_table']}</div>        
+            <table>
+                <tr>
+                    <td class="titles">Metabolite T<sub>2</sub>:</td>
+                    <td>{1000*Q.T2['METAB']} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
+                    <td>{1000*Q.TE} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration:</td>
+                    <td>{relax_water_conc:0.0f} mmol/kg</td>
+                </tr>
+                <tr>
+                    <td class="titles">Metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>):</td>
+                    <td>{metabRelaxCorr:0.2f}</td>
+                </tr>
+                <tr>
+                    <td class="titles">Raw concentration to molarity scaling:</td>
+                    <td>{res.concScalings["molarity"]:0.2f}</td>
+                </tr>
+                <tr>
+                    <td class="titles">Raw concentration to molality scaling:</td>
+                    <td>{res.concScalings["molality"]:0.2f}</td>
+                </tr>
+            </table>
             <hr>
             """
         else:
             section=f"""
-            <h1><a name="quantification">Quantification information</a></h1>
-            <p>The water T<sub>2</sub> is {1000*Q.T2['H2O']} ms.<br>
-            The metabolite T<sub>2</sub> is {1000*Q.T2['METAB']} ms.<br>
-            The sequence echo time (T<sub>E</sub>) is {1000*Q.TE} ms.<br>
-            <p>The T<sub>2</sub> relaxation corrected water concentration is {relax_water_conc:0.0f} mmol/kg.<br>
-            The metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>) is {metabRelaxCorr:0.2f}.<br>
-            <p>The final molarity and molality scalings are {res.concScalings["molarity"]:0.2f} and {res.concScalings["molality"]:0.2f}.
+            <h1><a name="quantification">Quantification information</a></h1>            
+            <table>
+                <tr>
+                    <td class="titles">Water T<sub>2</sub>:</td>
+                    <td>{1000*Q.T2['H2O']} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">Metabolite T<sub>2</sub>:</td>
+                    <td>{1000*Q.T2['METAB']} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
+                    <td>{1000*Q.TE} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration:</td>
+                    <td>{relax_water_conc:0.0f} mmol/kg</td>
+                </tr>
+                <tr>
+                    <td class="titles">Metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>):</td>
+                    <td>{metabRelaxCorr:0.2f}</td>
+                </tr>
+                <tr>
+                    <td class="titles">Raw concentration to molarity scaling:</td>
+                    <td>{res.concScalings["molarity"]:0.2f}</td>
+                </tr>
+                <tr>
+                    <td class="titles">Raw concentration to molality scaling:</td>
+                    <td>{res.concScalings["molality"]:0.2f}</td>
+                </tr>
+            </table>
             <hr>
             """
         template+=section
