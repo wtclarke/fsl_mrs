@@ -295,6 +295,8 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE*1E-3
+    elif 'TE' in dataheader:
+        echotime = dataheader['TE']
     elif 'meta' in basisheader:
         if 'TE' in basisheader['meta']:
             echotime = basisheader['meta']['TE']
@@ -306,6 +308,8 @@ def main():
         echotime = None
     # Internal and Water quantification if requested
     if (mrs.H2O is None) or (echotime is None):
+        if echotime is None:
+            warnings.warn('H2O file provided but could not determine TE: no absolute quantification will be performed.',UserWarning)
         res.calculateConcScaling(mrs,referenceMetab=args.internal_ref)
     elif args.tissue_frac is None:
         res.calculateConcScaling(mrs,

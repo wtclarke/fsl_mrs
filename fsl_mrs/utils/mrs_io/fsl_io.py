@@ -43,7 +43,9 @@ def readNIFTI(datafile,squeezeSVS=True):
                 'json':jsonParams,
                 'centralFrequency':jsonParams['ImagingFrequency'],
                 'dwelltime':jsonParams['Dwelltime'],
-                'bandwidth':1/jsonParams['Dwelltime']}
+                 'bandwidth':1/jsonParams['Dwelltime']}
+        if "EchoTime" in jsonParams:
+            header['TE'] = jsonParams['EchoTime']
 
     # If there is only one FID (SVS) and squeezeSVS is true then
     # remove singleton dimensions
