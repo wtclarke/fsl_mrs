@@ -902,52 +902,6 @@ def create_table(df):
 
     return tab
 
-def plot_table_lineshape_phase(res):
-    shift = res.getShiftParams(units='ppm')
-    lw    = res.getLineShapeParams(units='Hz')[0] # Only take combined values
-    
-    # Get the lineshape params
-    header = ['Metab group','linewidth (Hz)','shift (ppm)']
-    values = [[],[],[]]
-    for g in range(res.g):            
-        values[1].append(np.round(lw[g],decimals=3))
-        values[2].append(np.round(shift[g],decimals=5))
-        metabs = []
-        for i,m in enumerate(res.original_metabs):
-            if res.metab_groups[i] == g:
-                metabs.append(m)                        
-        values[0].append(', '.join(metabs))
-    # Fill dataframe
-    df1     = pd.DataFrame()
-    for h,v in zip(header,values):
-        df1[h] = v
-    # create table
-    tab1 = create_table(df1)
-
-    # Get phase params
-    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
-    # Fill dataframe
-    df = pd.DataFrame()
-    df['Static phase (deg)']     = [np.round(p0,decimals=5)]
-    df['Linear phase (deg/ppm)'] = [np.round(p1,decimals=5)]
-    # create table
-    tab2 = create_table(df)
-
-
-    fig = make_subplots(rows=1, cols=2,
-                        column_widths=[3/5, 2/5],
-                        horizontal_spacing=0.03,
-                        specs=[[{'type':'table'},{'type':'table'}]],
-                        subplot_titles=['Lineshape params','Phase params'])
-
-    fig.add_trace(tab1,row=1,col=1)
-    fig.add_trace(tab2,row=1,col=2)
-
-    fig.update_layout(template = 'plotly_white')
-    
-    fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
-
-    return fig
 
 def plot_table_lineshape(res):
     """
@@ -979,14 +933,6 @@ def plot_table_lineshape(res):
 
     return fig
 
-    # fig = ff.create_table(df, height_constant=50)
-    # for i in range(len(fig.layout.annotations)):
-    #     fig.layout.annotations[i].font.size = 16
-    
-    # fig.layout.update(title={'text': 'Lineshape parameters'},font={'size':20})
-    # fig.update_layout(template = 'plotly_white')
-   
-    # return fig
 
 
 def plot_table_phase(res):
@@ -1005,16 +951,53 @@ def plot_table_phase(res):
 
     return fig
 
-    # fig = ff.create_table(df, height_constant=50)
-    # for i in range(len(fig.layout.annotations)):
-    #     fig.layout.annotations[i].font.size = 16
-    
-    # fig.layout.update(title={'text': 'Phase parameters'},font={'size':20})
-    # fig.update_layout(template = 'plotly_white')
-    # fig.update_layout()
-    
-    #return fig
 
+    
+def plot_table_lineshape_phase(res):
+    shift = res.getShiftParams(units='ppm')
+    lw    = res.getLineShapeParams(units='Hz')[0] # Only take combined values
+    
+    # Get the lineshape params
+    header = ['Metab group','linewidth (Hz)','shift (ppm)']
+    values = [[],[],[]]
+    for g in range(res.g):            
+        values[1].append(np.round(lw[g],decimals=3))
+        values[2].append(np.round(shift[g],decimals=5))
+        metabs = []
+        for i,m in enumerate(res.original_metabs):
+            if res.metab_groups[i] == g:
+                metabs.append(m)                        
+        values[0].append(', '.join(metabs))
+    # Fill dataframe
+    df1     = pd.DataFrame()
+    for h,v in zip(header,values):
+        df1[h] = v
+    # create table
+    tab1 = create_table(df1)
+
+    # Get phase params
+    p0,p1 = res.getPhaseParams(phi0='degrees',phi1='deg_per_ppm') 
+    # Fill dataframe
+    df2 = pd.DataFrame()
+    df2['Static phase (deg)']     = [np.round(p0,decimals=5)]
+    df2['Linear phase (deg/ppm)'] = [np.round(p1,decimals=5)]
+    # create table
+    tab2 = create_table(df2)
+
+    column_widths = [df1.shape[1],df2.shape[1]]
+    fig = make_subplots(rows=1, cols=2,
+                        column_widths=column_widths,
+                        horizontal_spacing=0.03,
+                        specs=[[{'type':'table'},{'type':'table'}]],
+                        subplot_titles=['Lineshape params','Phase params'])
+
+    fig.add_trace(tab1,row=1,col=1)
+    fig.add_trace(tab2,row=1,col=2)
+
+    
+    fig.update_layout(height=200,margin=dict(l=0,r=0,t=0,b=0))
+    
+    return fig
 
 def plot_table_qc(res):
     # Peak by peak snr and fwhm
@@ -1034,14 +1017,6 @@ def plot_table_qc(res):
     fig.update_layout(autosize=True,margin=dict(l=0,r=0,t=0,b=0))
 
     return fig
-
-    #fig = ff.create_table(df, height_constant=30)
-    #for i in range(len(fig.layout.annotations)):
-    #    fig.layout.annotations[i].font.size = 16
-
-    #fig.layout.update(title={'text': 'QC parameters'},font={'size':20})
-    #fig.update_layout(template = 'plotly_white')
-    #return fig
 
 
 # ----------- Imaging
