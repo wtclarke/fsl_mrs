@@ -348,7 +348,9 @@ def main():
         datatype = mrs_io.check_datatype(args.data)
         if datatype == 'NIFTI':            
             fig = plotting.plot_world_orient(args.t1,args.data)
-            fig.savefig(os.path.join(args.output,'voxel_location.png'))
+            fig.tight_layout()
+            fig.savefig(os.path.join(args.output,'voxel_location.png'),
+                        bbox_inches='tight',facecolor='k')
 
     # Create short HTML report
     #fig = plotting.plotly_fit(mrs,res,ppmlim=ppmlim,proj='abs')
