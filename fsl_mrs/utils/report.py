@@ -19,6 +19,7 @@ from fsl_mrs.utils import misc
 
 import nibabel as nib
 
+import base64
 
 
 # class Report(object):
@@ -133,6 +134,21 @@ def create_plotly_div(mrs,res):
     fig = plotting.plot_indiv_stacked(mrs,res,ppmlim=res.ppmlim)
     divs['indiv'] = to_div(fig) #plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
     
+    # Quantification table
+    if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['info']['q_info'],'f_GM'):
+        Q = res.concScalings['info']['q_info']
+        quant_df = pd.DataFrame()
+        quant_df['Tissue-water densities'] = [Q.d_GM,Q.d_WM,Q.d_CSF]
+        quant_df['Tissue volume fractions'] = [Q.f_GM,Q.f_WM,Q.f_CSF]
+        quant_df['Water T2s'] = [Q.T2['H2O_GM'],Q.T2['H2O_WM'],Q.T2['H2O_CSF']]
+        quant_df.index = ['GM', 'WM', 'CSF']
+        quant_df.index.name = 'Tissue'
+        quant_df.reset_index(inplace=True)
+        tab = plotting.create_table(quant_df)
+        fig = go.Figure(data=[tab])
+        fig.update_layout(height=100,margin=dict(l=0,r=0,t=0,b=0))
+        divs['quant_table'] = to_div(fig)
+
     return divs
 
 
@@ -239,7 +255,7 @@ def static_image(imgfile):
 #     fig.save(os.path.join(outdir,'voxplot.png'))
 #     return
 
-def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
+def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig = None):
 
     divs= create_plotly_div(mrs,res)
 
@@ -283,7 +299,8 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     <a href="#qc">QC</a> - 
     <a href="#uncertainty">Uncertainty</a> - 
     <a href="#realimag">Real/Imag</a> - 
-    <a href="#metabs">Metabs</a> - 
+    <a href="#metabs">Metabs</a> -
+    <a href="#quantification">Quantification</a> -  
     <a href="#methods">Methods</a>
     </center>
     <hr>      
@@ -299,12 +316,9 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     template+=section
 
     # Location
-    voxpngfile=os.path.join(os.path.split(filename)[0],"voxel_location.png")
-    #voxplothtml=f'<h1>Voxel location</h1><img src="{voxpngfile}" alt="Voxel location" width="700"></img><hr>'
-    #template+=voxplothtml
-
-    fig = static_image(voxpngfile)
-    template+=f"<h1>Voxel location</h1><div>{to_div(fig)}</div><hr>"
+    if location_fig is not None:
+        fig = static_image(location_fig)
+        template+=f"<h1>Voxel location</h1><div>{to_div(fig)}</div><hr>"
     
     # Tables section
     section=f"""
@@ -347,12 +361,49 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date):
     """
     template+=section
 
+    # Quantification information
+    # Table of CSF,GM,WM
+        # Fractions
+        # T2 info (water)
+        # T2 info (metab)
+        # Tissue water densities
+    # Relaxation corrected water
+    # Relaxation correction for metab
+    # Final scalings for molality & molarity
+    if res.concScalings['molality'] is not None:
+        Q = res.concScalings['info']['q_info']
+        relax_water_conc = Q.relaxationCorrWater_molar
+        metabRelaxCorr = Q.relaxationCorrMetab
+
+        if  hasattr(res.concScalings['info']['q_info'],'f_GM'):
+            section=f"""
+            <h1><a name="quantification">Quantification information</a></h1>
+            {divs['quant_table']}            
+            <p>The metabolite T<sub>2</sub> is {1000*Q.T2['METAB']} ms.<br>
+            The sequence echo time (T<sub>E</sub>) is {1000*Q.TE} ms.<br>
+            <p>The T<sub>2</sub> relaxation corrected water concentration is {relax_water_conc:0.0f} mmol/kg.<br>
+            The metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>) is {metabRelaxCorr:0.2f}.<br>
+            <p>The final raw concentration to molarity and molality scalings are {res.concScalings["molarity"]:0.2f} and {res.concScalings["molality"]:0.2f}.
+            <hr>
+            """
+        else:
+            section=f"""
+            <h1><a name="quantification">Quantification information</a></h1>
+            <p>The water T<sub>2</sub> is {1000*Q.T2['H2O']} ms.<br>
+            The metabolite T<sub>2</sub> is {1000*Q.T2['METAB']} ms.<br>
+            The sequence echo time (T<sub>E</sub>) is {1000*Q.TE} ms.<br>
+            <p>The T<sub>2</sub> relaxation corrected water concentration is {relax_water_conc:0.0f} mmol/kg.<br>
+            The metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>) is {metabRelaxCorr:0.2f}.<br>
+            <p>The final molarity and molality scalings are {res.concScalings["molarity"]:0.2f} and {res.concScalings["molality"]:0.2f}.
+            <hr>
+            """
+        template+=section
 
     # Details of the methods
     #methodsfile="/path/to/file"
     #methods = np.readtxt(methodsfile)
     from fsl_mrs import __version__
-    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke W, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
     section=f"""
     <h1><a name="methods">Analysis methods</a></h1>
     <div>{methods}</div>

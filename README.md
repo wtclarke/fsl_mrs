@@ -8,7 +8,9 @@ FSL-MRS is a collection of python modules and wrapper scripts for pre-processing
 ---
 ### Installation 
 
-    git clone https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
+To get the packaged example data, make sure [git-lfs](https://git-lfs.github.com/) is installed.
+
+    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
     cd fsl_mrs
     pip install .
 

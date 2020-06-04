@@ -295,8 +295,6 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE*1E-3
-    elif 'TE' in dataheader:
-        echotime = dataheader['TE']
     elif 'meta' in basisheader:
         if 'TE' in basisheader['meta']:
             echotime = basisheader['meta']['TE']
@@ -304,6 +302,8 @@ def main():
                 echotime *= 1E-3
             else:
                 echotime = None
+    elif 'TE' in dataheader:
+        echotime = dataheader['TE']
     else:
         echotime = None
     # Internal and Water quantification if requested
@@ -339,23 +339,20 @@ def main():
         print('--->> Saving output files to {}\n'.format(args.output))
 
 
-    res.to_file(filename=os.path.join(args.output,'results_table.csv'),what='concentrations')
+    res.to_file(filename=os.path.join(args.output,'summary.csv'),what='summary')
+    res.to_file(filename=os.path.join(args.output,'concentrations.csv'),what='concentrations')
     res.to_file(filename=os.path.join(args.output,'qc.csv'),what='qc')
     res.to_file(filename=os.path.join(args.output,'all_parameters.csv'),what='parameters')
 
     # Save image of MRS voxel
+    location_fig = None
     if args.t1 is not None:
         datatype = mrs_io.check_datatype(args.data)
         if datatype == 'NIFTI':            
             fig = plotting.plot_world_orient(args.t1,args.data)
             fig.tight_layout()
-            fig.savefig(os.path.join(args.output,'voxel_location.png'),
-                        bbox_inches='tight',facecolor='k')
-
-    # Create short HTML report
-    #fig = plotting.plotly_fit(mrs,res,ppmlim=ppmlim,proj='abs')
-    #plotly.io.write_html(fig, file=os.path.join(args.output,'short_report.html'))
-    
+            location_fig = os.path.join(args.output,'voxel_location.png')
+            fig.savefig(location_fig,bbox_inches='tight',facecolor='k')
 
     # Save quick summary figure
     report.fitting_summary_fig(mrs,res,
@@ -368,8 +365,9 @@ def main():
                              filename=os.path.join(args.output,'report.html'),
                              fidfile=args.data,
                              basisfile=args.basis,
-                             h2ofile=args.h2o,
-                             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+                             h2ofile=args.h2o,                             
+                             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                             location_fig = location_fig)
                          
 
      

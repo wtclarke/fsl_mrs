@@ -400,8 +400,9 @@ class MRS(object):
         Parameters
         ----------
     
-        ppmlist : default is [0.9,1.7,1.4,1.2,2.0]
-
+        ppmlist : default is [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
+        amplist : default is [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
+        
         gamma,sigma : float parameters of Voigt blurring
         """
         if ppmlist is None:

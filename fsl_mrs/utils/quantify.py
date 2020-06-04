@@ -46,7 +46,7 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
 
     Args:
             mrs (MRS obj): Current MRS object
-            H2OFID (np.array): FID of wate reference
+            H2OFID (np.array): FID of water reference
             refFID (np.array): FID of fitted reference metabolite
             referenceName (str): Name of reference metabolite
             concentrations (np.array): All metabolite raw concentrations
@@ -57,15 +57,16 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
             verbose (bool): Verbose output
 
     Returns:
-        conc_molal (float): Scaling parameter to convert raw fitted concnetrations to molality units of mols/kg
-        conc_molar (float): Scaling parameter to convert raw fitted concnetrations to molarity units of mols/dm^3
+        conc_molal (float): Scaling parameter to convert raw fitted concentrations to molality units of mols/kg
+        conc_molar (float): Scaling parameter to convert raw fitted concentrations to molarity units of mols/dm^3
+        dict              : Quantification information
     """
     
     # Calculate observed areas
     SMObs = calculate_area(mrs,refFID,ppmlim=reflimits)
     SH2OObs = calculate_area(mrs,H2OFID,ppmlim=None)
 
-    # Calculate concnetration scalings
+    # Calculate concentration scalings
     # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
     # conc_molal =  (SMObs *(Q.f_GM*Q.R_H2O_GM + Q.f_WM*Q.R_H2O_WM + Q.f_CSF*Q.R_H2O_CSF)/(SH2OObs*(1-Q.f_CSF)*Q.R_M)) \
     #                 * (H2O_PROTONS/refProtons)\
@@ -98,7 +99,7 @@ def quantifyWater(mrs,H2OFID,refFID,referenceName,concentrations,metaboliteNames
         print(f'Final molality scaling = {conc_molal:0.2e}') 
         print(f'Final molarity scaling = {conc_molar:0.2e}')
 
-    return conc_molal,conc_molar
+    return conc_molal,conc_molar,{'q_info':Q, 'metab_amp':SMObs, 'water_amp':SH2OObs}
 
 class QuantificationInfo(object):
     """ Class encapsulating the information required to run internal water quantification scaling."""
@@ -111,7 +112,9 @@ class QuantificationInfo(object):
             tissueFractions (dict:float): Tissue volume fractions, must contain 'WM', 'GM', 'CSF' fields.
             tissueDensity (dict:float, optional): Tissue volume fractions, must contain 'WM', 'GM', 'CSF' fields. In units of g/ml.
         """
-
+        self.TE = TE
+        self.T2 = T2
+        
         if tissueFractions is not None:
             if tissueDensity is None:
                 self.d_GM  = TISSUE_WATER_DENSITY['GM']

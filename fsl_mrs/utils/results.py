@@ -29,7 +29,7 @@ class FitRes(object):
         self.baseline_order = baseline_order
         self.base_poly    = B
 
-        self.concScalings={'internal':None,'internalRef':None,'molarity':None,'molality':None}
+        self.concScalings={'internal':None,'internalRef':None,'molarity':None,'molality':None,'info':None}
 
     def loadResults(self,mrs,fitResults):
         "Load fitting results and calculate some metrics"
@@ -111,7 +111,7 @@ class FitRes(object):
                     Q = quant.loadDefaultQuantificationInfo(TE,tissueFractions,mrs.centralFrequency/1E6)
                 else:
                     Q = quant.QuantificationInfo(TE,T2,tissueFractions)
-            molalityScaling,molarityScaling = quant.quantifyWater(mrs,
+            molalityScaling,molarityScaling,quant_info = quant.quantifyWater(mrs,
                                                             waterRefFID,
                                                             refFID,
                                                             waterReferenceMetab,
@@ -122,9 +122,9 @@ class FitRes(object):
                                                             reflimits=reflimits,
                                                             verbose=verbose)
 
-            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':molarityScaling,'molality':molalityScaling}
+            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':molarityScaling,'molality':molalityScaling,'info':quant_info}
         else:
-            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':None,'molality':None}
+            self.concScalings={'internal':internalRefScaling,'internalRef':self.intrefstr,'molarity':None,'molality':None,'info':None}
 
     def combine(self,combineList):
         """Combine two or more basis into single result"""
@@ -247,35 +247,85 @@ class FitRes(object):
 
     def to_file(self,filename,what='concentrations'):
         """
-        Save results to a csv file
+        Save results to csv file
 
         Parameters:
         -----------
         filename : str
-        what     : one of 'concentrations, 'qc', 'parameters'
+        what     : one of 'summary', 'concentrations, 'qc', 'parameters'
         """
-        df                   = pd.DataFrame()
 
-        if what == 'concentrations':
+        if what == 'summary':
+            df                   = pd.DataFrame()
             df['Metab']          = self.metabs
-            df['Raw conc']       = self.getConc()
+
             if self.concScalings['internal'] is not None:
                 concstr = f'/{self.concScalings["internalRef"]}'
                 df[concstr]   = self.getConc(scaling='internal')
+            else:
+                df['Raw conc']       = self.getConc()
             if self.concScalings['molality'] is not None:
                 df['mMol/kg']        = self.getConc(scaling='molality')
             if self.concScalings['molarity'] is not None:
                 df['mM']        = self.getConc(scaling='molarity')
-            df['%CRLB']          = self.perc_SD[:self.numMetabs]
+            df['%CRLB']          = self.getUncertainties()
 
-        elif what == 'qc':
-            pass
-            # snr,fwhm = self.getQCParams()
-            # df['Measure'] = ['SNR']
-            # df['Value']   = [self.snr]
+            SNR = self.getQCParams()[0]
+            SNR.index = SNR.index.str.replace('SNR_','')
+            SNR.index.name = 'Metab'
+            SNR = SNR.reset_index(name='SNR')
+            df = df.merge(SNR,how='outer')
+
+            FWHM = self.getQCParams()[1]
+            FWHM.index = FWHM.index.str.replace('fwhm_','')
+            FWHM.index.name = 'Metab'
+            FWHM = FWHM.reset_index(name='FWHM')
+            df = df.merge(FWHM,how='outer')
+
+        elif what == 'concentrations':
+            scaling_type = ['raw'] 
+            if self.concScalings['internal'] is not None:
+                scaling_type.append('internal')
+            if self.concScalings['molality'] is not None:
+                scaling_type.append('molality')
+            if self.concScalings['molarity'] is not None:
+                scaling_type.append('molarity')
+
+            all_df = []
+            for st in scaling_type:
+                df = self.getConc(scaling=st,function=None).T
+                df.insert(0,'mean',df.mean(axis=1))
+                df.insert(1,'standard deviation',self.getUncertainties(type=st))
+                df.insert(0,'scaling',st)
+                df.index.name = 'metabolite'
+                all_df.append(df)
+
+            df = pd.concat(all_df)
+            df.reset_index(inplace=True)
+
+        elif what == 'qc':            
+            SNR = self.SNR.peaks.T
+            SNR.index = SNR.index.str.replace('SNR_','')
+            SNR.insert(0,'mean',SNR.mean(axis=1))
+            SNR.insert(0,'Parameter','SNR')
+            SNR
+
+            FWHM = self.FWHM.T
+            FWHM.index = FWHM.index.str.replace('fwhm_','')
+            FWHM.insert(0,'mean',FWHM.mean(axis=1))
+            FWHM.insert(0,'Parameter','FWHM')
+
+            df = pd.concat([SNR,FWHM])
+            df.index.name = 'metabolite'
+            df.reset_index(inplace=True)
+
         elif what == 'parameters':
-            df['Name']  = self.fitResults.columns
-            df['Value'] = self.fitResults.mean().to_numpy()
+            df = self.fitResults.T
+            df.insert(0,'mean',self.fitResults.T.mean(axis=1))
+            df.insert(1,'std',self.fitResults.T.std(axis=1))
+
+            df.index.name = 'parameter'
+            df.reset_index(inplace=True)
             
         df.to_csv(filename,index=False,header=True)
 
@@ -332,7 +382,7 @@ class FitRes(object):
 
         if phi0.lower() == 'degrees':
             p0 *= np.pi/180.0
-        elif phi0.lower() == 'radians':
+        elif (phi0.lower() == 'radians') or (phi0.lower() == 'raw'):
             pass 
         else:
             raise ValueError('phi0 must be degrees or radians')
@@ -343,8 +393,10 @@ class FitRes(object):
             p1 *= -180.0/np.pi * self.hzperppm
         elif phi1.lower() == 'deg_per_hz':
             p1 *= -180.0/np.pi * 1.0
+        elif phi1.lower() == 'raw':
+            pass
         else:
-            raise ValueError('phi1 must be seconds or deg_per_ppm or deg_per_hz ')
+            raise ValueError('phi1 must be seconds, deg_per_ppm, deg_per_hz or raw.')
 
         return p0,p1
 
@@ -364,8 +416,10 @@ class FitRes(object):
             shiftParams *= 1/(2*np.pi*self.hzperppm)
         elif units.lower() == 'hz':
             shiftParams *= 1/(2*np.pi)
+        elif units.lower() == 'raw':
+            pass
         else:
-            raise ValueError('Units must be Hz or ppm.')
+            raise ValueError('Units must be Hz, ppm or raw.')
 
         return shiftParams
 
@@ -386,8 +440,10 @@ class FitRes(object):
                 gamma *= 1/(np.pi)
             elif units.lower() == 'ppm':
                 gamma *= 1/(np.pi*self.hzperppm)
+            elif units.lower() == 'raw':
+                pass
             else:
-                raise ValueError('Units must be Hz or ppm.')
+                raise ValueError('Units must be Hz, ppm or raw.')
             combined = gamma
             return combined,gamma
         elif self.model=='voigt':
@@ -412,8 +468,10 @@ class FitRes(object):
             elif units.lower() == 'ppm':
                 gamma *= 1/(np.pi*self.hzperppm)
                 sigma *= 1/(np.pi*self.hzperppm)
+            elif units.lower() == 'raw':
+                pass
             else:
-                raise ValueError('Units must be Hz or ppm.')
+                raise ValueError('Units must be Hz, ppm or raw.')
 
             combined = gamma/2 + np.sqrt((gamma**2/4.0)+(sigma*2*np.log(2))**2)
             return combined,gamma,sigma
@@ -445,7 +503,7 @@ class FitRes(object):
 
 
     def getUncertainties(self,type='percentage',metab=None):
-        """ Return the uncertainties on concentrations.        
+        """ Return the uncertainties (SD) on concentrations.        
         Can either be in raw, molarity or molality or percentage uncertainties.        
         
         """
