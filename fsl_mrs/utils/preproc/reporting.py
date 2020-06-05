@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+
+# reporting.py - Routines for generating proc reports
+#
+# Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 from jinja2 import FileSystemLoader, Environment
 import os.path as op
 from dataclasses import dataclass

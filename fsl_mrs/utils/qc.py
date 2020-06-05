@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+
+# qc.py - Calculate various QC measures
+#
+# Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 from fsl_mrs.utils import models
 from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
 from fsl_mrs.core import MRS
@@ -8,6 +17,8 @@ from collections import namedtuple
 import pandas as pd
 
 SNR = namedtuple('SNR',['spectrum','peaks','residual'])
+
+
 
 class NoiseNotFoundError(ValueError):
     pass

@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+
+# filtering.py - Routines for FID filtering
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 
 def apodize(FID,dwelltime,broadening,filter='exp'):
@@ -24,6 +34,9 @@ def apodize(FID,dwelltime,broadening,filter='exp'):
 
 
 def apodize_report(inFID,outFID,hdr,plotlim = (0.2,6),html=None):
+    """
+    Generate report
+    """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
     import plotly.graph_objects as go    

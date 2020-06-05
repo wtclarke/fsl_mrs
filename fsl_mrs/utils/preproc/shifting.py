@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+
+# shifting.py - Shifting routines
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
@@ -106,7 +116,10 @@ def pad(FID,k,first_or_last='last'):
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
-def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function='shift'):    
+def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function='shift'):
+    """
+    Generate report
+    """
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots  
     from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle

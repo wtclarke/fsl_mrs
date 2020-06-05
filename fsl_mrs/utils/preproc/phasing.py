@@ -1,9 +1,22 @@
+#!/usr/bin/env python
+
+# phasing.py - Phase correction routines
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
 def applyPhase(FID,phaseAngle):
+    """
+    Multiply FID by constant phase
+    """
     return FID * np.exp(1j*phaseAngle)
 
 def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
@@ -40,6 +53,9 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
     return applyPhase(FID,phaseAngle),phaseAngle,int(np.round(maxIndex/4))
 
 def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
+    """
+    Generate report
+    """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
     import plotly.graph_objects as go    

@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+
+# remove.py - HLSVD-based correction
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 import hlsvdpro
 from fsl_mrs.utils.misc import checkCFUnits
@@ -48,6 +58,9 @@ def hlsvd(FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularVa
     return FID - sumFID
 
 def hlsvd_report(inFID,outFID,hdr,limits,limitUnits = 'ppm',plotlim = (0.2,6),html=None):
+    """
+    Generate report
+    """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
     import plotly.graph_objects as go    

@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+
+# eddycorrect.py - Eddy current correction routines
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import numpy as np
 def eddy_correct(FIDmet,FIDPhsRef):
     """
@@ -17,6 +27,9 @@ def eddy_correct(FIDmet,FIDPhsRef):
     return np.abs(FIDmet) * np.exp(1j*(np.angle(FIDmet)-phsRef))
 
 def eddy_correct_report(inFID,outFID,phsRef,hdr,ppmlim = (0.2,4.2),html=None):
+    """
+    Generate Eddy correction report
+    """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
     import plotly.graph_objects as go    

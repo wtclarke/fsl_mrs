@@ -1,4 +1,14 @@
-"""General preprocessing functions"""
+#!/usr/bin/env python
+
+# general.py - General preprocessing functions
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
+
 import numpy as np
 from dataclasses import dataclass
 
@@ -38,6 +48,9 @@ def add(FID1,FID2):
     return (FID1+FID2)/2.0
 
 def add_subtract_report(inFID,inFID2,outFID,hdr,ppmlim=(0.2,4.2),function='Not specified',html=None):
+    """
+    Generate report
+    """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
     import plotly.graph_objects as go    
