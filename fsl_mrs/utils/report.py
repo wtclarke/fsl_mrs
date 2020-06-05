@@ -1,108 +1,51 @@
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
+#!/usr/bin/env python
+
+# report.py - Generate html report
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 import pandas as pd
 import numpy as np
-import os.path as op
 import os
 
 
 import plotly
 import plotly.graph_objs as go
-
-import matplotlib.gridspec as gridspec
-from plotly import tools
-
-from fsl_mrs.utils import plotting
-from fsl_mrs.utils import plot
-from fsl_mrs.utils import misc
-
 import nibabel as nib
 
-import base64
+from fsl_mrs.utils import plotting
+from fsl_mrs.utils import misc
 
-
-# class Report(object):
-#     '''
-#     classdocs
-#     '''
-
-#     def __init__(self):
-#         '''
-#         Constructor
-#         '''
-#         pass
-
-
-#     def parse(self, template: str, outname: str, **kwargs):
-
-#         env = jinja2.Environment(
-#             loader=jinja2.FileSystemLoader(op.dirname(template)),
-#             extensions=['jinja2.ext.do']
-#         )
-
-#         args = dict(
-#             report=self,
-#             numpy=np,
-#             pandas=pd,
-#             plot=plot,
-#             **kwargs
-#         )
-
-#         template = env.get_template(op.basename(template))
-#         html = template.render(**args)
-
-#         with open(outname, 'w') as outfile:
-#             outfile.write(html)
-
-
-
-#     @staticmethod
-#     def plotly_to_div(fig, include_plotly='cdn', **kwargs):
-#         div = plotly.offline.plot(fig, output_type='div',
-#                                   include_plotlyjs=include_plotly, **kwargs)
-#         return div
-
-
-#     @staticmethod
-#     def mpl_to_div(fig, ext='.png', *args, **kwargs):
-#         with TemporaryFile(suffix=ext) as tmp:
-#             Report.mpl_to_file(fig, tmp, *args, **kwargs)
-#             tmp.seek(0)
-#             s = base64.b64encode(tmp.read()).decode("utf-8")
-#         return f"<div><img src = \"data:image/{format(ext)};base64,{s}\" width=\"100%\"></div>"
-
-#     @staticmethod
-#     def mpl_to_file(fig, fname, dpi=100):
-#         fig.savefig(fname, dpi=dpi, bbox_inches='tight')
-
-
-# class MRS_Report(Report):
-
-#     def __init__(self, mrs,res):
-#         Report.__init__(self)
-#         self.html_template=os.path.join(os.path.dirname(__file__),'mrs_report_template.html')
-#         self.mrs = mrs
-#         self.res = res
-
-#     def plot_fit(self):
-#         fig = plotting.plotly_fit(self.mrs,self.res)
-#         return fig
-
-#     def some_mpl_plot(self):
-#         fig = plotting.plot_waterfall(self.mrs, ppmlim=(0, 5), proj='real',mod=False)
-
-#         return fig
-
-#     def parse(self, outname: str):
-#         super().parse(self.html_template, outname, mrs=self.mrs)
 
 
 def to_div(fig):
+    """
+    Turns Plotly Figure into HTML 
+    """
     return plotly.offline.plot(fig,
                                output_type='div',
                                include_plotlyjs='cdn')
+
 def create_plotly_div(mrs,res):
+    """
+    Create HTML <div> sections for a few different report figures
+    The output is a dict
+
+    The following sections are currently produced:
+
+    summary               : Table of concentrations and plot of the fit
+    table-lineshape-phase : Table of some nuisance params
+    table-qc              : Table of QC parameters
+    posteriors            : Heatmap of posterior correlactions and histograms of marginals
+    real-imag             : Separate fit for real and imaginary part of the spectrum
+    indiv                 : Plot of each metabolite prediction separately
+    quant_table           ; Table with quantification results
+
+    """
     divs={}
 
     
@@ -153,6 +96,9 @@ def create_plotly_div(mrs,res):
 
 
 def static_image(imgfile):
+    """
+    Create plotly Figure object for an image
+    """
     import plotly.graph_objects as go
     from PIL import Image
     img = Image.open(imgfile)
@@ -209,53 +155,14 @@ def static_image(imgfile):
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
     )
 
-    # Disable the autosize on double click because it adds unwanted margins around the image
-    # More detail: https://plotly.com/python/configuration-options/
-    #fig.show(config={'doubleClick': 'reset'})
 
     return fig
 
-# def create_vox_plot(t1file,voxfile,outdir):
-#     def ijk2xyz(ijk,affine):    
-#         return affine[:3, :3].dot(ijk) + affine[:3, 3]
-#     def xyz2ijk(xyz,affine):
-#         inv_affine = np.linalg.inv(affine)
-#         return inv_affine[:3, :3].dot(xyz) + inv_affine[:3, 3]
-#     def do_plot(slice,rect):
-#         vmin = np.quantile(slice,.01)
-#         vmax = np.quantile(slice,.99)
-#         plt.imshow(slice, cmap="gray", origin="lower",vmin=vmin,vmax=vmax)
-#         plt.plot(rect[:, 1], rect[:, 0],c='#FF4646',linewidth=2)
-#         plt.xticks([])
-#         plt.yticks([])
-
-#     t1      = nib.load(t1file)
-#     vox     = nib.load(voxfile)
-#     t1_data = t1.get_fdata()
-
-#     # centre of MRS voxel in T1 voxel space (or is it the corner?)
-#     ijk   = xyz2ijk(ijk2xyz([0,0,0],vox.affine),t1.affine)
-#     i,j,k = ijk
-#     # half size of MRS voxel (careful this assumes 1mm resolution T1)
-#     si,sj,sk = np.diag(vox.affine[:3,:3])/2
-#     # Do the plotting
-#     fig = plt.figure(figsize=(15,10))
-#     plt.subplot(1,3,1)
-#     slice = np.squeeze(t1_data[int(i),:,:])
-#     rect  = np.asarray([[j-sj,k-sk],[j+sj,k-sk],[j+sj,k+sk],[j-sj,k+sk],[j-sj,k-sk]])
-#     do_plot(slice,rect)
-#     plt.subplot(1,3,2)
-#     slice = np.squeeze(t1_data[:,int(j),:])
-#     rect  = np.asarray([[i-si,k-sk],[i+si,k-sk],[i+si,k+sk],[i-si,k+sk],[i-si,k-sk]])
-#     do_plot(slice,rect)
-#     plt.subplot(1,3,3)
-#     slice = np.squeeze(t1_data[:,:,int(k)])
-#     rect  = np.asarray([[i-si,j-sj],[i+si,j-sj],[i+si,j+sj],[i-si,j+sj],[i-si,j-sj]])
-#     do_plot(slice,rect)
-#     fig.save(os.path.join(outdir,'voxplot.png'))
-#     return
 
 def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig = None):
+    """
+    Creates and writes to file an html report
+    """
 
     divs= create_plotly_div(mrs,res)
 
@@ -410,13 +317,13 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
         else:
             if 'H2O' in Q.T2:
                 waterstr =f"""
-                    <td class="titles">Water T<sub>2</sub>:</td>
-                    <td>{1000*Q.T2['H2O']} ms</td>
+                    <td class="titles">Water T<sub>2</sub></td>
+                    <td> : {1000*Q.T2['H2O']} ms</td>
                     """
             else:
                 waterstr =f"""
-                    <td class="titles">Water T<sub>2</sub>:</td>
-                    <td>Inf (no relaxation)</td>
+                    <td class="titles">Water T<sub>2</sub></td>
+                    <td> : Inf (no relaxation)</td>
                     """
             section=f"""
             <h1><a name="quantification">Quantification information</a></h1>            
@@ -425,28 +332,28 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
                     {waterstr}
                 </tr>
                 <tr>
-                    <td class="titles">Metabolite T<sub>2</sub>:</td>
-                    <td>{1000*Q.T2['METAB']} ms</td>
+                    <td class="titles">Metabolite T<sub>2</sub></td>
+                    <td> : {1000*Q.T2['METAB']} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
-                    <td>{1000*Q.TE} ms</td>
+                    <td class="titles">Sequence echo time (T<sub>E</sub>)</td>
+                    <td> : {1000*Q.TE} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration:</td>
-                    <td>{relax_water_conc:0.0f} mmol/kg</td>
+                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration</td>
+                    <td> : {relax_water_conc:0.0f} mmol/kg</td>
                 </tr>
                 <tr>
-                    <td class="titles">Metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>):</td>
-                    <td>{metabRelaxCorr:0.2f}</td>
+                    <td class="titles">Metabolite relaxation correction (1/e<sup>(-T<sub>E</sub>/T<sub>2</sub>)</sup>)</td>
+                    <td> : {metabRelaxCorr:0.2f}</td>
                 </tr>
                 <tr>
-                    <td class="titles">Raw concentration to molarity scaling:</td>
-                    <td>{res.concScalings["molarity"]:0.2f}</td>
+                    <td class="titles">Raw concentration to molarity scaling</td>
+                    <td> : {res.concScalings["molarity"]:0.2f}</td>
                 </tr>
                 <tr>
-                    <td class="titles">Raw concentration to molality scaling:</td>
-                    <td>{res.concScalings["molality"]:0.2f}</td>
+                    <td class="titles">Raw concentration to molality scaling</td>
+                    <td> : {res.concScalings["molality"]:0.2f}</td>
                 </tr>
             </table>
             <hr>
@@ -457,7 +364,14 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
     #methodsfile="/path/to/file"
     #methods = np.readtxt(methodsfile)
     from fsl_mrs import __version__
-    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). Model fitting was performed using the {res.method} algorithm.<p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    if res.method == "Newton":
+        algo = "Model fitting was performed using the truncated Newton algorithm as implemented in Scipy."
+    elif res.method == "MH":
+        algo = "Model fitting was performed using the Metropolis Hastings algorithm."
+    else:
+        algo = ""
+        
+    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex FID in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). {algo} <p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
     section=f"""
     <h1><a name="methods">Analysis methods</a></h1>
     <div>{methods}</div>
@@ -479,6 +393,9 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
 
 
 def fitting_summary_fig(mrs,res,filename):
+    """
+    Simple spectrum+fit plot
+    """
     fig = plotting.plot_fit(mrs,pred=res.pred,baseline=res.baseline)
     fig.savefig(filename)
 
@@ -487,6 +404,9 @@ def fitting_summary_fig(mrs,res,filename):
 
 # --------- MRSI reporting
 def save_params(params,names,data_hdr,mask,folder,cleanup=True):
+    """
+    Save MRSI results into NIFTI image files
+    """
     for i,p in enumerate(names):
         x = misc.list_to_volume(list(params[:,i]),mask)
         if cleanup:
