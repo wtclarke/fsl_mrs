@@ -86,7 +86,7 @@ class MRSI(object):
                 self._store_scalings.append(mrs_out.scaling)
 
                 if self.tissue_seg_loaded:
-                    tissue_seg = [self.csf[idx],self.wm[idx],self.gm[idx]]
+                    tissue_seg = {'CSF':self.csf[idx],'WM':self.wm[idx],'GM':self.gm[idx]}
                 else:
                     tissue_seg = None
 
@@ -123,7 +123,7 @@ class MRSI(object):
 
     def seg_by_index(self,index):
         if self.tissue_seg_loaded:
-            return [self.csf[index],self.wm[index],self.gm[index]]
+            return {'CSF':self.csf[index],'WM':self.wm[index],'GM':self.gm[index]}
         else:
             raise ValueError('Load tissue segmentation first.')
 
