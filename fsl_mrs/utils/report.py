@@ -408,12 +408,21 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
             <hr>
             """
         else:
+            if 'H2O' in Q.T2:
+                waterstr =f"""
+                    <td class="titles">Water T<sub>2</sub>:</td>
+                    <td>{1000*Q.T2['H2O']} ms</td>
+                    """
+            else:
+                waterstr =f"""
+                    <td class="titles">Water T<sub>2</sub>:</td>
+                    <td>Inf (no relaxation)</td>
+                    """
             section=f"""
             <h1><a name="quantification">Quantification information</a></h1>            
             <table>
                 <tr>
-                    <td class="titles">Water T<sub>2</sub>:</td>
-                    <td>{1000*Q.T2['H2O']} ms</td>
+                    {waterstr}
                 </tr>
                 <tr>
                     <td class="titles">Metabolite T<sub>2</sub>:</td>
