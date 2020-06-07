@@ -166,8 +166,8 @@ def main():
     mrsi.conj_FID       = args.conj_fid
     mrsi.no_conj_FID    = args.no_conj_fid
     mrsi.rescale        = not args.no_rescale
-    mrsi.keep = args.keep
-    mrsi.ignore = args.ignore
+    mrsi.keep           = args.keep
+    mrsi.ignore         = args.ignore
 
     # ppmlim for fitting
     ppmlim=args.ppmlim
@@ -202,8 +202,7 @@ def main():
     import logging,sys
     # logger = mp.log_to_stderr()
     # logger.setLevel(logging.INFO)
-
-    global_counter = mp.Value('L')
+    # global_counter = mp.Value('L')
 
 
           
@@ -214,27 +213,27 @@ def main():
 
     # Initialise by fitting the average FID across all voxels
     if args.verbose:
-        print("    Initialise with average fit")
+       print("    Initialise with average fit")
     mrs      = mrsi.mrs_from_average()
     Fitargs_init = Fitargs.copy()
-    Fitargs_init['method'] = 'MH'
+    Fitargs_init['method'] = 'Newton'
     res_init,_ = runvoxel([mrs,0,None],args,Fitargs_init,echotime)
     Fitargs['x0'] = res_init.params
 
 
-    # Store in report
-    from fsl_mrs.utils import report
-    import datetime
+    # quick summary figure
     report.fitting_summary_fig(mrs,res_init,
-                               filename=os.path.join(args.output,'fit_avg.png'))    
+                              filename=os.path.join(args.output,'fit_avg.png'))    
     
     # Create interactive HTML report
-    report.create_report(mrs,res_init,
-                         filename=os.path.join(args.output,'report.html'),
-                         fidfile=args.data,
-                         basisfile=args.basis,
-                         h2ofile=args.h2o,                             
-                         date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    import datetime
+    if args.report:
+       report.create_report(mrs,res_init,
+                            filename=os.path.join(args.output,'report.html'),
+                            fidfile=args.data,
+                            basisfile=args.basis,
+                            h2ofile=args.h2o,                             
+                            date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
     
     
     warnings.filterwarnings("ignore")
@@ -253,12 +252,13 @@ def main():
         t0  = time.time()
         func = partial(runvoxel,args=args,Fitargs=Fitargs,echotime=echotime)
         with mp.Pool(processes=mp.cpu_count()) as p:
-            pp  = PoolProgress(p)
+            #pp  = PoolProgress(p)
             results = p.map_async(func,mrsi)
             if args.verbose:
-                pp.track(results)
+                track_job(results)
+                #pp.track(results)
         results = results.get()       
-       
+        
                 
     # Save output files
     if args.verbose:
@@ -396,6 +396,13 @@ class PoolProgress:
             print("Voxels remaining = {0}".format(task._number_left*task._chunksize))
             time.sleep(self.update_interval)
 
+
+def track_job(job, update_interval=3):
+    while job._number_left > 0:
+        print(f"    {job._number_left * job._chunksize} Voxels remaining    ", end='\r', flush=True)
+        time.sleep(update_interval)
+
+        
 if __name__ == '__main__':
     main()
 
