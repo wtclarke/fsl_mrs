@@ -248,22 +248,8 @@ def main():
 
 
     # Parse metabolite groups
-    metab_groups = args.metab_groups
-    if isinstance(metab_groups,list):
-        if isinstance(metab_groups[0],str):
-            tmp = [0]*mrs.numBasis
-            grpcounter = 0
-            for n in metab_groups:
-                grpcounter += 1
-                tmp[mrs.names.index(n)] = grpcounter
-            metab_groups = tmp
-        elif isinstance(metab_groups[0],int):
-            if metab_groups == [0]:
-                metab_groups = [0]*mrs.numBasis
-            elif len(metab_groups) != mrs.numBasis:
-                raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
-    elif metab_groups == 0:
-        metab_groups = [0]*mrs.numBasis
+    metab_groups = misc.parse_metab_groups(mrs,args.metab_groups)
+    
 
     # Include Macromolecules? These should have their own metab groups
     if args.add_MM:
