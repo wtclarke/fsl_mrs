@@ -10,7 +10,7 @@
 
 import numpy as np
 from fsl_mrs.core import MRS
-from fsl_mrs.utils import mrs_io,plotting,fitting
+from fsl_mrs.utils import mrs_io,plotting,fitting,misc
 import matplotlib.pyplot as plt
 import nibabel as nib
 import os.path as op
@@ -121,6 +121,23 @@ class MRSI(object):
         self._process_mrs(mrs_out)
         return mrs_out
 
+
+    def mrs_from_average(self):
+        FID = misc.volume_to_list(self.data,self.mask)
+        H2O = misc.volume_to_list(self.H2O,self.mask)
+        FID = sum(FID)/len(FID)
+        H2O = sum(H2O)/len(H2O)
+        
+        mrs_out = MRS(FID=FID,
+                      header=self.header,
+                      basis=self.basis,
+                      names=self.names,
+                      basis_hdr=self.basis_hdr,
+                      H2O=H2O)
+        self._process_mrs(mrs_out)
+        return mrs_out
+
+    
     def seg_by_index(self,index):
         if self.tissue_seg_loaded:
             return {'CSF':self.csf[index],'WM':self.wm[index],'GM':self.gm[index]}
