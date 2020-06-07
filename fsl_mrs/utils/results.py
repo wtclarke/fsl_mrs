@@ -270,17 +270,6 @@ class FitRes(object):
                 df['mM']        = self.getConc(scaling='molarity')
             df['%CRLB']          = self.getUncertainties()
 
-            SNR = self.getQCParams()[0]
-            SNR.index = SNR.index.str.replace('SNR_','')
-            SNR.index.name = 'Metab'
-            SNR = SNR.reset_index(name='SNR')
-            df = df.merge(SNR,how='outer')
-
-            FWHM = self.getQCParams()[1]
-            FWHM.index = FWHM.index.str.replace('fwhm_','')
-            FWHM.index.name = 'Metab'
-            FWHM = FWHM.reset_index(name='FWHM')
-            df = df.merge(FWHM,how='outer')
 
         elif what == 'concentrations':
             scaling_type = ['raw'] 
@@ -303,21 +292,35 @@ class FitRes(object):
             df = pd.concat(all_df)
             df.reset_index(inplace=True)
 
-        elif what == 'qc':            
-            SNR = self.SNR.peaks.T
+        elif what == 'qc':
+
+            SNR = self.getQCParams()[0]
             SNR.index = SNR.index.str.replace('SNR_','')
-            SNR.insert(0,'mean',SNR.mean(axis=1))
-            SNR.insert(0,'Parameter','SNR')
-            SNR
+            SNR.index.name = 'Metab'
+            SNR = SNR.reset_index(name='SNR')
 
-            FWHM = self.FWHM.T
+            FWHM = self.getQCParams()[1]
             FWHM.index = FWHM.index.str.replace('fwhm_','')
-            FWHM.insert(0,'mean',FWHM.mean(axis=1))
-            FWHM.insert(0,'Parameter','FWHM')
+            FWHM.index.name = 'Metab'
+            FWHM = FWHM.reset_index(name='FWHM')
 
-            df = pd.concat([SNR,FWHM])
-            df.index.name = 'metabolite'
-            df.reset_index(inplace=True)
+            df = SNR.merge(FWHM,how='outer')
+            
+            
+            #SNR = self.SNR.peaks.T
+            #SNR.index = SNR.index.str.replace('SNR_','')
+            #SNR.insert(0,'mean',SNR.mean(axis=1))
+            #SNR.insert(0,'Parameter','SNR')
+            #SNR
+
+            #FWHM = self.FWHM.T
+            #FWHM.index = FWHM.index.str.replace('fwhm_','')
+            #FWHM.insert(0,'mean',FWHM.mean(axis=1))
+            #FWHM.insert(0,'Parameter','FWHM')
+
+            #df = pd.concat([SNR,FWHM])
+            #df.index.name = 'metabolite'            
+            #df.reset_index(inplace=True)
 
         elif what == 'parameters':
             df = self.fitResults.T
