@@ -11,7 +11,7 @@ from fsl_mrs.aux import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-from fsl_mrs.utils import fitting
+from fsl_mrs.utils import fitting,misc
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 
@@ -175,28 +175,26 @@ def main():
         ppmlim=(ppmlim[0],ppmlim[1])
 
     # Store info in disctionaries to be passed to MRS and fitting
-
+    Fitargs = {'ppmlim':ppmlim,'method':args.algo,'baseline_order':args.baseline_order}
     if args.lorentzian:
-        Fitargs = {'ppmlim':ppmlim,
-               'method':args.algo,'baseline_order':args.baseline_order,
-               'model':'lorentzian'}
+        Fitargs['model'] = 'lorentzian'
     else:
-        Fitargs = {'ppmlim':ppmlim,
-               'method':args.algo,'baseline_order':args.baseline_order,
-               'model':'voigt'}
+        Fitargs['model'] = 'voigt'
 
-            # Echo time
-        if args.TE is not None:
-            echotime = args.TE*1E-3
-        elif 'meta' in mrsi.basis_hdr:
-            if 'TE' in mrsi.basis_hdr['meta']:
-                echotime = mrsi.basis_hdr['meta']['TE']
-                if echotime > 1.0: # Assume in ms.
-                    echotime *= 1E-3
-                else:
-                    echotime = None
-        else:
-            echotime = None
+    # Echo time
+    if args.TE is not None:
+        echotime = args.TE*1E-3
+    elif 'meta' in mrsi.basis_hdr:
+        if 'TE' in mrsi.basis_hdr['meta']:
+            echotime = mrsi.basis_hdr['meta']['TE']
+            if echotime > 1.0: # Assume in ms.
+                echotime *= 1E-3
+            else:
+                echotime = None
+    elif 'TE' in mrsi.header:
+        echotime = mrsi.header['TE']
+    else:
+        echotime = None
 
 
     import multiprocessing as mp
@@ -207,12 +205,38 @@ def main():
 
     global_counter = mp.Value('L')
 
-      
+
+          
     # Fitting
     if args.verbose:
         print('\n--->> Start fitting\n\n')
         print(f'    Algorithm = [{args.algo}]\n')
 
+    # Initialise by fitting the average FID across all voxels
+    if args.verbose:
+        print("    Initialise with average fit")
+    mrs      = mrsi.mrs_from_average()
+    Fitargs_init = Fitargs.copy()
+    Fitargs_init['method'] = 'MH'
+    res_init,_ = runvoxel([mrs,0,None],args,Fitargs_init,echotime)
+    Fitargs['x0'] = res_init.params
+
+
+    # Store in report
+    from fsl_mrs.utils import report
+    import datetime
+    report.fitting_summary_fig(mrs,res_init,
+                               filename=os.path.join(args.output,'fit_avg.png'))    
+    
+    # Create interactive HTML report
+    report.create_report(mrs,res_init,
+                         filename=os.path.join(args.output,'report.html'),
+                         fidfile=args.data,
+                         basisfile=args.basis,
+                         h2ofile=args.h2o,                             
+                         date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    
+    
     warnings.filterwarnings("ignore")
     if args.single_proc:
         if args.verbose:
@@ -231,7 +255,8 @@ def main():
         with mp.Pool(processes=mp.cpu_count()) as p:
             pp  = PoolProgress(p)
             results = p.map_async(func,mrsi)
-            pp.track(results)
+            if args.verbose:
+                pp.track(results)
         results = results.get()       
        
                 
@@ -322,23 +347,8 @@ def runvoxel(mrs_in,args,Fitargs,echotime):
         mrs,index,tissue_seg = mrs_in
 
          # Parse metabolite groups
-        metab_groups = args.metab_groups
-        if isinstance(metab_groups,list):
-            if isinstance(metab_groups[0],str):
-                tmp = [0]*mrs.numBasis
-                grpcounter = 0
-                for n in metab_groups:
-                    grpcounter += 1
-                    tmp[mrsi.names.index(n)] = grpcounter
-                metab_groups = tmp
-            elif isinstance(metab_groups[0],int):
-                if metab_groups == [0]:
-                    metab_groups = [0]*mrs.numBasis
-                elif len(metab_groups) != mrs.numBasis:
-                    raise(Exception('Found {} metab_groups but there are {} basis functions'.format(len(metab_groups),mrs.numBasis)))
-        elif metab_groups == 0:
-            metab_groups = [0]*mrs.numBasis
-
+        metab_groups = misc.parse_metab_groups(mrs,args.metab_groups)
+        
         if args.add_MM:
             n = mrs.add_MM_peaks(gamma=40,sigma=30)
             new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
@@ -356,15 +366,13 @@ def runvoxel(mrs_in,args,Fitargs,echotime):
                                     referenceMetab=args.internal_ref,
                                     waterRefFID=mrs.H2O,
                                     tissueFractions=None,
-                                    TE=echotime,
-                                    verbose=args.verbose)
+                                    TE=echotime)
         else:
             res.calculateConcScaling(mrs,
                                     referenceMetab=args.internal_ref,
                                     waterRefFID=mrs.H2O,
                                     tissueFractions=tissue_seg,
-                                    TE=echotime,
-                                    verbose=args.verbose)
+                                    TE=echotime)
         # Combine metabolites.
         if args.combine is not None:
             res.combine(args.combine)
@@ -379,14 +387,14 @@ def str_or_int_arg(x):
 
 import time
 class PoolProgress:
-  def __init__(self,pool,update_interval=3):
-    self.pool            = pool
-    self.update_interval = update_interval
-  def track(self, job):
-    task = self.pool._cache[job._job]
-    while task._number_left>0:
-      print("Voxels remaining = {0}".format(task._number_left*task._chunksize))
-      time.sleep(self.update_interval)
+    def __init__(self,pool,update_interval=3):
+        self.pool            = pool
+        self.update_interval = update_interval
+    def track(self, job):
+        task = self.pool._cache[job._job]
+        while task._number_left>0:
+            print("Voxels remaining = {0}".format(task._number_left*task._chunksize))
+            time.sleep(self.update_interval)
 
 if __name__ == '__main__':
     main()
