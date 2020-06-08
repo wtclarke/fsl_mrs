@@ -1,4 +1,14 @@
-'''Module containing functions for combining FIDs, includes coil combination.'''
+#!/usr/bin/env python
+
+# combine.py - Module containing functions for combining FIDs, includes coil combination
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
+
 
 import numpy as np
 

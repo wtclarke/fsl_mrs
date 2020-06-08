@@ -270,17 +270,6 @@ class FitRes(object):
                 df['mM']        = self.getConc(scaling='molarity')
             df['%CRLB']          = self.getUncertainties()
 
-            SNR = self.getQCParams()[0]
-            SNR.index = SNR.index.str.replace('SNR_','')
-            SNR.index.name = 'Metab'
-            SNR = SNR.reset_index(name='SNR')
-            df = df.merge(SNR,how='outer')
-
-            FWHM = self.getQCParams()[1]
-            FWHM.index = FWHM.index.str.replace('fwhm_','')
-            FWHM.index.name = 'Metab'
-            FWHM = FWHM.reset_index(name='FWHM')
-            df = df.merge(FWHM,how='outer')
 
         elif what == 'concentrations':
             scaling_type = ['raw'] 
@@ -291,41 +280,43 @@ class FitRes(object):
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
 
-            all_df = []
-            for st in scaling_type:
-                df = self.getConc(scaling=st,function=None).T
-                df.insert(0,'mean',df.mean(axis=1))
-                df.insert(1,'standard deviation',self.getUncertainties(type=st))
-                df.insert(0,'scaling',st)
-                df.index.name = 'metabolite'
-                all_df.append(df)
 
-            df = pd.concat(all_df)
-            df.reset_index(inplace=True)
+            std  = [self.getUncertainties(type=st) for st in scaling_type]
+            mean = [self.getConc(scaling=st,function='mean').T for st in scaling_type]
 
-        elif what == 'qc':            
-            SNR = self.SNR.peaks.T
+            d = {}
+            d['mean'] = {key:value for key,value in zip(scaling_type,mean)}
+            d['std']  = {key:value for key,value in zip(scaling_type,std)}
+
+            dict_of_df = {k: pd.DataFrame(v) for k,v in d.items()}
+            df = pd.concat(dict_of_df, axis=1)
+            df.insert(0,'Metabs',self.metabs)            
+
+        elif what == 'qc':
+
+            SNR = self.getQCParams()[0]
             SNR.index = SNR.index.str.replace('SNR_','')
-            SNR.insert(0,'mean',SNR.mean(axis=1))
-            SNR.insert(0,'Parameter','SNR')
-            SNR
+            SNR.index.name = 'Metab'
+            SNR = SNR.reset_index(name='SNR')
 
-            FWHM = self.FWHM.T
+            FWHM = self.getQCParams()[1]
             FWHM.index = FWHM.index.str.replace('fwhm_','')
-            FWHM.insert(0,'mean',FWHM.mean(axis=1))
-            FWHM.insert(0,'Parameter','FWHM')
+            FWHM.index.name = 'Metab'
+            FWHM = FWHM.reset_index(name='FWHM')
 
-            df = pd.concat([SNR,FWHM])
-            df.index.name = 'metabolite'
-            df.reset_index(inplace=True)
+            df = SNR.merge(FWHM,how='outer')                        
 
         elif what == 'parameters':
-            df = self.fitResults.T
-            df.insert(0,'mean',self.fitResults.T.mean(axis=1))
-            df.insert(1,'std',self.fitResults.T.std(axis=1))
-
-            df.index.name = 'parameter'
-            df.reset_index(inplace=True)
+            mean = self.params
+            std  = self.getUncertainties(type='raw')
+            if self.method == 'MH':
+                std  = np.sqrt(np.diag(self.mcmc_cov))
+            else:
+                std  = np.sqrt(np.diag(self.cov))
+            df = pd.DataFrame()
+            df['parameter'] = self.params_names
+            df['mean']      = mean
+            df['std']       = std
             
         df.to_csv(filename,index=False,header=True)
 

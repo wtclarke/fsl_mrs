@@ -10,7 +10,7 @@
 
 # Quick imports
 #import argparse
-import configargparse
+from fsl_mrs.aux import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
@@ -27,7 +27,7 @@ def main():
     # Coil combination subcommand
     ccparser = sp.add_parser('coilcombine',help='Combine coils.')
     ccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
-    ccparser.add_argument('-r','--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
+    ccparser.add_argument('--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
     ccparser.add_argument('--noprewhiten',help='Don''t prewhiten data before coil combination',action="store_false")
     ccparser.set_defaults(func=coilcombine)
 

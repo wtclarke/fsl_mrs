@@ -3,12 +3,8 @@ scipy>=1.4.1
 matplotlib
 plotly>=4.*
 pandas
-configargparse
-argparse
-pandas
 jinja2
 beautifulsoup4
 nibabel
 hlsvdpro
 fslpy>=3.0.1
-

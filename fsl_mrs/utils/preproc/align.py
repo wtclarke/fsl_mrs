@@ -1,4 +1,13 @@
-""" Module containing alignment functions (align and aligndiff)"""
+#!/usr/bin/env python
+
+# align.py - Module containing alignment functions (align and aligndiff)
+#
+# Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 from fsl_mrs.utils.preproc.general import get_target_FID,add,subtract
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum,shift_FID
@@ -192,6 +201,9 @@ def phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,diffType 
 # Reporting functions
 
 def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None,shift=True,html=None):
+    """
+    Generate phase alignment report
+    """
     from fsl_mrs.utils.preproc.combine import combine_FIDs
     import plotly.graph_objects as go    
     from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle

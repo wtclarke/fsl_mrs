@@ -593,6 +593,77 @@ def regress_out(x,conf,keep_mean=True):
 
 
 
+def parse_metab_groups(mrs,metab_groups):
+    """
+    Creates list of indices per metabolite group
+
+    Parameters:
+    -----------
+    metab_groups :
+       - A single index    : output is a list of 0's
+       - A single string   : corresponding metab in own group 
+       - The strings 'separate_all' or 'combine_all'
+       - A list:
+        - list of integers : output same as input
+        - list of strings  : each string is interpreted as metab name and has own group
+       Entries in the lists above can also be lists, in which case the corresponding metabs are grouped
+    
+    mrs : MRS Object
+
+    Returns
+    -------
+    list of integers
+    """
+    if isinstance(metab_groups,list) and len(metab_groups)==1:
+        metab_groups = metab_groups[0]
+    
+    out = [0]*mrs.numBasis
+    
+    if isinstance(metab_groups,int):
+        return out
+
+    if isinstance(metab_groups,str):
+        if metab_groups.lower() == 'separate_all':
+            return list(range(mrs.numBasis))
+        
+        if metab_groups.lower() == 'combine_all':
+            return [0]*mrs.numBasis
+            
+        out = [0]*mrs.numBasis
+        out[mrs.names.index(metab_groups)] = 1
+        return out
+    
+
+    if isinstance(metab_groups,list):
+        if isinstance(metab_groups[0],int):
+            assert(len(metab_groups) == mrs.numBasis)
+            return metab_groups
+        
+        grpcounter = 0
+        for entry in metab_groups:
+            if isinstance(entry,str):
+                entry = entry.split('+')
+            grpcounter += 1
+            if isinstance(entry,str):
+                out[mrs.names.index(entry)] = grpcounter
+            elif isinstance(entry,list):
+                for n in entry:
+                    assert(isinstance(n,str))
+                    out[mrs.names.index(n)] = grpcounter
+            else:
+                raise(Exception('entry must be string or list of strings'))
+    
+    m = min(out)
+    if m > 0:
+        out = [x-m for x in out]
+                
+    return out
+                
+            
+        
+
+
+
 # ----- MRSI stuff ---- #
 def volume_to_list(data,mask):
     """

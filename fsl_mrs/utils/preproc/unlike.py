@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+
+# unlike.py - Outlier detection routines
+#
+# Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2019 University of Oxford 
+# SHBASECOPYRIGHT
+
 from fsl_mrs.core import MRS
 import numpy as np
 from fsl_mrs.utils.preproc.general import get_target_FID
