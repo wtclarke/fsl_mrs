@@ -1,0 +1,4 @@
+include versioneer.py
+include fsl_mrs/_version.py
+include LICENSE
+
