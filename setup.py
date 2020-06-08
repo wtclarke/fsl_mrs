@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 
 with open('requirements.txt', 'rt') as f:
     install_requires = [l.strip() for l in f.readlines()]
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
-setup(name='FSL_MRS',
+setup(name='fsl_mrs',
       version='1.0.0',
       description='FSL Tools for Spectroscopy',
       author=['Saad Jbabdi','William Clarke'],
       author_email=['saad@fmrib.ox.ac.uk','william.clarke@ndcn.ox.ac.uk'],
       url='www.fmrib.ox.ac.uk/fsl',
+      long_description=long_description,
+      long_description_content_type="text/markdown",
       packages=['fsl_mrs',
                 'fsl_mrs.core',
                 'fsl_mrs.utils',
@@ -23,7 +27,7 @@ setup(name='FSL_MRS',
                 'fsl_mrs.mmbasis',
                 'fsl_mrs.aux'
                 ],
-      package_data={'fsl_mrs.utils':['mrs_report_template.html','metabolites.pickle'],'fsl_mrs.denmatsim':['spinSystems.json'],
+      package_data={'fsl_mrs.denmatsim':['spinSystems.json'],
                     'fsl_mrs.mmbasis':['mmbasis.json'],
                     'fsl_mrs.utils.preproc':['templates/*.html'],
                     'fsl_mrs':['pkg_data/mrs_fitting_challenge/*/*']},
