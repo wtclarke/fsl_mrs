@@ -5,7 +5,7 @@ FSL-MRS can currently be installed using two methods
 
 1. From GitLab
 ~~~~~~~~~~~~~~
-Download or clone from |fsleyes_gitlab|_. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
+Download or clone from |fslmrs_gitlab|_. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
 
 ::
 
