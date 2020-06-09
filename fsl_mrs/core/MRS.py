@@ -93,9 +93,13 @@ class MRS(object):
         self.scaling           = {'FID':1.0,'basis':1.0}
         
             
-    def from_files(self,FID_file,Basis_file):
+    def from_files(self,FID_file,Basis_file,H2O_file=None):
         FID,FIDheader       = io.read_FID(FID_file)
         basis,names,Bheader = io.read_basis(Basis_file)
+        if H2O_file is not None:
+            H2O,_ = io.read_FID(H2O_file)
+        else: 
+            H2O = None
 
         cf = FIDheader['centralFrequency']
         bw = FIDheader['bandwidth']
@@ -104,7 +108,7 @@ class MRS(object):
                    'basis':basis,'basis_hdr':Bheader[0],
                    'names':names}
 
-        self.__init__(FID=FID,**MRSArgs)
+        self.__init__(FID=FID,H2O=H2O,**MRSArgs)
 
         return
 
