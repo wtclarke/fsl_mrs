@@ -252,7 +252,7 @@ class FitRes(object):
         Parameters:
         -----------
         filename : str
-        what     : one of 'summary', 'concentrations, 'qc', 'parameters'
+        what     : one of 'summary', 'concentrations, 'qc', 'parameters', 'concentrations-mh','parameters-mh'
         """
 
         if what == 'summary':
@@ -269,6 +269,18 @@ class FitRes(object):
             if self.concScalings['molarity'] is not None:
                 df['mM']        = self.getConc(scaling='molarity')
             df['%CRLB']          = self.getUncertainties()
+            
+            SNR = self.getQCParams()[0]
+            SNR.index = SNR.index.str.replace('SNR_','')
+            SNR.index.name = 'Metab'
+            SNR = SNR.reset_index(name='SNR')
+            df = df.merge(SNR,how='outer')
+
+            FWHM = self.getQCParams()[1]
+            FWHM.index = FWHM.index.str.replace('fwhm_','')
+            FWHM.index.name = 'Metab'
+            FWHM = FWHM.reset_index(name='FWHM')
+            df = df.merge(FWHM,how='outer')
 
 
         elif what == 'concentrations':
@@ -292,6 +304,26 @@ class FitRes(object):
             df = pd.concat(dict_of_df, axis=1)
             df.insert(0,'Metabs',self.metabs)            
 
+        elif what == 'concentrations-mh':
+            scaling_type = ['raw'] 
+            if self.concScalings['internal'] is not None:
+                scaling_type.append('internal')
+            if self.concScalings['molality'] is not None:
+                scaling_type.append('molality')
+            if self.concScalings['molarity'] is not None:
+                scaling_type.append('molarity')
+
+            all_df = []
+            for st in scaling_type:
+                df = self.getConc(scaling=st,function=None).T
+                df.insert(0,'scaling',st)
+                df.index.name = 'metabolite'
+                all_df.append(df)
+
+            df = pd.concat(all_df)
+            df.reset_index(inplace=True)
+             
+
         elif what == 'qc':
 
             SNR = self.getQCParams()[0]
@@ -306,17 +338,24 @@ class FitRes(object):
 
             df = SNR.merge(FWHM,how='outer')                        
 
-        elif what == 'parameters':
-            mean = self.params
-            std  = self.getUncertainties(type='raw')
+        elif what == 'parameters':   
             if self.method == 'MH':
-                std  = np.sqrt(np.diag(self.mcmc_cov))
+                mean = self.fitResults.T.mean(axis=1)
+                std  = self.fitResults.T.std(axis=1)
+                mean = mean[~mean.index.str.contains('\+')].to_numpy()
+                std = std[~std.index.str.contains('\+')].to_numpy()
             else:
-                std  = np.sqrt(np.diag(self.cov))
+                mean = self.params
+                std  = np.sqrt(np.diagonal(self.cov))
             df = pd.DataFrame()
             df['parameter'] = self.params_names
             df['mean']      = mean
             df['std']       = std
+
+        elif what == 'parameters-mh':
+            df = self.fitResults.T
+            df.index.name = 'parameter'
+            df.reset_index(inplace=True)
             
         df.to_csv(filename,index=False,header=True)
 
@@ -522,7 +561,7 @@ class FitRes(object):
         elif type.lower() == 'internal':
             internal_ref = self.concScalings['internalRef']
             if self.method == 'Newton':
-                internalRefIndex = self.metabs.index(internal_ref)
+                internalRefIndex = self.params_names_inc_comb.index(internal_ref)
                 internalRefSD = np.sqrt(self.crlb[internalRefIndex])
             elif self.method == 'MH':
                 internalRefSD = self.fitResults[internal_ref].std()

@@ -329,6 +329,9 @@ def main():
     res.to_file(filename=os.path.join(args.output,'concentrations.csv'),what='concentrations')
     res.to_file(filename=os.path.join(args.output,'qc.csv'),what='qc')
     res.to_file(filename=os.path.join(args.output,'all_parameters.csv'),what='parameters')
+    if args.algo == 'MH':
+        res.to_file(filename=os.path.join(args.output,'concentration_samples.csv'),what='concentrations-mh')
+        res.to_file(filename=os.path.join(args.output,'all_samples.csv'),what='parameters-mh')
 
     # Save image of MRS voxel
     location_fig = None
