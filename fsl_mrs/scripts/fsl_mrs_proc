@@ -21,132 +21,135 @@ def main():
     p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
 
     p.add_argument('-v','--version', action='version', version=__version__)
+    p.add('--config', required=False, is_config_file=True, help='configuration file')
 
-    sp = p.add_subparsers(title='subcommands', description='Preprocessing subcommands')
+    sp = p.add_subparsers(title='subcommands', description='Preprocessing subcommands',required=True)
 
     # Coil combination subcommand
-    ccparser = sp.add_parser('coilcombine',help='Combine coils.')
-    ccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
-    ccparser.add_argument('--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
-    ccparser.add_argument('--noprewhiten',help='Don''t prewhiten data before coil combination',action="store_false")
+    ccparser = sp.add_parser('coilcombine',help='Combine coils.',add_help=False)
+    cc_group = ccparser.add_argument_group('coilcombine arguments')
+    cc_group.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True,)
+    cc_group.add_argument('--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
+    cc_group.add_argument('--no_prewhiten',help="Don't prewhiten data before coil combination",action="store_false")
     ccparser.set_defaults(func=coilcombine)
+    add_common_args(ccparser)
 
     # Average subcommand
-    avgparser = sp.add_parser('average',help='Average FIDs.')
-    avgparser.add_argument('--file',help='MRS file(s)',type=str, nargs='+',required=True)
-    avgparser.add_argument('--avgfiles',help='Average across files',action="store_true")
-    avgparser.add_argument('--dim',help='Select dimension to average across',type=int)
+    avgparser = sp.add_parser('average',help='Average FIDs.',add_help=False)
+    avg_group = avgparser.add_argument_group('average arguments')
+    avg_group.add_argument('--file',help='MRS file(s)',type=str, nargs='+',required=True)
+    avg_group.add_argument('--avgfiles',help='Average across files',action="store_true")
+    avg_group.add_argument('--dim',help='Select dimension to average across',type=int)
     avgparser.set_defaults(func=average)
+    add_common_args(avgparser)
 
     #Align subcommand - frequency/phase alignment
-    alignparser = sp.add_parser('align',help='Align FIDs.')
-    alignparser.add_argument('--file',help='List of files to align',type=str, nargs='+',required=True)
-    alignparser.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
-    alignparser.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
+    alignparser = sp.add_parser('align',help='Align FIDs.',add_help=False)
+    align_group = alignparser.add_argument_group('Align arguments')
+    align_group.add_argument('--file',help='List of files to align',type=str, nargs='+',required=True)
+    align_group.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
+    align_group.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
     alignparser.set_defaults(func=align)
+    add_common_args(alignparser)
 
     #Align difference spectra subcommand - frequency/phase alignment
-    alignDparser = sp.add_parser('align-diff',help='Align subspectra for differencing.')
-    alignDparser.add_argument('--file',help='Subspectra 1 - List of files to align',type=str, nargs='+',required=True)
-    alignDparser.add_argument('--reference',help='Subspectra 2 - List of files to align',type=str, nargs='+',required=True)
-    alignDparser.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
-    alignDparser.add_argument('--diff_type',help='add (default) or subtract.',type=str,required=False,default='add')    
+    alignDparser = sp.add_parser('align-diff',help='Align subspectra for differencing.',add_help=False)
+    alignD_group = alignDparser.add_argument_group('Align subspectra arguments')
+    alignD_group.add_argument('--file',help='Subspectra 1 - List of files to align',type=str, nargs='+',required=True)
+    alignD_group.add_argument('--reference',help='Subspectra 2 - List of files to align',type=str, nargs='+',required=True)
+    alignD_group.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
+    alignD_group.add_argument('--diff_type',help='add (default) or subtract.',type=str,required=False,default='add')    
     alignDparser.set_defaults(func=aligndiff)
+    add_common_args(alignDparser)
 
     # ECC subcommand - eddy current correction
-    eccparser = sp.add_parser('ecc',help='Eddy current correction')     
-    eccparser.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
-    eccparser.add_argument('--reference',help='Phase reference data file(s)',type=str, nargs='+',required=True)
+    eccparser = sp.add_parser('ecc',help='Eddy current correction',add_help=False)
+    ecc_group = eccparser.add_argument_group('ECC arguments')     
+    ecc_group.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
+    ecc_group.add_argument('--reference',help='Phase reference data file(s)',type=str, nargs='+',required=True)
     eccparser.set_defaults(func=ecc)
+    add_common_args(eccparser)
 
     # remove subcommand - remove peak using HLSVD
-    hlsvdparser = sp.add_parser('remove',help='Remove peak (default water) using HLSVD.') 
-    hlsvdparser.add_argument('--file',help='Data file(s)',type=str, nargs='+',required=True)
-    hlsvdparser.add_argument('--ppm',help='ppm limits of removal window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default = [4.5,4.8])
+    hlsvdparser = sp.add_parser('remove',help='Remove peak (default water) using HLSVD.',add_help=False)
+    hlsvd_group = hlsvdparser.add_argument_group('HLSVD arguments') 
+    hlsvd_group.add_argument('--file',help='Data file(s)',type=str, nargs='+',required=True)
+    hlsvd_group.add_argument('--ppm',help='ppm limits of removal window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default = [4.5,4.8])
     hlsvdparser.set_defaults(func=remove)
+    add_common_args(hlsvdparser)
 
     # tshift subcommand - shift/resample in timedomain
-    tshiftparser = sp.add_parser('tshift',help='shift/resample in timedomain.') 
-    tshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    tshiftparser.add_argument('--tshiftStart',help='Time shift at start (ms), negative pads with zeros, positive truncates',type=float,default = 0.0)
-    tshiftparser.add_argument('--tshiftEnd',help='Time shift at end (ms), negative truncates, positive pads with zeros',type=float,default = 0.0)
-    tshiftparser.add_argument('--samples',help='Resample to N points in FID.',type=int)
+    tshiftparser = sp.add_parser('tshift',help='shift/resample in timedomain.',add_help=False)
+    tshift_group = tshiftparser.add_argument_group('Time shift arguments') 
+    tshift_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    tshift_group.add_argument('--tshiftStart',help='Time shift at start (ms), negative pads with zeros, positive truncates',type=float,default = 0.0)
+    tshift_group.add_argument('--tshiftEnd',help='Time shift at end (ms), negative truncates, positive pads with zeros',type=float,default = 0.0)
+    tshift_group.add_argument('--samples',help='Resample to N points in FID.',type=int)
     tshiftparser.set_defaults(func=tshift)
+    add_common_args(tshiftparser)
 
     # truncate
-    truncateparser = sp.add_parser('truncate',help='truncate by integer points in timedomain.') 
-    truncateparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    truncateparser.add_argument('--points',help='Points to add/remove (+/-)',type=int,default = 0)
-    truncateparser.add_argument('--pos',help=' ''first'' or ''last'' (default)',type=str,default = 'last')
+    truncateparser = sp.add_parser('truncate',help='truncate or pad by integer points in timedomain.',add_help=False)
+    truncate_group = truncateparser.add_argument_group('Truncate/pad arguments') 
+    truncate_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    truncate_group.add_argument('--points',help='Points to add/remove (+/-)',type=int,default = 0)
+    truncate_group.add_argument('--pos',help=' ''first'' or ''last'' (default)',type=str,default = 'last')
     truncateparser.set_defaults(func=truncate)
+    add_common_args(truncateparser)
 
     # apodize
-    apodparser = sp.add_parser('apodize',help='Apodize FID.') 
-    apodparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    apodparser.add_argument('--filter',help='Filter choice, either ''exp'' (default) or ''l2g''.',type=str,default = 'exp')
-    apodparser.add_argument('--amount',help='Amount of broadening. In Hz for exp mode. Use space separated list for l2g.',type=float,nargs='+')
+    apodparser = sp.add_parser('apodize',help='Apodize FID.',add_help=False)
+    apod_group = apodparser.add_argument_group('Apodize arguments') 
+    apod_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    apod_group.add_argument('--filter',help='Filter choice, either ''exp'' (default) or ''l2g''.',type=str,default = 'exp')
+    apod_group.add_argument('--amount',help='Amount of broadening. In Hz for exp mode. Use space separated list for l2g.',type=float,nargs='+')
     apodparser.set_defaults(func=apodize)
+    add_common_args(apodparser)
 
     # fshift subcommand - shift in frequency domain
-    fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.') 
-    fshiftparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    fshiftparser.add_argument('--shiftppm',help='Apply fixed shift (ppm scale)',type=float)
-    fshiftparser.add_argument('--shifthz',help='Apply fixed shift (Hz scale)',type=float)
-    fshiftparser.add_argument('--shiftRef',help='Shift to reference (default = Cr)',action="store_true")
-    fshiftparser.add_argument('--ppm',help='Shift maximum point in this range to target (must specify --target).',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
-    fshiftparser.add_argument('--target',help='Target position (must be used with ppm). Default = 3.027',type=float,default=3.027)
+    fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.',add_help=False)
+    fshift_group = fshiftparser.add_argument_group('Frequency shift arguments') 
+    fshift_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    fshift_group.add_argument('--shiftppm',help='Apply fixed shift (ppm scale)',type=float)
+    fshift_group.add_argument('--shifthz',help='Apply fixed shift (Hz scale)',type=float)
+    fshift_group.add_argument('--shiftRef',help='Shift to reference (default = Cr)',action="store_true")
+    fshift_group.add_argument('--ppm',help='Shift maximum point in this range to target (must specify --target).',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
+    fshift_group.add_argument('--target',help='Target position (must be used with ppm). Default = 3.027',type=float,default=3.027)
     fshiftparser.set_defaults(func=fshift)
+    add_common_args(fshiftparser)
 
     # unlike subcomand - find FIDs that are unlike
-    unlikeparser = sp.add_parser('unlike',help='Identify unlike FIDs.') 
-    unlikeparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    unlikeparser.add_argument('--sd',help='Exclusion limit (# of SD from mean,default=1.96)',type=float,default=1.96)
-    unlikeparser.add_argument('--iter',help='Iterations of algorithm.',type=int,default=2)
-    unlikeparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=None)
-    unlikeparser.add_argument('--outputbad',help='Output failed FIDs',action="store_true")
+    unlikeparser = sp.add_parser('unlike',help='Identify unlike FIDs.',add_help=False)
+    unlike_group = unlikeparser.add_argument_group('unlike arguments') 
+    unlike_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    unlike_group.add_argument('--sd',help='Exclusion limit (# of SD from mean,default=1.96)',type=float,default=1.96)
+    unlike_group.add_argument('--iter',help='Iterations of algorithm.',type=int,default=2)
+    unlike_group.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=None)
+    unlike_group.add_argument('--outputbad',help='Output failed FIDs',action="store_true")
     unlikeparser.set_defaults(func=unlike)
+    add_common_args(unlikeparser)
 
     # Phasing - based on maximum point in range
-    phaseparser = sp.add_parser('phase',help='Phase spectrum based on maximum point in range') 
-    phaseparser.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    phaseparser.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
+    phaseparser = sp.add_parser('phase',help='Phase spectrum based on maximum point in range',add_help=False)
+    phase_group = phaseparser.add_argument_group('Phase arguments') 
+    phase_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
+    phase_group.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
     phaseparser.set_defaults(func=phase)
+    add_common_args(phaseparser)
 
     # subtraction - subtraction of FIDs
-    subtractparser = sp.add_parser('subtract',help='Subtract two FIDs') 
-    subtractparser.add_argument('--file',help='Two data files to subtract (second from first)',type=str, nargs=2,required=True)
+    subtractparser = sp.add_parser('subtract',help='Subtract two FIDs',add_help=False)
+    subtract_group = subtractparser.add_argument_group('Subtraction arguments') 
+    subtract_group.add_argument('--file',help='Two data files to subtract (second from first)',type=str, nargs=2,required=True)
     subtractparser.set_defaults(func=subtract)
+    add_common_args(subtractparser)
 
     # add - addition of FIDs
-    addparser = sp.add_parser('add',help='Add two FIDs') 
-    addparser.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
+    addparser = sp.add_parser('add',help='Add two FIDs',add_help=False)
+    add_group = addparser.add_argument_group('Addition arguments') 
+    add_group.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
     addparser.set_defaults(func=add)
-
-    # Arguments not assiciated with subcommands
-    required     = p.add_argument_group('required arguments')
-    optional     = p.add_argument_group('additional options')
-
-    # REQUIRED ARGUMENTS 
-    required.add_argument('--output',
-                          required=True,type=str,metavar='<str>',
-                          help='output folder')
-
-    # ADDITONAL OPTIONAL ARGUMENTS    
-    optional.add_argument('--overwrite',action="store_true",
-                          help='overwrite existing output folder')
-    optional.add_argument('-r','--generateReports',action="store_true",
-                          help='Generate HTML reports.')
-    optional.add_argument('-i','--reportIndicies',type=int,nargs='+',default= [0],
-                          help='Generate reports for selected inputs where multiple input files exist. Defaults to first (0). Specify as indices counting from 0.')
-    optional.add_argument('--allreports',action="store_true",
-                          help='Generate reports for all inputs. Overrides arguments to reportIndicies.')
-    optional.add_argument('--conjugate',action="store_true",
-                          help='apply conjugate to FID')
-    optional.add_argument('--filename',type=str,metavar='<str>',
-                          help='Override output file name.')    
-    optional.add_argument('--verbose',action="store_true",
-                          help='spit out verbose info')
-    optional.add('--config', required=False, is_config_file=True, help='configuration file')
+    add_common_args(addparser)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -174,6 +177,38 @@ def main():
     # Output any additional arguments
     if additionalOutputs is not None:
         print(additionalOutputs)
+
+def add_common_args(p):
+    """Add any arguments which are common between the sub commands."""
+    # This is so the arguments can appear after the subcommand.
+
+    # Arguments not associated with subcommands
+    required     = p.add_argument_group('required arguments')
+    optional     = p.add_argument_group('additional options')
+
+    # REQUIRED ARGUMENTS 
+    required.add_argument('--output',
+                          required=True,type=str,metavar='<str>',
+                          help='output folder')
+
+    # ADDITIONAL OPTIONAL ARGUMENTS    
+    optional.add_argument('--overwrite',action="store_true",
+                          help='overwrite existing output folder')
+    optional.add_argument('-r','--generateReports',action="store_true",
+                          help='Generate HTML reports.')
+    optional.add_argument('-i','--reportIndicies',type=int,nargs='+',default= [0],
+                          help='Generate reports for selected inputs where multiple input files exist. Defaults to first (0). Specify as indices counting from 0.')
+    optional.add_argument('--allreports',action="store_true",
+                          help='Generate reports for all inputs. Overrides arguments to reportIndicies.')
+    optional.add_argument('--conjugate',action="store_true",
+                          help='apply conjugate to FID')
+    optional.add_argument('--filename',type=str,metavar='<str>',
+                          help='Override output file name.')    
+    optional.add_argument('--verbose',action="store_true",
+                          help='spit out verbose info')
+    optional.add_argument('-h', '--help', action='help',
+                            help='show this help message and exit')    
+
     
 # ######################################################
 # Imports
@@ -276,10 +311,10 @@ def coilcombine(dataobj,args):
         for ijk in np.ndindex(d.data.shape[:3]):
             # If reference data is not loaded
             if d.reference is None:
-                combmain[ijk] = preproc.combine_FIDs(d.data[ijk],'svd',do_prewhiten=~args['noprewhiten'])            
+                combmain[ijk] = preproc.combine_FIDs(d.data[ijk],'svd',do_prewhiten=~args['no_prewhiten'])            
             else:
                 # Otherwise                
-                combW,refWeights = preproc.combine_FIDs(d.reference[ijk],'svd_weights',do_prewhiten=~args['noprewhiten'])
+                combW,refWeights = preproc.combine_FIDs(d.reference[ijk],'svd_weights',do_prewhiten=~args['no_prewhiten'])
                 combmain[ijk] = preproc.combine_FIDs(d.data[ijk],'weighted',weights=refWeights)
             
             if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
