@@ -25,7 +25,7 @@ copyright = f'{date.year}, Will Clarke & Saad Jbabdi, University of Oxford, Oxfo
 author = 'William Clarke'
 
 # The full version, including alpha/beta/rc tags
-version = '0.1'
+version = '1.0.0'
 release = version
 
 # From PM's fsleyes doc
@@ -33,10 +33,10 @@ release = version
 # quote in the documentation go here.
 rst_epilog = """
 
-.. |fsl_version|     replace:: 6.0.2
+.. |fsl_version|     replace:: 6.0.4
 
-.. |fsleyes_gitlab| replace:: FSL-MRS GitLab
-.. _fsleyes_gitlab: https://git.fmrib.ox.ac.uk/saad/fsl_mrs
+.. |fslmrs_gitlab| replace:: FSL-MRS GitLab
+.. _fslmrs_gitlab: https://git.fmrib.ox.ac.uk/saad/fsl_mrs
 """
 
 

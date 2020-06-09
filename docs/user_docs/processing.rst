@@ -17,8 +17,8 @@ Due to the complexity and specialism of MRSI reconstruction FSL-MRS does not pro
 fsl_mrs_proc
 ------------
 
-Processing in FSL-MRS is primarily accessed through the commandline program *fsl_mrs_proc*.
-*fsl_mrs_proc* has a series of 
+Processing in FSL-MRS is primarily accessed through the commandline program :code:`fsl_mrs_proc`.
+:code:`fsl_mrs_proc` has a series of 
 
 Subcommands
 ~~~~~~~~~~~
@@ -41,12 +41,12 @@ subtract            	 Subtract two FIDs
 add                 	 Add two FIDs	
 ======================= ==============================================================
 
-Specific help for each subcommand can be accessed using `fsl_mrs_proc [subcmd] --help`
+Specific help for each subcommand can be accessed using :code:`fsl_mrs_proc [subcmd] --help`
 
 
 Generic commands
 ~~~~~~~~~~~~~~~~
-*fsl_mrs_proc* has a few arguments that are generic to each subcommand. These should be specified before the subcommand argument.
+:code:`fsl_mrs_proc` has a few arguments that are generic to each subcommand. These should be specified before the subcommand argument.
 ::
 
     fsl_mrs_proc [generic commands] [subcmd] --help
@@ -66,7 +66,7 @@ Merging processing HTML reports
 fsl_mrs_preproc
 ---------------
 
-*fsl_mrs_preproc* combines a number of processing steps to provide a one step processing of non-edited SVS data.
+:code:`fsl_mrs_preproc` combines a number of processing steps to provide a one step processing of non-edited SVS data.
 The script requires a list of transients to be averaged (--data), water reference data (--reference) and an output location (--output). The data can be coil combined or un-combined but must be consistent. 
 ::
 

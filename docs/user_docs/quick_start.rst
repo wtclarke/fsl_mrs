@@ -22,29 +22,29 @@ For a list of supported formats see :ref:`Data Conversion <data_conversion>`.
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Some data requires pre-processing. Often MRSI data will have gone through appropriate pre-processing during reconstruction, if so skip to step 3. For unprocessed single voxel (SVS) data, read on.
 
-Use the *fsl_mrs_proc* commands to pre-process your raw data. *fsl_mrs_proc* contains routines for many common steps (e.g. coil combination, phase-frequency alignment, residual water removal). E.g.::
+Use the :code:`fsl_mrs_proc` commands to pre-process your raw data. :code:`fsl_mrs_proc` contains routines for many common steps (e.g. coil combination, phase-frequency alignment, residual water removal). E.g.::
 
     fsl_mrs_proc -r --filename combined coilcombine --file my_metab_file*.nii.gz --reference my_wref_file.nii.gz 
     fsl_mrs_proc -r --filename aligned align --file combined*.nii.gz --ppm 1.8 3.5
     fsl_mrs_proc -r --filename avg average --file aligned*.nii.gz --avgfiles
     fsl_mrs_proc -r --filename water_removed remove --file avg.nii.gz
-    fsl_mrs_proc  -r --filename metab phase --file water_removed.nii.gz
+    fsl_mrs_proc -r --filename metab phase --file water_removed.nii.gz
 
-The -r requests a HTML report to be generated, which can be merged using::
+The -r requests a HTML report to be generated for each stage of the processing. The different HTML reports can be merged using::
 
     merge_mrs_reports -d example_processing -o . *.html
 
-If your data is unedited single voxel (SVS) try out the prepackaged processing pipeline *fsl_mrs_preproc*. You will need to identify the water suppressed and water unsuppressed files to pass to the script.
+If your data is unedited single voxel (SVS) try out the prepackaged processing pipeline :code:`fsl_mrs_preproc`. You will need to identify the water suppressed and water unsuppressed files to pass to the script.
 
 ::
 
     fsl_mrs_preproc --output my_subj --data metab*.nii.gz --reference wref*.nii.gz --report 
 
-Have a look at the source code for fsl_mrs_preproc to see how you can construct your own python script using the processing modules. You can always prototype using Jupyter/IPython (see :ref:`Demos <demos>`)
+Have a look at the source code for :code:`fsl_mrs_preproc` to see how you can construct your own python script using the processing modules. You can always prototype using Jupyter/IPython (see :ref:`Demos <demos>`)
 
 3. Create Basis Spectra
 ~~~~~~~~~~~~~~~~~~~~~~~
-The fitting in FSL-MRS requires the user to provide basis spectra. Basis spectra are the simulated responses of the in vivo metabolites to the pulse sequence. FSL-MRS provides a simulator to create basis sets *fsl_mrs_sim*::
+The fitting in FSL-MRS requires the user to provide basis spectra. Basis spectra are the simulated responses of the in vivo metabolites to the pulse sequence. FSL-MRS provides a simulator to create basis sets :code:`fsl_mrs_sim`::
 
     fsl_mrs_sim -b metabs.txt my_sequence_description.json
 
@@ -58,30 +58,30 @@ Have a quick check of your basis set using mrs_vis::
 ~~~~~~~~~~~~~~~~~~~~~~
 For FSL-MRS to produce accurate water scaled molarity or molality concentrations from the fitting results, it must be provided with estimates of the tissue (GM, WM, CSF) fractions in each voxel.
 
-For this FSL-MRS provides the *svs_segment* and *mrsi_segment* commands.::
+For this FSL-MRS provides the *svs_segment* and :code:`mrsi_segment` commands.::
 
     svs_segment -t T1.nii.gz -f tissue_frac svs_data.nii.gz
     mrsi_segment -t T1.nii.gz -f tissue_frac mrsi_data.nii.gz
 
-*svs_segment* creates a small JSON file which can be passed to the fitting routines. *mrsi_segment* creates NIfTI files of the fractional tissue volumes registered to the MRSI volume.
-*svs_segment* and *mrsi_segment* both rely on fsl_anat to run FSL FAST tissue segmentation. If fsl_anat has already been run -t T1.nii.gz can be substituted with -a T1.anat. 
+:code:`svs_segment` creates a small JSON file which can be passed to the fitting routines. :code:`mrsi_segment` creates NIfTI files of the fractional tissue volumes registered to the MRSI volume.
+:code:`svs_segment` and :code:`mrsi_segment` both rely on `fsl_anat <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/fsl_anat>`_ to run FSL FAST tissue segmentation. If fsl_anat has already been run, then the  :code:`-t T1.nii.gz` option can be substituted with :code:`-a T1.anat`. 
 
 
 5. Fitting
 ~~~~~~~~~~
-FSL-MRS provides two scripts for fitting: fsl_mrs (for SVS data) and fsl_mrsi (for MRSI data).
+FSL-MRS provides two wrapper scripts for fitting: :code:`fsl_mrs` (for SVS data) and :code:`fsl_mrsi` (for MRSI data).
 
 ::
 
-    fsl_mrs --data metab.nii.gz --basis my_basis_spectra --output example_fit --algo MH --overwrite --report --h2o wref.nii.gz --TE 11 --tissue_frac tissue_frac.json
+    fsl_mrs  --data metab.nii.gz --basis my_basis_spectra --output example_fit --h2o wref.nii.gz --TE 11 --tissue_frac tissue_frac.json --report 
 
-    fsl_mrsi --data mrsi.nii.gz --basis my_basis_spectra --output example_fit --overwrite --mask mask.nii.gz --h2o wref.nii.gz --TE 32 --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz
+    fsl_mrsi --data mrsi.nii.gz  --basis my_basis_spectra --output example_fit --h2o wref.nii.gz --mask mask.nii.gz --TE 32 --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz --report
 
 6. Visualise
 ~~~~~~~~~~~~
-HTML processing reports merged using *merge_mrs_reports* and fitting reports made using *fsl_mrs* can be viewed in your browser.
+HTML processing reports merged using :code:`merge_mrs_reports` and fitting reports made using :code:`fsl_mrs` and :code:`fsl_mrsi` can be viewed in your browser.
 
-For visualising MRSI data, fits and fitting results `FSLeyes
+For visualising MRSI data, fits, and fitting results, `FSLeyes
 <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FSLeyes>`_ is recommended. 
 
 
