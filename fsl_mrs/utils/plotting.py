@@ -401,7 +401,7 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots  
 
-def plotly_fit(mrs,res,ppmlim=None,proj='real',metabs = None,phs=(0,0)):
+def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
     """
          plot model fitting plus baseline
         
