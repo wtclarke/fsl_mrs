@@ -18,7 +18,7 @@ To get the packaged example data, make sure [git-lfs](https://git-lfs.github.com
 
     pip install spec2nii
 
-After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~wclarke/fsl_mrs/userdoc/quick_start.html).
+After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/quick_start.html).
 
 ---
 
@@ -27,11 +27,11 @@ After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~wcl
 #### Scripts:
 
 - **fsl\_mrs**
-: fit a single spectrum 
+: fit a single voxel spectroscopy (SVS) spectrum 
 - **fsl\_mrsi**
 : fit a 3D volume of 1D spectra 
 - **fsl\_mrs\_proc**
-: pre-processing (coil combination, averaging, eddy-current correction) 
+: pre-processing (coil combination, averaging, phase correction, outlier rejection, water suppression, eddy-current correction) 
 - **fsl\_mrs\_preproc**
 : Pre-packaged processing for non-edited SVS. 
 - **fsl\_mrs\_sim**
@@ -49,7 +49,7 @@ For each of the wrapper scripts above, simply type `<name_of_script> --help` to 
 
 Example command-line usage is demonstrated in the packaged [Jupyter Notebook](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/example_usage/Example%20SVS%20processing%20-%20command-line.ipynb.).
 
-Documentation can be found online [here](https://users.fmrib.ox.ac.uk/~wclarke/fsl_mrs/userdoc/index.html).
+Documentation can be found online [here](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/index.html).
 
 ### File types
 
@@ -67,7 +67,9 @@ If you don't want to use the wrapper scripts, you can use the python modules dir
 
 If you use FSL-MRS in your research please cite:
 
-Please see the LICENSE file for licensing information.
+    Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020
+
+Please see the [LICENSE](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/LICENSE) file for licensing information.
 
 
 
