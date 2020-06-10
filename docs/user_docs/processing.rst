@@ -46,10 +46,10 @@ Specific help for each subcommand can be accessed using :code:`fsl_mrs_proc [sub
 
 Generic commands
 ~~~~~~~~~~~~~~~~
-:code:`fsl_mrs_proc` has a few arguments that are generic to each subcommand. These should be specified before the subcommand argument.
+:code:`fsl_mrs_proc` has a few arguments that are generic to each subcommand. These should still be specified after the subcommand argument.
 ::
 
-    fsl_mrs_proc [generic commands] [subcmd] --help
+    fsl_mrs_proc [subcmd] [specific arguments] [generic arguments]
 
 Some common commands are:
 
@@ -93,34 +93,34 @@ fsl_mrs_proc subcommand specifics
 ---------------------------------
 
 1. coilcombine (Coil combination) 
-    Takes a list of files (--file) and runs wSVD coil combination on them optionally using a single water reference dataset (-r/--reference) to calculate the complex weightings of each coil. The function expects data to be stored as 5D data, with the last dimension storing individual coil data. Each file is treated separately. Pre-whitening can be disabled (--noprewhiten). 
+        Takes a list of files (--file) and runs wSVD coil combination on them optionally using a single water reference dataset (-r/--reference) to calculate the complex weightings of each coil. The function expects data to be stored as 5D data, with the last dimension storing individual coil data. Each file is treated separately. Pre-whitening can be disabled (--noprewhiten). 
 
 2. average (averaging) 
-    Takes either a single file or list of files (--file) and takes the mean across the list of files (--avgfiles) or across a certain dimension (--dim, indexes from 0). 
+        Takes either a single file or list of files (--file) and takes the mean across the list of files (--avgfiles) or across a certain dimension (--dim, indexes from 0). 
 
 3. align (phase-frequency alignment) 
-    Takes a list of files (--file) and aligns each FID to the FID nearest to the mean, or to a single passed reference FID (--reference). The ppm range can be defined (--ppm, default = 0.2->4.2 ppm). 
+        Takes a list of files (--file) and aligns each FID to the FID nearest to the mean, or to a single passed reference FID (--reference). The ppm range can be defined (--ppm, default = 0.2->4.2 ppm). 
 
 4. ecc (eddy current correction) 
-    Takes either a single file or list of files (--file) and applies eddy current correction based on the phase of a water reference scan (--reference, supplied either as a single reference or list of same length as --files). The reference must have experienced the same eddy current effects (i.e. same gradients). 
+        Takes either a single file or list of files (--file) and applies eddy current correction based on the phase of a water reference scan (--reference, supplied either as a single reference or list of same length as --files). The reference must have experienced the same eddy current effects (i.e. same gradients). 
 
 5. remove (residual water removal - HLSVD) 
-    Takes either a single file or list of files (--file) and applies HLSVD peak removal over the specified ppm limits (--ppm, default = 4.5->4.8 ppm) 
+        Takes either a single file or list of files (--file) and applies HLSVD peak removal over the specified ppm limits (--ppm, default = 4.5->4.8 ppm) 
 
 6. tshift (time domain resampling) 
-    Takes either a single file or list of files (--file) and resamples in the time domain to achieve a different number of points (--samples), and/or a different start time (--tshiftStart, in ms), and/or a different end time (--tshiftEnd, in ms). 
+        Takes either a single file or list of files (--file) and resamples in the time domain to achieve a different number of points (--samples), and/or a different start time (--tshiftStart, in ms), and/or a different end time (--tshiftEnd, in ms). 
 
 7. truncate (truncation or zero padding) 
-    Takes either a single file or list of files (--file) and adds or removes points (--points, positive to add, negative to remove) from the start or end (--pos, default end) of the FID. Points added are zeros. 
+        Takes either a single file or list of files (--file) and adds or removes points (--points, positive to add, negative to remove) from the start or end (--pos, default end) of the FID. Points added are zeros. 
 
 8. apodize (filtering of data) 
-    Takes either a single file or list of files (--file) and applies either an exponential or Lorentzian to Gaussian window (--filter) to the time domain data. The window parameters may be specified (--amount). 
+        Takes either a single file or list of files (--file) and applies either an exponential or Lorentzian to Gaussian window (--filter) to the time domain data. The window parameters may be specified (--amount). 
 
 9. fshift (frequency shift) 
-    Takes either a single file or list of files (--file) and shifts the data in the frequency domain by an amount specified in hertz (--shifthz) or in ppm (--shiftppm). 
+        Takes either a single file or list of files (--file) and shifts the data in the frequency domain by an amount specified in hertz (--shifthz) or in ppm (--shiftppm). 
 
 10. unlike (bad average removal) 
-    Takes a list of files (--file) and returns files containing FIDS that are within N standard deviations (--sd) from the median. The ppm range over which the spectra are compared can be set (--ppm, default = 0.2->4.2 ppm) and the number of iterations of the algorithm can be controlled (--iter). Optionally the FIDs which are identified as failing the criterion can be output (--outputbad) 
+        Takes a list of files (--file) and returns files containing FIDS that are within N standard deviations (--sd) from the median. The ppm range over which the spectra are compared can be set (--ppm, default = 0.2->4.2 ppm) and the number of iterations of the algorithm can be controlled (--iter). Optionally the FIDs which are identified as failing the criterion can be output (--outputbad) 
 
 11. phase (zero order phasing) 
-    Takes either a single file or list of files (--file) and applies zero-order phase to the FID/spectrum based on the phase at the maximum in a specified chemical shift range (--ppm) 
+        Takes either a single file or list of files (--file) and applies zero-order phase to the FID/spectrum based on the phase at the maximum in a specified chemical shift range (--ppm) 

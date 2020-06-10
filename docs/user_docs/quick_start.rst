@@ -60,8 +60,8 @@ For FSL-MRS to produce accurate water scaled molarity or molality concentrations
 
 For this FSL-MRS provides the *svs_segment* and :code:`mrsi_segment` commands.::
 
-    svs_segment -t T1.nii.gz -f tissue_frac svs_data.nii.gz
-    mrsi_segment -t T1.nii.gz -f tissue_frac mrsi_data.nii.gz
+    svs_segment -t T1.nii.gz svs_data.nii.gz
+    mrsi_segment -t T1.nii.gz mrsi_data.nii.gz
 
 :code:`svs_segment` creates a small JSON file which can be passed to the fitting routines. :code:`mrsi_segment` creates NIfTI files of the fractional tissue volumes registered to the MRSI volume.
 :code:`svs_segment` and :code:`mrsi_segment` both rely on `fsl_anat <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/fsl_anat>`_ to run FSL FAST tissue segmentation. If fsl_anat has already been run, then the  :code:`-t T1.nii.gz` option can be substituted with :code:`-a T1.anat`. 
