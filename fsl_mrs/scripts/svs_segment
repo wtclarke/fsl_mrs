@@ -28,8 +28,9 @@ def main():
     group.add_argument('-t','--t1', type=str,metavar='T1',help='T1 nifti file')
     group.add_argument('-a','--anat', type=str,help='FSL anat directory for tissue segmentation output.')                     
     parser.add_argument('-o','--output', type=str,help='Output directory',default='.')
-    parser.add_argument('-f','--filename', type=str,help='Output file name',default='mask.nii.gz')
+    parser.add_argument('-f','--filename', type=str,help='file name stem. _mask.nii.gz or _segmentation.json will be added.',default=None)
     parser.add_argument('-m','--mask_only', action="store_true",help='Only perform masking stage, do not run fsl_anat if only T1 passed.')
+    parser.add_argument('--no_clean', action="store_false",help="Don't Clean intermediate output.",dest='clean')
     args = parser.parse_args()
 
      # If not prevented run fsl_anat for fast segmentation
@@ -55,7 +56,12 @@ def main():
         flirt_ref= op.join(anat,'T1_biascorr.nii.gz')
     else:
         flirt_ref= args.t1
-    flirt_out= op.join(args.output,args.filename)
+
+    if args.filename is None:
+        mask_name = 'mask.nii.gz'
+    else:
+        mask_name = args.filename+'_mask.nii.gz'
+    flirt_out= op.join(args.output,mask_name)
 
     flirt(flirt_in,flirt_ref,out=flirt_out,
                 usesqform=True,
@@ -65,10 +71,11 @@ def main():
                 setbackground=0,
                 paddingsize=1)
 
-    # Cleanup
-    remove(flirt_in)
+    # Clean up
+    if args.clean:
+        remove(flirt_in)
 
-    # Provide tissue segmentation if anat is availible
+    # Provide tissue segmentation if anat is available
     if anat is not None:
         # Check that the svs mask intersects with brain, issue warning if not 
         fslmaths(flirt_out).add(op.join(anat,'T1_biascorr_brain_mask.nii.gz')).mas(flirt_out).run(op.join(args.output,'tmp.nii.gz'))
@@ -76,7 +83,9 @@ def main():
         meanInVox = fslstats(op.join(args.output,'tmp.nii.gz')).M.run()
         if meanInVox<2.0:
             warnings.warn('The mask does not fully intersect with the brain mask. Check manually.')
-        remove(op.join(args.output,'tmp.nii.gz'))
+
+        if args.clean:        
+            remove(op.join(args.output,'tmp.nii.gz'))
 
         # Count up segmentation values in mask.
         seg_csf= op.join(anat,'T1_fast_pve_0.nii.gz')
@@ -89,7 +98,13 @@ def main():
         WM = fslstats(seg_wm).k(flirt_out).m.run()
         print(f'CSF: {CSF:0.2f}, GM: {GM:0.2f}, WM: {WM:0.2f}.')
         segresults = {'CSF':CSF,'GM':GM,'WM':WM}
-        with open(op.join(args.output,'segmentation.json'), 'w', encoding='utf-8') as f:
+
+        if args.filename is None:
+            seg_name = 'segmentation.json'
+        else:
+            seg_name = args.filename+'_segmentation.json'
+        
+        with open(op.join(args.output,seg_name), 'w', encoding='utf-8') as f:
             json.dump(segresults, f, ensure_ascii=False, indent='\t')
 
 
