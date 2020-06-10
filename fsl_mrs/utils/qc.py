@@ -3,6 +3,7 @@
 # qc.py - Calculate various QC measures
 #
 # Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+#         Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford 
 # SHBASECOPYRIGHT
