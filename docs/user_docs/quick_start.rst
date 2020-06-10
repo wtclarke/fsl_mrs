@@ -3,8 +3,11 @@
 Quick Start Guide
 =================
 
+
 Summary
 -------
+Below we describe an end-to-end pipeline that includes data conversion, processing, model fitting, quantification, and visualisation of the results. To apply this step to the example data provided with FSL-MRS see the `example_usage` section in the main package.
+
 
 1. Convert your data
 ~~~~~~~~~~~~~~~~~~~~
@@ -24,11 +27,11 @@ Some data requires pre-processing. Often MRSI data will have gone through approp
 
 Use the :code:`fsl_mrs_proc` commands to pre-process your raw data. :code:`fsl_mrs_proc` contains routines for many common steps (e.g. coil combination, phase-frequency alignment, residual water removal). E.g.::
 
-    fsl_mrs_proc -r --filename combined coilcombine --file my_metab_file*.nii.gz --reference my_wref_file.nii.gz 
-    fsl_mrs_proc -r --filename aligned align --file combined*.nii.gz --ppm 1.8 3.5
-    fsl_mrs_proc -r --filename avg average --file aligned*.nii.gz --avgfiles
-    fsl_mrs_proc -r --filename water_removed remove --file avg.nii.gz
-    fsl_mrs_proc -r --filename metab phase --file water_removed.nii.gz
+    fsl_mrs_proc coilcombine --file my_metab_file*.nii.gz --reference my_wref_file.nii.gz --output combined -r
+    fsl_mrs_proc align       --file combined*.nii.gz --ppm 1.8 3.5                        --output aligned -r
+    fsl_mrs_proc average     --file aligned*.nii.gz --avgfiles                            --output avg -r
+    fsl_mrs_proc remove      --file avg.nii.gz                                            --output water_removed -r
+    fsl_mrs_proc phase       --file water_removed.nii.gz                                  --output metab -r
 
 The -r requests a HTML report to be generated for each stage of the processing. The different HTML reports can be merged using::
 
@@ -58,7 +61,7 @@ Have a quick check of your basis set using mrs_vis::
 ~~~~~~~~~~~~~~~~~~~~~~
 For FSL-MRS to produce accurate water scaled molarity or molality concentrations from the fitting results, it must be provided with estimates of the tissue (GM, WM, CSF) fractions in each voxel.
 
-For this FSL-MRS provides the *svs_segment* and :code:`mrsi_segment` commands.::
+For this FSL-MRS provides the :code:`svs_segment` and :code:`mrsi_segment` commands.::
 
     svs_segment -t T1.nii.gz svs_data.nii.gz
     mrsi_segment -t T1.nii.gz mrsi_data.nii.gz
@@ -73,9 +76,9 @@ FSL-MRS provides two wrapper scripts for fitting: :code:`fsl_mrs` (for SVS data)
 
 ::
 
-    fsl_mrs  --data metab.nii.gz --basis my_basis_spectra --output example_fit --h2o wref.nii.gz --TE 11 --tissue_frac tissue_frac.json --report 
+    fsl_mrs  --data metab.nii.gz --basis my_basis_spectra --output example_svs  --h2o wref.nii.gz --tissue_frac tissue_frac.json --report 
 
-    fsl_mrsi --data mrsi.nii.gz  --basis my_basis_spectra --output example_fit --h2o wref.nii.gz --mask mask.nii.gz --TE 32 --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz --report
+    fsl_mrsi --data mrsi.nii.gz  --basis my_basis_spectra --output example_mrsi --h2o wref.nii.gz --mask mask.nii.gz --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz --report
 
 6. Visualise
 ~~~~~~~~~~~~
@@ -89,5 +92,5 @@ For visualising MRSI data, fits, and fitting results, `FSLeyes
 
 Demos
 -----
-Two demo Jupyter notebooks are provided alongside some sample data in the example_usage directory. These notebooks show an example processing pipeline implemented both on the command-line and in interactive python. 
+Two demo Jupyter notebooks are provided alongside some sample data in the `example_usage` directory. These notebooks show an example processing pipeline implemented both on the command-line and in interactive python. 
 

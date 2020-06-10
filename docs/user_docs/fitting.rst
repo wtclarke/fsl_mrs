@@ -3,7 +3,7 @@ Fitting
 
 FSL-MRS fitting is performed using a linear combination model where a spectral basis is shifted, broadened, and scaled to fit the FID in the spectral domain. Additional nuisance parameters are 0th and 1st order phase, as well as a polynomial complex baseline.
 
-Wrapper scripts for command-line fitting are provided for SVS and MRSI. 
+Wrapper scripts for command-line fitting are provided for SVS and MRSI as shown below. For more details on the fitting model, algorithms, and advanced options see :ref:`Details <details>`.
 
 
 SVS
@@ -15,14 +15,23 @@ A basic call to :code:`fsl_mrs`, the SVS wrapper script, is as follows:
 
     fsl_mrs --data metab.nii.gz \
             --basis my_basis_spectra \
+            --output example_fit
+
+This will run nonlinear optimisation using the Truncated Newton algorithm, as implemented in Scipy, and will produce a simple PNG file summarising the fit, and several CSV files containing concentrations, uncertainties, and QC parameters for further analysis. 
+
+A more complete call to :code:`fsl_mrs` may be as follows.
+
+::
+
+    fsl_mrs --data metab.nii.gz \
+            --basis my_basis_spectra \
             --output example_fit \
             --h2o wref.nii.gz \
-            --TE 11 \
             --tissue_frac tissue_frac.json \
             --report 
 
-This will run nonlinear optimisation using the Truncated Newton algorithm, as implemented in Scipy, and will produce an interactive HTML report including absolute quantification to the water reference and tissue fraction correction. The script offers many additional options, including MCMC fitting (more robust but slower). Type: :code:`fsl_mrs --help` to see all available options.
 
+This will additionally run absolute quantification w.r.t the water reference (with partial volume adjustments) and will produce an interactive HTML report. Type: :code:`fsl_mrs --help` to see all available options.
 
 Output
 ~~~~~~
@@ -46,7 +55,6 @@ A basic call to :code:`fsl_mrsi` is given below:
              --output example_fit \
              --mask mask.nii.gz \
              --h2o wref.nii.gz \
-             --TE 32 \
              --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz
 
 This will fit the linear combination model to each voxel independently. Many additional options are available. Type :code:`fsl_mrsi --help` for a list of all options. 
@@ -93,4 +101,31 @@ Visualising the fit:
     plotting.plotly_fit(mrs,results)
 
 
+.. _details:
 
+Details
+-------
+
+Modelling
+~~~~~~~~~
+
+At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR20]_. 
+
+The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear combination of (shifted and broadened) metabolite basis spectra plus a complex baseline :math:`\mathrm{B}(v)` and 
+
+.. math::
+
+    \begin{array}{c}
+        \mathrm{Y}(v)=\mathrm{B}(v)+\exp \left[i\left(\phi_{0}+v \phi_{1}\right)\right] \sum_{g=1}^{N_{G}} \sum_{l=1}^{N_{g}} C_{l, g} M_{l, g}\left(v ; \gamma_{g}, \sigma_{g}, \epsilon_{g}\right) \\
+        M_{l, g}\left(v ; \gamma_{g}, \epsilon_{g}\right)=\mathcal{FFT}\left\{m_{l, g}(t) \exp \left[-\left(\left(\gamma_{g}+\sigma_{g}^{2} t\right)+i \epsilon_{g}\right) t\right]\right\}
+    \end{array}
+
+Wrapper options
+~~~~~~~~~~~~~~~
+
+Type :code:`fsl_mrs --help` to get the full set of available options.
+
+References
+----------
+
+.. [CLAR20] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020.
