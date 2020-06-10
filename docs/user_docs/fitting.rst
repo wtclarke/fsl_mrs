@@ -111,7 +111,7 @@ Modelling
 
 At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR20]_. 
 
-The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear combination of (shifted and broadened) metabolite basis spectra plus a complex baseline :math:`\mathrm{B}(v)` and 
+The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear combination of (shifted and broadened) metabolite basis spectra :math:`\mathrm{M}_{l,g}` (metab = :math:`l`, metab group = :math:`g`) plus a complex polynomial baseline :math:`\mathrm{B}(v)`. The signal model is as follows:
 
 .. math::
 
@@ -120,10 +120,69 @@ The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear 
         M_{l, g}\left(v ; \gamma_{g}, \epsilon_{g}\right)=\mathcal{FFT}\left\{m_{l, g}(t) \exp \left[-\left(\left(\gamma_{g}+\sigma_{g}^{2} t\right)+i \epsilon_{g}\right) t\right]\right\}
     \end{array}
 
+Model parameters are summarised in the below table:
+
+========================== ============================================================ ============
+ Symbol                     Name                                                         Units  
+========================== ============================================================ ============ 
+ :math:`\phi_0`             zero-th order global phase                                    rad
+ :math:`\phi_1`             first order global phase                                      rad/Hz
+ :math:`\epsilon_g`         line shift for metab group :math:`g`                          rad/sec
+ :math:`\gamma_g`           line broadening (Lorentizian) for metab group :math:`g`       Hz
+ :math:`\sigma_g`           line broadening (Gaussian) for metab group :math:`g`          Hz
+ :math:`\mathrm{C}_{l,g}`   concentration for metabolite :math:`l` in group :math:`g`     A.U.
+========================== ============================================================ ============
+
+
 Wrapper options
 ~~~~~~~~~~~~~~~
 
-Type :code:`fsl_mrs --help` to get the full set of available options.
+Below are detailed explanations of some of the optional arguments in the wrapper scripts. Type :code:`fsl_mrs --help` or :code:`fsl_mrsi --help` to get the full set of available options. 
+
+
+:code:`--algo ALGO`         
+    Algorithm to be used in the fitting. Either *Newton* (default) or *MH*. if *MH* is selected, the Metropolis hastings algorithm is run, initialised using the Newton algorithm (Truncated Newton as implemented in Scipy).
+:code:`--ignore`            
+    List of metabolites to be removed from the basis file prior to fitting.
+:code:`--keep`              
+    List of metabolites to include in the fitting, all other metabolites are excluded from the fitting
+:code:`--combine`           
+    Combine sets of metabolites (not in the fitting, only in the quantification/display) - this option is repeatable.
+:code:`--ppmlim`            
+    Only calculate the loss function within this ppm range.
+:code:`--baseline_order`    
+    Polynomial baseline order. Set to -1 to remove the baseline altogether.
+:code:`--metab_groups`      
+    Group metaboites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
+:code:`--add_MM`            
+    Add macromolecule peaks at the following frequencies: 0.9, 1.2, 1.4, 1.7 ppm and a doublet at 2.08 & 3.0 ppm
+:code:`--lorentzian`        
+    By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
+
+
+
+The wrapper scripts can also take a configuration file as an input. For example, say we have a text file called :code:`config.txt` which contains the below:
+
+::
+
+    # Any line beginning with this is ignored
+    ppmlim       = [0.3,4.1]
+    metab_groups = combine_all
+    TE           = 11
+    add_MM
+    report
+
+The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
+::
+
+    fsl_mrs --config config.txt
+
+::
+
+    fsl_mrs --ppmlim .3 4.1 --metab_groups combine_all --TE 11 --add_MM --report
+
+
+
 
 References
 ----------
