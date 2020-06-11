@@ -14,7 +14,7 @@ from fsl_mrs.aux import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-import json
+
 
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
@@ -370,6 +370,7 @@ def str_or_int_arg(x):
         return x
 
 def tissue_frac_arg(x):
+    import json
     try:
         with open(x) as jsonFile:
             jsonString = jsonFile.read()                   
