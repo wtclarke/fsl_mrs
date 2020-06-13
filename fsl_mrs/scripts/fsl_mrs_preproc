@@ -5,13 +5,11 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 # Quick imports
-#import argparse
 from fsl_mrs.aux import configargparse
-
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 from fsl_mrs.utils import mrs_io
@@ -23,76 +21,78 @@ import os
 
 def main():
     # Parse command-line arguments
-    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Complete non-edited SVS Preprocessing")
+    p = configargparse.ArgParser(
+        add_config_file_help=False,
+        description="FSL Magnetic Resonance Spectroscopy"
+                    " - Complete non-edited SVS Preprocessing")
 
-    p.add_argument('-v','--version', action='version', version=__version__)
+    p.add_argument('-v', '--version', action='version', version=__version__)
 
-    required     = p.add_argument_group('required arguments')
-    optional     = p.add_argument_group('additional options')
-
+    required = p.add_argument_group('required arguments')
+    optional = p.add_argument_group('additional options')
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True,type=str,nargs='+',metavar='<str>',
+                          required=True, type=str, nargs='+', metavar='<str>',
                           help='list of input files')
     required.add_argument('--reference',
-                          required=True,type=str,nargs='+',metavar='<str>',
-                          help='list of non-water suppressed files')    
+                          required=True, type=str, nargs='+', metavar='<str>',
+                          help='list of non-water suppressed files')
     required.add_argument('--output',
-                          required=True,type=str,metavar='<str>',
+                          required=True, type=str, metavar='<str>',
                           help='output folder')
 
     # ADDITONAL OPTIONAL ARGUMENTS
-    optional.add_argument('--quant',type=str,nargs='+',default=None,metavar='<str>',
-                          help='Water reference data for quantification (Optional).')
-    optional.add_argument('--ecc',type=str,nargs='+',default=None,metavar='<str>',
-                          help='Water reference data for eddy current correction (Optional).')
+    optional.add_argument('--quant', type=str, nargs='+',
+                          default=None, metavar='<str>',
+                          help='Water reference data for'
+                               ' quantification (Optional).')
+    optional.add_argument('--ecc', type=str, nargs='+',
+                          default=None, metavar='<str>',
+                          help='Water reference data for eddy'
+                               ' current correction (Optional).')
     # option to not average, this will toggle the average property to False
-    optional.add_argument('--noaverage',action="store_false",dest='average',
+    optional.add_argument('--noaverage', action="store_false", dest='average',
                           help='Do not average repetitions.')
-    optional.add_argument('--hlsvd',action="store_true",
+    optional.add_argument('--hlsvd', action="store_true",
                           help='Apply HLSVD for residual water removal.')
-    optional.add_argument('--leftshift',type=int,metavar='POINTS',
-                          help='Remove points at the start of the fid.')                      
-    optional.add_argument('--t1',type=str,default=None,metavar='IMAGE',
+    optional.add_argument('--leftshift', type=int, metavar='POINTS',
+                          help='Remove points at the start of the fid.')
+    optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
                           help='structural image (for report)')
-    optional.add_argument('--verbose',action="store_true",
+    optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
-    optional.add_argument('--conjugate',action="store_true",
+    optional.add_argument('--conjugate', action="store_true",
                           help='apply conjugate to FID')
-    optional.add_argument('--overwrite',action="store_true",
+    optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
-    optional.add_argument('--report',action="store_true",
+    optional.add_argument('--report', action="store_true",
                           help='Generate report in output folder')
-    optional.add('--config', required=False, is_config_file=True, help='configuration file')
+    optional.add('--config', required=False, is_config_file=True,
+                 help='configuration file')
 
     # Parse command-line arguments
     args = p.parse_args()
-    
+
     # Output kickass splash screen
     if args.verbose:
         splash(logo='mrs')
-    
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
-    import time, os, sys, shutil, warnings
-    from fsl_mrs.core import MRS
-    from fsl_mrs.utils import report
+    import os
+    import shutil
     from fsl_mrs.utils import preproc
     from fsl_mrs.utils import plotting
-    from fsl_mrs.utils import misc
-    import datetime
     import copy
     # ######################################################
 
-    
-    
     # Check if output folder exists
     overwrite = args.overwrite
     if os.path.exists(args.output):
         if not overwrite:
-            print("Folder '{}' exists. Are you sure you want to delete it? [Y,N]".format(args.output))
+            print(f"Folder '{args.output}' exists."
+                  "Are you sure you want to delete it? [Y,N]")
             response = input()
             overwrite = response.upper() == "Y"
         if not overwrite:
@@ -104,42 +104,42 @@ def main():
     else:
         os.mkdir(args.output)
 
-
-
     # Save chosen arguments
-    with open(os.path.join(args.output,"options.txt"),"w") as f:
+    with open(os.path.join(args.output, "options.txt"), "w") as f:
         f.write(str(args))
         f.write("\n--------\n")
         f.write(p.format_values())
-        
 
-
-    #######  Do the work #######
+    # ######  Do the work #######
     if args.verbose:
         print('Load the data....')
-    
+
     # Read all data
     # Suppressed data
-    FIDlist,hdr,shape,datatype = readData(args.data,args.conjugate)
+    FIDlist, hdr, shape, datatype = readData(args.data, args.conjugate)
     if args.verbose:
-        print('.... Found {} repeats of the data FIDs with shape {} each.\n\n'.format(len(FIDlist),shape))
+        print(f'.... Found {len(FIDlist)} repeats of the data'
+              f' FIDs with shape {shape} each.\n\n')
     # Reference data
-    Reflist,refhdr,refshape,_ = readData(args.reference,args.conjugate)
+    Reflist, refhdr, refshape, _ = readData(args.reference, args.conjugate)
     if args.verbose:
-        print('.... Found {} repeats of the reference FIDs with shape {} each.\n\n'.format(len(Reflist),refshape))
+        print(f'.... Found {len(Reflist)} repeats of the reference'
+              f' FIDs with shape {refshape} each.\n\n')
 
     if args.quant is not None:
         # Separate quant data
-        quantlist,quanthdr,quantshape,_ = readData(args.quant,args.conjugate)
+        quantlist, quanthdr, quantshape, _ = readData(args.quant,
+                                                      args.conjugate)
         if args.verbose:
-            print('.... Found {} repeats of the quant FIDs with shape {} each.\n\n'.format(len(quantlist),quantshape))
+            print(f'.... Found {len(quantlist)} repeats of the quant'
+                  f' FIDs with shape {quantshape} each.\n\n')
 
     if args.ecc is not None:
         # Separate ecc data
-        ecclist,ecchdr,eccshape,_ = readData(args.ecc,args.conjugate)
+        ecclist, ecchdr, eccshape, _ = readData(args.ecc, args.conjugate)
         if args.verbose:
-            print('.... Found {} repeats of the ecc FIDs with shape {} each.\n\n'.format(len(ecclist),eccshape))
-
+            print(f'.... Found {len(ecclist)} repeats of the ecc FIDs'
+                  f' with shape {eccshape} each.\n\n')
 
     # Determine if coils have been combined already
     if args.verbose:
@@ -155,36 +155,42 @@ def main():
 
     # Do preproc
     if args.verbose:
-            print('Begin proprocessing.... ')
-
+        print('Begin proprocessing.... ')
 
     if do_coil_combine:
         if args.verbose:
             print('... Coil Combination ...')
 
         # Weights from reference data
-        w = np.zeros((Reflist[0].shape[1]),dtype=np.complex128)
-        for idx,r in enumerate(Reflist):
-            Reflist[idx],wtmp = preproc.combine_FIDs(r,'svd_weights')
+        w = np.zeros((Reflist[0].shape[1]), dtype=np.complex128)
+        for idx, r in enumerate(Reflist):
+            Reflist[idx], wtmp = preproc.combine_FIDs(r, 'svd_weights')
             w += wtmp
         w /= len(Reflist)
 
-        for idx,fid in enumerate(FIDlist):
+        for idx, fid in enumerate(FIDlist):
             if args.verbose:
-                print('{}/{}'.format(idx,len(FIDlist)),end='\r')
-            FIDlist[idx] = preproc.combine_FIDs(fid,'weighted',weights=w)
+                print('{}/{}'.format(idx, len(FIDlist)), end='\r')
+            FIDlist[idx] = preproc.combine_FIDs(fid, 'weighted', weights=w)
 
             if idx == 0 and args.report:
                 # Report
-                preproc.combine.combine_FIDs_report(fid,FIDlist[idx],hdr,ncha=len(fid),ppmlim = (0.0,6.0),method='svd',html=args.output)
+                preproc.combine.combine_FIDs_report(
+                    fid, FIDlist[idx], hdr,
+                    ncha=len(fid),
+                    ppmlim=(0.0, 6.0),
+                    method='svd',
+                    html=args.output)
 
         if args.quant is not None:
-            for idx,fid in enumerate(quantlist):
-                quantlist[idx] = preproc.combine_FIDs(fid,'weighted',weights=w)
-            
+            for idx, fid in enumerate(quantlist):
+                quantlist[idx] = preproc.combine_FIDs(fid, 'weighted',
+                                                      weights=w)
+
         if args.ecc is not None:
-            for idx,fid in enumerate(ecclist):
-                ecclist[idx] = preproc.combine_FIDs(fid,'weighted',weights=w)
+            for idx, fid in enumerate(ecclist):
+                ecclist[idx] = preproc.combine_FIDs(fid, 'weighted',
+                                                    weights=w)
 
     # Some useful quantitites from the headers
     bw = hdr['bandwidth']
@@ -196,78 +202,124 @@ def main():
 
     # Bad average removal on the suppressed data
     if args.verbose:
-        print(f'... Removing unlike averages (>1.96\u03C3 from mean) ...')
-    FIDlist,rmFIDs,keepIndicies,rmIndicies,metric = preproc.identifyUnlikeFIDs(FIDlist,bw,cf,sdlimit = 1.96,iterations=2,ppmlim=(0,4.2),shift=True)
+        print('... Removing unlike averages (>1.96\u03C3 from mean) ...')
+
+    FIDlist, rmFIDs, keepIndicies, rmIndicies, metric = \
+        preproc.identifyUnlikeFIDs(
+            FIDlist, bw, cf,
+            sdlimit=1.96,
+            iterations=2,
+            ppmlim=(0, 4.2),
+            shift=True)
+
     if args.verbose:
-        print(f'{len(rmIndicies)}/{len(rmIndicies)+len(rmIndicies)} bad averages identified and removed.')
+        print(f'{len(rmIndicies)}/{len(rmIndicies)+len(rmIndicies)}'
+              ' bad averages identified and removed.')
         print(f'The removed averages were {rmIndicies}.')
     if args.report:
         # Report
-        preproc.unlike.identifyUnlikeFIDs_report(FIDlist,rmFIDs,hdr,keepIndicies,rmIndicies,metric,ppmlim=(0.0,4.2),sdlimit = 1.96,html=args.output)        
+        preproc.unlike.identifyUnlikeFIDs_report(
+            FIDlist, rmFIDs, hdr,
+            keepIndicies, rmIndicies, metric,
+            ppmlim=(0.0, 4.2),
+            sdlimit=1.96,
+            html=args.output)
 
     # Frequency and phase align the FIDs
     if args.verbose:
         print('... Average FIDs ...')
     reportlist = copy.deepcopy(FIDlist)
-    FIDlist,phi,eps = preproc.phase_freq_align(FIDlist,bw,cf,ppmlim=(0,4.2),niter=2)
-    Reflist,_,_ = preproc.phase_freq_align(Reflist,bw,cf,ppmlim=(0,4.2),niter=2)
+    FIDlist, phi, eps = preproc.phase_freq_align(FIDlist, bw, cf,
+                                                 ppmlim=(0, 4.2),
+                                                 niter=2)
+    Reflist, _, _ = preproc.phase_freq_align(Reflist, bw, cf,
+                                             ppmlim=(0, 4.2),
+                                             niter=2)
     if args.quant is not None:
-        quantlist,_,_ = preproc.phase_freq_align(quantlist,bw,cf,ppmlim=(0,4.2),niter=2)
+        quantlist, _, _ = preproc.phase_freq_align(quantlist, bw, cf,
+                                                   ppmlim=(0, 4.2),
+                                                   niter=2)
     if args.ecc is not None:
-        ecclist,_,_ = preproc.phase_freq_align(ecclist,bw,cf,ppmlim=(0,4.2),niter=2)
+        ecclist, _, _ = preproc.phase_freq_align(ecclist, bw, cf,
+                                                 ppmlim=(0, 4.2),
+                                                 niter=2)
 
     if args.report:
         # Report
-        preproc.align.phase_freq_align_report(reportlist,FIDlist,hdr,phi,eps,ppmlim=(0,4.2),shift=True,html=args.output)
+        preproc.align.phase_freq_align_report(reportlist, FIDlist, hdr,
+                                              phi, eps,
+                                              ppmlim=(0, 4.2),
+                                              shift=True,
+                                              html=args.output)
 
-    # Average the data (if asked to do so - this might not be the case for fMRS)
-    # Force everything to stay as a list so that data writing can be agnostic of 
-    # averaging later on.
+    # Average the data (if asked to do so)
+    # Force everything to stay as a list so that data writing can be agnostic
+    # of averaging later on.
     if args.average:
         if args.verbose:
             print('... Average FIDs ...')
         reportlist = copy.deepcopy(FIDlist)
-        FIDlist = [preproc.combine_FIDs(FIDlist,'mean')] 
-        Reflist = [preproc.combine_FIDs(Reflist,'mean')]
+        FIDlist = [preproc.combine_FIDs(FIDlist, 'mean')]
+        Reflist = [preproc.combine_FIDs(Reflist, 'mean')]
         if args.quant is not None:
-            quantlist = [preproc.combine_FIDs(quantlist,'mean')] 
+            quantlist = [preproc.combine_FIDs(quantlist, 'mean')]
         if args.report:
             # Report
-            preproc.combine.combine_FIDs_report(reportlist,FIDlist[0],hdr,method='mean',html=args.output)
+            preproc.combine.combine_FIDs_report(reportlist, FIDlist[0], hdr,
+                                                method='mean',
+                                                html=args.output)
 
-    # Always average ecc if it exists as a separate scan        
+    # Always average ecc if it exists as a separate scan
     if args.ecc is not None:
-        ecclist = [preproc.combine_FIDs(ecclist,'mean')]
-    
+        ecclist = [preproc.combine_FIDs(ecclist, 'mean')]
+
     # Eddy current correction
     if args.ecc is not None:
         eccRef = ecclist[0]
     else:
-        eccRef = preproc.combine_FIDs(Reflist,'mean') 
-    iterFunction = lambda flist : [preproc.eddy_correct(fid,eccRef) for fid in flist]
+        eccRef = preproc.combine_FIDs(Reflist, 'mean')
+
+    def iterFunction(flist):
+        return [preproc.eddy_correct(fid, eccRef) for fid in flist]
+
     reportlist = copy.deepcopy(FIDlist)
     FIDlist = iterFunction(FIDlist)
     Reflist = iterFunction(Reflist)
-    # Typically if a separate "quantification" water reference has been collected
-    # it will have most gradients removed (OVS and water suppression), therefore
-    # apply ecc using it's phase as a phase reference
+
+    # Typically if a separate "quantification" water reference
+    #  has been collected it will have most gradients removed
+    # (OVS and water suppression), therefore apply ecc using
+    # its phase as a phase reference
     if args.quant is not None:
-        quantlist = [preproc.eddy_correct(fid,quantlist[0]) for fid in quantlist]
+        quantlist = [preproc.eddy_correct(fid, quantlist[0])
+                     for fid in quantlist]
     if args.report:
         # Report
-        preproc.eddycorrect.eddy_correct_report(reportlist[0],FIDlist[0],eccRef,hdr,ppmlim = (0.2,4.2),html=args.output)
+        preproc.eddycorrect.eddy_correct_report(
+            reportlist[0],
+            FIDlist[0],
+            eccRef,
+            hdr,
+            ppmlim=(0.2, 4.2),
+            html=args.output)
 
     # HLSVD
     if args.hlsvd:
-        hlsvdlimits = [-0.35,0.35]
+        hlsvdlimits = [-0.35, 0.35]
         reportlist = copy.deepcopy(FIDlist)
-        FIDlist = [preproc.hlsvd(fid,dt,cf,hlsvdlimits) for fid in FIDlist]
+        FIDlist = [preproc.hlsvd(fid, dt, cf, hlsvdlimits) for fid in FIDlist]
         if args.report:
             # Report
-            preproc.remove.hlsvd_report(reportlist[0],FIDlist[0],hdr,hlsvdlimits,html=args.output)
+            preproc.remove.hlsvd_report(
+                reportlist[0], FIDlist[0], hdr, hlsvdlimits,
+                html=args.output)
 
     if args.leftshift:
-        iterFunction = lambda flist : [preproc.truncate(fid,args.leftshift,first_or_last='first') for fid in flist]
+        def iterFunction(flist):
+            return [preproc.truncate(fid,
+                                     args.leftshift,
+                                     first_or_last='first')
+                    for fid in flist]
         reportlist = copy.deepcopy(FIDlist)
         FIDlist = iterFunction(FIDlist)
         Reflist = iterFunction(Reflist)
@@ -276,91 +328,119 @@ def main():
         FIDComblist = iterFunction(FIDComblist)
         if args.report:
             # Report
-            preproc.shifting.shift_report(reportlist[0],FIDlist[0],hdr,hdr,html=args.output,function='truncate')
+            preproc.shifting.shift_report(
+                reportlist[0], FIDlist[0], hdr, hdr,
+                html=args.output,
+                function='truncate')
 
-    # Apply shift to reference 
-    iterFunction = lambda flist : [preproc.shiftToRef(fid,3.027,bw,cf,ppmlim=(2.9,3.1))[0] for fid in flist]
+    # Apply shift to reference
+    def iterFunction(flist):
+        return [preproc.shiftToRef(fid, 3.027, bw, cf, ppmlim=(2.9, 3.1))[0]
+                for fid in flist]
     reportlist = copy.deepcopy(FIDlist)
     FIDlist = iterFunction(FIDlist)
     FIDComblist = iterFunction(FIDComblist)
     if args.report:
         # Report
-        preproc.shifting.shift_report(reportlist[0],FIDlist[0],hdr,hdr,html=args.output,function='shifttoref')
+        preproc.shifting.shift_report(
+            reportlist[0], FIDlist[0], hdr, hdr,
+            html=args.output,
+            function='shifttoref')
 
     # Apply phasing based on a single peak (Cr)
-    iterFunction = lambda flist,ppm : [preproc.phaseCorrect(fid,bw,cf,ppmlim=ppm)[0] for fid in flist]
+    def iterFunction(flist, ppm):
+        return [preproc.phaseCorrect(fid, bw, cf, ppmlim=ppm)[0]
+                for fid in flist]
     reportlist = copy.deepcopy(FIDlist)
-    FIDlist = iterFunction(FIDlist,(2.9,3.1))
+    FIDlist = iterFunction(FIDlist, (2.9, 3.1))
     reportlist2 = copy.deepcopy(Reflist)
-    Reflist = iterFunction(Reflist,(4.6,4.7))
+    Reflist = iterFunction(Reflist, (4.6, 4.7))
     if args.quant is not None:
         reportlist2 = copy.deepcopy(quantlist)
-        quantlist = iterFunction(quantlist,(4.6,4.7))
-    FIDComblist = iterFunction(FIDComblist,(2.9,3.1))
+        quantlist = iterFunction(quantlist, (4.6, 4.7))
+    FIDComblist = iterFunction(FIDComblist, (2.9, 3.1))
     if args.report:
         # Report
-        preproc.phasing.phaseCorrect_report(reportlist[0],FIDlist[0],hdr,None,ppmlim=(2.8,3.2),html=args.output)
+        preproc.phasing.phaseCorrect_report(
+            reportlist[0], FIDlist[0], hdr, None,
+            ppmlim=(2.8, 3.2),
+            html=args.output)
         if args.quant:
-            preproc.phasing.phaseCorrect_report(reportlist2[0],quantlist[0],hdr,None,ppmlim=(4.6,4.7),html=args.output)
+            preproc.phasing.phaseCorrect_report(
+                reportlist2[0], quantlist[0], hdr, None,
+                ppmlim=(4.6, 4.7),
+                html=args.output)
         else:
-            preproc.phasing.phaseCorrect_report(reportlist2[0],Reflist[0],hdr,None,ppmlim=(4.6,4.7),html=args.output)
+            preproc.phasing.phaseCorrect_report(
+                reportlist2[0], Reflist[0], hdr, None,
+                ppmlim=(4.6, 4.7),
+                html=args.output)
 
     # Save the data
-    saveData(FIDlist,hdr,args.output,'metab',datatype=datatype)
-    if  args.quant is not None:
-        saveData(quantlist,hdr,args.output,'wref',datatype=datatype)
+    saveData(FIDlist, hdr, args.output, 'metab', datatype=datatype)
+    if args.quant is not None:
+        saveData(quantlist, hdr, args.output, 'wref', datatype=datatype)
     else:
-        saveData(Reflist,hdr,args.output,'wref',datatype=datatype)
-    
+        saveData(Reflist, hdr, args.output, 'wref', datatype=datatype)
+
     # Produce html report
     if args.report:
-        import subprocess,glob
+        import subprocess
+        import glob
         if args.verbose:
             print('Create report')
-        htmlfiles = glob.glob(os.path.join(args.output,'*.html'))                
-        subprocess.call(['merge_mrs_reports','-d',os.path.join(args.output,'metab'),'-o',args.output,'--delete']+htmlfiles) 
-        
+        htmlfiles = glob.glob(os.path.join(args.output, '*.html'))
+        subprocess.call(['merge_mrs_reports', '-d',
+                         os.path.join(args.output, 'metab'),
+                         '-o', args.output,
+                         '--delete']+htmlfiles)
+
         if args.t1 is not None:
             if datatype == 'NIFTI':
-                fig = plotting.plot_world_orient(args.t1,args.data[0])
-                fig.savefig(os.path.join(args.output,'voxel_location.png'))
+                fig = plotting.plot_world_orient(args.t1, args.data[0])
+                fig.savefig(os.path.join(args.output, 'voxel_location.png'))
 
 
-def readData(files,conjugate):
-    FIDlist= []
-    shape    = None
+def readData(files, conjugate):
+    FIDlist = []
+    shape = None
     datatype = None
     for filename in files:
-        dtype      = mrs_io.check_datatype(filename)
-        fid,header = mrs_io.read_FID(filename)
-        fid        = np.squeeze(fid)
+        dtype = mrs_io.check_datatype(filename)
+        fid, header = mrs_io.read_FID(filename)
+        fid = np.squeeze(fid)
         if conjugate:
             fid = np.conj(fid)
         if shape is not None:
             if fid.shape != shape:
                 raise(Exception('FIDs are incompatible in shapes'))
             if dtype != datatype:
-                raise(Exception('FID files must all be of the same data type (e.g. RAW or NIFTI)'))
+                raise(Exception('FID files must all be of the same data type'
+                                ' (e.g. RAW or NIFTI)'))
         else:
-            shape    = fid.shape
+            shape = fid.shape
             datatype = dtype
-        
+
         FIDlist.append(fid)
 
-    return FIDlist,header,shape,datatype
-    
-def saveData(FIDlist,hdr,outputDir,basename,datatype='NIFTI'):
+    return FIDlist, header, shape, datatype
+
+
+def saveData(FIDlist, hdr, outputDir, basename, datatype='NIFTI'):
     if len(FIDlist) == 1:
-        nameGen = lambda x,y : os.path.join(outputDir,f'{basename}.{y}')
+        def nameGen(x, y):
+            return os.path.join(outputDir, f'{basename}.{y}')
     else:
-        nameGen = lambda x,y : os.path.join(outputDir,f'{basename}_{x:03.0f}.{y}')
-    for iDx,f in enumerate(FIDlist):
-        if datatype == 'RAW':            
-            filename = nameGen(iDx,'RAW')
-            mrs_io.lcm_io.saveRAW(filename,f,hdr)
+        def nameGen(x, y):
+            return os.path.join(outputDir, f'{basename}_{x:03.0f}.{y}')
+    for iDx, f in enumerate(FIDlist):
+        if datatype == 'RAW':
+            filename = nameGen(iDx, 'RAW')
+            mrs_io.lcm_io.saveRAW(filename, f, hdr)
         elif datatype == 'NIFTI':
-            filename = nameGen(iDx,'nii')
-            mrs_io.fsl_io.saveNIFTI(filename,f,hdr)
-        
+            filename = nameGen(iDx, 'nii')
+            mrs_io.fsl_io.saveNIFTI(filename, f, hdr)
+
+
 if __name__ == '__main__':
     main()
