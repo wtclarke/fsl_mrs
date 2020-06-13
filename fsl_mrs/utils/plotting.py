@@ -5,20 +5,20 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-import plotly
 import plotly.graph_objs as go
 from plotly import tools
 import nibabel as nib
 import scipy.ndimage as ndimage
 import itertools as it
 
-from fsl_mrs.utils.misc import hz2ppm,FIDToSpec,SpecToFID
+from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
+
 
 def FID2Spec(x):
     """
@@ -27,29 +27,9 @@ def FID2Spec(x):
     x = FIDToSpec(x)
     return x
 
-def styleSpectrumAxes(ax,xlabel='ppm',ylabel='re'):
-    ax.set_yticks([0.0])
-    if ylabel=='re':
-        ax.set_ylabel('Re(signal) (a.u.)')
-    elif ylabel=='im':
-        ax.set_ylabel('Im(signal) (a.u.)')
-    elif ylabel=='abs':
-        ax.set_ylabel('|signal| (a.u.)')
 
-    if xlabel=='ppm':
-        ax.set_xlabel('$\delta$ (ppm)')
-    elif xlabel=='hz':
-        ax.set_xlabel('Frequency (Hz)')
-
-    ax.autoscale(enable=True, axis='x', tight=True)
-    ax.invert_xaxis()
-    ax.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
-    ax.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
-
-
-
-
-def plot_fit(mrs,pred=None,ppmlim=(0.40,4.2),out=None,baseline=None,proj='real'):
+def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
+             out=None, baseline=None, proj='real'):
     """
        Main function for plotting a model fit
        Parameters
@@ -282,7 +262,6 @@ def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
     exec("doPlot(np.{}(data),c='{}'      ,linewidth=2,xticks=xticks)".format(proj,c))
     
     plt.tight_layout()
-    plt.show()
     return plt.gcf()
     
 
