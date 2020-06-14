@@ -397,7 +397,7 @@ def main():
 def str_or_int_arg(x):
     try:
         return int(x)
-    except TypeError:
+    except ValueError:
         return x
 
 
