@@ -5,36 +5,38 @@
 # Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
 #         Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 # Quick imports
 import argparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-# Imports required for multi-threading function
 import copy
 import numpy as np
 from fsl_mrs.denmatsim import simseq as sim
-from fsl_mrs.utils.mrs_io import fsl_io,lcm_io,jmrui_io
-import os,datetime
+from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
+import os
+import datetime
+
 
 def main():
 
-    p = argparse.ArgumentParser(description='FSL Magnetic Resonance Spectroscopy Tools')
-    p.add_argument('-v','--version', action='version', version=__version__)
-    
-    required     = p.add_argument_group('required arguments')
-    mutual       = required.add_mutually_exclusive_group(required=True)
-    optional     = p.add_argument_group('optional arguments')
+    p = argparse.ArgumentParser(
+        description='FSL Magnetic Resonance Spectroscopy Tools')
+    p.add_argument('-v', '--version', action='version', version=__version__)
+
+    required = p.add_argument_group('required arguments')
+    mutual = required.add_mutually_exclusive_group(required=True)
+    optional = p.add_argument_group('optional arguments')
 
     # positional REQUIRED ARGUMENTS
-    p.add_argument('seqFile',type=str,metavar='SEQUENCE',
-                          help='pulse sequence file or previous results file')
+    p.add_argument('seqFile', type=str, metavar='SEQUENCE',
+                   help='pulse sequence file or previous results file')
 
     # Mutual required arguments
-    mutual.add_argument('-m','--metab',type=str, metavar='METAB',
-                          help='Single metabolite string')
+    mutual.add_argument('-m', '--metab', type=str, metavar='METAB',
+                        help='Single metabolite string')
 
     mutual.add_argument('-b','--batch',type=str, metavar='METAB_FILE',
                           help='Batch simulate metabolites. Path to file containing metabolite list.')
