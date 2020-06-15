@@ -1,6 +1,5 @@
 import subprocess
 from pathlib import Path
-from glob import glob
 
 testsPath = Path(__file__).parent
 data = testsPath / 'testdata/fsl_mrs_preproc'
