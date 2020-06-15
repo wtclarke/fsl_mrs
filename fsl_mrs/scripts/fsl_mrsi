@@ -261,7 +261,7 @@ def main():
             if args.verbose:
                 track_job(results)
 
-        results = results.get()
+            results = results.get()
 
     # Save output files
     if args.verbose:

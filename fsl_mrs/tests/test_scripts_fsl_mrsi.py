@@ -30,7 +30,6 @@ def test_fsl_mrsi(tmp_path):
                            data['seg_gm'],
                            data['seg_csf'],
                            '--overwrite',
-                           '--verbose',
                            '--combine', 'Cr', 'PCr'])
 
     assert (tmp_path / 'fit_out/fit').exists()
