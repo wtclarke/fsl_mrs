@@ -36,7 +36,7 @@ rst_epilog = """
 .. |fsl_version|     replace:: 6.0.4
 
 .. |fslmrs_gitlab| replace:: FSL-MRS GitLab
-.. _fslmrs_gitlab: https://git.fmrib.ox.ac.uk/saad/fsl_mrs
+.. _fslmrs_gitlab: https://git.fmrib.ox.ac.uk/fsl/fsl_mrs
 """
 
 

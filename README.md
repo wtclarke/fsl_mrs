@@ -8,13 +8,27 @@ FSL-MRS is a collection of python modules and wrapper scripts for pre-processing
 ---
 ### Installation 
 
-To get the packaged example data, make sure [git-lfs](https://git-lfs.github.com/) is installed.
+#### Conda package
+The primary installation method is via _conda_. After installing conda and creating or activating a suitable [enviroment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) you can install FSL-MRS from the FSL conda channel.
+
+    conda install -c conda-forge \
+                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
+                  fsl_mrs
+
+#### Source code
+
+To get the source code with the packaged example data, make sure [git-lfs](https://git-lfs.github.com/) is installed.
 
     git clone --recurse-submodules https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
     cd fsl_mrs
     pip install .
 
 #### Dependencies
+The spec2nii package can be installed to convert data to NIfTI format.
+
+    conda install -c conda-forge spec2nii
+
+or
 
     pip install spec2nii
 
@@ -43,13 +57,13 @@ After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~saa
 
 ---
 
-### Usage
+### Documentation
+
+Documentation can be found online [here](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/index.html).
 
 For each of the wrapper scripts above, simply type `<name_of_script> --help` to get the usage.
 
 Example command-line usage is demonstrated in the packaged [Jupyter Notebook](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/example_usage/Example%20SVS%20processing%20-%20command-line.ipynb.).
-
-Documentation can be found online [here](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/index.html).
 
 ### File types
 
