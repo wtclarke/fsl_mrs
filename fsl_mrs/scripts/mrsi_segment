@@ -12,8 +12,11 @@
 import argparse
 import os.path as op
 from os import remove
-from fsl.wrappers import flirt, fsl_anat, fslroi
+from fsl.wrappers import fsl_anat, fslroi
+from fsl.wrappers.fnirt import applywarp
 from subprocess import call
+import numpy as np
+from fsl.data.image import Image
 
 
 def main():
@@ -44,37 +47,28 @@ def main():
         anat = args.anat
 
     # Make dummy nifti as nothing works with complex data
-    call(['fslcomplex',
-          '-realabs',
-          args.mrsi,
-          op.join(args.output, 'tmp.nii.gz')])
-    call(['fslcpgeom',
-          args.mrsi,
-          op.join(args.output, 'tmp.nii.gz')])
-    fslroi(op.join(args.output, 'tmp.nii.gz'),
-           op.join(args.output, 'tmp.nii.gz'),
-           0, 1)
+    mrsi_in = Image(args.mrsi)
+    tmp_img = np.zeros(mrsi_in.shape[0:3])
+    tmp_img = Image(tmp_img, xform=mrsi_in.voxToWorldMat)
+    tmp_img.save(op.join(args.output, 'tmp.nii.gz'))
 
     # Register the pvseg to the MRSI data using flirt
-    def flirt_func(i, o):
-        flirt(i,
-              op.join(args.output, 'tmp.nii.gz'),
-              out=o,
-              usesqform=True,
-              applyxfm=True,
-              noresampblur=True,
-              interp='nearestneighbour',
-              setbackground=0,
-              paddingsize=1)
+    def applywarp_func(i, o):
+        applywarp(i,
+                  op.join(args.output, 'tmp.nii.gz'),
+                  o,
+                  usesqform=True,
+                  super=True,
+                  superlevel='a')
 
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
-    flirt_func(op.join(anat, 'T1_fast_pve_0.nii.gz'),
-               op.join(args.output, args.filename+'_csf.nii.gz'))
-    flirt_func(op.join(anat, 'T1_fast_pve_1.nii.gz'),
-               op.join(args.output, args.filename+'_gm.nii.gz'))
-    flirt_func(op.join(anat, 'T1_fast_pve_2.nii.gz'),
-               op.join(args.output, args.filename+'_wm.nii.gz'))
+    applywarp_func(op.join(anat, 'T1_fast_pve_0.nii.gz'),
+                   op.join(args.output, args.filename+'_csf.nii.gz'))
+    applywarp_func(op.join(anat, 'T1_fast_pve_1.nii.gz'),
+                   op.join(args.output, args.filename+'_gm.nii.gz'))
+    applywarp_func(op.join(anat, 'T1_fast_pve_2.nii.gz'),
+                   op.join(args.output, args.filename+'_wm.nii.gz'))
 
     remove(op.join(args.output, 'tmp.nii.gz'))
 
