@@ -1,15 +1,15 @@
 Installation Instructions
 =========================
 
-FSL-MRS can currently be installed using two methods
+FSL-MRS can currently be installed using two methods.
 
 1. From GitLab
 ~~~~~~~~~~~~~~
-Download or clone from |fslmrs_gitlab|_. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
+Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and example Jupyter notebooks, download the full package from gitlab. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
 
 ::
 
-    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
+    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
     cd fsl_mrs
     pip install .
 
@@ -31,3 +31,8 @@ To convert data to NIfTI install the spec2nii program from conda.
 ::
 
     conda install -c conda-forge spec2nii
+
+
+Operating systems
+~~~~~~~~~~~~~~~~~
+FSL-MRS has been tested throughly on Mac and Linux operating systems. FSL-MRS dependencies and FSL-MRS is availible on native Windows installations, but has not currently been tested. `Windows Subsytem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2) offers a Linux interface on Windows. FSL-MRS has been tested on WSL.

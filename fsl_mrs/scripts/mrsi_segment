@@ -12,9 +12,8 @@
 import argparse
 import os.path as op
 from os import remove
-from fsl.wrappers import fsl_anat, fslroi
+from fsl.wrappers import fsl_anat
 from fsl.wrappers.fnirt import applywarp
-from subprocess import call
 import numpy as np
 from fsl.data.image import Image
 
