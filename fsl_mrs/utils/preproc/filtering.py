@@ -81,7 +81,7 @@ def apodize_report(inFID,outFID,hdr,plotlim = (0.2,6),html=None):
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         opName = 'Apodization'
         timestr = datetime.now().strftime("%H:%M:%S")

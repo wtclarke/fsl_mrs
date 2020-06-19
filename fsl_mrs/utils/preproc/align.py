@@ -286,7 +286,7 @@ def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None,shift=True,ht
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         opName = 'Align'
         timestr = datetime.now().strftime("%H:%M:%S")
@@ -412,7 +412,7 @@ def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,p
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         opName = 'AlignDiff'
         timestr = datetime.now().strftime("%H:%M:%S")
@@ -440,103 +440,3 @@ def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,p
         return fig,fig2,fig3
     else:
         return fig,fig2,fig3
-
-# Matplotlib
-# def phase_freq_align_report(inFIDs,outFIDs,hdr,phi,eps,ppmlim=None):
-#     from matplotlib import pyplot as plt
-#     from fsl_mrs.core import MRS
-#     from fsl_mrs.utils.preproc.combine import combine_FIDs
-#     from fsl_mrs.utils.plotting import styleSpectrumAxes
-#     fig, axs = plt.subplots(2, 2,figsize=(10,10))
-#     axs[0,0].plot(np.array(phi)*(180.0/np.pi))
-#     axs[0,0].set_ylabel(r'$\phi$ (degrees)')
-#     axs[0,1].plot(eps)
-#     axs[0,1].set_ylabel('Shift (Hz)')
-
-#     meanIn = combine_FIDs(inFIDs,'mean')
-#     meanOut = combine_FIDs(outFIDs,'mean')
-#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
-#     meanIn = toMRSobj(meanIn)
-#     meanOut = toMRSobj(meanOut)
-
-#     toPlotIn,toPlotOut = [],[]
-#     for fid in inFIDs:
-#         toPlotIn.append(toMRSobj(fid))
-#     for fid in outFIDs:
-#         toPlotOut.append(toMRSobj(fid))
-#     for fid in toPlotIn:
-#             axs[1,0].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
-#     axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k')        
-#     styleSpectrumAxes(ax=axs[1,0])
-#     for fid in toPlotOut:
-#             axs[1,1].plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)))
-#     axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'k')        
-#     styleSpectrumAxes(ax=axs[1,1])
-#     plt.tight_layout()
-#     plt.show()
-
-#     fig = plt.figure(figsize=(10,10))
-#     plt.plot(meanIn.getAxes(ppmlim=ppmlim),np.real(meanIn.getSpectrum(ppmlim=ppmlim)),'k',label='Unaligned', linewidth=2)
-#     plt.plot(meanOut.getAxes(ppmlim=ppmlim),np.real(meanOut.getSpectrum(ppmlim=ppmlim)),'r--',label='Aligned', linewidth=2)
-#     styleSpectrumAxes(ax=plt.gca())
-#     plt.legend()
-#     plt.rcParams.update({'font.size': 12})
-#     plt.show()
-
-# def phase_freq_align_diff_report(inFIDs0,inFIDs1,outFIDs0,outFIDs1,hdr,eps,phi,ppmlim=None,diffType='add',shift=True):
-#     from matplotlib import pyplot as plt
-#     from fsl_mrs.core import MRS
-#     from fsl_mrs.utils.preproc.combine import combine_FIDs
-#     from fsl_mrs.utils.plotting import styleSpectrumAxes
-#     fig, axs = plt.subplots(2, 2,figsize=(10,10))
-#     axs[0,0].plot(np.array(phi)*(180.0/np.pi))
-#     axs[0,0].set_ylabel(r'$\phi$ (degrees)')
-#     axs[0,1].plot(eps)
-#     axs[0,1].set_ylabel('Shift (Hz)')
-
-#     diffFIDListIn = []
-#     diffFIDListOut = []
-#     for fid0i,fid1i,fid0o,fid1o in zip(inFIDs0,inFIDs1,outFIDs0,outFIDs1):
-#         if diffType.lower() == 'add':
-#             diffFIDListIn.append(add(fid1i,fid0i))
-#             diffFIDListOut.append(add(fid1o,fid0o))
-#         elif diffType.lower() == 'sub':
-#             diffFIDListIn.append(subtract(fid1i,fid0i))
-#             diffFIDListOut.append(subtract(fid1o,fid0o))
-#         else:
-#             raise ValueError('diffType must be add or sub.') 
-
-#     meanIn = combine_FIDs(diffFIDListIn,'mean')
-#     meanOut = combine_FIDs(diffFIDListOut,'mean')
-#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
-#     meanIn = toMRSobj(meanIn)
-#     meanOut = toMRSobj(meanOut)
-
-#     if shift:
-#         axis = 'ppmshift'
-#     else:
-#         axis = 'ppm'
-
-#     toPlotIn,toPlotOut = [],[]
-#     for fid in diffFIDListIn:
-#         toPlotIn.append(toMRSobj(fid))
-#     for fid in diffFIDListOut:
-#         toPlotOut.append(toMRSobj(fid))
-#     for fid in toPlotIn:
-#             axs[1,0].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
-#     axs[1,0].plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
-#     styleSpectrumAxes(ax=axs[1,0])
-#     for fid in toPlotOut:
-#             axs[1,1].plot(fid.getAxes(ppmlim=ppmlim, axis=axis),np.real(fid.getSpectrum(ppmlim=ppmlim, shift=shift)))
-#     axs[1,1].plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'k')        
-#     styleSpectrumAxes(ax=axs[1,1])
-#     plt.tight_layout()
-#     plt.show()
-
-#     fig = plt.figure(figsize=(10,10))
-#     plt.plot(meanIn.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanIn.getSpectrum(ppmlim=ppmlim, shift=shift)),'k',label='Unaligned', linewidth=2)
-#     plt.plot(meanOut.getAxes(ppmlim=ppmlim, axis=axis),np.real(meanOut.getSpectrum(ppmlim=ppmlim, shift=shift)),'r--',label='Aligned', linewidth=2)
-#     styleSpectrumAxes(ax=plt.gca())
-#     plt.legend()
-#     plt.rcParams.update({'font.size': 12})
-#     plt.show()

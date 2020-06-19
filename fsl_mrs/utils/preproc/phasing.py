@@ -116,7 +116,7 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         opName = 'Phase correction'
         timestr = datetime.now().strftime("%H:%M:%S")
