@@ -252,13 +252,13 @@ class MRS(object):
 
         
     # Helper functions
-    def processForFitting(self,ppmlim=(.2,4.2),):
+    def processForFitting(self,ppmlim=(.2,4.2),ind_scaling=None):
         """ Apply rescaling and run the conjugation checks"""
         self.check_FID(ppmlim=ppmlim,repair=True)
         self.check_Basis(ppmlim=ppmlim,repair=True)
-        self.rescaleForFitting()
+        self.rescaleForFitting(ind_scaling=ind_scaling)
 
-    def rescaleForFitting(self,scale=100):
+    def rescaleForFitting(self,scale=100,ind_scaling=None):
         """ Apply rescaling across data, basis and H20"""
         
         scaledFID,scaling = misc.rescale_FID(self.FID,scale=scale)
@@ -267,7 +267,17 @@ class MRS(object):
             self.H2O *= scaling
 
         if self.basis is not None:
-            self.basis,scaling_basis = misc.rescale_FID(self.basis,scale=scale)
+            if ind_scaling is None:
+                self.basis,scaling_basis = misc.rescale_FID(self.basis,scale=scale)
+            else:
+                index = [self.names.index(n) for n in ind_scaling]
+                mask = np.zeros_like(self.names,dtype=bool)
+                mask[index] = True
+                self.basis[:,~mask],scaling_basis = misc.rescale_FID(self.basis[:,~mask],scale=scale)
+                scaling_basis = [scaling_basis]
+                for idx in index:
+                    self.basis[:,idx],tmp = misc.rescale_FID(self.basis[:,idx],scale=scale)
+                    scaling_basis.append(tmp)
         else:
             scaling_basis = None
 
