@@ -237,7 +237,7 @@ def combine_FIDs_report(inFIDs,outFID,hdr,ncha=2,ppmlim = (0.0,6.0),method='not 
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         opName = 'Combination'
         timestr = datetime.now().strftime("%H:%M:%S")

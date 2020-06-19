@@ -181,7 +181,7 @@ def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
             htmlfile = html
         else:
-            raise ValueError('html must be file ')
+            raise ValueError('Report html path must be file or directory. ')
         
         operation,function,description = reportStrings(function)
 

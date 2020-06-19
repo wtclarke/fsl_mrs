@@ -5,220 +5,321 @@
 # Author:   Will Clarke <william.clarke@ndcn.ox.ac.uk>
 #           Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #
-# Copyright (C) 2020 University of Oxford 
+# Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
-# Quick imports
-#import argparse
+# Imports
 from fsl_mrs.aux import configargparse
-
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
+from os import makedirs
+import os.path as op
+import numpy as np
+from fsl_mrs.utils import preproc
+from fsl_mrs.utils.preproc.general import datacontainer
+from fsl_mrs.utils.mrs_io import check_datatype
+from fsl_mrs.utils.mrs_io import fsl_io
 
 
 def main():
     # Parse command-line arguments
-    p = configargparse.ArgParser(add_config_file_help=False,description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
+    p = configargparse.ArgParser(
+        add_config_file_help=False,
+        description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
 
-    p.add_argument('-v','--version', action='version', version=__version__)
-    p.add('--config', required=False, is_config_file=True, help='configuration file')
+    p.add_argument('-v', '--version', action='version', version=__version__)
+    p.add('--config',
+          required=False,
+          is_config_file=True,
+          help='configuration file')
 
-    sp = p.add_subparsers(title='subcommands', description='Preprocessing subcommands',required=True)
+    sp = p.add_subparsers(title='subcommands',
+                          description='Preprocessing subcommands',
+                          required=True)
 
     # Coil combination subcommand
-    ccparser = sp.add_parser('coilcombine',help='Combine coils.',add_help=False)
+    ccparser = sp.add_parser('coilcombine',
+                             help='Combine coils.',
+                             add_help=False)
     cc_group = ccparser.add_argument_group('coilcombine arguments')
-    cc_group.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True,)
-    cc_group.add_argument('--reference',help='Water unsuppressed reference data',type=str, nargs='+',required=False)
-    cc_group.add_argument('--no_prewhiten',help="Don't prewhiten data before coil combination",action="store_false")
+    cc_group.add_argument('--file', type=str, nargs='+', required=True,
+                          help='Uncombined coil data file(s)')
+    cc_group.add_argument('--reference', type=str, nargs='+', required=False,
+                          help='Water unsuppressed reference data')
+    cc_group.add_argument('--no_prewhiten', action="store_false",
+                          help="Don't prewhiten data before coil combination")
     ccparser.set_defaults(func=coilcombine)
     add_common_args(ccparser)
 
     # Average subcommand
-    avgparser = sp.add_parser('average',help='Average FIDs.',add_help=False)
+    avgparser = sp.add_parser('average', help='Average FIDs.', add_help=False)
     avg_group = avgparser.add_argument_group('average arguments')
-    avg_group.add_argument('--file',help='MRS file(s)',type=str, nargs='+',required=True)
-    avg_group.add_argument('--avgfiles',help='Average across files',action="store_true")
-    avg_group.add_argument('--dim',help='Select dimension to average across',type=int)
+    avg_group.add_argument('--file', type=str, nargs='+', required=True,
+                           help='MRS file(s)')
+    avg_group.add_argument('--avgfiles', action="store_true",
+                           help='Average across files')
+    avg_group.add_argument('--dim', type=int,
+                           help='Select dimension to average across')
     avgparser.set_defaults(func=average)
     add_common_args(avgparser)
 
-    #Align subcommand - frequency/phase alignment
-    alignparser = sp.add_parser('align',help='Align FIDs.',add_help=False)
+    # Align subcommand - frequency/phase alignment
+    alignparser = sp.add_parser('align', help='Align FIDs.', add_help=False)
     align_group = alignparser.add_argument_group('Align arguments')
-    align_group.add_argument('--file',help='List of files to align',type=str, nargs='+',required=True)
-    align_group.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
-    align_group.add_argument('--reference',help='Align to this reference data.',type=str,required=False)
+    align_group.add_argument('--file', type=str, nargs='+', required=True,
+                             help='List of files to align')
+    align_group.add_argument('--ppm', type=float, nargs=2,
+                             metavar='<lower-limit upper-limit>',
+                             default=(0.2, 4.2),
+                             help='ppm limits of alignment window'
+                                  ' (default=0.2->4.2)')
+    align_group.add_argument('--reference', type=str, required=False,
+                             help='Align to this reference data.')
     alignparser.set_defaults(func=align)
     add_common_args(alignparser)
 
-    #Align difference spectra subcommand - frequency/phase alignment
-    alignDparser = sp.add_parser('align-diff',help='Align subspectra for differencing.',add_help=False)
-    alignD_group = alignDparser.add_argument_group('Align subspectra arguments')
-    alignD_group.add_argument('--file',help='Subspectra 1 - List of files to align',type=str, nargs='+',required=True)
-    alignD_group.add_argument('--reference',help='Subspectra 2 - List of files to align',type=str, nargs='+',required=True)
-    alignD_group.add_argument('--ppm',help='ppm limits of alignment window (default=0.2->4.2)',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(0.2,4.2))
-    alignD_group.add_argument('--diff_type',help='add (default) or subtract.',type=str,required=False,default='add')    
+    # Align difference spectra subcommand - frequency/phase alignment
+    alignDparser = sp.add_parser('align-diff', add_help=False,
+                                 help='Align subspectra for differencing.')
+    alignD_group = alignDparser.add_argument_group('Align subspec arguments')
+    alignD_group.add_argument('--file', type=str, nargs='+', required=True,
+                              help='Subspectra 1 - List of files to align')
+    alignD_group.add_argument('--reference', type=str, nargs='+',
+                              required=True,
+                              help='Subspectra 2 - List of files to align')
+    alignD_group.add_argument('--ppm', type=float, nargs=2,
+                              metavar='<lower-limit upper-limit>',
+                              default=(0.2, 4.2),
+                              help='ppm limits of alignment window'
+                                   ' (default=0.2->4.2)')
+    alignD_group.add_argument('--diff_type', type=str, required=False,
+                              default='add',
+                              help='add (default) or subtract.')
     alignDparser.set_defaults(func=aligndiff)
     add_common_args(alignDparser)
 
     # ECC subcommand - eddy current correction
-    eccparser = sp.add_parser('ecc',help='Eddy current correction',add_help=False)
-    ecc_group = eccparser.add_argument_group('ECC arguments')     
-    ecc_group.add_argument('--file',help='Uncombined coil data file(s)',type=str, nargs='+',required=True)
-    ecc_group.add_argument('--reference',help='Phase reference data file(s)',type=str, nargs='+',required=True)
+    eccparser = sp.add_parser('ecc', add_help=False,
+                              help='Eddy current correction')
+    ecc_group = eccparser.add_argument_group('ECC arguments')
+    ecc_group.add_argument('--file', type=str, nargs='+', required=True,
+                           help='Uncombined coil data file(s)')
+    ecc_group.add_argument('--reference', type=str, nargs='+', required=True,
+                           help='Phase reference data file(s)')
     eccparser.set_defaults(func=ecc)
     add_common_args(eccparser)
 
     # remove subcommand - remove peak using HLSVD
-    hlsvdparser = sp.add_parser('remove',help='Remove peak (default water) using HLSVD.',add_help=False)
-    hlsvd_group = hlsvdparser.add_argument_group('HLSVD arguments') 
-    hlsvd_group.add_argument('--file',help='Data file(s)',type=str, nargs='+',required=True)
-    hlsvd_group.add_argument('--ppm',help='ppm limits of removal window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default = [4.5,4.8])
+    hlsvdparser = sp.add_parser('remove', add_help=False,
+                                help='Remove peak (default water) with HLSVD.')
+    hlsvd_group = hlsvdparser.add_argument_group('HLSVD arguments')
+    hlsvd_group.add_argument('--file', type=str, nargs='+', required=True,
+                             help='Data file(s)')
+    hlsvd_group.add_argument('--ppm', type=float, nargs=2,
+                             metavar='<lower-limit upper-limit>',
+                             default=[4.5, 4.8],
+                             help='ppm limits of removal window')
     hlsvdparser.set_defaults(func=remove)
     add_common_args(hlsvdparser)
 
     # tshift subcommand - shift/resample in timedomain
-    tshiftparser = sp.add_parser('tshift',help='shift/resample in timedomain.',add_help=False)
-    tshift_group = tshiftparser.add_argument_group('Time shift arguments') 
-    tshift_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    tshift_group.add_argument('--tshiftStart',help='Time shift at start (ms), negative pads with zeros, positive truncates',type=float,default = 0.0)
-    tshift_group.add_argument('--tshiftEnd',help='Time shift at end (ms), negative truncates, positive pads with zeros',type=float,default = 0.0)
-    tshift_group.add_argument('--samples',help='Resample to N points in FID.',type=int)
+    tshiftparser = sp.add_parser('tshift', add_help=False,
+                                 help='shift/resample in timedomain.')
+    tshift_group = tshiftparser.add_argument_group('Time shift arguments')
+    tshift_group.add_argument('--file', type=str, nargs='+', required=True,
+                              help='Data file(s) to shift')
+    tshift_group.add_argument('--tshiftStart', type=float, default=0.0,
+                              help='Time shift at start (ms),'
+                                   ' negative pads with zeros,'
+                                   ' positive truncates')
+    tshift_group.add_argument('--tshiftEnd', type=float, default=0.0,
+                              help='Time shift at end (ms),'
+                                   ' negative truncates,'
+                                   ' positive pads with zeros')
+    tshift_group.add_argument('--samples', type=int,
+                              help='Resample to N points in FID.')
     tshiftparser.set_defaults(func=tshift)
     add_common_args(tshiftparser)
 
     # truncate
-    truncateparser = sp.add_parser('truncate',help='truncate or pad by integer points in timedomain.',add_help=False)
-    truncate_group = truncateparser.add_argument_group('Truncate/pad arguments') 
-    truncate_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    truncate_group.add_argument('--points',help='Points to add/remove (+/-)',type=int,default = 0)
-    truncate_group.add_argument('--pos',help=' ''first'' or ''last'' (default)',type=str,default = 'last')
+    truncateparser = sp.add_parser('truncate', add_help=False,
+                                   help='truncate or pad by integer'
+                                        ' points in timedomain.')
+    truncate_group = truncateparser.add_argument_group(
+        'Truncate/pad arguments')
+    truncate_group.add_argument('--file', type=str, nargs='+', required=True,
+                                help='Data file(s) to shift')
+    truncate_group.add_argument('--points', type=int, default=0,
+                                help='Points to add/remove (+/-)')
+    truncate_group.add_argument('--pos', type=str, default='last',
+                                help=" first' or 'last' (default)")
     truncateparser.set_defaults(func=truncate)
     add_common_args(truncateparser)
 
     # apodize
-    apodparser = sp.add_parser('apodize',help='Apodize FID.',add_help=False)
-    apod_group = apodparser.add_argument_group('Apodize arguments') 
-    apod_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    apod_group.add_argument('--filter',help='Filter choice, either ''exp'' (default) or ''l2g''.',type=str,default = 'exp')
-    apod_group.add_argument('--amount',help='Amount of broadening. In Hz for exp mode. Use space separated list for l2g.',type=float,nargs='+')
+    apodparser = sp.add_parser('apodize', help='Apodize FID.', add_help=False)
+    apod_group = apodparser.add_argument_group('Apodize arguments')
+    apod_group.add_argument('--file', type=str, nargs='+', required=True,
+                            help='Data file(s) to shift')
+    apod_group.add_argument('--filter', type=str, default='exp',
+                            help="Filter choice."
+                                 "Either 'exp' (default) or 'l2g'.")
+    apod_group.add_argument('--amount', type=float, nargs='+',
+                            help='Amount of broadening.'
+                                 ' In Hz for exp mode.'
+                                 ' Use space separated list for l2g.')
     apodparser.set_defaults(func=apodize)
     add_common_args(apodparser)
 
     # fshift subcommand - shift in frequency domain
-    fshiftparser = sp.add_parser('fshift',help='shift in frequency domain.',add_help=False)
-    fshift_group = fshiftparser.add_argument_group('Frequency shift arguments') 
-    fshift_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    fshift_group.add_argument('--shiftppm',help='Apply fixed shift (ppm scale)',type=float)
-    fshift_group.add_argument('--shifthz',help='Apply fixed shift (Hz scale)',type=float)
-    fshift_group.add_argument('--shiftRef',help='Shift to reference (default = Cr)',action="store_true")
-    fshift_group.add_argument('--ppm',help='Shift maximum point in this range to target (must specify --target).',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
-    fshift_group.add_argument('--target',help='Target position (must be used with ppm). Default = 3.027',type=float,default=3.027)
+    fshiftparser = sp.add_parser('fshift', add_help=False,
+                                 help='shift in frequency domain.')
+    fshift_group = fshiftparser.add_argument_group('Frequency shift arguments')
+    fshift_group.add_argument('--file', type=str, nargs='+', required=True,
+                              help='Data file(s) to shift')
+    fshift_group.add_argument('--shiftppm', type=float,
+                              help='Apply fixed shift (ppm scale)')
+    fshift_group.add_argument('--shifthz', type=float,
+                              help='Apply fixed shift (Hz scale)')
+    fshift_group.add_argument('--shiftRef', action="store_true",
+                              help='Shift to reference (default = Cr)')
+    fshift_group.add_argument('--ppm', type=float, nargs=2,
+                              metavar='<lower-limit upper-limit>',
+                              default=(2.8, 3.2),
+                              help='Shift maximum point in this range'
+                                   ' to target (must specify --target).')
+    fshift_group.add_argument('--target', type=float, default=3.027,
+                              help='Target position (must be used with ppm).'
+                                   ' Default = 3.027')
     fshiftparser.set_defaults(func=fshift)
     add_common_args(fshiftparser)
 
     # unlike subcomand - find FIDs that are unlike
-    unlikeparser = sp.add_parser('unlike',help='Identify unlike FIDs.',add_help=False)
-    unlike_group = unlikeparser.add_argument_group('unlike arguments') 
-    unlike_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    unlike_group.add_argument('--sd',help='Exclusion limit (# of SD from mean,default=1.96)',type=float,default=1.96)
-    unlike_group.add_argument('--iter',help='Iterations of algorithm.',type=int,default=2)
-    unlike_group.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=None)
-    unlike_group.add_argument('--outputbad',help='Output failed FIDs',action="store_true")
+    unlikeparser = sp.add_parser('unlike', add_help=False,
+                                 help='Identify unlike FIDs.')
+    unlike_group = unlikeparser.add_argument_group('unlike arguments')
+    unlike_group.add_argument('--file', type=str, nargs='+', required=True,
+                              help='Data file(s) to shift')
+    unlike_group.add_argument('--sd', type=float, default=1.96,
+                              help='Exclusion limit'
+                                   ' (# of SD from mean,default=1.96)')
+    unlike_group.add_argument('--iter', type=int, default=2,
+                              help='Iterations of algorithm.')
+    unlike_group.add_argument('--ppm', type=float, nargs=2,
+                              metavar='<lower-limit upper-limit>',
+                              default=None,
+                              help='ppm limits of alignment window')
+    unlike_group.add_argument('--outputbad', action="store_true",
+                              help='Output failed FIDs')
     unlikeparser.set_defaults(func=unlike)
     add_common_args(unlikeparser)
 
     # Phasing - based on maximum point in range
-    phaseparser = sp.add_parser('phase',help='Phase spectrum based on maximum point in range',add_help=False)
-    phase_group = phaseparser.add_argument_group('Phase arguments') 
-    phase_group.add_argument('--file',help='Data file(s) to shift',type=str, nargs='+',required=True)
-    phase_group.add_argument('--ppm',help='ppm limits of alignment window',type=float, nargs=2,metavar='<lower-limit upper-limit>',default=(2.8,3.2))
+    phaseparser = sp.add_parser('phase', add_help=False,
+                                help='Phase spectrum based on'
+                                     ' maximum point in range')
+    phase_group = phaseparser.add_argument_group('Phase arguments')
+    phase_group.add_argument('--file', type=str, nargs='+', required=True,
+                             help='Data file(s) to shift')
+    phase_group.add_argument('--ppm', type=float, nargs=2,
+                             metavar='<lower-limit upper-limit>',
+                             default=(2.8, 3.2),
+                             help='ppm limits of alignment window')
     phaseparser.set_defaults(func=phase)
     add_common_args(phaseparser)
 
     # subtraction - subtraction of FIDs
-    subtractparser = sp.add_parser('subtract',help='Subtract two FIDs',add_help=False)
-    subtract_group = subtractparser.add_argument_group('Subtraction arguments') 
-    subtract_group.add_argument('--file',help='Two data files to subtract (second from first)',type=str, nargs=2,required=True)
+    subtractparser = sp.add_parser('subtract', add_help=False,
+                                   help='Subtract two FIDs')
+    subtract_group = subtractparser.add_argument_group('Subtraction arguments')
+    subtract_group.add_argument('--file', type=str, nargs=2, required=True,
+                                help='Two data files to subtract'
+                                     ' (second from first)')
     subtractparser.set_defaults(func=subtract)
     add_common_args(subtractparser)
 
     # add - addition of FIDs
-    addparser = sp.add_parser('add',help='Add two FIDs',add_help=False)
-    add_group = addparser.add_argument_group('Addition arguments') 
-    add_group.add_argument('--file',help='Two data files to add',type=str, nargs=2,required=True)
+    addparser = sp.add_parser('add', add_help=False, help='Add two FIDs')
+    add_group = addparser.add_argument_group('Addition arguments')
+    add_group.add_argument('--file', type=str, nargs=2, required=True,
+                           help='Two data files to add')
     addparser.set_defaults(func=add)
     add_common_args(addparser)
 
     # Parse command-line arguments
     args = p.parse_args()
-    
+
     # Output kickass splash screen
     if args.verbose:
         splash(logo='mrs')
-    
-    # Parse file arguments    
-    datafiles,reffiles = parsefilearguments(args)
+
+    # Parse file arguments
+    datafiles, reffiles = parsefilearguments(args)
 
     # Handle data loading
-    dataList = loadData(datafiles,refdatafiles=reffiles,conjugate=args.conjugate)
-    # Call function - pass dict like view of args for compatibility with other modules
-    dataout = args.func(dataList,vars(args))
-    if isinstance(dataout,tuple):
+    dataList = loadData(datafiles,
+                        refdatafiles=reffiles,
+                        conjugate=args.conjugate)
+
+    # Create output folder if required
+    if not op.isdir(args.output):
+        makedirs(args.output)
+
+    # Call function - pass dict like view of args
+    #  for compatibility with other modules
+    dataout = args.func(dataList, vars(args))
+    if isinstance(dataout, tuple):
         additionalOutputs = dataout[1:]
         dataout = dataout[0]
     else:
         additionalOutputs = None
 
     # Write data
-    writeData(dataout,args)
+    writeData(dataout, args)
 
     # Output any additional arguments
     if additionalOutputs is not None:
         print(additionalOutputs)
+
 
 def add_common_args(p):
     """Add any arguments which are common between the sub commands."""
     # This is so the arguments can appear after the subcommand.
 
     # Arguments not associated with subcommands
-    required     = p.add_argument_group('required arguments')
-    optional     = p.add_argument_group('additional options')
+    required = p.add_argument_group('required arguments')
+    optional = p.add_argument_group('additional options')
 
-    # REQUIRED ARGUMENTS 
+    # REQUIRED ARGUMENTS
     required.add_argument('--output',
-                          required=True,type=str,metavar='<str>',
+                          required=True, type=str, metavar='<str>',
                           help='output folder')
 
-    # ADDITIONAL OPTIONAL ARGUMENTS    
-    optional.add_argument('--overwrite',action="store_true",
+    # ADDITIONAL OPTIONAL ARGUMENTS
+    optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
-    optional.add_argument('-r','--generateReports',action="store_true",
+    optional.add_argument('-r', '--generateReports', action="store_true",
                           help='Generate HTML reports.')
-    optional.add_argument('-i','--reportIndicies',type=int,nargs='+',default= [0],
-                          help='Generate reports for selected inputs where multiple input files exist. Defaults to first (0). Specify as indices counting from 0.')
-    optional.add_argument('--allreports',action="store_true",
-                          help='Generate reports for all inputs. Overrides arguments to reportIndicies.')
-    optional.add_argument('--conjugate',action="store_true",
+    optional.add_argument('-i', '--reportIndicies',
+                          type=int,
+                          nargs='+',
+                          default=[0],
+                          help='Generate reports for selected inputs where'
+                               ' multiple input files exist.'
+                               ' Defaults to first (0).'
+                               ' Specify as indices counting from 0.')
+    optional.add_argument('--allreports', action="store_true",
+                          help='Generate reports for all inputs.'
+                               ' Overrides arguments to reportIndicies.')
+    optional.add_argument('--conjugate', action="store_true",
                           help='apply conjugate to FID')
-    optional.add_argument('--filename',type=str,metavar='<str>',
-                          help='Override output file name.')    
-    optional.add_argument('--verbose',action="store_true",
+    optional.add_argument('--filename', type=str, metavar='<str>',
+                          help='Override output file name.')
+    optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
     optional.add_argument('-h', '--help', action='help',
-                            help='show this help message and exit')    
+                          help='show this help message and exit')
 
-    
-# ######################################################
-# Imports
-import os #time,sys, shutil, warnings
-import numpy as np
-from fsl_mrs.utils import preproc
-from fsl_mrs.utils.preproc.general import datacontainer
-from fsl_mrs.utils.mrs_io import check_datatype
-from fsl_mrs.utils.mrs_io import fsl_io
-# ######################################################
 
 def parsefilearguments(args):
     # print(args.file)
@@ -229,10 +330,11 @@ def parsefilearguments(args):
     else:
         reffiles = None
 
-    return datafiles,reffiles
+    return datafiles, reffiles
+
 
 # Data I/O functions
-def loadData(datafiles,refdatafiles=None,conjugate=False):
+def loadData(datafiles, refdatafiles=None, conjugate=False):
     """ Load data from a list of data files.
 
     The data must be of nifti format and the spatial dimensions are preserved.
@@ -240,105 +342,165 @@ def loadData(datafiles,refdatafiles=None,conjugate=False):
     Can conjugate.
     """
 
-    # Do a check on the first file passed. The data must be of nifti type. 
+    # Do a check on the first file passed. The data must be of nifti type.
     if check_datatype(datafiles[0]) != 'NIFTI':
-        raise ValueError(f'Preprocessing routines only handle NIFTI format data. Please convert your data using spec2nii. {datafiles[0]} was identified as {check_datatype(datafiles[0])}.')
+        raise ValueError(f'Preprocessing routines only handle NIFTI'
+                         f' format data. Please convert your data using'
+                         f' spec2nii. {datafiles[0]} was identified'
+                         f' as {check_datatype(datafiles[0])}.')
     datalist = []
     # Load data into datacontainer
-    if refdatafiles and len(refdatafiles)==len(datafiles):
-        for f,r in zip(datafiles,refdatafiles):
-            data,header = fsl_io.readNIFTI(f,squeezeSVS=False)
-            ref,refheader = fsl_io.readNIFTI(r,squeezeSVS=False)
+    if refdatafiles and len(refdatafiles) == len(datafiles):
+        for f, r in zip(datafiles, refdatafiles):
+            data, header = fsl_io.readNIFTI(f, squeezeSVS=False)
+            ref, refheader = fsl_io.readNIFTI(r, squeezeSVS=False)
+
+            # Remove any singleton coil dimension.
+            # This will all need rewriting if we move to more
+            # explicit dimension labeling with json.
+            if data.ndim > 4 and data.shape[4] == 1:
+                data = np.squeeze(data, axis=4)
+            if ref.ndim > 4 and ref.shape[4] == 1:
+                ref = np.squeeze(ref, axis=4)
+
             if conjugate:
                 data = data.conj()
                 ref = ref.conj()
 
             datalist.append(datacontainer(data,
-                                            header,
-                                            os.path.basename(f),
-                                            reference=ref,
-                                            refheader=refheader,
-                                            reffilename=os.path.basename(r)))
-    elif refdatafiles and len(refdatafiles)==1:
-        ref,refheader = fsl_io.readNIFTI(refdatafiles[0],squeezeSVS=False)
+                                          header,
+                                          op.basename(f),
+                                          reference=ref,
+                                          refheader=refheader,
+                                          reffilename=op.basename(r)))
+    elif refdatafiles and len(refdatafiles) == 1:
+        ref, refheader = fsl_io.readNIFTI(refdatafiles[0], squeezeSVS=False)
+
+        if ref.ndim > 4 and ref.shape[4] == 1:
+            ref = np.squeeze(ref, axis=4)
+
         if conjugate:
             ref = ref.conj()
 
         for f in datafiles:
-            data,header = fsl_io.readNIFTI(f,squeezeSVS=False)
+            data, header = fsl_io.readNIFTI(f, squeezeSVS=False)
+
+            if data.ndim > 4 and data.shape[4] == 1:
+                data = np.squeeze(data, axis=4)
+
             if conjugate:
                 data = data.conj()
-                
+
             datalist.append(datacontainer(data,
-                                                header,
-                                                os.path.basename(f),
-                                                reference=ref,
-                                                refheader=refheader,
-                                                reffilename=os.path.basename(refdatafiles[0])))
-    elif refdatafiles and len(refdatafiles)!=len(datafiles):
-        raise ValueError('Pass one reference file, an equal number of references as data files or none.')
+                                          header,
+                                          op.basename(f),
+                                          reference=ref,
+                                          refheader=refheader,
+                                          reffilename=op.basename(
+                                                      refdatafiles[0])))
+
+    elif refdatafiles and len(refdatafiles) != len(datafiles):
+        raise ValueError('Pass one reference file,'
+                         ' an equal number of references as data files,'
+                         ' or none.')
     else:
         for f in datafiles:
-            data,header = fsl_io.readNIFTI(f,squeezeSVS=False)
+            data, header = fsl_io.readNIFTI(f, squeezeSVS=False)
+
+            if data.ndim > 4 and data.shape[4] == 1:
+                data = np.squeeze(data, axis=4)
+
             if conjugate:
                 data = data.conj()
-            datalist.append(datacontainer(data,header,os.path.basename(f)))
+            datalist.append(datacontainer(data, header, op.basename(f)))
 
     # Sort list based on datafilename property of datacontainer
     datalist.sort(key=lambda dataobj: dataobj.datafilename)
     return datalist
 
-def writeData(dataobj,args):
-    for iDx,d in enumerate(dataobj):
-        if args.filename is None:
-            fileout = os.path.join(args.output,d.datafilename)
-        elif len(dataobj)==1:
-            fileout = os.path.join(args.output,args.filename+'.nii.gz')
-        else:
-            fileout = os.path.join(args.output,args.filename+f'_{iDx:03.0f}.nii.gz')
-        
-        fsl_io.saveNIFTI(fileout,d.data,d.dataheader)
 
-### Option functions ###
-# Functions below here should be associated with a subcommand method specified above.
+def writeData(dataobj, args):
+    for iDx, d in enumerate(dataobj):
+        if args.filename is None:
+            fileout = op.join(args.output, d.datafilename)
+        elif len(dataobj) == 1:
+            fileout = op.join(args.output, args.filename+'.nii.gz')
+        else:
+            fileout = op.join(args.output,
+                              args.filename+f'_{iDx:03.0f}.nii.gz')
+
+        fsl_io.saveNIFTI(fileout, d.data, d.dataheader)
+
+
+# Option functions
+# Functions below here should be associated with a
+# subcommand method specified above.
 # They should call a method in preproc.py.
 
-# Preprocessing functions    
-def coilcombine(dataobj,args):
+# Preprocessing functions
+def coilcombine(dataobj, args):
     dataout = []
-    for idx,d in enumerate(dataobj):        
-        combmain = np.zeros(d.data.shape[:4],dtype=np.complex128)
+    for idx, d in enumerate(dataobj):
+
+        if d.data.ndim < 5:
+            raise ValueError(f'Data ({d.datafilename}) has no coil dimension.'
+                             f' Shape is {d.data.shape}.')
+
+        combmain = np.zeros(d.data.shape[:4], dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
             # If reference data is not loaded
             if d.reference is None:
-                combmain[ijk] = preproc.combine_FIDs(d.data[ijk],'svd',do_prewhiten=~args['no_prewhiten'])            
+                combmain[ijk] = preproc.combine_FIDs(
+                    d.data[ijk],
+                    'svd',
+                    do_prewhiten=~args['no_prewhiten'])
             else:
-                # Otherwise                
-                combW,refWeights = preproc.combine_FIDs(d.reference[ijk],'svd_weights',do_prewhiten=~args['no_prewhiten'])
-                combmain[ijk] = preproc.combine_FIDs(d.data[ijk],'weighted',weights=refWeights)
-            
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+                # Otherwise
+                combW, refWeights = preproc.combine_FIDs(
+                    d.reference[ijk],
+                    'svd_weights',
+                    do_prewhiten=~args['no_prewhiten'])
+                combmain[ijk] = preproc.combine_FIDs(d.data[ijk],
+                                                     'weighted',
+                                                     weights=refWeights)
+
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
+
                 from fsl_mrs.utils.preproc.combine import combine_FIDs_report
                 reportDir = args['output']
-                combine_FIDs_report(d.data[ijk],combmain[ijk],d.dataheader,ncha=d.data.shape[4],ppmlim = (0.0,6.0),method='svd',html=reportDir)
+                combine_FIDs_report(d.data[ijk],
+                                    combmain[ijk],
+                                    d.dataheader,
+                                    ncha=d.data.shape[4],
+                                    ppmlim=(0.0, 6.0),
+                                    method='svd',
+                                    html=reportDir)
             # else - MRSI reporting is TODO
 
-        # Reuse the file name as it's likely the coil uncombined data was all in one file anyway
+        # Reuse the file name as it's likely the coil uncombined
+        # data was all in one file anyway
         fileout = d.datafilename
-        dataout.append(datacontainer(combmain,d.dataheader,fileout))
+        dataout.append(datacontainer(combmain, d.dataheader, fileout))
 
     return dataout
 
-def average(dataobj,args):
+
+def average(dataobj, args):
     dataout = []
-    if args['avgfiles']:        
-        # Average data across all input files, outputing data the shape of any one file
+    if args['avgfiles']:
+        # Average data across all input files,
+        # outputing data the shape of any one file.
         # combine_FIDs 'mean' takes mean across last dimension.
         allFileData = np.array([d.data for d in dataobj])
-        meandata = preproc.combine_FIDs(allFileData.T,'mean')
-        dataout.append(datacontainer(meandata,dataobj[0].dataheader,dataobj[0].datafilename))
+        meandata = preproc.combine_FIDs(allFileData.T, 'mean')
+        dataout.append(
+            datacontainer(meandata,
+                          dataobj[0].dataheader,
+                          dataobj[0].datafilename))
 
-        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3])==1:
+        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3]) == 1:
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
             reportDir = args['output']
             combine_FIDs_report([np.squeeze(d.data) for d in dataobj],
@@ -348,291 +510,415 @@ def average(dataobj,args):
                                 html=reportDir)
 
     elif args['dim']:
-        for idx,d in enumerate(dataobj):
+        for idx, d in enumerate(dataobj):
             # permute the selected dimension to the last
-            dataIn = np.moveaxis(d.data,args['dim'],-1)
-            meandata = preproc.combine_FIDs(dataIn,'mean')
-            meandata = np.moveaxis(meandata,-1,args['dim'])
-            dataout.append(datacontainer(meandata,d.dataheader,d.datafilename))
+            dataIn = np.moveaxis(d.data, args['dim'], -1)
+            meandata = preproc.combine_FIDs(dataIn, 'mean')
+            meandata = np.moveaxis(meandata, -1, args['dim'])
+            dataout.append(datacontainer(meandata,
+                                         d.dataheader,
+                                         d.datafilename))
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.combine import combine_FIDs_report
                 reportDir = args['output']
                 dim = args['dim']
-                combine_FIDs_report(dataIn,meandata,d.dataheader,ppmlim = (0.0,6.0),method=f'Mean along dim = {dim}',html=reportDir)
+                combine_FIDs_report(dataIn,
+                                    meandata,
+                                    d.dataheader,
+                                    ppmlim=(0.0, 6.0),
+                                    method=f'Mean along dim = {dim}',
+                                    html=reportDir)
     else:
-        raise RuntimeError('Neither avgfiles or dim arguments specified averaging dimension uncertain.')
+        raise RuntimeError('Neither avgfiles or dim arguments specified'
+                           ' averaging dimension uncertain.')
 
     return dataout
 
-def align(dataobj,args):
+
+def align(dataobj, args):
 
     bandwidth = dataobj[0].dataheader['bandwidth']
     centralFrequency = dataobj[0].dataheader['centralFrequency']*1E6
     allFIDs = [d.data for d in dataobj]
-    for ijk in np.ndindex(dataobj[0].data.shape[:3]):    
-        FIDlist = [fid[ijk] for fid in allFIDs]        
+    for ijk in np.ndindex(dataobj[0].data.shape[:3]):
+        FIDlist = [fid[ijk] for fid in allFIDs]
 
-        tmpFIDS,phi,eps= preproc.phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],niter=2,verbose=False,target=dataobj[0].reference)
+        tmpFIDS, phi, eps = preproc.phase_freq_align(
+                                                FIDlist,
+                                                bandwidth,
+                                                centralFrequency,
+                                                ppmlim=args['ppm'],
+                                                niter=2,
+                                                verbose=False,
+                                                target=dataobj[0].reference)
 
-        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3])==1:
+        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3]) == 1:
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
-            phase_freq_align_report(FIDlist,tmpFIDS,
+            phase_freq_align_report(FIDlist,
+                                    tmpFIDS,
                                     dataobj[0].dataheader,
-                                    phi,eps,
+                                    phi,
+                                    eps,
                                     ppmlim=args['ppm'],
                                     html=args['output'])
 
-        for iDx,fid in enumerate(tmpFIDS):
-            allFIDs[iDx][ijk,...] = fid
-        
+        for iDx, fid in enumerate(tmpFIDS):
+            allFIDs[iDx][ijk, ...] = fid
+
     dataout = []
-    for f,d in zip(allFIDs,dataobj):
-        dataout.append(datacontainer(f,d.dataheader,d.datafilename))
+    for f, d in zip(allFIDs, dataobj):
+        dataout.append(datacontainer(f, d.dataheader, d.datafilename))
 
     return dataout
 
-def aligndiff(dataobj,args):
+
+def aligndiff(dataobj, args):
     # This currently contains a bit of a hack - I use reference
     # as a way to load the sub spectra that won't be shifted
     bandwidth = dataobj[0].dataheader['bandwidth']
     centralFrequency = dataobj[0].dataheader['centralFrequency']*1E6
     allFIDs0 = [d.data for d in dataobj]
     allFIDs1 = [d.reference for d in dataobj]
-    for ijk in np.ndindex(dataobj[0].data.shape[:3]):    
-        FIDlist0 = [fid[ijk] for fid in allFIDs0]        
+    for ijk in np.ndindex(dataobj[0].data.shape[:3]):
+        FIDlist0 = [fid[ijk] for fid in allFIDs0]
         FIDlist1 = [fid[ijk] for fid in allFIDs1]
 
-        tmpFIDS0,tmpFIDS1,phi,eps= preproc.phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,ppmlim=args['ppm'],diffType=args['diff_type'])
+        tmpFIDS0, tmpFIDS1, phi, eps = preproc.phase_freq_align_diff(
+                                                    FIDlist0,
+                                                    FIDlist1,
+                                                    bandwidth,
+                                                    centralFrequency,
+                                                    ppmlim=args['ppm'],
+                                                    diffType=args['diff_type'])
 
-        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3])==1:
-            from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report   
-            phase_freq_align_diff_report(FIDlist0,FIDlist1,tmpFIDS0,tmpFIDS1,
-                                    dataobj[0].dataheader,
-                                    phi,eps,
-                                    ppmlim=args['ppm'],
-                                    diffType=args['diff_type'],
+        if args['generateReports'] and np.prod(dataobj[0].data.shape[:3]) == 1:
+            from fsl_mrs.utils.preproc.align \
+                import phase_freq_align_diff_report
+            phase_freq_align_diff_report(FIDlist0,
+                                         FIDlist1,
+                                         tmpFIDS0,
+                                         tmpFIDS1,
+                                         dataobj[0].dataheader,
+                                         phi,
+                                         eps,
+                                         ppmlim=args['ppm'],
+                                         diffType=args['diff_type'],
+                                         html=args['output'])
+
+        for iDx, (fid0, fid1) in enumerate(zip(tmpFIDS0, tmpFIDS1)):
+            allFIDs0[iDx][ijk, ...] = fid0
+            allFIDs1[iDx][ijk, ...] = fid1
+
+    dataout = []
+    for f0, f1, d in zip(allFIDs0, allFIDs1, dataobj):
+        dataout.append(datacontainer(f0,
+                                     d.dataheader,
+                                     d.datafilename,
+                                     reference=f1,
+                                     refheader=d.refheader,
+                                     reffilename=d.reffilename))
+
+    return dataout
+
+
+def ecc(dataobj, args):
+    dataout = []
+    for idx, d in enumerate(dataobj):
+        corrected = np.zeros(d.data.shape, dtype=np.complex128)
+        for ijk in np.ndindex(d.data.shape[:3]):
+            corrected[ijk] = preproc.eddy_correct(d.data[ijk],
+                                                  d.reference[ijk])
+
+            if args['generateReports'] and np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
+                from fsl_mrs.utils.preproc.eddycorrect \
+                    import eddy_correct_report
+                eddy_correct_report(d.data[ijk],
+                                    corrected[ijk],
+                                    d.reference[ijk],
+                                    d.dataheader,
                                     html=args['output'])
 
-        for iDx,(fid0,fid1) in enumerate(zip(tmpFIDS0,tmpFIDS1)):
-            allFIDs0[iDx][ijk,...] = fid0
-            allFIDs1[iDx][ijk,...] = fid1
-        
-    dataout = []
-    for f0,f1,d in zip(allFIDs0,allFIDs1,dataobj):
-        dataout.append(datacontainer(f0,
-                                d.dataheader,
-                                d.datafilename,
-                                reference=f1,
-                                refheader=d.refheader,
-                                reffilename=d.reffilename))
-
+        dataout.append(datacontainer(corrected, d.dataheader, d.datafilename))
     return dataout
 
 
-def ecc(dataobj,args):
+def remove(dataobj, args):
     dataout = []
-    for idx,d in enumerate(dataobj):
-        corrected = np.zeros(d.data.shape,dtype=np.complex128)
-        for ijk in np.ndindex(d.data.shape[:3]):
-            corrected[ijk] = preproc.eddy_correct(d.data[ijk],d.reference[ijk])
-
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
-                from fsl_mrs.utils.preproc.eddycorrect import eddy_correct_report
-                reportDir = args['output']
-                eddy_correct_report(d.data[ijk],corrected[ijk],d.reference[ijk],d.dataheader,html=args['output'])
-
-        dataout.append(datacontainer(corrected,d.dataheader,d.datafilename))
-    return dataout
-
-def remove(dataobj,args):
-    dataout = []
-    for idx,d in enumerate(dataobj):
+    for idx, d in enumerate(dataobj):
         limits = args['ppm']
-        removed = np.zeros(d.data.shape,dtype=np.complex128)
+        removed = np.zeros(d.data.shape, dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
             removed[ijk] = preproc.hlsvd(d.data[ijk],
-                                        d.dataheader['dwelltime'],
-                                        d.dataheader['centralFrequency'],
-                                        limits,
-                                        limitUnits = 'ppm+shift')
+                                         d.dataheader['dwelltime'],
+                                         d.dataheader['centralFrequency'],
+                                         limits,
+                                         limitUnits='ppm+shift')
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+            if args['generateReports'] and np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.remove import hlsvd_report
-                hlsvd_report(d.data[ijk],removed[ijk],d.dataheader,
-                            limits,limitUnits = 'ppm+shift',html=args['output'])
+                hlsvd_report(d.data[ijk],
+                             removed[ijk],
+                             d.dataheader,
+                             limits,
+                             limitUnits='ppm+shift',
+                             html=args['output'])
 
-        dataout.append(datacontainer(removed,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(removed, d.dataheader, d.datafilename))
     return dataout
 
-def tshift(dataobj,args):
-    dataout = []
-    for idx,d in enumerate(dataobj):
-        shifted = np.zeros(d.data.shape,dtype=np.complex128)
-        for ijk in np.ndindex(d.data.shape[:3]):
-            shifted[ijk],newDT = preproc.timeshift(d.data[ijk],
-                                        d.dataheader['dwelltime'],
-                                        args['tshiftStart'],
-                                        args['tshiftEnd'],
-                                        args['samples'])
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+def tshift(dataobj, args):
+    dataout = []
+    for idx, d in enumerate(dataobj):
+        shifted = np.zeros(d.data.shape, dtype=np.complex128)
+        for ijk in np.ndindex(d.data.shape[:3]):
+            shifted[ijk], newDT = preproc.timeshift(d.data[ijk],
+                                                    d.dataheader['dwelltime'],
+                                                    args['tshiftStart'],
+                                                    args['tshiftEnd'],
+                                                    args['samples'])
+
+            if args['generateReports'] and np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.shifting import shift_report
                 from copy import deepcopy
                 outhdr = deepcopy(d.dataheader)
                 outhdr['dwelltime'] = newDT
                 outhdr['bandwidth'] = 1/newDT
-                shift_report(d.data[ijk],shifted[ijk],d.dataheader,outhdr,html=args['output'],function='tshift')
+                shift_report(d.data[ijk],
+                             shifted[ijk],
+                             d.dataheader,
+                             outhdr,
+                             html=args['output'],
+                             function='tshift')
 
         d.dataheader['dwelltime'] = newDT
         d.dataheader['bandwidth'] = 1/newDT
-        dataout.append(datacontainer(shifted,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(shifted, d.dataheader, d.datafilename))
 
     return dataout
 
-def truncate(dataobj,args):
+
+def truncate(dataobj, args):
     dataout = []
-    for idx,d in enumerate(dataobj):
-        baseShape = list(d.data.shape)        
+    for idx, d in enumerate(dataobj):
+        baseShape = list(d.data.shape)
         baseShape[3] += args['points']
-        newFID = np.zeros(baseShape,dtype=np.complex128)
+        newFID = np.zeros(baseShape, dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
-            if args['points']>0:
-                newFID[ijk] = preproc.pad(d.data[ijk],np.abs(args['points']),args['pos'])
+            if args['points'] > 0:
+                newFID[ijk] = preproc.pad(d.data[ijk],
+                                          np.abs(args['points']),
+                                          args['pos'])
                 repFunc = 'pad'
-            elif args['points']<0:
-                newFID[ijk] = preproc.truncate(d.data[ijk],np.abs(args['points']),args['pos'])
+            elif args['points'] < 0:
+                newFID[ijk] = preproc.truncate(d.data[ijk],
+                                               np.abs(args['points']),
+                                               args['pos'])
                 repFunc = 'truncate'
             else:
                 newFID[ijk] = d.data[ijk]
                 repFunc = 'none'
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.shifting import shift_report
-                shift_report(d.data[ijk],newFID[ijk],d.dataheader,d.dataheader,html=args['output'],function=repFunc)
-        
-        dataout.append(datacontainer(newFID,d.dataheader,d.datafilename))
+
+                shift_report(d.data[ijk],
+                             newFID[ijk],
+                             d.dataheader,
+                             d.dataheader,
+                             html=args['output'],
+                             function=repFunc)
+
+        dataout.append(datacontainer(newFID, d.dataheader, d.datafilename))
     return dataout
 
-def apodize(dataobj,args):
+
+def apodize(dataobj, args):
     dataout = []
-    for idx,d in enumerate(dataobj):
-        broadened = np.zeros(d.data.shape,dtype=np.complex128)
+    for idx, d in enumerate(dataobj):
+        broadened = np.zeros(d.data.shape, dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
             broadened[ijk] = preproc.apodize(d.data[ijk],
-                                d.dataheader['dwelltime'],
-                                args['amount'],
-                                filter= args['filter'])
+                                             d.dataheader['dwelltime'],
+                                             args['amount'],
+                                             filter=args['filter'])
 
-        if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
-                from fsl_mrs.utils.preproc.filtering import apodize_report
-                apodize_report(d.data[ijk],broadened[ijk],d.dataheader,html=args['output'])
+        if args['generateReports'] and \
+           np.prod(d.data.shape[:3]) == 1 and \
+           ((idx in args['reportIndicies']) or args['allreports']):
+            from fsl_mrs.utils.preproc.filtering import apodize_report
+            apodize_report(d.data[ijk], broadened[ijk], d.dataheader,
+                           html=args['output'])
 
-        dataout.append(datacontainer(broadened,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(broadened, d.dataheader, d.datafilename))
 
     return dataout
 
 
-def fshift(dataobj,args):
+def fshift(dataobj, args):
     dataout = []
-    for idx,d in enumerate(dataobj):
-        if args['shiftppm'] is not None:            
+    for idx, d in enumerate(dataobj):
+        if args['shiftppm'] is not None:
             shift = args['shiftppm']*d.dataheader['centralFrequency']
             callMode = 'fixed'
-        elif args['shifthz'] is not None:            
+        elif args['shifthz'] is not None:
             shift = args['shifthz']
             callMode = 'fixed'
         elif args['shiftRef']:
             callMode = 'ref'
         else:
             raise ValueError('Specify --shiftppm or --shifthz.')
-        shifted = np.zeros(d.data.shape,dtype=np.complex128)
+        shifted = np.zeros(d.data.shape, dtype=np.complex128)
         for ijk in np.ndindex(d.data.shape[:3]):
-            if callMode == 'fixed':        
+            if callMode == 'fixed':
                 shifted[ijk] = preproc.freqshift(d.data[ijk],
-                                            d.dataheader['dwelltime'],
-                                            shift)
+                                                 d.dataheader['dwelltime'],
+                                                 shift)
                 repFunc = 'freqshift'
-            elif callMode == 'ref':        
-                shifted[ijk],_ = preproc.shiftToRef(d.data[ijk],
+            elif callMode == 'ref':
+                shifted[ijk], _ = preproc.shiftToRef(
+                                            d.data[ijk],
                                             args['target'],
                                             d.dataheader['bandwidth'],
                                             d.dataheader['centralFrequency'],
                                             ppmlim=args['ppm'])
                 repFunc = 'shiftToRef'
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.shifting import shift_report
-                shift_report(d.data[ijk],shifted[ijk],d.dataheader,d.dataheader,html=args['output'],function=repFunc)
+                shift_report(d.data[ijk],
+                             shifted[ijk],
+                             d.dataheader,
+                             d.dataheader,
+                             html=args['output'],
+                             function=repFunc)
 
-        dataout.append(datacontainer(shifted,d.dataheader,d.datafilename))
+        dataout.append(datacontainer(shifted, d.dataheader, d.datafilename))
 
     return dataout
 
-def unlike(dataobj,args):
-    if dataobj[0].data.shape[:3] != (1,1,1):
-        raise ValueError('unlike subcommand only works on single voxel data. It is unclear what should happen with MRSI data.')
 
-    FIDlist = [d.data[0,0,0,...] for d in dataobj] # Here we are assuming only SVS data.
+def unlike(dataobj, args):
+    if dataobj[0].data.shape[:3] != (1, 1, 1):
+        raise ValueError('unlike subcommand only works on single voxel data.'
+                         ' It is unclear what should happen with MRSI data.')
+
+    # Here we are assuming only SVS data.
+    FIDlist = [d.data[0, 0, 0, ...] for d in dataobj]
     bandwidth = dataobj[0].dataheader['bandwidth']
     centralFrequency = dataobj[0].dataheader['centralFrequency']
 
-    goodFIDs,badFIDs,gIndicies,bIndicies,metric = preproc.identifyUnlikeFIDs(FIDlist,bandwidth,centralFrequency,ppmlim=args['ppm'],sdlimit = args['sd'],iterations=args['iter'],shift=True)
+    goodFIDs, badFIDs, gIndicies, bIndicies, metric = \
+        preproc.identifyUnlikeFIDs(FIDlist,
+                                   bandwidth,
+                                   centralFrequency,
+                                   ppmlim=args['ppm'],
+                                   sdlimit=args['sd'],
+                                   iterations=args['iter'],
+                                   shift=True)
 
     dataout = []
-    for f,iDx in zip(goodFIDs,gIndicies):
-        dataout.append(datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename))
+    for f, iDx in zip(goodFIDs, gIndicies):
+        dataout.append(datacontainer(f,
+                                     dataobj[iDx].dataheader,
+                                     dataobj[iDx].datafilename))
 
     if args['outputbad']:
-        for f,iDx in zip(badFIDs,bIndicies):
-            dataout.append(datacontainer(f,dataobj[iDx].dataheader,dataobj[iDx].datafilename+'_FAIL'))
+        for f, iDx in zip(badFIDs, bIndicies):
+            dataout.append(datacontainer(f,
+                                         dataobj[iDx].dataheader,
+                                         dataobj[iDx].datafilename+'_FAIL'))
 
     if args['generateReports']:
         from fsl_mrs.utils.preproc.unlike import identifyUnlikeFIDs_report
-        identifyUnlikeFIDs_report(goodFIDs,badFIDs,dataobj[0].dataheader,gIndicies
-                            ,bIndicies,metric,ppmlim=args['ppm'],sdlimit = args['sd']
-                            ,html=args['output'])
+        identifyUnlikeFIDs_report(goodFIDs,
+                                  badFIDs,
+                                  dataobj[0].dataheader,
+                                  gIndicies,
+                                  bIndicies,
+                                  metric,
+                                  ppmlim=args['ppm'],
+                                  sdlimit=args['sd'],
+                                  html=args['output'])
 
     return dataout
 
-def phase(dataobj,args):
-    dataout = []
-    for idx,d in enumerate(dataobj):
-        phased = np.zeros(d.data.shape,dtype=np.complex128)
-        for ijk in np.ndindex(d.data.shape[:3]):    
-            phased[ijk],_,pos = preproc.phaseCorrect(d.data[ijk],
-                                d.dataheader['bandwidth'],
-                                d.dataheader['centralFrequency']*1E6,
-                                ppmlim = args['ppm'])
 
-            if args['generateReports'] and np.prod(d.data.shape[:3])==1 and ((idx in args['reportIndicies']) or args['allreports']):
+def phase(dataobj, args):
+    dataout = []
+    for idx, d in enumerate(dataobj):
+        phased = np.zeros(d.data.shape, dtype=np.complex128)
+        for ijk in np.ndindex(d.data.shape[:3]):
+            phased[ijk], _, pos = preproc.phaseCorrect(
+                                        d.data[ijk],
+                                        d.dataheader['bandwidth'],
+                                        d.dataheader['centralFrequency']*1E6,
+                                        ppmlim=args['ppm'])
+
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
                 from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
-                phaseCorrect_report(d.data[ijk],phased[ijk],d.dataheader,
-                                    pos,ppmlim=args['ppm'],html=args['output'])
 
-        dataout.append(datacontainer(phased,d.dataheader,d.datafilename))
+                phaseCorrect_report(d.data[ijk],
+                                    phased[ijk],
+                                    d.dataheader,
+                                    pos,
+                                    ppmlim=args['ppm'],
+                                    html=args['output'])
+
+        dataout.append(datacontainer(phased, d.dataheader, d.datafilename))
     return dataout
 
-def subtract(dataobj,args):
+
+def subtract(dataobj, args):
     dataout = []
-    subtracted = preproc.subtract(dataobj[0].data,dataobj[1].data)
-    dataout.append(datacontainer(subtracted,dataobj[0].dataheader,dataobj[0].datafilename))
+    subtracted = preproc.subtract(dataobj[0].data, dataobj[1].data)
+    dataout.append(datacontainer(subtracted,
+                                 dataobj[0].dataheader,
+                                 dataobj[0].datafilename))
 
     if args['generateReports']:
         from fsl_mrs.utils.preproc.general import add_subtract_report
-        add_subtract_report(dataobj[0].data,dataobj[1].data,subtracted,dataobj[0].dataheader,ppmlim=(0.2,4.2),function='subtract',html=args['output'])
+        add_subtract_report(dataobj[0].data,
+                            dataobj[1].data,
+                            subtracted,
+                            dataobj[0].dataheader,
+                            ppmlim=(0.2, 4.2),
+                            function='subtract',
+                            html=args['output'])
     return dataout
 
-def add(dataobj,args):
+
+def add(dataobj, args):
     dataout = []
-    added = preproc.add(dataobj[0].data,dataobj[1].data)
-    dataout.append(datacontainer(added,dataobj[0].dataheader,dataobj[0].datafilename))
+    added = preproc.add(dataobj[0].data, dataobj[1].data)
+    dataout.append(datacontainer(added,
+                                 dataobj[0].dataheader,
+                                 dataobj[0].datafilename))
 
     if args['generateReports']:
         from fsl_mrs.utils.preproc.general import add_subtract_report
-        add_subtract_report(dataobj[0].data,dataobj[1].data,added,dataobj[0].dataheader,ppmlim=(0.2,4.2),function='add',html=args['output'])
+        add_subtract_report(dataobj[0].data,
+                            dataobj[1].data,
+                            added,
+                            dataobj[0].dataheader,
+                            ppmlim=(0.2, 4.2),
+                            function='add',
+                            html=args['output'])
 
     return dataout
+
 
 if __name__ == '__main__':
     main()

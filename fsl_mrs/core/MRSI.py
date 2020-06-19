@@ -10,10 +10,9 @@
 
 import numpy as np
 from fsl_mrs.core import MRS
-from fsl_mrs.utils import mrs_io,plotting,fitting,misc
+from fsl_mrs.utils import mrs_io, misc
 import matplotlib.pyplot as plt
 import nibabel as nib
-import os.path as op
 from fsl_mrs.utils.mrs_io.fsl_io import saveNIFTI
 
 class MRSI(object):
@@ -67,6 +66,7 @@ class MRSI(object):
         self.rescale        = False
         self.keep           = None
         self.ignore         = None
+        self.ind_scaling    = None
 
         self._store_scalings = None
         
@@ -165,7 +165,7 @@ class MRSI(object):
             mrs.check_FID(repair=True)
 
         if self.rescale:
-            mrs.rescaleForFitting()      
+            mrs.rescaleForFitting(ind_scaling=self.ind_scaling)      
                 
     def plot(self,mask=True,ppmlim=(0.2,4.2)):
         if mask:

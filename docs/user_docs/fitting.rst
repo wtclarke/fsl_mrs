@@ -158,8 +158,10 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Add macromolecule peaks at the following frequencies: 0.9, 1.2, 1.4, 1.7 ppm and a doublet at 2.08 & 3.0 ppm
 :code:`--lorentzian`        
     By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
-
-
+:code:`--ind_scale`        
+    Allow independent scaling of specified basis spectra before fitting. For example this can be used to independently scale empirically measured macromolecules combined with simulated metabolite spectra.
+:code:`--disable_MH_priors`        
+    Disable the priors on the MH fitting. The priors are tuned for *in vivo* human brain spectroscopy. Use this option if your spectra has significantly different line widths, phases or large shifts. E.g. in liquid phase phantom or (potentially) pre-clinical systems. 
 
 The wrapper scripts can also take a configuration file as an input. For example, say we have a text file called :code:`config.txt` which contains the below:
 
