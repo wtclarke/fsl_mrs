@@ -81,7 +81,7 @@ If you don't want to use the wrapper scripts, you can use the python modules dir
 
 If you use FSL-MRS in your research please cite:
 
-    Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020
+    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020
 
 Please see the [LICENSE](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/LICENSE) file for licensing information.
 
