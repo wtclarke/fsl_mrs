@@ -18,4 +18,4 @@ Citing FSL-MRS
 --------------
 If you use FSL-MRS please cite: 
 
-    Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020 
+    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020 
