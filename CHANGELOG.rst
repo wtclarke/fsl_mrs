@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.0.2 (Friday 19th June 2020)
+--------------------------------
+- Add missing requirement (pillow)
+
+
 1.0.1 (Friday 19th June 2020)
 --------------------------------
 - Output folder in fsl_mrs_proc will now be created if it does not exist.
