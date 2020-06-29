@@ -1,4 +1,5 @@
 .. _seq_file_params:
+:orphan:
 Sequence description parameters
 ===============================
 

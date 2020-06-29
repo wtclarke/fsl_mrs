@@ -37,6 +37,15 @@ rst_epilog = """
 
 .. |fslmrs_gitlab| replace:: FSL-MRS GitLab
 .. _fslmrs_gitlab: https://git.fmrib.ox.ac.uk/fsl/fsl_mrs
+
+.. |fslmrs_github_tracker| replace:: FSL-MRS GitHub Issue Tracker
+.. _fslmrs_github_tracker: https://github.com/wexeee/fsl_mrs/issues
+
+.. |fslmrs_pkg_data| replace:: FSL-MRS example data
+.. _fslmrs_pkg_data: https://users.fmrib.ox.ac.uk/~wclarke/fsl_mrs/example_usage.zip
+
+.. |dev_email| replace:: developers
+.. _dev_email: mailto:william.clarke@ndcn.ox.ac.uk,saad@fmrib.ox.ac.uk
 """
 
 
@@ -67,4 +76,4 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
