@@ -15,7 +15,7 @@ Before running FSL-MRS time domain data must be prepared in a complex 4D-NIFTI o
 
 Example conversion::
 
-    spec2nii -f my_metab_file dicom -j metab.dcm
+    spec2nii dicom -f my_metab_file -j metab.dcm
 
 This will convert the dicom file (metab.dcm) to a NIfTI file named my_metab_file.nii and because the -j option was specified, a JSON file called my_metab_file.json.
 
