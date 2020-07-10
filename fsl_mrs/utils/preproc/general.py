@@ -115,3 +115,90 @@ def add_subtract_report(inFID,inFID2,outFID,hdr,ppmlim=(0.2,4.2),function='Not s
         return fig
     else:
         return fig
+
+
+def generic_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function=''):
+    """
+    Generate generic report
+    """
+    from fsl_mrs.core import MRS
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
+
+    plotIn = MRS(FID=inFID, header=inHdr)
+    plotOut = MRS(FID=outFID, header=outHdr)
+
+    # Fetch line styles
+    lines, colors, _ = plotStyles()
+
+    # Make a new figure
+    fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
+
+    # Add lines to figure
+    trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
+                        y=np.real(plotIn.getSpectrum(ppmlim=ppmlim)),
+                        mode='lines',
+                        name='Original',
+                        line=lines['in'])
+    trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
+                        y=np.real(plotOut.getSpectrum(ppmlim=ppmlim)),
+                        mode='lines',
+                        name='Shifted',
+                        line=lines['out'])
+    fig.add_trace(trace1, row=1, col=1)
+    fig.add_trace(trace2, row=1, col=1)
+
+    # Add lines to figure
+    trace3 = go.Scatter(x=plotIn.getAxes(axis='time'),
+                        y=np.real(plotIn.FID),
+                        mode='lines',
+                        name='Original',
+                        line=lines['emph'])
+    trace4 = go.Scatter(x=plotOut.getAxes(axis='time'),
+                        y=np.real(plotOut.FID),
+                        mode='lines',
+                        name='Shifted',
+                        line=lines['diff'])
+    fig.add_trace(trace3, row=1, col=2)
+    fig.add_trace(trace4, row=1, col=2)
+
+    # Axes layout
+    plotAxesStyle(fig, ppmlim, title=f'{function} summary')
+    fig.layout.xaxis2.update(title_text='Time (s)')
+    fig.layout.yaxis2.update(zeroline=True,
+                             zerolinewidth=1,
+                             zerolinecolor='Gray',
+                             showgrid=False,
+                             showticklabels=False)
+
+    if html is not None:
+        from plotly.offline import plot
+        from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
+        from datetime import datetime
+        import os.path as op
+
+        if op.isdir(html):
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
+            htmlfile = op.join(html, filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1] == '.html':
+            htmlfile = html
+        else:
+            raise ValueError('Report html path must be file or directory. ')
+
+        opName = function
+        timestr = datetime.now().strftime("%H:%M:%S")
+        datestr = datetime.now().strftime("%d/%m/%Y")
+        headerinfo = f'Report for {function}.\n' + \
+                     f'Generated at {timestr} on {datestr}.'
+        # Figures
+        div = plot(fig, output_type='div', include_plotlyjs='cdn')
+        figurelist = [figgroup(fig=div,
+                               name='',
+                               foretext='',
+                               afttext='')]
+
+        singleReport(htmlfile, opName, headerinfo, figurelist)
+        return fig
+    else:
+        return fig

@@ -75,6 +75,8 @@ def main():
                                   ' (default=0.2->4.2)')
     align_group.add_argument('--reference', type=str, required=False,
                              help='Align to this reference data.')
+    align_group.add_argument('--apod', type=float, default=10,
+                             help='Apodise data to reduce noise (Hz).')
     alignparser.set_defaults(func=align)
     add_common_args(alignparser)
 
@@ -228,6 +230,21 @@ def main():
     phaseparser.set_defaults(func=phase)
     add_common_args(phaseparser)
 
+    fixphaseparser = sp.add_parser('fixed_phase', add_help=False,
+                                   help='Apply fixed phase to spectrum')
+    fphase_group = fixphaseparser.add_argument_group('Phase arguments')
+    fphase_group.add_argument('--file', type=str, nargs='+', required=True,
+                              help='Data file(s) to shift')
+    fphase_group.add_argument('--p0', type=float,
+                              metavar='<degrees>',
+                              help='Zero order phase (degrees)')
+    fphase_group.add_argument('--p1', type=float,
+                              default=0.0,
+                              metavar='<seconds>',
+                              help='First order phase (seconds)')
+    fixphaseparser.set_defaults(func=fixed_phase)
+    add_common_args(fixphaseparser)
+
     # subtraction - subtraction of FIDs
     subtractparser = sp.add_parser('subtract', add_help=False,
                                    help='Subtract two FIDs')
@@ -245,6 +262,14 @@ def main():
                            help='Two data files to add')
     addparser.set_defaults(func=add)
     add_common_args(addparser)
+
+    # conj - conjugation
+    conjparser = sp.add_parser('conj', add_help=False, help='Conjugate fids')
+    conj_group = conjparser.add_argument_group('Conjugation arguments')
+    conj_group.add_argument('--file', type=str, nargs='+', required=True,
+                            help='Data file(s) to conjugate')
+    conj_group.set_defaults(func=conj)
+    add_common_args(conj_group)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -552,6 +577,7 @@ def align(dataobj, args):
                                                 centralFrequency,
                                                 ppmlim=args['ppm'],
                                                 niter=2,
+                                                apodize=args['apod'],
                                                 verbose=False,
                                                 target=dataobj[0].reference)
 
@@ -881,6 +907,38 @@ def phase(dataobj, args):
     return dataout
 
 
+def fixed_phase(dataobj, args):
+    dataout = []
+    for idx, d in enumerate(dataobj):
+        phased = np.zeros(d.data.shape, dtype=np.complex128)
+        for ijk in np.ndindex(d.data.shape[:3]):
+            phased[ijk] = preproc.applyPhase(d.data[ijk],
+                                             (np.pi/180.0)*args['p0'])
+
+            if args['p1'] != 0.0:
+                phased[ijk], newDT = preproc.timeshift(
+                    phased[ijk],
+                    d.dataheader['dwelltime'],
+                    args['p1'],
+                    args['p1'])
+
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
+                from fsl_mrs.utils.preproc.general import generic_report
+
+                generic_report(d.data[ijk],
+                               phased[ijk],
+                               d.dataheader,
+                               d.dataheader,
+                               ppmlim=(0.2, 4.2),
+                               html=args['output'],
+                               function='fixed phase')
+
+        dataout.append(datacontainer(phased, d.dataheader, d.datafilename))
+    return dataout
+
+
 def subtract(dataobj, args):
     dataout = []
     subtracted = preproc.subtract(dataobj[0].data, dataobj[1].data)
@@ -917,6 +975,30 @@ def add(dataobj, args):
                             function='add',
                             html=args['output'])
 
+    return dataout
+
+
+def conj(dataobj, args):
+    dataout = []
+    for idx, d in enumerate(dataobj):
+        conj = np.zeros(d.data.shape, dtype=np.complex128)
+        for ijk in np.ndindex(d.data.shape[:3]):
+            conj[ijk] = np.conj(d.data[ijk])
+
+            if args['generateReports'] and \
+               np.prod(d.data.shape[:3]) == 1 and \
+               ((idx in args['reportIndicies']) or args['allreports']):
+                from fsl_mrs.utils.preproc.general import generic_report
+
+                generic_report(d.data[ijk],
+                               conj[ijk],
+                               d.dataheader,
+                               d.dataheader,
+                               ppmlim=(0.2, 4.2),
+                               html=args['output'],
+                               function='conj')
+
+        dataout.append(datacontainer(conj, d.dataheader, d.datafilename))
     return dataout
 
 

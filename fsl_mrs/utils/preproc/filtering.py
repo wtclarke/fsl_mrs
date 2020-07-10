@@ -16,7 +16,7 @@ def apodize(FID,dwelltime,broadening,filter='exp'):
     Args:
         FID (ndarray): Time domain data
         dwelltime (float): dwelltime in seconds
-        broadening (tuple,float): shift in Hz
+        broadening (tuple,float): apodisation in Hz
         filter (str,optional):'exp','l2g'
 
     Returns:
