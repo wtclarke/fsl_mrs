@@ -413,9 +413,15 @@ def readData(files, conjugate):
         if conjugate:
             fid = np.conj(fid)
         else:
-            mrs = MRS(FID=fid, header=header)
-            mrs.check_FID(repair=True)
-            fid = mrs.FID
+            if fid.ndim > 1:
+                mrs = MRS(FID=np.mean(fid, axis=1), header=header)
+                conj = mrs.check_FID(repair=True)
+                if conj:
+                    fid = np.conj(fid)
+            else:
+                mrs = MRS(FID=fid, header=header)
+                mrs.check_FID(repair=True)
+                fid = mrs.FID
 
         if shape is not None:
             if fid.shape != shape:

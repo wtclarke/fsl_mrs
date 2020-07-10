@@ -284,7 +284,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
 def test_align(svs_data, mrsi_data, tmp_path):
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
 
-    # Run coil combination on both sets of data using the command line
+    # Run align on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
                            '--file', svsfile[0], svsfile[1], svsfile[2],
@@ -304,9 +304,10 @@ def test_align(svs_data, mrsi_data, tmp_path):
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
-                                               target=None)
+                                               target=None,
+                                               apodize=10)
 
-    assert np.isclose(data, directRun[0]).all()
+    assert np.allclose(data, directRun[0])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -321,17 +322,18 @@ def test_align(svs_data, mrsi_data, tmp_path):
                                  squeezeSVS=True)
 
     # Run using preproc.py directly
-    allFileData = [d[2, 2, 2, ...] for d in mrsidata]
+    allFileData = [d[2, 2, 2, ...] for d in mrsidata[0:3]]
     directRun, _, _ = preproc.phase_freq_align(allFileData,
                                                4000,
                                                123E6,
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
-                                               target=None)
+                                               target=None,
+                                               apodize=10)
 
-    assert np.isclose(data[2, 2, 2, ...], directRun[0],
-                      atol=1E-3, rtol=1E-3).all()
+    assert np.allclose(data[2, 2, 2, ...], directRun[0],
+                       atol=1E-1, rtol=1E-1)
 
 
 def test_ecc(svs_data, mrsi_data, tmp_path):

@@ -22,7 +22,7 @@ def applyPhase(FID, phaseAngle):
     return FID * np.exp(1j*phaseAngle)
 
 
-def phaseCorrect(FID, bw, cf, ppmlim=(2.8, 3.2), shift=True, no_hlsvd=False):
+def phaseCorrect(FID, bw, cf, ppmlim=(2.8, 3.2), shift=True, hlsvd=False):
     """ Phase correction based on the phase of a maximum point.
 
     HLSVD is used to remove peaks outside the limits to flatten baseline first.
@@ -33,21 +33,23 @@ def phaseCorrect(FID, bw, cf, ppmlim=(2.8, 3.2), shift=True, no_hlsvd=False):
         cf (float): central frequency in Hz
         ppmlim (tuple,optional)  : Limit to this ppm range
         shift (bool,optional)    : Apply H20 shft
-        no_hlsvd (bool,optional) : Disable hlsvd step
+        hlsvd (bool,optional)    : Enable hlsvd step
 
     Returns:
         FID (ndarray): Phase corrected FID
     """
-    # Run HLSVD to remove peaks outside limits
-    if no_hlsvd:
-        fid_hlsvd = FID
-    else:
+    
+    if hlsvd:
+        # Run HLSVD to remove peaks outside limits
         try:
             fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
             fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
         except:
             fid_hlsvd = FID
             print('HLSVD in phaseCorrect failed, proceeding to phasing.')
+    else:
+        fid_hlsvd = FID
+
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(fid_hlsvd,FID.size*3)
     MRSargs = {'FID':padFID,'bw':bw,'cf':cf}
