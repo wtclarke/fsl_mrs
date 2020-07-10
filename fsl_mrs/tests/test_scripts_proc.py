@@ -496,3 +496,97 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
 
     assert np.allclose(data, directRun)
     # TODO: finish MRSI test
+
+
+def test_conj(svs_data, mrsi_data, tmp_path):
+    """ Test fsl_mrs_proc conj"""
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run remove on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'conj',
+                           '--file', svsfile[0],
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using numpy directly
+    directRun = np.conj(svsdata[0])
+
+    assert np.allclose(data, directRun)
+
+    # Run coil combination on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'conj',
+                           '--file', mrsifile[0],
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using preproc.py directly
+    directRun = np.conj(mrsidata[0][2, 2, 2, ...])
+
+    assert np.allclose(data[2, 2, 2, ...], directRun)
+
+
+def test_fixed_phase(svs_data, mrsi_data, tmp_path):
+    """ Test fsl_mrs_proc fixed_phase"""
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run remove on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fixed_phase',
+                           '--file', svsfile[0],
+                           '--p0', '90',
+                           '--p1', '0.001',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using numpy directly
+    directRun = preproc.applyPhase(svsdata[0],
+                                   (np.pi/180.0)*90)
+
+    directRun, newDT = preproc.timeshift(
+            directRun,
+            1/4000,
+            0.001,
+            0.001,
+            samples=directRun.size)
+
+    assert np.allclose(data, directRun)
+
+    # Run coil combination on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fixed_phase',
+                           '--file', mrsifile[0],
+                           '--p0', '90',
+                           '--p1', '0.001',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using preproc.py directly
+    directRun = preproc.applyPhase(mrsidata[0][2, 2, 2, ...],
+                                   (np.pi/180.0)*90)
+
+    directRun, newDT = preproc.timeshift(
+            directRun,
+            1/4000,
+            0.001,
+            0.001,
+            samples=directRun.size)
+
+    assert np.allclose(data[2, 2, 2, ...], directRun)

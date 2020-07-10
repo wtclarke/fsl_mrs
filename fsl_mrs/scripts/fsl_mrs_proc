@@ -35,7 +35,8 @@ def main():
 
     sp = p.add_subparsers(title='subcommands',
                           description='Preprocessing subcommands',
-                          required=True)
+                          required=True,
+                          dest='subcommand')
 
     # Coil combination subcommand
     ccparser = sp.add_parser('coilcombine',
@@ -920,7 +921,8 @@ def fixed_phase(dataobj, args):
                     phased[ijk],
                     d.dataheader['dwelltime'],
                     args['p1'],
-                    args['p1'])
+                    args['p1'],
+                    samples=phased[ijk].size)
 
             if args['generateReports'] and \
                np.prod(d.data.shape[:3]) == 1 and \
