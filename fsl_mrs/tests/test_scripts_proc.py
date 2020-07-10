@@ -284,7 +284,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
 def test_align(svs_data, mrsi_data, tmp_path):
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
 
-    # Run coil combination on both sets of data using the command line
+    # Run align on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
                            '--file', svsfile[0], svsfile[1], svsfile[2],
@@ -304,9 +304,10 @@ def test_align(svs_data, mrsi_data, tmp_path):
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
-                                               target=None)
+                                               target=None,
+                                               apodize=10)
 
-    assert np.isclose(data, directRun[0]).all()
+    assert np.allclose(data, directRun[0])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -321,17 +322,18 @@ def test_align(svs_data, mrsi_data, tmp_path):
                                  squeezeSVS=True)
 
     # Run using preproc.py directly
-    allFileData = [d[2, 2, 2, ...] for d in mrsidata]
+    allFileData = [d[2, 2, 2, ...] for d in mrsidata[0:3]]
     directRun, _, _ = preproc.phase_freq_align(allFileData,
                                                4000,
                                                123E6,
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
-                                               target=None)
+                                               target=None,
+                                               apodize=10)
 
-    assert np.isclose(data[2, 2, 2, ...], directRun[0],
-                      atol=1E-3, rtol=1E-3).all()
+    assert np.allclose(data[2, 2, 2, ...], directRun[0],
+                       atol=1E-1, rtol=1E-1)
 
 
 def test_ecc(svs_data, mrsi_data, tmp_path):
@@ -496,3 +498,97 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
 
     assert np.allclose(data, directRun)
     # TODO: finish MRSI test
+
+
+def test_conj(svs_data, mrsi_data, tmp_path):
+    """ Test fsl_mrs_proc conj"""
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run remove on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'conj',
+                           '--file', svsfile[0],
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using numpy directly
+    directRun = np.conj(svsdata[0])
+
+    assert np.allclose(data, directRun)
+
+    # Run coil combination on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'conj',
+                           '--file', mrsifile[0],
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using preproc.py directly
+    directRun = np.conj(mrsidata[0][2, 2, 2, ...])
+
+    assert np.allclose(data[2, 2, 2, ...], directRun)
+
+
+def test_fixed_phase(svs_data, mrsi_data, tmp_path):
+    """ Test fsl_mrs_proc fixed_phase"""
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run remove on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fixed_phase',
+                           '--file', svsfile[0],
+                           '--p0', '90',
+                           '--p1', '0.001',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using numpy directly
+    directRun = preproc.applyPhase(svsdata[0],
+                                   (np.pi/180.0)*90)
+
+    directRun, newDT = preproc.timeshift(
+            directRun,
+            1/4000,
+            0.001,
+            0.001,
+            samples=directRun.size)
+
+    assert np.allclose(data, directRun)
+
+    # Run coil combination on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fixed_phase',
+                           '--file', mrsifile[0],
+                           '--p0', '90',
+                           '--p1', '0.001',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
+                                 squeezeSVS=True)
+
+    # Run using preproc.py directly
+    directRun = preproc.applyPhase(mrsidata[0][2, 2, 2, ...],
+                                   (np.pi/180.0)*90)
+
+    directRun, newDT = preproc.timeshift(
+            directRun,
+            1/4000,
+            0.001,
+            0.001,
+            samples=directRun.size)
+
+    assert np.allclose(data[2, 2, 2, ...], directRun)

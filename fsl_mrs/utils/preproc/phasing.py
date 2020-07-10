@@ -5,7 +5,7 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import numpy as np
@@ -13,13 +13,16 @@ from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
-def applyPhase(FID,phaseAngle):
+
+
+def applyPhase(FID, phaseAngle):
     """
     Multiply FID by constant phase
     """
     return FID * np.exp(1j*phaseAngle)
 
-def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
+
+def phaseCorrect(FID, bw, cf, ppmlim=(2.8, 3.2), shift=True, hlsvd=False):
     """ Phase correction based on the phase of a maximum point.
 
     HLSVD is used to remove peaks outside the limits to flatten baseline first.
@@ -30,18 +33,24 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
         cf (float): central frequency in Hz
         ppmlim (tuple,optional)  : Limit to this ppm range
         shift (bool,optional)    : Apply H20 shft
+        hlsvd (bool,optional)    : Enable hlsvd step
 
     Returns:
         FID (ndarray): Phase corrected FID
     """
-    # Run HLSVD to remove peaks outside limits
-    try:
-        fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
-        fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
-    except:
+    
+    if hlsvd:
+        # Run HLSVD to remove peaks outside limits
+        try:
+            fid_hlsvd = hlsvd(FID,1/bw,cf,(ppmlim[1]+0.5,ppmlim[1]+3.0),limitUnits='ppm+shift')
+            fid_hlsvd = hlsvd(fid_hlsvd,1/bw,cf,(ppmlim[0]-3.0,ppmlim[0]-0.5),limitUnits='ppm+shift')
+        except:
+            fid_hlsvd = FID
+            print('HLSVD in phaseCorrect failed, proceeding to phasing.')
+    else:
         fid_hlsvd = FID
-        print('Phasing HLSVD failed, proceeding to phaseing.')
-    #Find maximum of absolute spectrum in ppm limit
+
+    # Find maximum of absolute spectrum in ppm limit
     padFID = pad(fid_hlsvd,FID.size*3)
     MRSargs = {'FID':padFID,'bw':bw,'cf':cf}
     mrs = MRS(**MRSargs)
@@ -52,9 +61,10 @@ def phaseCorrect(FID,bw,cf,ppmlim=(2.8,3.2),shift=True):
     
     return applyPhase(FID,phaseAngle),phaseAngle,int(np.round(maxIndex/4))
 
+
 def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
     """
-    Generate report
+    Generate report for phaseCorrect
     """
     # from matplotlib import pyplot as plt
     from fsl_mrs.core import MRS
@@ -103,7 +113,7 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
     # Axes layout
     plotAxesStyle(fig,widelimit,title = 'Phase correction summary')
    
-    # Axea 
+    # Axes 
     if html is not None:
         from plotly.offline import plot
         from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
@@ -134,25 +144,3 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
         return fig
     else:
         return fig
-
-# matplotlib version of report
-# def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2)):
-#     from matplotlib import pyplot as plt
-#     from fsl_mrs.core import MRS
-#     from fsl_mrs.utils.plotting import styleSpectrumAxes
-
-#     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
-#     plotIn = toMRSobj(inFID)
-#     plotOut = toMRSobj(outFID)
-
-#     widelimit = (0,6)
-
-#     fig = plt.figure(figsize=(10,10))
-#     plt.plot(plotIn.getAxes(ppmlim=widelimit),np.real(plotIn.getSpectrum(ppmlim=widelimit)),'k',label='Unphased', linewidth=2)
-#     plt.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.getSpectrum(ppmlim=ppmlim)),'r',label='search region', linewidth=2)
-#     plt.plot(plotIn.getAxes(ppmlim=ppmlim)[position],np.real(plotIn.getSpectrum(ppmlim=ppmlim))[position],'rx',label='max point', linewidth=2)
-#     plt.plot(plotOut.getAxes(ppmlim=widelimit),np.real(plotOut.getSpectrum(ppmlim=widelimit)),'b--',label='Phased', linewidth=2)
-#     styleSpectrumAxes(ax=plt.gca())
-#     plt.legend()
-#     plt.rcParams.update({'font.size': 12})
-#     plt.show()

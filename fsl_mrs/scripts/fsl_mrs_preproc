@@ -14,7 +14,8 @@ from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 from fsl_mrs.utils import mrs_io
 import numpy as np
-import os
+import os.path as op
+from os import mkdir
 
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
@@ -80,7 +81,6 @@ def main():
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
-    import os
     import shutil
     from fsl_mrs.utils import preproc
     from fsl_mrs.utils import plotting
@@ -89,7 +89,7 @@ def main():
 
     # Check if output folder exists
     overwrite = args.overwrite
-    if os.path.exists(args.output):
+    if op.exists(args.output):
         if not overwrite:
             print(f"Folder '{args.output}' exists."
                   "Are you sure you want to delete it? [Y,N]")
@@ -100,12 +100,12 @@ def main():
             exit()
         else:
             shutil.rmtree(args.output)
-            os.mkdir(args.output)
+            mkdir(args.output)
     else:
-        os.mkdir(args.output)
+        mkdir(args.output)
 
     # Save chosen arguments
-    with open(os.path.join(args.output, "options.txt"), "w") as f:
+    with open(op.join(args.output, "options.txt"), "w") as f:
         f.write(str(args))
         f.write("\n--------\n")
         f.write(p.format_values())
@@ -389,28 +389,36 @@ def main():
         import glob
         if args.verbose:
             print('Create report')
-        htmlfiles = glob.glob(os.path.join(args.output, '*.html'))
+        htmlfiles = glob.glob(op.join(args.output, '*.html'))
         subprocess.call(['merge_mrs_reports', '-d',
-                         os.path.join(args.output, 'metab'),
+                         op.join(args.output, 'metab'),
                          '-o', args.output,
                          '--delete']+htmlfiles)
 
         if args.t1 is not None:
             if datatype == 'NIFTI':
                 fig = plotting.plot_world_orient(args.t1, args.data[0])
-                fig.savefig(os.path.join(args.output, 'voxel_location.png'))
+                fig.savefig(op.join(args.output, 'voxel_location.png'))
 
 
 def readData(files, conjugate):
+    from fsl_mrs.core import MRS
     FIDlist = []
     shape = None
     datatype = None
+    auto_conj = 0
     for filename in files:
         dtype = mrs_io.check_datatype(filename)
         fid, header = mrs_io.read_FID(filename)
         fid = np.squeeze(fid)
-        if conjugate:
-            fid = np.conj(fid)
+
+        if fid.ndim > 1:
+            mrs = MRS(FID=np.mean(fid, axis=1), header=header)
+            auto_conj += mrs.check_FID(repair=True)
+        else:
+            mrs = MRS(FID=fid, header=header)
+            auto_conj += mrs.check_FID(repair=True)            
+
         if shape is not None:
             if fid.shape != shape:
                 raise(Exception('FIDs are incompatible in shapes'))
@@ -423,22 +431,26 @@ def readData(files, conjugate):
 
         FIDlist.append(fid)
 
+    auto_conj /= len(FIDlist)
+    if conjugate or auto_conj > 0.5:
+        FIDlist = [np.conj(f) for f in FIDlist]
+
     return FIDlist, header, shape, datatype
 
 
 def saveData(FIDlist, hdr, outputDir, basename, datatype='NIFTI'):
     if len(FIDlist) == 1:
         def nameGen(x, y):
-            return os.path.join(outputDir, f'{basename}.{y}')
+            return op.join(outputDir, f'{basename}.{y}')
     else:
         def nameGen(x, y):
-            return os.path.join(outputDir, f'{basename}_{x:03.0f}.{y}')
+            return op.join(outputDir, f'{basename}_{x:03.0f}.{y}')
     for iDx, f in enumerate(FIDlist):
         if datatype == 'RAW':
             filename = nameGen(iDx, 'RAW')
             mrs_io.lcm_io.saveRAW(filename, f, hdr)
         elif datatype == 'NIFTI':
-            filename = nameGen(iDx, 'nii')
+            filename = nameGen(iDx, 'nii.gz')
             mrs_io.fsl_io.saveNIFTI(filename, f, hdr)
 
 

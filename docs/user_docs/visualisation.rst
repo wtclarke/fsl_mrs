@@ -1,3 +1,5 @@
+.. _visualisation:
+
 Reports and Visualisation
 =========================
 
@@ -25,6 +27,13 @@ gives the following basic plot:
   :width: 400
 
 Note that the reason :code:`mrs_vis` "knows" how to scale the x-axis is that the relevant information is stored in the JSON sidecar (namely the *dwell time* and the *central frequency*).
+
+:code:`mrs_vis` can also visualise a folder of mrs data::
+
+    mrs_vis ./converted_data_dir/
+
+.. image:: data/mrs_vis_dir.png
+    :width: 600
 
 
 We can also run :code:`mrs_vis` to visualise the metabolite basis. Again below we do so for the simulated basis provided with the example data:
@@ -74,7 +83,7 @@ Below are instructions for loading and configuring FSLeyes to work with MRSI dat
 
 Then open *View=>Power Spectra*, select the FID/fit/baseline/residuals as required for display. 
 
-Now to make the powerspetrum display nicely, we need to change the x-axis scaling/shifting to be compatible with MRS conventions (shifted PPM). Open the Power spetrum control panel, and do the following:
+Now to make the power-spectrum display nicely, we need to change the x-axis scaling/shifting to be compatible with MRS conventions (shifted PPM). Open the Power spetrum control panel, and do the following:
 
  - Invert X axis
  - Set X axis scale to 1/{central frequency}

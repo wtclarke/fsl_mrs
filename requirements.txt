@@ -6,6 +6,6 @@ pandas
 jinja2
 beautifulsoup4
 nibabel
-hlsvdpro
+hlsvdpropy
 fslpy>=3.0
 pillow

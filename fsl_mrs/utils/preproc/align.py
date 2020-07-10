@@ -5,17 +5,19 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-from fsl_mrs.utils.preproc.general import get_target_FID,add,subtract
+from fsl_mrs.utils.preproc.general import get_target_FID, add, subtract
+from fsl_mrs.utils.preproc.filtering import apodize as apod
 from fsl_mrs.core import MRS
-from fsl_mrs.utils.misc import extract_spectrum,shift_FID
+from fsl_mrs.utils.misc import extract_spectrum, shift_FID
 from scipy.optimize import minimize
 import numpy as np
 
+
 # Phase-Freq alignment functions
-def align_FID(mrs,src_FID,tgt_FID,ppmlim=None,shift=True):
+def align_FID(mrs, src_FID, tgt_FID, ppmlim=None, shift=True):
     """
        Phase and frequency alignment
 
@@ -32,24 +34,26 @@ def align_FID(mrs,src_FID,tgt_FID,ppmlim=None,shift=True):
     """
 
     # Internal functions so they can see globals
-    def shift_phase_freq(FID,phi,eps,extract=True):        
-        sFID = np.exp(-1j*phi)*shift_FID(mrs,FID,eps)
+    def shift_phase_freq(FID, phi, eps, extract=True):
+        sFID = np.exp(-1j*phi)*shift_FID(mrs, FID, eps)
         if extract:
-            sFID = extract_spectrum(mrs,sFID,ppmlim=ppmlim,shift=shift)
+            sFID = extract_spectrum(mrs, sFID, ppmlim=ppmlim, shift=shift)
         return sFID
+
     def cf(p):
-        phi    = p[0] #phase shift
-        eps    = p[1] #freq shift
-        FID    = shift_phase_freq(src_FID,phi,eps)
-        target = extract_spectrum(mrs,tgt_FID,ppmlim=ppmlim,shift=shift)
+        phi    = p[0]  # phase shift
+        eps    = p[1]  # freq shift
+        FID    = shift_phase_freq(src_FID, phi, eps)
+        target = extract_spectrum(mrs, tgt_FID, ppmlim=ppmlim, shift=shift)
         xx     = np.linalg.norm(FID-target)
         return xx
-    x0  = np.array([0,0])
+    x0 = np.array([0, 0])
     res = minimize(cf, x0, method='Powell')
     phi = res.x[0]
     eps = res.x[1]
-    
-    return shift_phase_freq(src_FID,phi,eps,extract=False),phi,eps
+
+    return phi, eps
+
 
 def align_FID_diff(mrs,src_FID0,src_FID1,tgt_FID,diffType = 'add',ppmlim=None,shift=True):
     """
@@ -98,9 +102,10 @@ def align_FID_diff(mrs,src_FID0,src_FID1,tgt_FID,diffType = 'add',ppmlim=None,sh
 
     return alignedFID0,phi,eps
 
+
 # The functions to call
 # 1) For normal FIDs
-def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verbose=False,shift=True,target=None):
+def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,apodize=10,verbose=False,shift=True,target=None):
     """
     Algorithm:
        Average spectra
@@ -118,6 +123,7 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
     centralFrequency : float (unit=Hz)
     ppmlim           : tuple
     niter            : int
+    apodize          : float (unit=Hz)
     verbose          : bool
     shift            : apply H20 shift to ppm limit
     ref              : reference data to align to
@@ -128,26 +134,41 @@ def phase_freq_align(FIDlist,bandwidth,centralFrequency,ppmlim=None,niter=2,verb
     """
     all_FIDs = FIDlist.copy()
 
-    phiOut,epsOut = np.zeros(len(FIDlist)),np.zeros(len(FIDlist))
+    phiOut, epsOut = np.zeros(len(FIDlist)), np.zeros(len(FIDlist))
     for iter in range(niter):
         if verbose:
             print(' ---- iteration {} ----\n'.format(iter))
 
         if target is None:
-            target = get_target_FID(FIDlist,target='nearest_to_mean')
+            target = get_target_FID(all_FIDs, target='nearest_to_mean')
 
-        MRSargs = {'FID':target,'bw':bandwidth,'cf':centralFrequency}
+        MRSargs = {'FID': target, 'bw': bandwidth, 'cf': centralFrequency}
         mrs = MRS(**MRSargs)
-        
-        for idx,FID in enumerate(all_FIDs):
+
+        if apodize > 0:
+            target = apod(target, mrs.dwellTime, [apodize])
+
+        for idx, FID in enumerate(all_FIDs):
             if verbose:
-                print('... aligning FID number {}'.format(idx),end='\r')
-            all_FIDs[idx],phi,eps = align_FID(mrs,FID,target,ppmlim=ppmlim,shift=shift)
+                print(f'... aligning FID number {idx}\r')
+
+            if apodize > 0:
+                FID_apod = apod(FID.copy(), mrs.dwellTime, [apodize])
+            else:
+                FID_apod = FID
+
+            phi, eps = align_FID(mrs,
+                                 FID_apod,
+                                 target,
+                                 ppmlim=ppmlim,
+                                 shift=shift)
+
+            all_FIDs[idx] = np.exp(-1j*phi) * shift_FID(mrs, FID, eps)
             phiOut[idx] += phi
             epsOut[idx] += eps
         if verbose:
             print('\n')
-    return all_FIDs,phiOut,epsOut
+    return all_FIDs, phiOut, epsOut
 
 # 2) To align spectra from different groups with optional processing applied.
 def phase_freq_align_diff(FIDlist0,FIDlist1,bandwidth,centralFrequency,diffType = 'add',ppmlim=None,shift=True,target=None):

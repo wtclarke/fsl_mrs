@@ -21,6 +21,8 @@ The authors of the tool are happy to provide additional conversion routines if s
 Use of spec2nii 
 ---------------
 
+The specific sub command (e.g. `twix` or `dicom`) must be the first argument.
+
 To specify the creation of a JSON metadata file alongside a NIfTI file (recommended) use the :code:`-j` option with any other inputs. 
 
 File names can be specified with the :code:`-f` option and output directories with the :code:`-o` option.  

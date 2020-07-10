@@ -80,7 +80,9 @@ FSL-MRS can also be used in an interactive Python environment. The following is 
 In an IPython or Jupyter Notebook environment, run the follwing (the example data resides in the main :code:`fsl_mrs` package folder):
 
 Loading and preparing the data:
+
 ::
+
     from fsl_mrs import MRS
 
     FID_file     = 'example_usage/example_data/metab.nii'
@@ -91,12 +93,16 @@ Loading and preparing the data:
     mrs.processForFitting()
 
 Fitting the model to the data:
+
 ::
+
     from fsl_mrs.utils import fitting
     results = fitting.fit_FSLModel(mrs)
 
 Visualising the fit:
+
 ::
+
     from fsl_mrs.utils import plotting
     plotting.plotly_fit(mrs,results)
 
