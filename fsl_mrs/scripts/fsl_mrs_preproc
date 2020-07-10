@@ -406,22 +406,18 @@ def readData(files, conjugate):
     FIDlist = []
     shape = None
     datatype = None
+    auto_conj = 0
     for filename in files:
         dtype = mrs_io.check_datatype(filename)
         fid, header = mrs_io.read_FID(filename)
         fid = np.squeeze(fid)
-        if conjugate:
-            fid = np.conj(fid)
+
+        if fid.ndim > 1:
+            mrs = MRS(FID=np.mean(fid, axis=1), header=header)
+            auto_conj += mrs.check_FID(repair=True)
         else:
-            if fid.ndim > 1:
-                mrs = MRS(FID=np.mean(fid, axis=1), header=header)
-                conj = mrs.check_FID(repair=True)
-                if conj:
-                    fid = np.conj(fid)
-            else:
-                mrs = MRS(FID=fid, header=header)
-                mrs.check_FID(repair=True)
-                fid = mrs.FID
+            mrs = MRS(FID=fid, header=header)
+            auto_conj += mrs.check_FID(repair=True)            
 
         if shape is not None:
             if fid.shape != shape:
@@ -434,6 +430,10 @@ def readData(files, conjugate):
             datatype = dtype
 
         FIDlist.append(fid)
+
+    auto_conj /= len(FIDlist)
+    if conjugate or auto_conj > 0.5:
+        FIDlist = [np.conj(f) for f in FIDlist]
 
     return FIDlist, header, shape, datatype
 
