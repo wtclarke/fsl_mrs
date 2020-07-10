@@ -43,4 +43,4 @@ To convert data to NIfTI install the spec2nii program from conda.
 
 Operating systems
 ~~~~~~~~~~~~~~~~~
-FSL-MRS has been tested throughly on Mac and Linux operating systems. FSL-MRS dependencies and FSL-MRS is availible on native Windows installations, but has not currently been tested. `Windows Subsytem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2) offers a Linux interface on Windows. FSL-MRS has been tested on WSL.
+FSL-MRS has been tested thoroughly on Mac and Linux operating systems. FSL-MRS dependencies and FSL-MRS is available on native Windows installations, but has not currently been tested. `Windows Subsytem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2) offers a Linux interface on Windows. FSL-MRS has been tested on WSL.

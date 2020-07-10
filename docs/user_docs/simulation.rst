@@ -4,6 +4,8 @@ Basis Spectra Simulation
 ========================
 The linear combination fitting method used by FSL-MRS requires the user to specify basis spectra. A basis spectrum must be supplied for each fitted metabolite. The basis spectra are specific to a sequence type, the precise sequence timings and RF pulses in the sequence. Each basis spectrum is effectively a “fingerprint” for a metabolite that will be scaled and manipulated simultaneously with all the other basis spectra during the fitting optimisation. Whilst the basis spectra can be generated from scanning phantoms, the recommended way is via simulation of the spectra using either a third-party software or FSL-MRS's own density matrix simulator. 
 
+Creation of basis spectra is a difficult step in the analysis of MRS data, with plenty of pitfalls even for experienced users. Please consult with local MRS experts or the technical community on the `MRSHub forums <https://forum.mrshub.org/>`_ for assistance and recommendations. The developers of FSL-MRS are aware that this area of the analysis pipeline remains a difficult stage and efforts are continuing to improve it for users.
+
 FSL-MRS's simulation software may be accessed through the :code:`fsl_mrs_sim` command line program. This section describes how to construct a description of your sequence, run the simulation and the format of the output basis spectra. Please see the dedicated simulation page for detailed information for the underlying simulation library. 
 
 Describing a sequence – the sequence file format 
@@ -70,7 +72,12 @@ glycine                         Gly
 - :sup:`3` Tkac et al. proc intl soc magn reson med 2008: p1624 
 - :sup:`4` Bal et al. Magnetic Resonance in Chemistry. 2002;40:533–36
 
-Metabolites to simulate can be specified on the command line using the :code:`–m` option with a list typed on the command line, with the :code:`–b` option specifying a text file with one metabolite listed per line, or the :code:`–s` option pointing to a spin system json file for custom spin systems. 
+Metabolites to simulate can be specified on the command line using the :code:`–m` option with a list typed on the command line, with the :code:`–b` option specifying a text file with one metabolite listed per line, or the :code:`–s` option pointing to a spin system json file for custom spin systems.
+
+It is **not recommended** to simulate and use all of the metabolites. A typical list to start with for short echo time spectroscopy might be
+:
+    Ala, Asp, GPC, PCh, Cr, PCr, GABA, Glc, Gln, Glu, GSH, Ins, Lac, NAA, NAAG, PE, Tau
+
 
 Including macromolecules in your basis set 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
