@@ -1156,4 +1156,80 @@ def plot_world_orient(t1file,voxfile):
 
     return plt.gcf()
 
+def plot_world_orient_ax(t1file,voxfile,ax,orientation='axial'):
+    """
+    Plot sagittal/coronal/axial T1 centered on voxel in axes passed
+    Overlay voxel in red
+    Plots in world coordinates with the 'MNI' convention
+    """
+    t1      = nib.load(t1file)
+    vox     = nib.load(voxfile)
+    t1_data = t1.get_fdata()
+
+    # transform t1 data into world coordinate system,
+    # resampling to 1mm^3.
+    #
+    # This is a touch fiddly because the affine_transform
+    # function uses the destination coordinate system as
+    # data indices. So we need to remove any translation
+    # in the original affine, to ensure that the origin
+    # of the destination coordinate system is forced to
+    # be (0, 0, 0).
+    #
+    # We figure all of this out by transforming the image
+    # bounding box coordinates into world coordinates,
+    # and then figuring out a suitable offset and resampling
+    # data shape from them.
+    extents       = zip((0, 0, 0), t1_data.shape)
+    extents       = np.asarray(list(it.product(*extents)))
+    extents       = ijk2xyz(extents, t1.affine)
+    offset        = extents.min(axis=0)
+    offaff        = np.eye(4)
+    offaff[:3, 3] = -offset
+    shape         = (extents.max(axis=0) - offset).astype(np.int)[:3]
+
+    t1_data = ndimage.affine_transform(t1_data,
+                                       np.dot(offaff, t1.affine),
+                                       output_shape=shape,
+                                       order=3,
+                                       mode='constant',
+                                       cval=0)
+
+    # centre of MRS voxel in (transformed) T1 voxel space
+    ijk = xyz2ijk(ijk2xyz([0,0,0],vox.affine),np.linalg.inv(offaff))
+    i,j,k = ijk
+
+    
+    si,sj,sk = np.array(vox.header.get_zooms())[:3]/2
+    # Do the plotting
+    plt.sca(ax)
+    if orientation == 'sagital':
+        slice = np.squeeze(t1_data[int(i),:,:]).T
+        rect = np.asarray([[j-sj,k-sk],
+                        [j+sj,k-sk],
+                        [j+sj,k+sk],
+                        [j-sj,k+sk],
+                        [j-sj,k-sk]])
+        do_plot_slice(slice,rect)
+    elif orientation == 'coronal':
+    
+        slice = np.squeeze(t1_data[:,int(j),:]).T
+        rect = np.asarray([[i-si,k-sk],
+                        [i+si,k-sk],
+                        [i+si,k+sk],
+                        [i-si,k+sk],
+                        [i-si,k-sk]])
+        do_plot_slice(slice,rect)
+        ax.invert_xaxis()
+    elif orientation == 'axial':
+        slice = np.squeeze(t1_data[:,:,int(k)]).T
+        rect = np.asarray([[i-si,j-sj],
+                        [i+si,j-sj],
+                        [i+si,j+sj],
+                        [i-si,j+sj],
+                        [i-si,j-sj]])
+        do_plot_slice(slice,rect)
+        ax.invert_xaxis()
+
+    return plt.gca()
 

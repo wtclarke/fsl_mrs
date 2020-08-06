@@ -18,3 +18,4 @@ example_usage/fsl_mrs_preproc/
 example_usage/fsl_mrs_preproc_simple/
 example_usage/fsl_mrs_proc/
 example_usage/report.html
+*.egg-info
