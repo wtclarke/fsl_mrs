@@ -65,6 +65,8 @@ def main():
                           help='spit out verbose info')
     optional.add_argument('--conjugate', action="store_true",
                           help='apply conjugate to FID')
+    optional.add_argument('--no_conjugate', action="store_true",
+                          help='Forbid automatic conjugation')                      
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--report', action="store_true",
@@ -116,30 +118,52 @@ def main():
 
     # Read all data
     # Suppressed data
-    FIDlist, hdr, shape, datatype = readData(args.data, args.conjugate)
+    FIDlist, hdr, shape, datatype = readData(args.data)
     if args.verbose:
         print(f'.... Found {len(FIDlist)} repeats of the data'
               f' FIDs with shape {shape} each.\n\n')
     # Reference data
-    Reflist, refhdr, refshape, _ = readData(args.reference, args.conjugate)
+    Reflist, refhdr, refshape, _ = readData(args.reference)
     if args.verbose:
         print(f'.... Found {len(Reflist)} repeats of the reference'
               f' FIDs with shape {refshape} each.\n\n')
 
     if args.quant is not None:
         # Separate quant data
-        quantlist, quanthdr, quantshape, _ = readData(args.quant,
-                                                      args.conjugate)
+        quantlist, quanthdr, quantshape, _ = readData(args.quant)
         if args.verbose:
             print(f'.... Found {len(quantlist)} repeats of the quant'
                   f' FIDs with shape {quantshape} each.\n\n')
 
     if args.ecc is not None:
         # Separate ecc data
-        ecclist, ecchdr, eccshape, _ = readData(args.ecc, args.conjugate)
+        ecclist, ecchdr, eccshape, _ = readData(args.ecc)
         if args.verbose:
             print(f'.... Found {len(ecclist)} repeats of the ecc FIDs'
                   f' with shape {eccshape} each.\n\n')
+
+    # Data conjugation
+    if args.no_conjugate:
+        if args.verbose:
+            print('No conjugation explicitly set,'
+                  'skipping automatic determination.')
+        pass
+    elif args.conjugate or auto_conj(FIDlist,hdr):
+        if args.verbose and args.conjugate:
+            print('Conjugation explicitly set,'
+                  'applying conjugation.')
+        elif args.verbose:
+            print('Automatic conjugation applied')
+
+        def iterFunction(flist):
+            return [np.conj(fid) for fid in flist]
+
+        FIDlist = iterFunction(FIDlist)
+        Reflist = iterFunction(Reflist)
+        if args.quant is not None:
+            quantlist = iterFunction(quantlist)
+        if args.ecc is not None:
+            ecclist = iterFunction(ecclist)
 
     # Determine if coils have been combined already
     if args.verbose:
@@ -401,23 +425,14 @@ def main():
                 fig.savefig(op.join(args.output, 'voxel_location.png'))
 
 
-def readData(files, conjugate):
-    from fsl_mrs.core import MRS
+def readData(files):
     FIDlist = []
     shape = None
     datatype = None
-    auto_conj = 0
     for filename in files:
         dtype = mrs_io.check_datatype(filename)
         fid, header = mrs_io.read_FID(filename)
         fid = np.squeeze(fid)
-
-        if fid.ndim > 1:
-            mrs = MRS(FID=np.mean(fid, axis=1), header=header)
-            auto_conj += mrs.check_FID(repair=True)
-        else:
-            mrs = MRS(FID=fid, header=header)
-            auto_conj += mrs.check_FID(repair=True)            
 
         if shape is not None:
             if fid.shape != shape:
@@ -430,10 +445,6 @@ def readData(files, conjugate):
             datatype = dtype
 
         FIDlist.append(fid)
-
-    auto_conj /= len(FIDlist)
-    if conjugate or auto_conj > 0.5:
-        FIDlist = [np.conj(f) for f in FIDlist]
 
     return FIDlist, header, shape, datatype
 
@@ -452,6 +463,24 @@ def saveData(FIDlist, hdr, outputDir, basename, datatype='NIFTI'):
         elif datatype == 'NIFTI':
             filename = nameGen(iDx, 'nii.gz')
             mrs_io.fsl_io.saveNIFTI(filename, f, hdr)
+
+
+def auto_conj(FIDlist, hdr):
+    from fsl_mrs.core import MRS
+    auto_conj = 0
+    for fid in FIDlist:
+        if fid.ndim > 1:
+            mrs = MRS(FID=np.mean(fid, axis=1), header=hdr)
+            auto_conj += mrs.check_FID(repair=True)
+        else:
+            mrs = MRS(FID=fid, header=hdr)
+            auto_conj += mrs.check_FID(repair=True)
+
+    auto_conj /= len(FIDlist)
+    if auto_conj > 0.5:
+        return True
+    else:
+        return False
 
 
 if __name__ == '__main__':
