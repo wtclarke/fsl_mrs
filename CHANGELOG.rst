@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.0.4 (Friday 14th August 2020)
+-------------------------------
+- Fixed bug in automatic conjugation facility of fsl_mrs_preproc
+- jmrui text file reader now handles files with both FID and spectra
+
 1.0.3 (Friday 10th July 2020)
 -----------------------------
 - Changed to pure python version of HLSVDPRO (hlsvdpropy). Slight speed penalty
