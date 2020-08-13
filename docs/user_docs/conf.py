@@ -25,7 +25,7 @@ copyright = f'{date.year}, Will Clarke & Saad Jbabdi, University of Oxford, Oxfo
 author = 'William Clarke'
 
 # The full version, including alpha/beta/rc tags
-version = '1.0.3'
+version = '1.0.4'
 release = version
 
 # From PM's fsleyes doc
