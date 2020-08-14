@@ -463,6 +463,13 @@ class MRS(object):
         self.FID         = FID.copy()
         self.numPoints   = self.FID.size
         self.Spec        = misc.FIDToSpec(self.FID)
+
+
+    def plot(self,ppmlim=(0.2,4.2)):
+        from fsl_mrs.utils.plotting import plot_spectrum
+
+        plot_spectrum(self,ppmlim=ppmlim)
+
         
 
         

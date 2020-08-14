@@ -44,7 +44,10 @@ def readjMRUItxt(filename,unpack_header=True):
                 continue
                 
             if recordData:
-                data.append(list(map(float,line.split())))
+                curr_data = line.split()
+                if len(curr_data) > 2:
+                    curr_data = curr_data[:2]
+                data.append(list(map(float, curr_data)))
 
     # Reshape data
     data = np.concatenate([np.array(i) for i in data])
@@ -53,7 +56,7 @@ def readjMRUItxt(filename,unpack_header=True):
     # Clean up header
     header = translateHeader(header)
 
-    return data,header
+    return data, header
 
 # Translate jMRUI header to mandatory fields
 def translateHeader(header):

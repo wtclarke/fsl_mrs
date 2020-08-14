@@ -7,7 +7,7 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.utils.misc import ts_to_ts
+from fsl_mrs.utils.misc import ts_to_ts,FIDToSpec,SpecToFID,rescale_FID
 from fsl_mrs.utils import mrs_io
 def standardConcentrations(basisNames):
     """Return standard concentrations for 1H MRS brain metabolites for those which match basis set names."""
@@ -161,6 +161,7 @@ def syntheticFromBasis(basis,
     dwelltime = 1/bandwidth
     basis_dwelltime= 1/basis_bandwidth
     basis = ts_to_ts(basis,basis_dwelltime,dwelltime,points)
+    # basis = rescale_FID(basis,scale=100)
 
     # Create the spectrum
     baseFID    = np.zeros((points),np.complex128)
@@ -169,7 +170,10 @@ def syntheticFromBasis(basis,
                               dwellTime*points,
                               points)
     for b,c,e,g,s in zip(basis.T,concentrations,eps,gammas,sigmas):
-        baseFID += c*b*np.exp(-(1j*e+g+timeAxis*s**2)*timeAxis)
+        tmp   = b*np.exp(-(1j*e+g+timeAxis*s**2)*timeAxis)
+        M     = FIDToSpec(tmp)
+        baseFID += SpecToFID(M*c)
+        
 
     # Add baseline
     # TO DO
