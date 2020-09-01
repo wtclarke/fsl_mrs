@@ -1,0 +1,13 @@
+image: python:3.7-slim-buster
+
+before_script:
+  - python --version
+  - pip install -r requirements.txt
+
+stages:
+  - Static Analysis
+
+flake8:
+  stage: Static Analysis
+  script:
+  - flake8 --max-line-length=120 fsl_mrs
