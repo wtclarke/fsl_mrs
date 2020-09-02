@@ -11,7 +11,7 @@ import numpy as np
 # Set up some synthetic data to use
 @fixture(scope='module')
 def data():
-    noiseCov = 0.01
+    noiseCov = 0.001
     amplitude = np.asarray([0.5, 0.5, 1.0])*10
     chemshift = np.asarray([3.0, 3.05, 2.0])-4.65
     lw = [10, 10, 10]
