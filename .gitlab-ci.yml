@@ -1,24 +1,28 @@
-image: python:3.7-slim-buster
-
-variables:
-  GIT_SUBMODULE_STRATEGY: normal
-
-before_script:
-  - python --version
-  - pip install -r requirements.txt
-  - pip install flake8 pytest
-
 stages:
   - Static Analysis
   - Test
 
 flake8:
+  image: python:3.7-slim-buster
   stage: Static Analysis
-  allow_failure: true
+  before_script:
+  - python --version
+  - pip install flake8  
   script:
   - flake8 --max-line-length=120 fsl_mrs
+  allow_failure: true
 
 pytest:
+  image: continuumio/miniconda3:latest
   stage: Test
+  variables:
+  GIT_SUBMODULE_STRATEGY: normal
+  before_script:
+  - python --version
+  - conda create -n fsl_mrs -y python=3.7
+  - conda activate fsl_mrs
+  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ --file requirements.txt
+  - conda install -y -c conda-forge pytest
+  - pip install .
   script:
   - pytest fsl_mrs/tests
