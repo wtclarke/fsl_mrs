@@ -16,7 +16,7 @@ pytest:
   image: continuumio/miniconda3:latest
   stage: Test
   variables:
-  GIT_SUBMODULE_STRATEGY: normal
+    GIT_SUBMODULE_STRATEGY: normal
   before_script:
   - python --version
   - conda create -n fsl_mrs -y python=3.7
