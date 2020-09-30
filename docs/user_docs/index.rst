@@ -24,5 +24,6 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    quantitation
    simulation
    visualisation
+   constants
    troubleshooting
    changelog
