@@ -74,10 +74,12 @@ glycine                         Gly
 
 Metabolites to simulate can be specified on the command line using the :code:`–m` option with a list typed on the command line, with the :code:`–b` option specifying a text file with one metabolite listed per line, or the :code:`–s` option pointing to a spin system json file for custom spin systems.
 
-It is **not recommended** to simulate and use all of the metabolites. A typical list to start with for short echo time spectroscopy might be
-:
+It is **not recommended** to simulate and use all of the metabolites. A typical list to start with for short echo time spectroscopy might be::
+
     Ala, Asp, GPC, PCh, Cr, PCr, GABA, Glc, Gln, Glu, GSH, Ins, Lac, NAA, NAAG, PE, Tau
 
+
+.. _sim_mm:
 
 Including macromolecules in your basis set 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
