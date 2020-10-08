@@ -273,10 +273,11 @@ def fit_FSLModel(mrs,
                  ppmlim=None,
                  baseline_order=5,
                  metab_groups=None,
-                 model='lorentzian',
+                 model='voigt',
                  x0=None,
                  MHSamples=500,
                  disable_mh_priors = False,
+                 fit_baseline_mh = False,
                  vb_iter=50):
     """
         A simplified version of LCModel
@@ -379,7 +380,7 @@ def fit_FSLModel(mrs,
         p0   = res.params
 
         LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
-        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=False)        
+        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=fit_baseline_mh)        
 
         # Check that the values initilised by the newton
         # method don't exceed these bounds (unlikely but possible with bad data)
