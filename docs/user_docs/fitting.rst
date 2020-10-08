@@ -167,7 +167,7 @@ Below are detailed explanations of some of the optional arguments in the wrapper
 :code:`--ind_scale`        
     Allow independent scaling of specified basis spectra before fitting. For example this can be used to independently scale empirically measured macromolecules combined with simulated metabolite spectra.
 :code:`--disable_MH_priors`        
-    Disable the priors on the MH fitting. The priors are tuned for *in vivo* human brain spectroscopy. Use this option if your spectra has significantly different line widths, phases or large shifts. E.g. in liquid phase phantom or (potentially) pre-clinical systems. 
+    Disable the priors on the MH fitting. The priors are tuned for *in vivo* human brain spectroscopy. Use this option if your spectra has significantly different line widths, phases or large shifts. E.g. in liquid phase phantom or (potentially) pre-clinical systems. Priors can be fine tuned by altering the values in :code:`fsl_mrs.utils.constants`.
 
 The wrapper scripts can also take a configuration file as an input. For example, say we have a text file called :code:`config.txt` which contains the below:
 
