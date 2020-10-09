@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.0.5 (Friday 9th October 2020)
+-------------------------------
+- Extended documentation of hardcoded constants, including MCMC priors.
+- Extended documentation of synthetic macromolecules.
+- Added flag to MCMC optimise baseline parameters.
+
 1.0.4 (Friday 14th August 2020)
 -------------------------------
 - Fixed bug in automatic conjugation facility of fsl_mrs_preproc
