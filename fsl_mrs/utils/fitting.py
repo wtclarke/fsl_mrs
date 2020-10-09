@@ -11,12 +11,10 @@
 import numpy as np
 
 from fsl_mrs.utils import models, misc
-from fsl_mrs.utils.stats import mh,vb,dist
-from fsl_mrs.utils.constants import *
-from fsl_mrs.core import MRS
+from fsl_mrs.utils.stats import mh, vb, dist
 from fsl_mrs.utils.results import FitRes
 
-from scipy.optimize import minimize,nnls
+from scipy.optimize import minimize
 
         
 def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
@@ -273,10 +271,11 @@ def fit_FSLModel(mrs,
                  ppmlim=None,
                  baseline_order=5,
                  metab_groups=None,
-                 model='lorentzian',
+                 model='voigt',
                  x0=None,
                  MHSamples=500,
                  disable_mh_priors = False,
+                 fit_baseline_mh = False,
                  vb_iter=50):
     """
         A simplified version of LCModel
@@ -343,30 +342,53 @@ def fit_FSLModel(mrs,
             def logpr(p):     
                 return np.sum(dist.gauss_logpdf(p,loc=np.zeros_like(p),scale=np.ones_like(p)*1E2))
         else:
+            from fsl_mrs.utils.constants import MCMC_PRIORS
             def logpr(p):
+                def make_prior(param,loc,scale):
+                    return np.sum(dist.gauss_logpdf(param,
+                                                    loc=loc*np.ones_like(param),
+                                                    scale=scale*np.ones_like(param))) 
                 prior = 0
                 if model.lower()=='lorentzian':
                     con,gamma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
-                    prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
-                    prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
-                    prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
-                    prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*10/180)))   
-                    prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
-                    prior += 0  
+                    PRIORS = MCMC_PRIORS['lorentzian']
+
+                    prior += make_prior(con, PRIORS['conc_loc'], PRIORS['conc_scale'])
+                    prior += make_prior(gamma,
+                                        PRIORS['gamma_loc']*np.pi,
+                                        PRIORS['gamma_scale']*np.pi)
+                    prior += make_prior(eps,
+                                        PRIORS['eps_loc']*2*np.pi*mrs.centralFrequency/1E6,
+                                        PRIORS['eps_scale']*2*np.pi*mrs.centralFrequency/1E6)
+                    prior += make_prior(phi0,
+                                        PRIORS['phi0_loc']*np.pi/180,
+                                        PRIORS['phi0_scale']*np.pi/180)
+                    prior += make_prior(phi1,
+                                        PRIORS['phi1_loc']*2*np.pi,
+                                        PRIORS['phi1_scale']*2*np.pi)
+  
                 elif model.lower()=='voigt':
                     con,gamma,sigma,eps,phi0,phi1,b = x2p(p,mrs.numBasis,g)
-                    prior += np.sum(dist.gauss_logpdf(con,loc=np.zeros_like(con),scale=np.ones_like(con)*1E0)) 
-                    prior += np.sum(dist.gauss_logpdf(gamma,loc=np.ones_like(gamma)*5*np.pi,scale=np.ones_like(gamma)*2.5*np.pi))
-                    prior += np.sum(dist.gauss_logpdf(sigma,loc=np.ones_like(sigma)*5*np.pi,scale=np.ones_like(sigma)*2.5*np.pi))
-                    prior += np.sum(dist.gauss_logpdf(eps,loc=np.zeros_like(eps),scale=np.ones_like(eps)*0.005*(2*np.pi*mrs.centralFrequency/1E6)))
-                    prior += np.sum(dist.gauss_logpdf(phi0,loc=np.zeros_like(phi0),scale=np.ones_like(phi0)*(np.pi*5/180)))   
-                    prior += np.sum(dist.gauss_logpdf(phi1,loc=np.zeros_like(phi1),scale=np.ones_like(phi1)*(1E-5*2*np.pi)))
-                    prior += 0             
+                    PRIORS = MCMC_PRIORS['voigt']
+
+                    prior += make_prior(con, PRIORS['conc_loc'], PRIORS['conc_scale'])
+                    prior += make_prior(gamma,
+                                        PRIORS['gamma_loc']*np.pi,
+                                        PRIORS['gamma_scale']*np.pi)
+                    prior += make_prior(sigma,
+                                        PRIORS['sigma_loc']*np.pi,
+                                        PRIORS['sigma_scale']*np.pi)
+                    prior += make_prior(eps,
+                                        PRIORS['eps_loc']*2*np.pi*mrs.centralFrequency/1E6,
+                                        PRIORS['eps_scale']*2*np.pi*mrs.centralFrequency/1E6)
+                    prior += make_prior(phi0,
+                                        PRIORS['phi0_loc']*np.pi/180,
+                                        PRIORS['phi0_scale']*np.pi/180)
+                    prior += make_prior(phi1,
+                                        PRIORS['phi1_loc']*2*np.pi,
+                                        PRIORS['phi1_scale']*2*np.pi)           
                 return prior
 
-        
-        #loglik = lambda  p : np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
-        #logpr  = lambda  p : 0 
 
         # Setup the fitting
         # Init with nonlinear fit
@@ -379,7 +401,7 @@ def fit_FSLModel(mrs,
         p0   = res.params
 
         LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
-        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=False)        
+        mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=fit_baseline_mh)        
 
         # Check that the values initilised by the newton
         # method don't exceed these bounds (unlikely but possible with bad data)

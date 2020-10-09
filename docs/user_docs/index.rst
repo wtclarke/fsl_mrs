@@ -22,7 +22,9 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    processing
    fitting
    quantitation
+   macromolecules
    simulation
    visualisation
+   constants
    troubleshooting
    changelog

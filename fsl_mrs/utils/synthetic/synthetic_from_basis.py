@@ -74,7 +74,7 @@ def syntheticFromBasisFile(basisFile,
     Returns:
         FIDs: Numpy array of synthetic FIDs
         outHeader: Header suitable for loading FIDs into MRS object.
-        concentrations: Final concentration scalinfs
+        concentrations: Final concentration scalings
     """
     basis,names,header = mrs_io.read_basis(basisFile)
 
