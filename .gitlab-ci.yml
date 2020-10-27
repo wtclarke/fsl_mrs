@@ -1,6 +1,7 @@
 stages:
   - Static Analysis
   - Test
+  - doc
 
 flake8:
   image: python:3.7-slim-buster
@@ -27,3 +28,15 @@ pytest:
   - pip install .
   script:
   - pytest fsl_mrs/tests
+
+pages:
+  image: python:3.7
+  stage: doc
+  script:
+  - pip install -U sphinx sphinx_rtd_theme
+  - sphinx-build -b html ./docs/user_docs public
+  artifacts:
+    paths:
+    - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
