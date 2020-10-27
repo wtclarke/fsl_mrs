@@ -95,7 +95,7 @@ def test_fit_FSLModel_MH(data):
     fittedconcs = res.getConc(metab = mrs.names)
     fittedRelconcs = res.getConc(scaling='internal',metab = mrs.names)
 
-    assert np.allclose(fittedconcs,amplitudes,atol=1E-1)
+    assert np.allclose(fittedconcs,amplitudes,atol=2E-1)
     assert np.allclose(fittedRelconcs,amplitudes/(amplitudes[0]+amplitudes[1]),atol=1E-1)
 
 def test_fit_FSLModel_lorentzian_MH(data):
@@ -116,7 +116,7 @@ def test_fit_FSLModel_lorentzian_MH(data):
     fittedconcs = res.getConc(metab = mrs.names)
     fittedRelconcs = res.getConc(scaling='internal',metab = mrs.names)
 
-    assert np.allclose(fittedconcs,amplitudes,atol=1E-1)
+    assert np.allclose(fittedconcs,amplitudes,atol=2E-1)
     assert np.allclose(fittedRelconcs,amplitudes/(amplitudes[0]+amplitudes[1]),atol=1E-1)
 
 def test_fit_FSLModel_on_invivo_sim():
