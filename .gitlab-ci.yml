@@ -13,7 +13,7 @@ flake8:
   allow_failure: true
 
 pytest:
-  image: continuumio/miniconda3:latest
+  image: wtclarke/fsl_mrs_tests:1.0
   stage: Test
   variables:
     GIT_SUBMODULE_STRATEGY: normal
