@@ -54,7 +54,7 @@ class FitRes(object):
                                         self.base_poly,
                                         self.metab_groups,
                                         self.g)[first:last]
-        data = mrs.getSpectrum(ppmlim=self.ppmlim)
+        data = mrs.get_spec(ppmlim=self.ppmlim)
         # self.crlb      = calculate_crlb(self.params,forward_lim,data)        
         self.cov       = calculate_lap_cov(self.params,forward_lim,data)
         self.crlb      = np.diagonal(self.cov)

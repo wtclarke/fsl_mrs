@@ -144,8 +144,8 @@ def plot_fit_new(mrs,ppmlim=(0.40,4.2)):
         mrs : MRS object
         ppmlim : tuple
     """
-    axis   = np.flipud(mrs.ppmAxisFlip)
-    spec   = np.flipud(np.fft.fftshift(mrs.Spec))
+    axis   = mrs.ppmAxisShift
+    spec   = np.flipud(np.fft.fftshift(mrs.get_spec()))
     pred   = FIDToSpec(mrs.pred)
     pred   = np.flipud(np.fft.fftshift(pred))
 
@@ -243,7 +243,7 @@ def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
         f,l = mrs.ppmlim_to_range(ppmlim)
         data = FIDToSpec(FID)[f:l]
     else:
-        data = mrs.getSpectrum(ppmlim=ppmlim)
+        data = mrs.get_spec(ppmlim=ppmlim)
 
 
     #m = min(np.real(data))
@@ -265,6 +265,49 @@ def plot_spectrum(mrs,ppmlim=(0.0,4.5),FID=None,proj='real',c='k'):
     return plt.gcf()
     
 
+def plot_fid(mrs, tlim=None, FID=None, proj='real', c='k'):
+    ''' Plot time domain FID'''
+
+    time_axis = mrs.getAxes(axis='time')
+
+    if FID is not None:        
+        data = FID
+    else:
+        data = mrs.FID
+
+    data = getattr(np, proj)(data)
+
+    plt.plot(time_axis, data, color=c, linewidth=2)
+
+    if tlim is not None:
+        plt.xlim(tlim)
+    plt.xlabel('Time (s)')
+    plt.minorticks_on()
+    plt.grid(b=True, axis='x', which='major',color='k', linestyle='--', linewidth=.3)
+    plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
+
+    plt.tight_layout()
+    return plt.gcf()
+
+def plot_basis(mrs,plot_spec=False,ppmlim=(0.0, 4.5)):
+    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+        
+    for idx, n in enumerate(mrs.names):
+        plt.plot(mrs.getAxes(ppmlim=ppmlim),
+                 np.real(FID2Spec(mrs.basis[:, idx]))[first:last],
+                 label=n)
+
+    if plot_spec:
+        plt.plot(mrs.getAxes(ppmlim=ppmlim),
+                    np.real(mrs.get_spec(ppmlim=ppmlim)),
+                    'k',label='Data')
+
+    plt.gca().invert_xaxis()
+    plt.xlabel('Chemical shift (ppm)')
+    plt.legend()
+
+    return plt.gcf()
+
 def plot_spectra(MRSList,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
 
     plt.figure(figsize=(10,10))
@@ -278,12 +321,12 @@ def plot_spectra(MRSList,ppmlim=(0,4.5),single_FID=None,plot_avg=True):
     
     avg=0
     for mrs in MRSList:
-        data = np.real(mrs.getSpectrum(ppmlim=ppmlim))
+        data = np.real(mrs.get_spec(ppmlim=ppmlim))
         ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
         avg += data
         plt.plot(ppmAxisShift,data,color='k',linewidth=.5,linestyle='-')
     if single_FID is not None:
-        data = np.real(single_FID.getSpectrum(ppmlim=ppmlim))
+        data = np.real(single_FID.get_spec(ppmlim=ppmlim))
         plt.plot(ppmAxisShift,data,color='r',linewidth=2,linestyle='-')
     if plot_avg:
         avg /= len(MRSList)
@@ -407,7 +450,7 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
 
     # Prepare the data
     base   = FID2Spec(res.baseline)
-    axis   = np.flipud(mrs.ppmAxisFlip)
+    axis   = mrs.ppmAxisShift
     data   = FID2Spec(mrs.FID)
 
     if ppmlim is None:
@@ -667,7 +710,7 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
             return np.abs(x)
     
     # Prepare the data
-    axis        = np.flipud(mrs.ppmAxisFlip)
+    axis        = mrs.ppmAxisShift
     data_real   = project(FID2Spec(mrs.FID),'real')
     pred_real   = project(FID2Spec(res.pred),'real')
     data_imag   = project(FID2Spec(mrs.FID),'imag')
@@ -777,7 +820,7 @@ def plot_indiv_stacked(mrs,res,ppmlim=(.2,4.2)):
     line_size = dict(data=.5, 
                      indiv=2)
     fig = go.Figure()
-    axis        = np.flipud(mrs.ppmAxisFlip)
+    axis        = mrs.ppmAxisShift
     y_data  = np.real(FID2Spec(mrs.FID))
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
@@ -821,7 +864,7 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
 
     fig = make_subplots(rows=nrows, cols=ncols,subplot_titles=mrs.names)
     traces = []
-    axis        = np.flipud(mrs.ppmAxisFlip)
+    axis        = mrs.ppmAxisShift
     for i,metab in enumerate(mrs.names):
         c,r = i%ncols,i//ncols
         #r = i//ncols

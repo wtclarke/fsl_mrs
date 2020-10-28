@@ -38,7 +38,7 @@ def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
 # New strategy for init
 def init_params(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    y = mrs.getSpectrum(ppmlim=ppmlim)
+    y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
     B = baseline[first:last,:].copy()
     B = np.concatenate((np.real(B),np.imag(B)),axis=0)
@@ -94,7 +94,7 @@ def init_FSLModel(mrs,metab_groups,baseline,ppmlim):
 
 def init_params_voigt(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    y = mrs.getSpectrum(ppmlim=ppmlim)
+    y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
     B = baseline[first:last,:].copy()
     B = np.concatenate((np.real(B),np.imag(B)),axis=0)
@@ -286,7 +286,7 @@ def fit_FSLModel(mrs,
     elif model.lower() == 'voigt':        
         init_func  = init_FSLModel_Voigt    # initialisation of params
 
-    data       = mrs.Spec.copy()              # data copied to keep it safe
+    data       = mrs.get_spec().copy()              # data copied to keep it safe
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
 
     if metab_groups is None:

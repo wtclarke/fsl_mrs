@@ -135,12 +135,12 @@ def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function
 
     # Add lines to figure
     trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotIn.getSpectrum(ppmlim=ppmlim)),
+                        y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
     trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotOut.getSpectrum(ppmlim=ppmlim)),
+                        y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])
@@ -238,8 +238,8 @@ def reportStrings(funcName):
     
 #     fig,(ax1,ax2) = plt.subplots(1,2,figsize=(12,7))
 
-#     ax1.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.getSpectrum(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
-#     ax1.plot(plotOut.getAxes(ppmlim=ppmlim),np.real(plotOut.getSpectrum(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
+#     ax1.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
+#     ax1.plot(plotOut.getAxes(ppmlim=ppmlim),np.real(plotOut.get_spec(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
 #     styleSpectrumAxes(ax=ax1)
 #     ax1.legend()
 

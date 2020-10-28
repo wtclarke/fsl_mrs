@@ -8,8 +8,22 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
+# From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
+# except for 1H https://physics.nist.gov/cgi-bin/cuu/Value?gammappbar
+# MHz/tesla
+H1_gamma = 42.576
+GYRO_MAG_RATIO = {'1H': H1_gamma,
+                  '13C': 10.7084,
+                  '31P': 17.235}
+
 H2O_PPM_TO_TMS = 4.65  # Shift of water to Tetramethylsilane
-H1_gamma = 42.576      # MHz/tesla
+PPM_SHIFT = {'1H': H2O_PPM_TO_TMS,
+             '13C': 0.0,
+             '31P': 0.0}
+
+PPM_RANGE = {'1H': (0.2, 4.2),
+             '13C': (10, 100),
+             '31P': (-20, 10)}
 
 # Concentration scaling parameters
 TISSUE_WATER_DENSITY = {'GM': 0.78, 'WM': 0.65, 'CSF': 0.97}

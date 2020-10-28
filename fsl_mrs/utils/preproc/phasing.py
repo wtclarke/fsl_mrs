@@ -87,7 +87,7 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
     # Add lines to figure
     def addline(fig,mrs,lim,name,linestyle):
         trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                        y=np.real(mrs.getSpectrum(ppmlim=lim)),
+                        y=np.real(mrs.get_spec(ppmlim=lim)),
                         mode='lines',
                         name=name,
                         line=linestyle)
@@ -98,10 +98,10 @@ def phaseCorrect_report(inFID,outFID,hdr,position,ppmlim=(2.8,3.2),html=None):
 
     if position is None:
         # re-estimate here.
-        position = np.argmax(np.abs(plotIn.getSpectrum(ppmlim=ppmlim)))
+        position = np.argmax(np.abs(plotIn.get_spec(ppmlim=ppmlim)))
 
     axis    = [plotIn.getAxes(ppmlim=ppmlim)[position]]
-    y_data  = [np.real(plotIn.getSpectrum(ppmlim=ppmlim))[position]]
+    y_data  = [np.real(plotIn.get_spec(ppmlim=ppmlim))[position]]
     trace = go.Scatter(x=axis, y=y_data,
                         mode='markers',
                         name='max point',

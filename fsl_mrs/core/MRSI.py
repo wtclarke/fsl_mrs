@@ -192,7 +192,7 @@ class MRSI(object):
                 jj = j - dim2[0]
                 ax = axes[ii,jj]
                 mrs = self.mrs_by_index([i,j,k])
-                ax.plot(mrs.getAxes(ppmlim=ppmlim),np.real(mrs.getSpectrum(ppmlim=ppmlim)))
+                ax.plot(mrs.getAxes(ppmlim=ppmlim),np.real(mrs.get_spec(ppmlim=ppmlim)))
                 ax.invert_xaxis()
                 ax.set_xticks([])
                 ax.set_yticks([])

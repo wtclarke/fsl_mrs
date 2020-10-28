@@ -5,7 +5,7 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import numpy as np
@@ -13,32 +13,27 @@ import scipy.fft
 from scipy.signal import butter, lfilter
 from scipy.interpolate import interp1d
 import itertools as it
-from copy import deepcopy
 
-from .constants import H2O_PPM_TO_TMS 
+from .constants import H2O_PPM_TO_TMS
 
 
-# Convention:
-#  freq in Hz
-#  ppm = freq/1e6
-#  ppm_shift = ppm - 4.65
-#  why is there a minus sign here? 
-
-def ppm2hz(cf,ppm,shift=True):
+def ppm2hz(cf, ppm, shift=True, shift_amount=H2O_PPM_TO_TMS):
     if shift:
-        return (ppm-H2O_PPM_TO_TMS)*cf*1E-6
+        return (ppm-shift_amount)*cf*1E-6
     else:
         return (ppm)*cf*1E-6
 
-def hz2ppm(cf,hz,shift=True):
-    if shift:
-        return 1E6 *hz/cf + H2O_PPM_TO_TMS
-    else:
-        return 1E6 *hz/cf
 
-def FIDToSpec(FID,axis=0):
+def hz2ppm(cf, hz, shift=True, shift_amount=H2O_PPM_TO_TMS):
+    if shift:
+        return 1E6 * hz/cf + shift_amount
+    else:
+        return 1E6 * hz/cf
+
+
+def FIDToSpec(FID, axis=0):
     """ Convert FID to spectrum
-    
+
         Performs fft along indicated axis
         Args:
             FID (np.array)      : array of FIDs
@@ -49,16 +44,20 @@ def FIDToSpec(FID,axis=0):
     """
     # By convention the first point of the fid is special cased
     ss = [slice(None) for i in range(FID.ndim)]
-    ss[axis] = slice(0,1)
-    ss = tuple(ss)   
-    FID[ss] *=0.5
-    out = scipy.fft.fftshift(scipy.fft.fft(FID,axis=axis,norm='ortho'),axes=axis)
-    FID[ss] *=2
+    ss[axis] = slice(0, 1)
+    ss = tuple(ss)
+    FID[ss] *= 0.5
+    out = scipy.fft.fftshift(scipy.fft.fft(FID,
+                                           axis=axis,
+                                           norm='ortho'),
+                             axes=axis)
+    FID[ss] *= 2
     return out
 
-def SpecToFID(spec,axis=0):
+
+def SpecToFID(spec, axis=0):
     """ Convert spectrum to FID
-    
+
         Performs fft along indicated axis
         Args:
             spec (np.array)     : array of spectra
@@ -66,30 +65,40 @@ def SpecToFID(spec,axis=0):
 
         Returns:
             x (np.array)        : array of FIDs
-    """    
-    fid = scipy.fft.ifft(scipy.fft.ifftshift(spec,axes=axis),axis=axis,norm='ortho')
+    """
+    fid = scipy.fft.ifft(scipy.fft.ifftshift(spec,
+                                             axes=axis),
+                         axis=axis, norm='ortho')
     ss = [slice(None) for i in range(fid.ndim)]
-    ss[axis] = slice(0,1)
-    ss = tuple(ss)   
+    ss[axis] = slice(0, 1)
+    ss = tuple(ss)
     fid[ss] *= 2
     return fid
 
-def calculateAxes(bandwidth,centralFrequency,points):
+
+def calculateAxes(bandwidth, centralFrequency, points, shift):
     dwellTime = 1/bandwidth
-    timeAxis         = np.linspace(dwellTime,
-                                    dwellTime*points,
-                                    points)  
-    frequencyAxis    = np.linspace(-bandwidth/2,
-                                    bandwidth/2,
-                                    points)        
-    ppmAxis          = hz2ppm(centralFrequency,
-                                    frequencyAxis,shift=False)
-    ppmAxisShift     = hz2ppm(centralFrequency,
-                                    frequencyAxis,shift=True)
+    timeAxis = np.linspace(dwellTime,
+                           dwellTime * points,
+                           points)
+    frequencyAxis = np.linspace(-bandwidth/2,
+                                bandwidth/2,
+                                points)
+    ppmAxis = hz2ppm(centralFrequency,
+                     frequencyAxis,
+                     shift=False)
+    ppmAxisShift = hz2ppm(centralFrequency,
+                          frequencyAxis,
+                          shift=True,
+                          shift_amount=shift)
 
-    return {'time':timeAxis,'freq':frequencyAxis,'ppm':ppmAxis,'ppmshift':ppmAxisShift}
+    return {'time': timeAxis,
+            'freq': frequencyAxis,
+            'ppm': ppmAxis,
+            'ppmshift': ppmAxisShift}
 
-def checkCFUnits(cf,units='Hz'):
+
+def checkCFUnits(cf, units='Hz'):
     """ Check the units of central frequency and adjust if required."""
     # Assume cf in Hz > 1E5, if it isn't assume that user has passed in MHz
     if cf<1E5:

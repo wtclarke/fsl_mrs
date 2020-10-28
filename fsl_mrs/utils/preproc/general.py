@@ -71,7 +71,7 @@ def add_subtract_report(inFID,inFID2,outFID,hdr,ppmlim=(0.2,4.2),function='Not s
     # Add lines to figure
     def addline(fig,mrs,lim,name,linestyle):
         trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                        y=np.real(mrs.getSpectrum(ppmlim=lim)),
+                        y=np.real(mrs.get_spec(ppmlim=lim)),
                         mode='lines',
                         name=name,
                         line=linestyle)
@@ -137,12 +137,12 @@ def generic_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,functi
 
     # Add lines to figure
     trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotIn.getSpectrum(ppmlim=ppmlim)),
+                        y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
     trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotOut.getSpectrum(ppmlim=ppmlim)),
+                        y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])

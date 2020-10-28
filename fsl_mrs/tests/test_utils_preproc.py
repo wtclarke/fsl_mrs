@@ -207,7 +207,7 @@ def test_shiftToRef():
 
     mrs = MRS(FID=shiftFID,header=testHdrs)
 
-    maxindex = np.argmax(mrs.getSpectrum(shift=False))
+    maxindex = np.argmax(mrs.get_spec(shift=False))
     position = mrs.getAxes(axis='ppm')[maxindex]
     
     assert np.isclose(position,-2.0,atol=1E-1)

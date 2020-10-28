@@ -16,13 +16,13 @@ def test_calcQC():
     synMRS_basis = MRS(FID =synFID[0],header=synHdr,basis =basisFID[0] ,basis_hdr=basisHdr,names=['Peak1'])
 
     truenoiseSD = np.sqrt(synHdrNoise['cov'][0,0])
-    pureNoiseMeasured = np.std(synMRSNoise.getSpectrum())
-    realnoise = np.std(np.real(synMRSNoise.getSpectrum()))
-    imagNoise = np.std(np.imag(synMRSNoise.getSpectrum()))
+    pureNoiseMeasured = np.std(synMRSNoise.get_spec())
+    realnoise = np.std(np.real(synMRSNoise.get_spec()))
+    imagNoise = np.std(np.imag(synMRSNoise.get_spec()))
     print(f'True cmplx noise = {truenoiseSD:0.3f}, pure noise measured = {pureNoiseMeasured:0.3f} (real/imag = {realnoise:0.3f}/{imagNoise:0.3f})')
 
     # Calc SNR without apodisation from the no noise and pure noise spectra
-    truePeakHeight = np.max(np.real(synMRSNoNoise.getSpectrum()))
+    truePeakHeight = np.max(np.real(synMRSNoNoise.get_spec()))
     SNR_noApod = truePeakHeight/pureNoiseMeasured
     print(f'SNR no apod: {SNR_noApod:0.1f} ({truePeakHeight:0.2e}/{pureNoiseMeasured:0.2e})')
 
