@@ -78,8 +78,8 @@ def add_subtract_report(inFID,inFID2,outFID,hdr,ppmlim=(0.2,4.2),function='Not s
         return fig.add_trace(trace)    
     
     fig = addline(fig,plotIn,ppmlim,'FID1',lines['in'])
-    fig = addline(fig,plotIn,ppmlim,'FID2',lines['out'])
-    fig = addline(fig,plotIn,ppmlim,'Result',lines['diff'])    
+    fig = addline(fig,plotIn2,ppmlim,'FID2',lines['out'])
+    fig = addline(fig,plotOut,ppmlim,'Result',lines['diff'])    
 
     # Axes layout
     plotAxesStyle(fig,ppmlim,title = f'{function} summary')
