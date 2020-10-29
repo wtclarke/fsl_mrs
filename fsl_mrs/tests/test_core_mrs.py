@@ -37,13 +37,13 @@ def synth_data():
     timeAxis = np.linspace(hdr['dwelltime'],
                            hdr['dwelltime'] * 2048,
                            2048)
-    frequencyAxis = np.linspace(-hdr['bandwidth']/2,
-                                hdr['bandwidth']/2,
+    frequencyAxis = np.linspace(-hdr['bandwidth'] / 2,
+                                hdr['bandwidth'] / 2,
                                 2048)
-    ppmAxis = hz2ppm(hdr['centralFrequency']*1E6,
+    ppmAxis = hz2ppm(hdr['centralFrequency'] * 1E6,
                      frequencyAxis,
                      shift=False)
-    ppmAxisShift = hz2ppm(hdr['centralFrequency']*1E6,
+    ppmAxisShift = hz2ppm(hdr['centralFrequency'] * 1E6,
                           frequencyAxis,
                           shift=True)
 
@@ -80,7 +80,7 @@ def test_load(synth_data):
     assert mrs.FID.shape == (2048,)
     assert mrs.basis.shape == (2048, 2)
     assert mrs.numBasis == 2
-    assert mrs.dwellTime == 1/4000
+    assert mrs.dwellTime == 1 / 4000
     assert mrs.centralFrequency == 123E6
     assert mrs.nucleus == '1H'
 
@@ -105,14 +105,14 @@ def test_access(synth_data):
     assert np.allclose(mrs.getAxes(axis='time'), axes['time'])
 
     mrs.rescaleForFitting()
-    assert np.allclose(mrs.get_spec()/mrs.scaling['FID'], FIDToSpec(fid))
-    assert np.allclose(mrs.basis.T/mrs.scaling['basis'], basis)
+    assert np.allclose(mrs.get_spec() / mrs.scaling['FID'], FIDToSpec(fid))
+    assert np.allclose(mrs.basis.T / mrs.scaling['basis'], basis)
 
     mrs.conj_Basis()
     mrs.conj_FID()
-    assert np.allclose(mrs.get_spec()/mrs.scaling['FID'],
+    assert np.allclose(mrs.get_spec() / mrs.scaling['FID'],
                        FIDToSpec(fid.conj()))
-    assert np.allclose(mrs.basis.T/mrs.scaling['basis'], basis.conj())
+    assert np.allclose(mrs.basis.T / mrs.scaling['basis'], basis.conj())
 
 
 def test_basis_manipulations(synth_data):

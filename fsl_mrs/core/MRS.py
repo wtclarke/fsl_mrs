@@ -13,8 +13,7 @@ import warnings
 
 from fsl_mrs.utils import mrs_io as io
 from fsl_mrs.utils import misc
-from fsl_mrs.utils.constants import GYRO_MAG_RATIO,\
-                                    PPM_SHIFT, PPM_RANGE
+from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 
 import numpy as np
 
@@ -79,8 +78,8 @@ class MRS(object):
         self.__init__(FID=FID, H2O=H2O, **MRSArgs)
 
     def __str__(self):
-        cf_MHz = self.centralFrequency/1e6
-        cf_T = self.centralFrequency/self.gyromagnetic_ratio/1e6
+        cf_MHz = self.centralFrequency / 1e6
+        cf_T = self.centralFrequency / self.gyromagnetic_ratio / 1e6
 
         out = '------- MRS Object ---------\n'
         out += f'     FID.shape             = {self.FID.shape}\n'
@@ -116,7 +115,7 @@ class MRS(object):
         # Store CF in Hz
         self.centralFrequency = misc.checkCFUnits(centralFrequency)
         self.bandwidth = bandwidth
-        self.dwellTime = 1/self.bandwidth
+        self.dwellTime = 1 / self.bandwidth
 
     def set_acquisition_params_basis(self, dwelltime):
         """
@@ -124,7 +123,7 @@ class MRS(object):
         """
         # Basis has different dwelltime
         self.basis_dwellTime = dwelltime
-        self.basis_bandwidth = 1/dwelltime
+        self.basis_bandwidth = 1 / dwelltime
 
         axes = misc.calculateAxes(self.basis_bandwidth,
                                   self.centralFrequency,
@@ -156,11 +155,11 @@ class MRS(object):
 
     @staticmethod
     def infer_nucleus(cf):
-        cf_MHz = cf/1e6
+        cf_MHz = cf / 1e6
         for key in GYRO_MAG_RATIO:
-            onefivet_range = GYRO_MAG_RATIO[key]*np.asarray([1.445, 1.505])
-            threet_range = GYRO_MAG_RATIO[key]*np.asarray([2.885, 3.005])
-            sevent_range = GYRO_MAG_RATIO[key]*np.asarray([6.975, 7.005])
+            onefivet_range = GYRO_MAG_RATIO[key] * np.asarray([1.445, 1.505])
+            threet_range = GYRO_MAG_RATIO[key] * np.asarray([2.885, 3.005])
+            sevent_range = GYRO_MAG_RATIO[key] * np.asarray([6.975, 7.005])
             if (cf_MHz > onefivet_range[0] and cf_MHz < onefivet_range[1]) or \
                (cf_MHz > threet_range[0] and cf_MHz < threet_range[1]) or \
                (cf_MHz > sevent_range[0] and cf_MHz < sevent_range[1]):
@@ -237,9 +236,9 @@ class MRS(object):
         if ppmlim is not None:
             def ppm2range(x, shift):
                 if shift:
-                    return np.argmin(np.abs(self.ppmAxisShift-x))
+                    return np.argmin(np.abs(self.ppmAxisShift - x))
                 else:
-                    return np.argmin(np.abs(self.ppmAxis-x))
+                    return np.argmin(np.abs(self.ppmAxis - x))
 
             first = ppm2range(ppmlim[0], shift)
             last = ppm2range(ppmlim[1], shift)
@@ -261,7 +260,7 @@ class MRS(object):
                                    self.dwellTime,
                                    self.numPoints)
         self.basis_dwellTime = self.dwellTime
-        self.basis_bandwidth = 1/self.dwellTime
+        self.basis_bandwidth = 1 / self.dwellTime
         self.numBasisPoints = self.numPoints
 
     def processForFitting(self, ppmlim=(.2, 4.2), ind_scaling=None):
@@ -293,14 +292,14 @@ class MRS(object):
                 mask = np.zeros_like(self.names, dtype=bool)
                 mask[index] = True
                 self.basis[:, ~mask], scaling_basis = misc.rescale_FID(
-                                                        self.basis[:, ~mask],
-                                                        scale=scale)
+                    self.basis[:, ~mask],
+                    scale=scale)
                 scaling_basis = [scaling_basis]
                 # Then loop over basis spec to independently scale
                 for idx in index:
                     self.basis[:, idx], tmp = misc.rescale_FID(
-                                                self.basis[:, idx],
-                                                scale=scale)
+                        self.basis[:, idx],
+                        scale=scale)
                     scaling_basis.append(tmp)
         else:
             scaling_basis = None
@@ -370,7 +369,7 @@ class MRS(object):
             else:
                 conjOrNot.append(0.0)
 
-        if (sum(conjOrNot)/len(conjOrNot)) > 0.5:
+        if (sum(conjOrNot) / len(conjOrNot)) > 0.5:
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1
@@ -492,7 +491,7 @@ class MRS(object):
         basisFIDs, names = getMMBasis(self, lw=lw, shift=True)
         for basis, n in zip(basisFIDs, names):
             self.basis = np.append(self.basis, basis[:, np.newaxis], axis=1)
-            self.names.append('MM_'+n)
+            self.names.append('MM_' + n)
             self.numBasis += 1
 
     def set_FID(self, FID):
@@ -524,6 +523,15 @@ class MRS(object):
     def set_basis(self, basis, names, basis_hdr):
         ''' Set basis in MRS class object '''
         if basis is not None:
+
+            # Check for duplicate names
+            for name in names:
+                dupes = [idx for idx, n in enumerate(names) if n == name]
+                if len(dupes) > 1:
+                    for idx, ddx in enumerate(dupes[1:]):
+                        names[ddx] = names[ddx] + f'_{idx+1}'
+                        print(f'Found duplicate basis name "{name}", renaming to "{names[ddx]}".')
+
             self.basis = basis.copy()
             # Handle single basis spectra
             if self.basis.ndim == 1:
@@ -538,7 +546,7 @@ class MRS(object):
 
             if (names is not None) and (basis_hdr is not None):
                 self.names = names.copy()
-                self.set_acquisition_params_basis(1/basis_hdr['bandwidth'])
+                self.set_acquisition_params_basis(1 / basis_hdr['bandwidth'])
             else:
                 raise ValueError('Pass basis names and header with basis.')
 
