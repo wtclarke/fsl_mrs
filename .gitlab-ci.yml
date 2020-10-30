@@ -104,6 +104,7 @@ pages:
   stage: doc
   script:
   - pip install -U sphinx sphinx_rtd_theme
+  - pip install .
   - sphinx-build -b html ./docs/user_docs public
   artifacts:
     paths:
