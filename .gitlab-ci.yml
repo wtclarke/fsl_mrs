@@ -119,8 +119,11 @@ build-conda-dist:
   stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: normal
-  script:
+  before_script:
+  - conda init bash
+  - source ~/.bashrc
   - conda activate fsl_build
+  script:  
   - conda build --output-folder ./dist/ -c defaults -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ ./.conda
   artifacts:
     paths:
