@@ -29,9 +29,9 @@
 ###########################################################################
 
 stages:
-  # - style
-  # - test
-  # - doc
+  - style
+  - test
+  - doc
   - build
 
 ####################################
@@ -64,57 +64,57 @@ stages:
 # # 1. style 
 # ############
 
-# flake8:
-#   image: python:3.7-slim-buster
-#   stage: style
-#   before_script:
-#   - python --version
-#   - pip install flake8  
-#   script:
-#   - flake8 fsl_mrs
-#   allow_failure: true
+flake8:
+  image: python:3.7-slim-buster
+  stage: style
+  before_script:
+  - python --version
+  - pip install flake8  
+  script:
+  - flake8 fsl_mrs
+  allow_failure: true
 
-# ############
-# # 2. test 
-# ############
+############
+# 2. test 
+############
 
-# pytest:
-#   image: wtclarke/fsl_mrs_tests:1.0
-#   stage: test
-#   variables:
-#     GIT_SUBMODULE_STRATEGY: normal
-#   before_script:
-#   - conda init bash
-#   - source ~/.bashrc 
-#   - conda create -n fsl_mrs -y python=3.7
-#   - conda activate fsl_mrs
-#   - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ --file requirements.txt
-#   - conda install -y -c conda-forge pytest
-#   - pip install .
-#   script:
-#   - pytest fsl_mrs/tests
+pytest:
+  image: wtclarke/fsl_mrs_tests:1.0
+  stage: test
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+  before_script:
+  - conda init bash
+  - source ~/.bashrc 
+  - conda create -n fsl_mrs -y python=3.7
+  - conda activate fsl_mrs
+  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ --file requirements.txt
+  - conda install -y -c conda-forge pytest
+  - pip install .
+  script:
+  - pytest fsl_mrs/tests
 
-# ############
-# # 3. doc 
-# ############
+############
+# 3. doc 
+############
 
-# pages:
-#   <<: *only_master
-#   image: python:3.7
-#   stage: doc
-#   script:
-#   - pip install -U sphinx sphinx_rtd_theme
-#   - sphinx-build -b html ./docs/user_docs public
-#   artifacts:
-#     paths:
-#     - public
+pages:
+  <<: *only_master
+  image: python:3.7
+  stage: doc
+  script:
+  - pip install -U sphinx sphinx_rtd_theme
+  - sphinx-build -b html ./docs/user_docs public
+  artifacts:
+    paths:
+    - public
 
 ############
 # 3. build 
 ############
 
 build-conda-dist:
-  #<<: *only_releases
+  <<: *only_releases
   image: wtclarke/fsl_mrs_build:1.0
   stage: build
   variables:
