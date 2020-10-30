@@ -1,5 +1,13 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+WIP
+---
+- Internal changes to core MRS class.
+- New plotting functions added, utility functions for plotting added to MRS class.
+- fsl_mrs/aux folder renamed for Windows compatibility.
+- Moved online documentation to open.win.ox.ac.uk/pages/fsl/fsl_mrs/.
+- Fixed small bugs in preprocessing display.
+
 1.0.5 (Friday 9th October 2020)
 -------------------------------
 - Extended documentation of hardcoded constants, including MCMC priors.
