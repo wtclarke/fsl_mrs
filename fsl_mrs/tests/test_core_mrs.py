@@ -6,6 +6,7 @@ import pytest
 from fsl_mrs.utils import synthetic as syn
 import numpy as np
 from fsl_mrs.utils.misc import FIDToSpec, hz2ppm
+from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
 # Files
 testsPath = Path(__file__).parent
@@ -147,3 +148,46 @@ def test_basis_manipulations(synth_data):
     mrs.add_MM_peaks(gamma=10, sigma=10)
     assert mrs.basis.shape == (2048, 6)
     assert mrs.numBasis == 6
+
+
+def test_nucleus_identification():
+    rng = np.random.default_rng()
+    fid = rng.standard_normal(512) + 1j * rng.standard_normal(512)
+
+    hdr = {'centralFrequency': GYRO_MAG_RATIO['1H'] * 2.9,
+           'bandwidth': 4000.0}
+
+    mrs = MRS(FID=fid,
+              header=hdr,
+              nucleus='1H')
+
+    assert mrs.nucleus == '1H'
+
+    hdr = {'ResonantNucleus': '1H',
+           'centralFrequency': GYRO_MAG_RATIO['1H'] * 2.9,
+           'bandwidth': 4000.0}
+
+    mrs = MRS(FID=fid,
+              header=hdr)
+
+    assert mrs.nucleus == '1H'
+
+    hdr = {'json': {'ResonantNucleus': '1H'},
+           'centralFrequency': GYRO_MAG_RATIO['1H'] * 2.9,
+           'bandwidth': 4000.0}
+
+    mrs = MRS(FID=fid,
+              header=hdr)
+
+    assert mrs.nucleus == '1H'
+
+    # Test automatic identification
+    for nuc in ['1H', '13C', '31P']:
+        for field in [1.5, 2.894, 3.0, 7.0, 9.4, 11.755]:
+            hdr = {'centralFrequency': GYRO_MAG_RATIO[nuc] * field,
+                   'bandwidth': 4000.0}
+
+            mrs = MRS(FID=fid,
+                      header=hdr)
+
+            assert mrs.nucleus == nuc

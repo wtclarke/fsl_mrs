@@ -158,12 +158,19 @@ class MRS(object):
         cf_MHz = cf / 1e6
         for key in GYRO_MAG_RATIO:
             onefivet_range = GYRO_MAG_RATIO[key] * np.asarray([1.445, 1.505])
-            threet_range = GYRO_MAG_RATIO[key] * np.asarray([2.885, 3.005])
+            siemensthreet_range = GYRO_MAG_RATIO[key] * np.asarray([2.890, 2.895])
+            threet_range = GYRO_MAG_RATIO[key] * np.asarray([2.995, 3.005])
             sevent_range = GYRO_MAG_RATIO[key] * np.asarray([6.975, 7.005])
+            ninefourt_range = GYRO_MAG_RATIO[key] * np.asarray([9.35, 9.45])
+            elevensevent_range = GYRO_MAG_RATIO[key] * np.asarray([11.74, 11.8])
             if (cf_MHz > onefivet_range[0] and cf_MHz < onefivet_range[1]) or \
+               (cf_MHz > siemensthreet_range[0] and cf_MHz < siemensthreet_range[1]) or \
                (cf_MHz > threet_range[0] and cf_MHz < threet_range[1]) or \
-               (cf_MHz > sevent_range[0] and cf_MHz < sevent_range[1]):
-                print(f'Identified as {key} nucleus data.')
+               (cf_MHz > sevent_range[0] and cf_MHz < sevent_range[1]) or \
+               (cf_MHz > ninefourt_range[0] and cf_MHz < ninefourt_range[1]) or \
+               (cf_MHz > elevensevent_range[0] and cf_MHz < elevensevent_range[1]):
+                print(f'Identified as {key} nucleus data.'
+                      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
                 return key
 
         raise ValueError(f'Unidentified nucleus,'
