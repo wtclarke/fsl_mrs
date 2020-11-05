@@ -82,7 +82,7 @@ def test_load(synth_data):
     assert mrs.basis.shape == (2048, 2)
     assert mrs.numBasis == 2
     assert mrs.dwellTime == 1 / 4000
-    assert mrs.centralFrequency == 123E6
+    assert mrs.centralFrequency == 123.2E6
     assert mrs.nucleus == '1H'
 
 
