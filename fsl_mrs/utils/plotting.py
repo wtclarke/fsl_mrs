@@ -56,7 +56,7 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
         plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':',linewidth=.3)
     
     def doPlot(data,c='b',linewidth=1,linestyle='-',xticks=None):
-        plt.plot(mrs.ppmAxisShift,data,color=c,linewidth=linewidth,linestyle=linestyle)
+        plt.plot(mrs.getAxes(),data,color=c,linewidth=linewidth,linestyle=linestyle)
         axes_style(plt,ppmlim,label='Chemical shift (ppm)',xticks=xticks)
 
 
@@ -69,7 +69,7 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
         baseline = FID2Spec(baseline)
 
     
-    axis   = mrs.ppmAxisShift
+    axis   = mrs.getAxes()
     first,last = mrs.ppmlim_to_range(ppmlim=ppmlim,shift=True)
     # first  = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[0]))
     # last   = np.argmin(np.abs(axis[0:int(mrs.numPoints/2)]-ppmlim[1]))
@@ -111,7 +111,7 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
     ax1 = plt.subplot(gs[0])
     # Start by plotting error
     xticks = np.arange(ppmlim[0],ppmlim[1]+.2,.2)
-    exec("plt.plot(mrs.ppmAxisShift,np.{}(data-pred),c='k',linewidth=1,linestyle='-')".format(proj))
+    exec("plt.plot(mrs.getAxes(),np.{}(data-pred),c='k',linewidth=1,linestyle='-')".format(proj))
     axes_style(plt,ppmlim,xticks=xticks)
     plt.gca().set_xticklabels([])
 
@@ -144,7 +144,7 @@ def plot_fit_new(mrs,ppmlim=(0.40,4.2)):
         mrs : MRS object
         ppmlim : tuple
     """
-    axis   = mrs.ppmAxisShift
+    axis   = mrs.getAxes()
     spec   = np.flipud(np.fft.fftshift(mrs.get_spec()))
     pred   = FIDToSpec(mrs.pred)
     pred   = np.flipud(np.fft.fftshift(pred))
@@ -203,7 +203,7 @@ def plot_waterfall(mrs,ppmlim=(0.4,4.2),proj='real',mod=True):
             data = FID2Spec(mrs.con[i]*mrs.basis[:,i])
         else:
             data = FID2Spec(mrs.basis[:,i])
-        exec("plt.plot(mrs.ppmAxisShift,np.{}(data),c='r',linewidth=1,linestyle='-')".format(proj))
+        exec("plt.plot(mrs.getAxes(),np.{}(data),c='r',linewidth=1,linestyle='-')".format(proj))
     
     return fig
 
@@ -386,7 +386,7 @@ def plot_fit_pretty(mrs,pred=None,ppmlim=(0.40,4.2),proj='real'):
     data = np.real(FID2Spec(mrs.FID))
     pred = np.real(FID2Spec(pred))
     err  = data-pred
-    x    = mrs.ppmAxisShift
+    x    = mrs.getAxes()
 
 
     fig = tools.make_subplots(rows=2,
@@ -450,7 +450,7 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
 
     # Prepare the data
     base   = FID2Spec(res.baseline)
-    axis   = mrs.ppmAxisShift
+    axis   = mrs.getAxes()
     data   = FID2Spec(mrs.FID)
 
     if ppmlim is None:
@@ -468,7 +468,7 @@ def plotly_fit(mrs,res,ppmlim=(.2,4.2),proj='real',metabs = None,phs=(0,0)):
         resid  = FID2Spec(res.residuals)
 
     # phasing
-    faxis = np.squeeze(mrs.frequencyAxis) 
+    faxis = mrs.getAxes(axis='freq') 
     phaseTerm = np.exp(1j*(phs[0]*np.pi/180)) * np.exp(1j*2*np.pi*phs[1]*faxis)
 
     base    *= phaseTerm
@@ -710,7 +710,7 @@ def plot_real_imag(mrs,res,ppmlim=(.2,4.2)):
             return np.abs(x)
     
     # Prepare the data
-    axis        = mrs.ppmAxisShift
+    axis        = mrs.getAxes()
     data_real   = project(FID2Spec(mrs.FID),'real')
     pred_real   = project(FID2Spec(res.pred),'real')
     data_imag   = project(FID2Spec(mrs.FID),'imag')
@@ -820,7 +820,7 @@ def plot_indiv_stacked(mrs,res,ppmlim=(.2,4.2)):
     line_size = dict(data=.5, 
                      indiv=2)
     fig = go.Figure()
-    axis        = mrs.ppmAxisShift
+    axis        = mrs.getAxes()
     y_data  = np.real(FID2Spec(mrs.FID))
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
@@ -864,7 +864,7 @@ def plot_indiv(mrs,res,ppmlim=(.2,4.2)):
 
     fig = make_subplots(rows=nrows, cols=ncols,subplot_titles=mrs.names)
     traces = []
-    axis        = mrs.ppmAxisShift
+    axis        = mrs.getAxes()
     for i,metab in enumerate(mrs.names):
         c,r = i%ncols,i//ncols
         #r = i//ncols
