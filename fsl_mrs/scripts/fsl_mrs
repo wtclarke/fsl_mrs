@@ -99,6 +99,8 @@ def main():
                           nargs='+',
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
+    optional.add_argument('--h2o_scale', type=float, default=1.0,
+                          help='Additional scaling modifier for external water referencing.')
     optional.add_argument('--central_frequency', default=None, type=float,
                           help='central frequency in Hz')
     optional.add_argument('--dwell_time', default=None, type=float,
@@ -329,20 +331,23 @@ def main():
                           ' no absolute quantification will be performed.',
                           UserWarning)
         res.calculateConcScaling(mrs, referenceMetab=args.internal_ref)
-    elif args.tissue_frac is None:
-        res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=None,
-                                 TE=echotime,
-                                 verbose=args.verbose)
-    else:
+    elif args.tissue_frac is not None:
         res.calculateConcScaling(mrs,
                                  referenceMetab=args.internal_ref,
                                  waterRefFID=mrs.H2O,
                                  tissueFractions=args.tissue_frac,
                                  TE=echotime,
-                                 verbose=args.verbose)
+                                 verbose=args.verbose,
+                                 add_scale=args.h2o_scale)
+    else:
+        res.calculateConcScaling(mrs,
+                                 referenceMetab=args.internal_ref,
+                                 waterRefFID=mrs.H2O,
+                                 tissueFractions=None,
+                                 TE=echotime,
+                                 verbose=args.verbose,
+                                 add_scale=args.h2o_scale)
+
     # Combine metabolites.
     if args.combine is not None:
         res.combine(args.combine)

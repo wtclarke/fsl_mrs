@@ -93,15 +93,24 @@ class FitRes(object):
             self.combine([['Cr','PCr']])        
             self.calculateConcScaling(mrs)
 
+    def calculateConcScaling(self, mrs,
+                             referenceMetab=['Cr', 'PCr'],
+                             waterRefFID=None,
+                             tissueFractions=None,
+                             TE=None,
+                             T2='Default',
+                             waterReferenceMetab='Cr',
+                             wRefMetabProtons=5,
+                             reflimits=(2, 5),
+                             verbose=False,
+                             Q=None,
+                             add_scale=None):
 
-
-    def calculateConcScaling(self,mrs,referenceMetab=['Cr','PCr'],waterRefFID=None,tissueFractions=None,TE=None,T2='Default',waterReferenceMetab='Cr',wRefMetabProtons=5,reflimits=(2,5),verbose=False,Q=None):
-        
         self.intrefstr = '+'.join(referenceMetab)
         self.referenceMetab = referenceMetab
         self.waterReferenceMetab = waterReferenceMetab
         self.waterReferenceMetabProtons = wRefMetabProtons
-        
+
         internalRefScaling = quant.quantifyInternal(referenceMetab,self.getConc(),self.metabs)
 
         if  (waterRefFID is not None) and ((TE is not None) or (Q is not None)):
@@ -111,6 +120,10 @@ class FitRes(object):
                     Q = quant.loadDefaultQuantificationInfo(TE,tissueFractions,mrs.centralFrequency/1E6)
                 else:
                     Q = quant.QuantificationInfo(TE,T2,tissueFractions)
+
+            if add_scale is not None:
+                Q.additionalCorr *= add_scale
+
             molalityScaling,molarityScaling,quant_info = quant.quantifyWater(mrs,
                                                             waterRefFID,
                                                             refFID,
