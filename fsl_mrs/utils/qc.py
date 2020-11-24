@@ -61,22 +61,24 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     baseline = FIDToSpec(res.predictedFID(mrs,mode='baseline'))[first:last]
     spectrumMinusBaseline = mrs.get_spec(ppmlim=res.ppmlim)-baseline
     snrResidual_height = np.max(np.real(spectrumMinusBaseline))
-    rmse = 2.0*np.sqrt(res.mse)
-    snrResidual = snrResidual_height/rmse
+    rmse = 2.0 * np.sqrt(res.mse)
+    snrResidual = snrResidual_height / rmse
 
     # Assemble outputs
-    # SNR output    
+    # SNR output
     snrdf = pd.DataFrame()
-    for m,snr in zip(res.metabs,snrPeaks):
-            snrdf[f'SNR_{m}'] = pd.Series(snr)            
-    SNRobj = SNR(spectrum=snrSpec,peaks=snrdf,residual=snrResidual)
+    for m, snr in zip(res.metabs, snrPeaks):
+        snrdf[f'SNR_{m}'] = pd.Series(snr)
+    snrdf.fillna(0.0, inplace=True)
+
+    SNRobj = SNR(spectrum=snrSpec, peaks=snrdf, residual=snrResidual)
 
     fwhmdf = pd.DataFrame()
-    for m,width in zip(res.metabs,fwhm):
-            fwhmdf[f'fwhm_{m}'] = pd.Series(width)
-        
+    for m, width in zip(res.metabs, fwhm):
+        fwhmdf[f'fwhm_{m}'] = pd.Series(width)
+    fwhmdf.fillna(0.0, inplace=True)
 
-    return fwhmdf,SNRobj
+    return fwhmdf, SNRobj
 
 
 def calcQCOnResults(mrs,res,resparams,ppmlim):

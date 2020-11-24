@@ -206,7 +206,7 @@ def main():
 
     # Echo time
     if args.TE is not None:
-        echotime = args.TE*1E-3
+        echotime = args.TE * 1E-3
     elif 'meta' in mrsi.basis_hdr:
         if 'TE' in mrsi.basis_hdr['meta']:
             echotime = mrsi.basis_hdr['meta']['TE']
@@ -313,7 +313,7 @@ def main():
         for metab in metabs:
             metab_conc_list = [res[0].getConc(scaling=scale, metab=metab)
                                for res in results]
-            file_nm = os.path.join(cur_fldr, metab+'.nii.gz')
+            file_nm = os.path.join(cur_fldr, metab + '.nii.gz')
             mrsi.write_output(metab_conc_list,
                               file_nm,
                               indicies=indicies,
@@ -324,7 +324,7 @@ def main():
     for metab in results[0][0].metabs:
         metab_sd_list = [res[0].getUncertainties(metab=metab)
                          for res in results]
-        file_nm = os.path.join(uncer_folder, metab+'_sd.nii.gz')
+        file_nm = os.path.join(uncer_folder, metab + '_sd.nii.gz')
         mrsi.write_output(metab_sd_list,
                           file_nm,
                           indicies=indicies,
@@ -335,7 +335,7 @@ def main():
     for metab in results[0][0].original_metabs:
         metab_fwhm_list = [res[0].getQCParams(metab=metab)[1]
                            for res in results]
-        file_nm = os.path.join(qc_folder, metab+'_fwhm.nii.gz')
+        file_nm = os.path.join(qc_folder, metab + '_fwhm.nii.gz')
         mrsi.write_output(metab_fwhm_list,
                           file_nm,
                           indicies=indicies,
@@ -344,7 +344,7 @@ def main():
 
         metab_snr_list = [res[0].getQCParams(metab=metab)[0]
                           for res in results]
-        file_nm = os.path.join(qc_folder, metab+'_snr.nii.gz')
+        file_nm = os.path.join(qc_folder, metab + '_snr.nii.gz')
         mrsi.write_output(metab_snr_list,
                           file_nm,
                           indicies=indicies,
@@ -356,7 +356,7 @@ def main():
     mrs_scale = mrsi.get_scalings_in_order()
     pred_list = []
     for res, scale in zip(results, mrs_scale):
-        pred_list.append(res[0].pred/scale['FID'])
+        pred_list.append(res[0].pred / scale['FID'])
     file_nm = os.path.join(fit_folder, 'fit.nii.gz')
     mrsi.write_output(pred_list,
                       file_nm,
@@ -366,7 +366,7 @@ def main():
 
     res_list = []
     for res, scale in zip(results, mrs_scale):
-        res_list.append(res[0].residuals/scale['FID'])
+        res_list.append(res[0].residuals / scale['FID'])
     file_nm = os.path.join(fit_folder, 'residual.nii.gz')
     mrsi.write_output(res_list,
                       file_nm,
@@ -376,7 +376,7 @@ def main():
 
     baseline_list = []
     for res, scale in zip(results, mrs_scale):
-        baseline_list.append(res[0].baseline/scale['FID'])
+        baseline_list.append(res[0].baseline / scale['FID'])
     file_nm = os.path.join(fit_folder, 'baseline.nii.gz')
     mrsi.write_output(baseline_list,
                       file_nm,
@@ -396,7 +396,7 @@ def runvoxel(mrs_in, args, Fitargs, echotime):
 
     if args.add_MM:
         n = mrs.add_MM_peaks(gamma=40, sigma=30)
-        new_metab_groups = [i+max(metab_groups)+1 for i in range(n)]
+        new_metab_groups = [i + max(metab_groups) + 1 for i in range(n)]
         new_metab_groups = metab_groups + new_metab_groups
     else:
         new_metab_groups = metab_groups.copy()
@@ -441,7 +441,7 @@ class PoolProgress:
         task = self.pool._cache[job._job]
         while task._number_left > 0:
             print("Voxels remaining = {0}".
-                  format(task._number_left*task._chunksize))
+                  format(task._number_left * task._chunksize))
             time.sleep(self.update_interval)
 
 

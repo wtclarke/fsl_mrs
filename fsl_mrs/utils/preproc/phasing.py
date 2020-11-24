@@ -37,6 +37,8 @@ def phaseCorrect(FID, bw, cf, ppmlim=(2.8, 3.2), shift=True, hlsvd=False):
 
     Returns:
         FID (ndarray): Phase corrected FID
+        phaseAngle (double): shift in radians
+        index (int): Index of phased point
     """
     
     if hlsvd:
