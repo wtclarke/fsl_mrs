@@ -15,6 +15,22 @@ from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
 
 
 # ##################### FSL MODEL
+def FSLModel_vars(model='voigt'):
+    """
+    Print out parameter names as a list of strings
+    Args:
+        model: str (either 'lorientzian' or 'voigt'
+
+    Returns:
+        list of strings
+    """
+    if model == 'lorentzian':
+        var_names = ['conc', 'gamma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
+    elif model == 'voigt':
+        var_names = ['conc', 'gamma', 'sigma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
+    else:
+        raise(Exception('model must be either "voigt" or "lorentzian"'))
+    return var_names
 
 def FSLModel_x2param(x,n,g):
     """
@@ -83,9 +99,10 @@ def FSLModel_forward(x,nu,t,m,B,G,g):
         E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
     # E = np.exp(-(1j*eps+gamma)*t) # THis is actually slower! But maybe more optimisable longterm with numexpr or numba
 
-    tmp = np.zeros(m.shape,dtype=np.complex)
-    for i,gg in enumerate(G):
-        tmp[:,i] = m[:,i]*E[:,gg]
+    #tmp = np.zeros(m.shape,dtype=np.complex)
+    #for i,gg in enumerate(G):
+    #    tmp[:,i] = m[:,i]*E[:,gg]
+    tmp = m*E[:,G]
     
     M     = FIDToSpec(tmp)
     S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])

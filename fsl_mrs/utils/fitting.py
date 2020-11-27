@@ -293,12 +293,12 @@ def fit_FSLModel(mrs,
         results.loadResults(mrs,x0)
   
     elif method == 'MH':
-        forward_mh = lambda p : forward(p,freq,time,basis,B,metab_groups,g)
+        forward_mh        = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
         numPoints_over_2  = (last-first)/2.0
-        y      = data[first:last]
+        y                 = data[first:last]
 
         def loglik(p):
-            return np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
+            return np.log(np.linalg.norm(y-forward_mh(p)))*numPoints_over_2
 
 
         if disable_mh_priors:
@@ -360,13 +360,13 @@ def fit_FSLModel(mrs,
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
         baseline_order = 0 if disableBaseline else baseline_order
-        # Create maks and bounds for MH fit
+        # Create masks and bounds for MH fit
         p0   = res.params
 
         LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
         mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=fit_baseline_mh)        
 
-        # Check that the values initilised by the newton
+        # Check that the values initialised by the newton
         # method don't exceed these bounds (unlikely but possible with bad data)
         for i,(p, u, l) in enumerate(zip(p0, UB, LB)):
             if p>u:        
