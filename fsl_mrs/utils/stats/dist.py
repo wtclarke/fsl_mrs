@@ -38,7 +38,7 @@ def gauss_logpdf(x,loc=0.0,scale=1.0):
 
     """
     
-    return (x-loc)**2/2/scale/scale + np.log(scale);
+    return np.abs(x-loc)**2/2/scale/scale + np.log(scale)
 
 
 def gamma_logpdf(x,shape,scale):
@@ -63,7 +63,7 @@ def gamma_logpdf(x,shape,scale):
 
     """
 
-    return (1-shape)*np.log(x) + x/scale + shape*np.log(scale) + gammaln(shape);
+    return (1-shape)*np.log(x) + x/scale + shape*np.log(scale) + gammaln(shape)
 
 
 def inverse_logpdf(x):
