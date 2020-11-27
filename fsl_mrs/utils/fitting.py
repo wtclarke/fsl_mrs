@@ -13,6 +13,7 @@ import numpy as np
 from fsl_mrs.utils import models, misc
 from fsl_mrs.utils.stats import mh, vb, dist
 from fsl_mrs.utils.results import FitRes
+from fsl_mrs.utils.baseline import prepare_baseline_regressor
 
 from scipy.optimize import minimize
 
@@ -149,44 +150,6 @@ def init_FSLModel_Voigt(mrs,metab_groups,baseline,ppmlim):
     return x0
 
 # ####################################################################################
-
-
-def prepare_baseline_regressor(mrs,baseline_order,ppmlim):
-    """
-       Complex baseline is polynomial
-
-    Parameters:
-    -----------
-    mrs            : MRS object
-    baseline_order : degree of polynomial (>=1)
-    ppmlim         : interval over which baseline is non-zero
-
-    Returns:
-    --------
-    
-    2D numpy array
-    """
-
-    first,last = mrs.ppmlim_to_range(ppmlim)
-    
-    B = []
-    x = np.zeros(mrs.numPoints,np.complex) 
-    x[first:last] = np.linspace(-1,1,last-first)
-    
-    for i in range(baseline_order+1):
-        regressor  = x**i
-        if i>0:
-            #regressor  = regressor - np.mean(regressor)
-            regressor  = misc.regress_out(regressor,B,keep_mean=False)
-            
-        B.append(regressor.flatten())
-        B.append(1j*regressor.flatten())
-    B = np.asarray(B).T
-    tmp = B.copy()
-    B   = 0*B
-    B[first:last,:] = tmp[first:last,:].copy()
-    
-    return B
 
 
 def get_bounds(num_basis,num_metab_groups,baseline_order,model,method,disableBaseline=False):

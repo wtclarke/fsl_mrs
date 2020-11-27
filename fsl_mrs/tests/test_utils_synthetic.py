@@ -1,6 +1,12 @@
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
+from fsl_mrs.core import MRS
 import numpy as np
+from pathlib import Path
+
+testsPath = Path(__file__).parent
+basis_path = testsPath / 'testdata/fsl_mrs/steam_basis'
+
 
 def test_noisecov():
     # Create positive semi-definite noise covariance
@@ -37,3 +43,29 @@ def test_syntheticFID():
     testSpec /= np.max(np.abs(testSpec))
 
     assert np.isclose(spec,FIDToSpec(testFID[0]),atol = 1E-2,rtol = 1E0).all()
+
+
+def test_syntheticFromBasis():
+    # TO DO
+    pass
+
+
+def test_syntheticFromBasis_baseline():
+
+    fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
+                                                baseline=((0.0, 0.0),),
+                                                concentrations={'Mac': 2.0},
+                                                noisecovariance=[[0.0]])
+
+    mrs = MRS(FID=fid, header=header)
+    mrs.conj_FID()
+
+    fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
+                                                baseline=((1.0, 1.0),),
+                                                concentrations={'Mac': 2.0},
+                                                noisecovariance=[[0.0]])
+
+    mrs2 = MRS(FID=fid, header=header)
+    mrs2.conj_FID()
+
+    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + np.complex(1.0, -1.0))
