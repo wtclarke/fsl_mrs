@@ -7,10 +7,11 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.utils.misc import ts_to_ts, FIDToSpec, SpecToFID
+from fsl_mrs.utils.misc import SpecToFID, parse_metab_groups
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 from fsl_mrs.core import MRS
+from fsl_mrs.utils import models
 
 
 def standardConcentrations(basisNames):
@@ -49,16 +50,60 @@ def standardConcentrations(basisNames):
     return concs
 
 
+def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations):
+    """Prepare an mrs object for use in creating a synthetic spectrum,
+       and return selected concentrations.
+
+       metabolites in the basis file can be ignored or independently scaled.
+    """
+
+    basis, names, header = mrs_io.read_basis(basisFile)
+
+    empty_mrs = MRS(FID=np.zeros((points,)),
+                    cf=header[0]['centralFrequency'],
+                    bw=bandwidth,
+                    nucleus='1H',
+                    basis=basis,
+                    names=names,
+                    basis_hdr=header[0])
+
+    empty_mrs.ignore(ignore)
+    empty_mrs.processForFitting(ind_scaling=ind_scaling)
+
+    if concentrations is None:
+        concentrations = standardConcentrations(empty_mrs.names)
+    elif isinstance(concentrations, (list, np.ndarray)):
+        if len(concentrations) != len(empty_mrs.names):
+            raise ValueError(f'Concentrations must have the same number of elements as basis spectra.'
+                             f'{len(concentrations)} concentrations, {len(names)} basis spectra.')
+    elif isinstance(concentrations, dict):
+        newconcs = []
+        for name in empty_mrs.names:
+            if name in concentrations:
+                newconcs.append(concentrations[name])
+            else:
+                newconcs.extend(standardConcentrations([name]))
+        concentrations = newconcs
+    else:
+        raise ValueError('Concentrations must be None, a list,'
+                         'or a dict containing overides for particular metabolites.')
+    return empty_mrs, concentrations
+
+
 def syntheticFromBasisFile(basisFile,
+                           ignore=None,
+                           metab_groups=None,
+                           ind_scaling=None,
                            concentrations=None,
+                           baseline=None,
                            broadening=(9.0, 0.0),
                            shifting=0.0,
-                           baseline=None,
                            coilamps=[1.0],
                            coilphase=[0.0],
                            noisecovariance=[[0.1]],
                            bandwidth=4000.0,
-                           points=2048):
+                           points=2048,
+                           baseline_ppm=None):
     """ Create synthetic data from a set of FSL-MRS basis files.
 
     Args:
@@ -83,85 +128,102 @@ def syntheticFromBasisFile(basisFile,
         outHeader: Header suitable for loading FIDs into MRS object.
         concentrations: Final concentration scalings
     """
-    basis, names, header = mrs_io.read_basis(basisFile)
 
-    if concentrations is None:
-        concentrations = standardConcentrations(names)
-    elif isinstance(concentrations, (list, np.ndarray)):
-        if len(concentrations) != len(names):
-            raise ValueError(f'Concentrations must have the same number of elements as basis spectra.'
-                             f'{len(concentrations)} concentrations, {len(names)} basis spectra.')
-    elif isinstance(concentrations, dict):
-        newconcs = []
-        for name in names:
-            if name in concentrations:
-                newconcs.append(concentrations[name])
-            else:
-                newconcs.extend(standardConcentrations([name]))
-        concentrations = newconcs
+    empty_mrs, concentrations = prep_mrs_for_synthetic(basisFile,
+                                                       points,
+                                                       bandwidth,
+                                                       ignore,
+                                                       ind_scaling,
+                                                       concentrations)
+
+    # Currently hardcoded to voigt model. Sigma can always be set to 0.
+    _, _, fwd_model, _, p2x = models.getModelFunctions('voigt')
+    mg = parse_metab_groups(empty_mrs, metab_groups)
+    g = max(mg) + 1
+
+    if not isinstance(broadening, list):
+        broadening = [broadening, ]
+    if not isinstance(shifting, list):
+        shifting = [shifting, ]
+
+    if g == 1:
+        gamma = broadening[0][0]
+        sigma = broadening[0][1]
+        eps = shifting
     else:
-        raise ValueError('Concentrations must be None, a list,'
-                         'or a dict containing overides for particular metabolites.')
+        if len(broadening) == g:
+            gamma = [br[0] for br in broadening]
+            sigma = [br[1] for br in broadening]
+        elif len(broadening) == 1:
+            gamma = [broadening[0][0], ] * g
+            sigma = [broadening[0][1], ] * g
+        else:
+            raise ValueError('broadening must be single value,'
+                             'match the length of metab_groups.'
+                             f'Currently {len(broadening)}.')
 
-    FIDs = syntheticFromBasis(basis,
-                              header[0]['bandwidth'],
-                              header[0]['centralFrequency'],
-                              concentrations,
-                              broadening=broadening,
-                              shifting=shifting,
-                              baseline=baseline,
-                              coilamps=coilamps,
-                              coilphase=coilphase,
-                              noisecovariance=noisecovariance,
-                              bandwidth=bandwidth,
-                              points=points)
+        if len(shifting) == g:
+            eps = shifting
+        elif len(shifting) == 1:
+            eps = shifting * g
+        else:
+            raise ValueError('shifting must be single value,'
+                             'match the length of metab_groups.'
+                             f'Currently {len(shifting)}.')
+
+    if baseline is None:
+        baseline_order = 0
+        b = [0, 0]
+    else:
+        baseline_order = int(len(baseline) / 2 - 1)
+        b = baseline
+
+    model_params = p2x(concentrations,
+                       gamma,
+                       sigma,
+                       eps,
+                       0,
+                       0,
+                       b)
+
+    FIDs = synthetic_from_fwd_model(fwd_model,
+                                    model_params,
+                                    empty_mrs,
+                                    baseline_order,
+                                    mg,
+                                    coilamps=coilamps,
+                                    coilphase=coilphase,
+                                    noisecovariance=noisecovariance,
+                                    ppmlim=baseline_ppm)
 
     return FIDs, \
-        {'bandwidth': bandwidth, 'centralFrequency': header[0]['centralFrequency']}, \
+        {'bandwidth': bandwidth, 'centralFrequency': empty_mrs.centralFrequency}, \
         concentrations
 
 
-def syntheticFromBasis(basis,
-                       basis_bandwidth,
-                       basis_cf,
-                       concentrations,
-                       broadening=(9.0, 0.0),
-                       shifting=0.0,
-                       baseline=None,
-                       coilamps=[1.0],
-                       coilphase=[0.0],
-                       noisecovariance=[[0.1]],
-                       bandwidth=4000.0,
-                       points=2048):
-    """ Create synthetic spectra from basis FIDs. Use syntheticFromBasisFile interface."""
-    # sort out inputs
-    numMetabs = basis.shape[1]
-    if len(concentrations) != numMetabs:
-        raise ValueError('Provide a concentration for each basis spectrum.')
+def synthetic_from_fwd_model(fwd_model,
+                             model_params,
+                             mrs,
+                             baseline_order,
+                             metab_groups,
+                             coilamps=[1.0],
+                             coilphase=[0.0],
+                             noisecovariance=[[0.1]],
+                             ppmlim=None):
+    """ Create a synthetic spectrum from the forward fitting model"""
+    freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
+    g = max(metab_groups) + 1
+    b = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
-    if isinstance(broadening, list):
-        if len(broadening) != numMetabs:
-            raise ValueError('Broadening values must be either a single tuple,'
-                             'or list of tuples with the same number of elements as basis sets.')
-        gammas = [b[0] for b in broadening]
-        sigmas = [b[1] for b in broadening]
-    elif isinstance(broadening, tuple):
-        gammas = [broadening[0]] * numMetabs
-        sigmas = [broadening[1]] * numMetabs
-    else:
-        raise ValueError('Broadening values must be either a single tuple,'
-                         ' or list of tuples with the same number of elements as basis sets.')
+    basespec = fwd_model(model_params,
+                         freq,
+                         time,
+                         basis,
+                         b,
+                         metab_groups,
+                         g)
 
-    if isinstance(shifting, list):
-        if len(shifting) != numMetabs:
-            raise ValueError('shifting values must be either a float.'
-                             ' or list with the same number of elements as basis sets.')
-        eps = shifting
-    elif isinstance(shifting, float):
-        eps = [shifting] * numMetabs
-    else:
-        raise ValueError('shifting values must be either a float,'
-                         ' or list with the same number of elements as basis sets.')
+    baseFID = SpecToFID(basespec)
 
     # Form noise vectors
     ncoils = len(coilamps)
@@ -171,29 +233,8 @@ def syntheticFromBasis(basis,
     if noisecovariance.shape != (ncoils, ncoils):
         raise ValueError('noisecovariance must be ncoils x ncoils.')
 
-    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points) \
-        + 1j * np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, points)
-
-    # Interpolate basis
-    dwelltime = 1 / bandwidth
-    basis_dwelltime = 1 / basis_bandwidth
-    basis = ts_to_ts(basis, basis_dwelltime, dwelltime, points)
-    # basis = rescale_FID(basis,scale=100)
-
-    # Create the spectrum
-    baseFID    = np.zeros((points), np.complex128)
-    dwellTime  = 1 / bandwidth
-    timeAxis   = np.linspace(dwellTime,
-                             dwellTime * points,
-                             points)
-    for b, c, e, g, s in zip(basis.T, concentrations, eps, gammas, sigmas):
-        tmp   = b * np.exp(-(1j * e + g + timeAxis * s**2) * timeAxis)
-        M     = FIDToSpec(tmp)
-        baseFID += SpecToFID(M * c)
-
-    # Add baseline
-    if baseline is not None:
-        baseFID += calculate_baseline(baseline, bandwidth, basis_cf, points)
+    noise = np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, mrs.numPoints) \
+        + 1j * np.random.multivariate_normal(np.zeros((ncoils)), noisecovariance, mrs.numPoints)
 
     # Add noise and write to output list
     FIDs = []
@@ -203,26 +244,3 @@ def syntheticFromBasis(basis,
     FIDs = np.squeeze(FIDs)
 
     return FIDs
-
-
-def calculate_baseline(bline_param, bandwidth, cf, points):
-    """Create a synthetic polynomial baseline specified by pairs of constants"""
-
-    order = len(bline_param) - 1
-    for opair in bline_param:
-        if len(opair) != 2:
-            raise ValueError('The baseline parameter must be a list of 2-tuples'
-                             ' containing real and imaginary coeeficients.')
-
-    dummy_mrs = MRS(FID=np.zeros((points,)),
-                    cf=cf,
-                    bw=bandwidth,
-                    nucleus='1H')
-
-    ppmlim = None
-    B = prepare_baseline_regressor(dummy_mrs, order, ppmlim)
-
-    bline_param = np.asarray(bline_param).flatten()
-
-    spec = np.sum(B * bline_param, axis=1)
-    return SpecToFID(spec)
