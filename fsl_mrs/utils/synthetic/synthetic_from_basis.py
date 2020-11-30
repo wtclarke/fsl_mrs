@@ -96,27 +96,32 @@ def syntheticFromBasisFile(basisFile,
                            ind_scaling=None,
                            concentrations=None,
                            baseline=None,
+                           baseline_ppm=None,
                            broadening=(9.0, 0.0),
                            shifting=0.0,
                            coilamps=[1.0],
                            coilphase=[0.0],
                            noisecovariance=[[0.1]],
                            bandwidth=4000.0,
-                           points=2048,
-                           baseline_ppm=None):
+                           points=2048):
     """ Create synthetic data from a set of FSL-MRS basis files.
 
     Args:
             basisFile (str): path to directory containg basis spectra json files
+            ignore (list of str, optional): Ignore metabolites in basis set.
+            metab_groups (list of str, optional): Group metabolites to apply different model parameters to groups.
+            ind_scaling (list of str, optional): Independently scale basis spectra in the basis set.
             concentrations (list or dict or None, optional ): If None, standard concentrations will be used.
                                                         If list of same length as basis spectra, then these will be
                                                         used.
                                                         Pass dict to overide standard values for specific metabolites.
                                                         Key should be metabolite name.
+            baseline (list of floats, optional): Baseline coeeficients, 2 (real, imag) needed per order.
+                e.g. [1,1,0.1, 0.1] to specifiy a 1st order baseline.
+            baseline_ppm (tuple, optional): Specify ppm range over which baseline is calculated.
             broadening (list of tuples or tuple:floats, optional): Tuple containg a gamma and sigma or a list of tuples
             for each basis.
             shifting (list of floats or float, optional): Eps shift value or a list for each basis.
-            baseline (list of floats, optional): Baseline parameters. Not yet implemented
             coilamps (list of floats, optional): If multiple coils, specify magnitude scaling.
             coilphase (list of floats, optional): If multiple coils, specify phase.
             noisecovariance (list of floats, optional): N coils x N coils array of noise variance/covariance.
