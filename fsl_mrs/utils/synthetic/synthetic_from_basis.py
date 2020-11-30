@@ -59,7 +59,7 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
 
     basis, names, header = mrs_io.read_basis(basisFile)
 
-    empty_mrs = MRS(FID=np.zeros((points,)),
+    empty_mrs = MRS(FID=np.ones((points,)),
                     cf=header[0]['centralFrequency'],
                     bw=bandwidth,
                     nucleus='1H',
