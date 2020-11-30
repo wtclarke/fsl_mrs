@@ -169,8 +169,8 @@ class MRS(object):
                (cf_MHz > sevent_range[0] and cf_MHz < sevent_range[1]) or \
                (cf_MHz > ninefourt_range[0] and cf_MHz < ninefourt_range[1]) or \
                (cf_MHz > elevensevent_range[0] and cf_MHz < elevensevent_range[1]):
-                print(f'Identified as {key} nucleus data.'
-                      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
+                #print(f'Identified as {key} nucleus data.'
+                #      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
                 return key
 
         raise ValueError(f'Unidentified nucleus,'

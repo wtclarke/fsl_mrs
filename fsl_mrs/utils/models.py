@@ -1,20 +1,53 @@
-#!/usr/bin/env python
-
 # models.py - MRS forward models and helper functions
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
-#         William Clarke <will.clarke@ndcn.ox.ac.uk>
+#         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.utils.misc import FIDToSpec,SpecToFID
+from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
 
 # Helper functions for LCModel fitting
 
 
 # ##################### FSL MODEL
+def FSLModel_vars(model='voigt', n_basis=None, n_groups=1, b_order=0):
+    """
+    Print out parameter names as a list of strings
+    Args:
+        model: str (either 'lorientzian' or 'voigt'
+        n_basis: int, number of basis spectra
+        n_groups: int, number of metabolite groups
+        b_order: int, baseline order
+    Returns:
+        list of strings
+        list of int
+    """
+    if model == 'lorentzian':
+        var_names = ['conc', 'gamma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
+    elif model == 'voigt':
+        var_names = ['conc', 'gamma', 'sigma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
+    else:
+        raise(Exception('model must be either "voigt" or "lorentzian"'))
+
+    if n_basis is None \
+            or n_groups < 1 \
+            or b_order < -1:
+        return var_names
+    else:
+        sizes = [n_basis,  # Number of metabs
+                 n_groups,  # gamma
+                 n_groups,  # eps
+                 1,  # Phi_0
+                 1,  # Phi_1
+                 2 + (b_order * 2)]  # baseline
+        if model == 'voigt':
+            sizes.insert(2, n_groups)  # sigma
+
+        return var_names, sizes
+
 
 def FSLModel_x2param(x,n,g):
     """
@@ -83,9 +116,10 @@ def FSLModel_forward(x,nu,t,m,B,G,g):
         E[:,gg] = np.exp(-(1j*eps[gg]+gamma[gg])*t).flatten()
     # E = np.exp(-(1j*eps+gamma)*t) # THis is actually slower! But maybe more optimisable longterm with numexpr or numba
 
-    tmp = np.zeros(m.shape,dtype=np.complex)
-    for i,gg in enumerate(G):
-        tmp[:,i] = m[:,i]*E[:,gg]
+    #tmp = np.zeros(m.shape,dtype=np.complex)
+    #for i,gg in enumerate(G):
+    #    tmp[:,i] = m[:,i]*E[:,gg]
+    tmp = m*E[:,G]
     
     M     = FIDToSpec(tmp)
     S     = np.exp(-1j*(phi0+phi1*nu)) * (M@con[:,None])

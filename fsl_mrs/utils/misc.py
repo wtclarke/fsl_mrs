@@ -48,8 +48,8 @@ def FIDToSpec(FID, axis=0):
     ss = tuple(ss)
     FID[ss] *= 0.5
     out = scipy.fft.fftshift(scipy.fft.fft(FID,
-                                           axis=axis,
-                                           norm='ortho'),
+                                     axis=axis,
+                                     norm='ortho'),
                              axes=axis)
     FID[ss] *= 2
     return out
@@ -67,8 +67,8 @@ def SpecToFID(spec, axis=0):
             x (np.array)        : array of FIDs
     """
     fid = scipy.fft.ifft(scipy.fft.ifftshift(spec,
-                                             axes=axis),
-                         axis=axis, norm='ortho')
+                                            axes=axis),
+                        axis=axis, norm='ortho')
     ss = [slice(None) for i in range(fid.ndim)]
     ss[axis] = slice(0, 1)
     ss = tuple(ss)
@@ -779,3 +779,9 @@ def smooth_FIDs(FIDlist,window):
         fid = fid/n
         sFIDlist.append(fid)
     return sFIDlist
+
+
+#### Dynamic MRS utils
+
+    
+

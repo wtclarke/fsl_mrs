@@ -207,7 +207,29 @@ class MH:
         self.loglik      = loglik
         self.logpr       = logpr
 
-        
+
+    def bounds_from_list(self,n,bounds):
+        """
+        Get bounds from list to two lists
+        Args:
+            n: num params
+            bounds: sciipy-optimize-style bounds
+
+        Returns:
+        numpy 1D array (Lower bounds)
+        numpy 1D array (Upper bounds)
+        """
+        LB = -np.inf*np.ones(n)
+        UB =  np.inf*np.ones(n)
+        if bounds is None:
+            return LB,UB
+        if not isinstance(bounds,list):
+            raise(Exception('bounds must either be a list or None'))
+        for i,b in enumerate(bounds):
+            LB[i] = b[0] if b[0] is not None else -np.inf
+            UB[i] = b[1] if b[1] is not None else  np.inf
+        return LB,UB
+
     def fit(self,p0,mask=None,verbose=False,LB=None, UB=None):
         """
         Run Metropolis Hastings algorithm to fit data
@@ -222,7 +244,7 @@ class MH:
         verbose : boolean
         LB: array-like
             Lower bounds on parameters
-        UBL array-like
+        UB array-like
             Upper bounds on parameters
 
         Returns
@@ -250,12 +272,10 @@ class MH:
         e    = self.loglik(p)+self.logpr(p)
         acc  = np.zeros(p.size)
         rej  = np.zeros(p.size)
-        prop = p0/10 #np.ones(p.size)
+        prop = np.abs(p0)/10 #np.ones(p.size)
         prop[prop==0] = 1
 
         samples  = np.zeros((self.njumps+self.burnin,p.size))
-
-         
 
         # Mask
         if mask is None:
@@ -297,6 +317,8 @@ class MH:
 
         samples = samples[self.burnin::self.sampleevery]
         return samples
+
+
 
     def marglik_HM(self,samples):
         """
