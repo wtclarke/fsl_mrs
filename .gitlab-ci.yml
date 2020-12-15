@@ -1,7 +1,14 @@
+include:
+ - project: fsl/fsl-ci-rules
+   file:    .gitlab-ci.yml
+
 stages:
   - Static Analysis
   - Test
   - doc
+  - fsl-ci-pre
+  - fsl-ci-build
+  - fsl-ci-deploy
 
 flake8:
   image: python:3.7-slim-buster
