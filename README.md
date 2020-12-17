@@ -32,7 +32,7 @@ or
 
     pip install spec2nii
 
-After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/quick_start.html).
+After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/quick_start.html).
 
 ---
 

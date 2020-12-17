@@ -7,6 +7,8 @@ WIP
 - fsl_mrs/aux folder renamed for Windows compatibility.
 - Moved online documentation to open.win.ox.ac.uk/pages/fsl/fsl_mrs/.
 - Fixed small bugs in preprocessing display.
+- Synthetic spectra now use fitting model directly.
+- WIP: Dynamic fitting model and dynamic experiment simulation.
 
 1.0.5 (Friday 9th October 2020)
 -------------------------------
