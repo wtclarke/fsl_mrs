@@ -20,7 +20,7 @@ class VariableMapping(object):
         """
         Variable Mapping Class Constructor
 
-        Mapping betwee free and mapped:
+        Mapping between free and mapped:
         Mapped = TxN matrix
         Mapped[i,j] = float or 1D-array of floats with size param_sizes[j]
 
@@ -78,6 +78,8 @@ class VariableMapping(object):
 
     def __repr__(self) -> str:
         return str(self)
+
+
 
     def calc_nfree(self):
         """
@@ -183,7 +185,7 @@ class VariableMapping(object):
                 name = [f'{param}_{x}' for x in range(self.mapped_sizes[index])]
                 names.extend(name)
             elif (beh == 'variable'):
-                name = [f'{param}_{x}_t{t}' for x in range(self.mapped_sizes[index]) for t in range(self.ntimes)]
+                name = [f'{param}_{x}_t{t}' for t in range(self.ntimes) for x in range(self.mapped_sizes[index])]
                 names.extend(name)
             else:
                 if 'dynamic' in beh:
@@ -193,7 +195,7 @@ class VariableMapping(object):
 
         return names
 
-    def free_to_mapped(self, p):
+    def free_to_mapped(self, p, copy_only=False):
         """
         Convert free into mapped params over time
         fixed params get copied over time domain
@@ -203,7 +205,7 @@ class VariableMapping(object):
         Parameters
         ----------
         p : 1D array
-
+        copy_only : bool (copy params - don't use dynamic models)
         Returns
         -------
         2D array (time X params)
@@ -228,7 +230,7 @@ class VariableMapping(object):
 
             elif (self.Parameters[name] == 'variable'):  # copy one param for each time point
                 for t in range(self.ntimes):
-                    mapped_params[t, index] = p[counter + t * nmapped:counter + t * nmapped + nmapped]
+                    mapped_params[t, index] = p[counter :counter + nmapped]
                     counter += nmapped
 
             else:
@@ -237,15 +239,23 @@ class VariableMapping(object):
                     func_name = self.Parameters[name]['dynamic']
                     nfree     = len(self.Parameters[name]['params'])
 
-                    mapped = np.zeros((self.ntimes, nmapped))
-                    for i in range(nmapped):
-                        params      = p[counter:counter + nfree]
-                        mapped[:, i] = self.fcns[func_name](params, self.time_variable)
-                        counter += nfree
-
-                    for t in range(self.ntimes):
-                        mapped_params[t, index] = mapped[t, :]
-
+                    if not copy_only:
+                        mapped = np.zeros((self.ntimes, nmapped))
+                        for i in range(nmapped):
+                            params      = p[counter:counter + nfree]
+                            mapped[:, i] = self.fcns[func_name](params, self.time_variable)
+                            counter += nfree
+                        for t in range(self.ntimes):
+                            mapped_params[t, index] = mapped[t, :]
+                    else:
+                        mapped = np.empty((self.ntimes, nmapped),dtype=object)
+                        for i in range(nmapped):
+                            params      = p[counter:counter + nfree]
+                            for t in range(self.ntimes):
+                                mapped[t, i] = params
+                            counter += nfree
+                        for t in range(self.ntimes):
+                            mapped_params[t, index] = mapped[t, :]
                 else:
                     raise(Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
 
@@ -329,3 +339,21 @@ class VariableMapping(object):
                     raise(Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
 
         return free_params
+
+    def get_gradient_fcn(self,param_name):
+        """
+        Get the gradient function for a given parameter
+        Returns:
+        function
+        """
+        if (self.Parameters[param_name] == 'fixed') or (self.Parameters[param_name] == 'variable'):
+            return lambda x, t: 1
+        else:
+            if 'dynamic' in self.Parameters[param_name]:
+                func_name = self.Parameters[param_name]['dynamic']
+                grad_name = func_name + '_grad'
+                if grad_name not in self.fcns:
+                    raise (Exception(f"Could not find gradient for parameter {param_name}"))
+                return self.fcns[grad_name]
+            else:
+                raise (Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))

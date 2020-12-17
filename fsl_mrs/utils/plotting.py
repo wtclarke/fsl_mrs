@@ -1042,6 +1042,77 @@ def plot_table_qc(res):
     return fig
 
 
+
+# ----------- Dyn MRS
+# Visualisation
+def plotly_dynMRS(mrs_list,time_var,ppmlim=(.2,4.2)):
+    """
+    Plot dynamic MRS data with a slider though time
+    Args:
+        mrs_list: list of MRS objects
+        time_var: list of time variable (or bvals for dMRS)
+        ppmlim: list
+
+    Returns:
+        plotly Figure
+    """
+    # Create figure
+    fig = go.Figure()
+    # Add traces, one for each slider step
+    for i, t in enumerate(time_var):
+        x = mrs_list[i].getAxes()
+        y = np.real(FIDToSpec(mrs_list[i].FID))
+        fig.add_trace(
+            go.Scatter(
+                visible=False,
+                line=dict(color="black", width=3),
+                name=f"{t}",
+                x=x,
+                y=y))
+    fig.update_layout(template='plotly_white')
+    fig.update_xaxes(title_text='Chemical shift (ppm)',
+                     tick0=2, dtick=.5,
+                     range=[ppmlim[1],ppmlim[0]])
+
+    # y-axis range
+    data = [np.real(FIDToSpec(mrs.FID)) for mrs in mrs_list]
+    data = np.asarray(data).flatten()
+    minval = np.min(data)
+    maxval = np.max(data)
+    ymin = minval - minval / 2
+    ymax = maxval + maxval / 30
+
+    fig.update_yaxes(zeroline=True,
+                     zerolinewidth=1,
+                     zerolinecolor='Gray',
+                     showgrid=False, showticklabels=False,
+                     range=[ymin, ymax])
+
+    # Make 0th trace visible
+    fig.data[0].visible = True
+    # Create and add slider
+    steps = []
+    for i in range(len(time_var)):
+        step = dict(
+            method="restyle",
+            label=f"t={time_var[i]}",
+            args=[{"visible": [False] * len(fig.data)},
+                  {"title": f"time_variable : {time_var[i]}"}],  # layout attribute
+            )
+        step["args"][0]["visible"][i] = True  # Toggle i'th trace to "visible"
+        steps.append(step)
+
+    sliders = [dict(
+        active=0,
+        currentvalue={"prefix": "time variable: "},
+        pad={"t": 50},
+        steps=steps)]
+
+    fig.update_layout(sliders=sliders)
+    fig.layout.update({'height': 800})
+
+    return fig
+
 # ----------- Imaging
 
 #!/usr/bin/env python

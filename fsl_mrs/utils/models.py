@@ -151,6 +151,65 @@ def FSLModel_err(x,nu,t,m,B,G,g,data,first,last):
     return sse
 
 
+def FSLModel_forward_jac(x, nu, t, m, B, G, g, data, first, last):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+    data : array like - frequency domain data
+    first,last : range for the fitting is data[first:last]
+
+    returns jacobian matrix
+    """
+    n = m.shape[1]  # get number of basis functions
+    # g     = max(G)+1       # get number of metabolite groups
+
+    con, gamma, eps, phi0, phi1, b = FSLModel_x2param(x, n, g)
+
+    # Start
+    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    for gg in range(g):
+        E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
+
+    e_term = np.zeros(m.shape, dtype=np.complex)
+    c = np.zeros((con.size, g))
+    for i, gg in enumerate(G):
+        e_term[:, i] = E[:, gg]
+        c[i, gg] = con[i]
+    m_term = m * e_term
+
+    phi_term = np.exp(-1j * (phi0 + phi1 * nu))
+
+    Fmet = FIDToSpec(m_term)
+    Ftmet = FIDToSpec(t * m_term)
+    Ftmetc = Ftmet @ c
+    Fmetcon = Fmet @ con[:, None]
+
+    # Gradients
+    dSdc = phi_term * Fmet
+    dSdgamma = phi_term * (-Ftmetc)
+    dSdeps = phi_term * (-1j * Ftmetc)
+    dSdphi0 = -1j * phi_term * (Fmetcon)
+    dSdphi1 = -1j * nu * phi_term * (Fmetcon)
+    dSdb = B
+
+    # Only compute within a range
+    dSdc = dSdc[first:last, :]
+    dSdgamma = dSdgamma[first:last, :]
+    dSdeps = dSdeps[first:last, :]
+    dSdphi0 = dSdphi0[first:last]
+    dSdphi1 = dSdphi1[first:last]
+    dSdb = dSdb[first:last]
+
+    jac = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
+
+    return jac
+
 
 def FSLModel_forward_and_jac(x,nu,t,m,B,G,g,data,first,last):
     """
@@ -291,7 +350,7 @@ def FSLModel_forward_Voigt(x,nu,t,m,B,G,g):
 
     Returns forward prediction in the frequency domain
     """
-    
+
     n     = m.shape[1]    # get number of basis functions
 
     con,gamma,sigma,eps,phi0,phi1,b = FSLModel_x2param_Voigt(x,n,g)
@@ -411,6 +470,74 @@ def FSLModel_grad_Voigt(x,nu,t,m,B,G,g,data,first,last):
     return grad
 
 
+def FSLModel_jac_Voigt(x, nu, t, m, B, G, g, first, last):
+    """
+    x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
+
+    nu : array-like - frequency axis
+    t  : array-like - time axis
+    m  : basis time course
+    B  : baseline functions
+    G  : metabolite groups
+    g  : number of metab groups
+    data : array like - frequency domain data
+    first,last : range for the fitting is data[first:last]
+
+    returns gradient vector
+    """
+    n = m.shape[1]  # get number of basis functions
+
+    con, gamma, sigma, eps, phi0, phi1, b = FSLModel_x2param_Voigt(x, n, g)
+
+    # Start
+    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    SIG = np.zeros((m.shape[0], g), dtype=np.complex)
+    for gg in range(g):
+        E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg] + t * sigma[gg] ** 2) * t).flatten()
+        SIG[:, gg] = sigma[gg]
+
+    e_term = np.zeros(m.shape, dtype=np.complex)
+    sig_term = np.zeros(m.shape, dtype=np.complex)
+    c = np.zeros((con.size, g))
+    for i, gg in enumerate(G):
+        e_term[:, i] = E[:, gg]
+        sig_term[:, i] = SIG[:, gg]
+        c[i, gg] = con[i]
+    m_term = m * e_term
+
+    phi_term = np.exp(-1j * (phi0 + phi1 * nu))
+    Fmet = FIDToSpec(m_term)
+    Ftmet = FIDToSpec(t * m_term)
+    Ft2sigmet = FIDToSpec(t * t * sig_term * m_term)
+    Ftmetc = Ftmet @ c
+    Ft2sigmetc = Ft2sigmet @ c
+    Fmetcon = Fmet @ con[:, None]
+
+
+    # Gradients
+    dSdc = phi_term * Fmet
+    dSdgamma = phi_term * (-Ftmetc)
+    dSdsigma = phi_term * (-2 * Ft2sigmetc)
+    dSdeps = phi_term * (-1j * Ftmetc)
+    dSdphi0 = -1j * phi_term * (Fmetcon)
+    dSdphi1 = -1j * nu * phi_term * (Fmetcon)
+    dSdb = B
+
+    # Only compute within a range
+    dSdc = dSdc[first:last, :]
+    dSdgamma = dSdgamma[first:last, :]
+    dSdsigma = dSdsigma[first:last, :]
+    dSdeps = dSdeps[first:last, :]
+    dSdphi0 = dSdphi0[first:last]
+    dSdphi1 = dSdphi1[first:last]
+    dSdb = dSdb[first:last]
+
+    dS = np.concatenate((dSdc, dSdgamma, dSdsigma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
+
+
+    return dS
+
+
 def getModelFunctions(model):
     """ Return the err, grad, forward and conversion functions appropriate for the model."""
     if model == 'lorentzian':
@@ -428,6 +555,26 @@ def getModelFunctions(model):
     else:
         raise Exception('Unknown model {}.'.format(model))
     return err_func,grad_func,forward,x2p,p2x
+
+def getModelForward(model):
+    if model == 'lorentzian':
+        forward    = FSLModel_forward      # forward model
+    elif model == 'voigt':
+        forward    = FSLModel_forward_Voigt # forward model
+    else:
+        raise Exception('Unknown model {}.'.format(model))
+    return forward
+
+def getModelJac(model):
+    if model == 'lorentzian':
+        jac    = FSLModel_jac
+    elif model == 'voigt':
+        jac    = FSLModel_jac_Voigt
+    else:
+        raise Exception('Unknown model {}.'.format(model))
+    return jac
+
+
 
 def getFittedModel(model,resParams,base_poly,metab_groups,mrs,basisSelect=None,baselineOnly = False,noBaseline = False):
     """ Return the predicted model given some fitting parameters
