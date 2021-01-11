@@ -628,9 +628,16 @@ def parse_metab_groups(mrs,metab_groups):
         
         if metab_groups.lower() == 'combine_all':
             return [0]*mrs.numBasis
-            
-        out = [0]*mrs.numBasis
-        out[mrs.names.index(metab_groups)] = 1
+
+        entry = metab_groups.split('+')
+        
+        if isinstance(entry,str):                                                                                                                           
+            out[mrs.names.index(entry)] = 1
+        elif isinstance(entry,list):
+            for n in entry:
+                assert(isinstance(n,str))
+                out[mrs.names.index(n)] = 1
+   
         return out
     
 
