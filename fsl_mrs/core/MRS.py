@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# core.py - main MRS class definition
+# MRS.py - main MRS class definition
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>

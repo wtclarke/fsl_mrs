@@ -18,7 +18,8 @@ from fsl_mrs.utils.mrs_io.fsl_io import saveNIFTI, readNIFTI
 
 class MRSI(object):
 
-    def __init__(self, FID, header,
+    def __init__(self, FID, header=None,
+                 cf=None, bw=None, nucleus='1H',
                  mask=None, basis=None, names=None,
                  basis_hdr=None, H2O=None):
 
@@ -44,7 +45,16 @@ class MRSI(object):
         self.data   = FID
         self.H2O    = H2O
         self.mask   = mask
-        self.header = header
+
+        if header is not None:
+            self.header = header
+        elif cf is not None\
+                and bw is not None:
+            self.header = {'centralFrequency': cf,
+                           'bandwidth': bw,
+                           'ResonantNucleus': nucleus}
+        else:
+            raise ValueError('Either header or cf and bw must not be None.')
 
         # Basis
         self.basis      = basis
