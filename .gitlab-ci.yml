@@ -56,6 +56,10 @@ stages:
   only:
     - master
 
+.only_tags_master: &only_tags_master
+  only:
+    - master
+    - tags
 
 .only_releases: &only_releases
   only:
@@ -105,7 +109,7 @@ pytest:
 ############
 
 pages:
-  <<: *only_master
+  <<: *only_tags_master
   image: python:3.7
   stage: doc
   script:
