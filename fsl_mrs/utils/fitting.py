@@ -13,6 +13,7 @@ import numpy as np
 from fsl_mrs.utils import models, misc
 from fsl_mrs.utils.stats import mh, vb, dist
 from fsl_mrs.utils.results import FitRes
+from fsl_mrs.utils.baseline import prepare_baseline_regressor
 
 from scipy.optimize import minimize
 
@@ -38,7 +39,7 @@ def print_params(x,mrs,metab_groups,ref_metab='Cr',scale_factor=1):
 # New strategy for init
 def init_params(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    y = mrs.getSpectrum(ppmlim=ppmlim)
+    y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
     B = baseline[first:last,:].copy()
     B = np.concatenate((np.real(B),np.imag(B)),axis=0)
@@ -94,7 +95,7 @@ def init_FSLModel(mrs,metab_groups,baseline,ppmlim):
 
 def init_params_voigt(mrs,baseline,ppmlim):
     first,last = mrs.ppmlim_to_range(ppmlim)
-    y = mrs.getSpectrum(ppmlim=ppmlim)
+    y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y),np.imag(y)),axis=0).flatten()
     B = baseline[first:last,:].copy()
     B = np.concatenate((np.real(B),np.imag(B)),axis=0)
@@ -149,44 +150,6 @@ def init_FSLModel_Voigt(mrs,metab_groups,baseline,ppmlim):
     return x0
 
 # ####################################################################################
-
-
-def prepare_baseline_regressor(mrs,baseline_order,ppmlim):
-    """
-       Complex baseline is polynomial
-
-    Parameters:
-    -----------
-    mrs            : MRS object
-    baseline_order : degree of polynomial (>=1)
-    ppmlim         : interval over which baseline is non-zero
-
-    Returns:
-    --------
-    
-    2D numpy array
-    """
-
-    first,last = mrs.ppmlim_to_range(ppmlim)
-    
-    B = []
-    x = np.zeros(mrs.numPoints,np.complex) 
-    x[first:last] = np.linspace(-1,1,last-first)
-    
-    for i in range(baseline_order+1):
-        regressor  = x**i
-        if i>0:
-            #regressor  = regressor - np.mean(regressor)
-            regressor  = misc.regress_out(regressor,B,keep_mean=False)
-            
-        B.append(regressor.flatten())
-        B.append(1j*regressor.flatten())
-    B = np.asarray(B).T
-    tmp = B.copy()
-    B   = 0*B
-    B[first:last,:] = tmp[first:last,:].copy()
-    
-    return B
 
 
 def get_bounds(num_basis,num_metab_groups,baseline_order,model,method,disableBaseline=False):
@@ -286,7 +249,7 @@ def fit_FSLModel(mrs,
     elif model.lower() == 'voigt':        
         init_func  = init_FSLModel_Voigt    # initialisation of params
 
-    data       = mrs.Spec.copy()              # data copied to keep it safe
+    data       = mrs.get_spec().copy()              # data copied to keep it safe
     first,last = mrs.ppmlim_to_range(ppmlim)  # data range
 
     if metab_groups is None:
@@ -330,12 +293,12 @@ def fit_FSLModel(mrs,
         results.loadResults(mrs,x0)
   
     elif method == 'MH':
-        forward_mh = lambda p : forward(p,freq,time,basis,B,metab_groups,g)
+        forward_mh        = lambda p : forward(p,freq,time,basis,B,metab_groups,g)[first:last]
         numPoints_over_2  = (last-first)/2.0
-        y      = data[first:last]
+        y                 = data[first:last]
 
         def loglik(p):
-            return np.log(np.linalg.norm(y-forward_mh(p)[first:last]))*numPoints_over_2
+            return np.log(np.linalg.norm(y-forward_mh(p)))*numPoints_over_2
 
 
         if disable_mh_priors:
@@ -397,13 +360,13 @@ def fit_FSLModel(mrs,
         res  = fit_FSLModel(mrs,method='Newton',ppmlim=ppmlim,
                             metab_groups=metab_groups,baseline_order=baseline_order,model=model)
         baseline_order = 0 if disableBaseline else baseline_order
-        # Create maks and bounds for MH fit
+        # Create masks and bounds for MH fit
         p0   = res.params
 
         LB,UB = get_bounds(mrs.numBasis,g,baseline_order,model,method,disableBaseline=disableBaseline)                
         mask  = get_fitting_mask(mrs.numBasis,g,baseline_order,model,fit_baseline=fit_baseline_mh)        
 
-        # Check that the values initilised by the newton
+        # Check that the values initialised by the newton
         # method don't exceed these bounds (unlikely but possible with bad data)
         for i,(p, u, l) in enumerate(zip(p0, UB, LB)):
             if p>u:        

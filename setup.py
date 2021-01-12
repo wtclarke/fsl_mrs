@@ -25,9 +25,10 @@ setup(name='fsl_mrs',
                 'fsl_mrs.utils.stats',
                 'fsl_mrs.utils.preproc',
                 'fsl_mrs.utils.synthetic',
+                'fsl_mrs.utils.dynamic',
                 'fsl_mrs.denmatsim',
                 'fsl_mrs.mmbasis',
-                'fsl_mrs.aux'
+                'fsl_mrs.auxiliary'
                 ],
       package_data={'fsl_mrs.denmatsim':['spinSystems.json'],
                     'fsl_mrs.mmbasis':['mmbasis.json'],

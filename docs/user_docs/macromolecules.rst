@@ -30,7 +30,7 @@ By default this option will add the following basis spectra (in separate metabol
 Additional peaks may be added int he interactive environment by calling :code:`add_MM_peaks` with optional arguments to override the defaults.
 
 References
-==========
+~~~~~~~~~~
 
 .. [CUDA12] Cudalbu C, Mlynárik V, Gruetter R. Handling Macromolecule Signals in the Quantification of the Neurochemical Profile. Journal of Alzheimer’s Disease 2012;31:S101–S115 doi: 10.3233/JAD-2012-120100.
 

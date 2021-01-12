@@ -59,24 +59,26 @@ def calcQC(mrs,res,ppmlim=(0.2,4.2)):
     # Calculate the LCModel style SNR based on peak height over SD of residual
     first,last = mrs.ppmlim_to_range(ppmlim=res.ppmlim)
     baseline = FIDToSpec(res.predictedFID(mrs,mode='baseline'))[first:last]
-    spectrumMinusBaseline = mrs.getSpectrum(ppmlim=res.ppmlim)-baseline
+    spectrumMinusBaseline = mrs.get_spec(ppmlim=res.ppmlim)-baseline
     snrResidual_height = np.max(np.real(spectrumMinusBaseline))
-    rmse = 2.0*np.sqrt(res.mse)
-    snrResidual = snrResidual_height/rmse
+    rmse = 2.0 * np.sqrt(res.mse)
+    snrResidual = snrResidual_height / rmse
 
     # Assemble outputs
-    # SNR output    
+    # SNR output
     snrdf = pd.DataFrame()
-    for m,snr in zip(res.metabs,snrPeaks):
-            snrdf[f'SNR_{m}'] = pd.Series(snr)            
-    SNRobj = SNR(spectrum=snrSpec,peaks=snrdf,residual=snrResidual)
+    for m, snr in zip(res.metabs, snrPeaks):
+        snrdf[f'SNR_{m}'] = pd.Series(snr)
+    snrdf.fillna(0.0, inplace=True)
+
+    SNRobj = SNR(spectrum=snrSpec, peaks=snrdf, residual=snrResidual)
 
     fwhmdf = pd.DataFrame()
-    for m,width in zip(res.metabs,fwhm):
-            fwhmdf[f'fwhm_{m}'] = pd.Series(width)
-        
+    for m, width in zip(res.metabs, fwhm):
+        fwhmdf[f'fwhm_{m}'] = pd.Series(width)
+    fwhmdf.fillna(0.0, inplace=True)
 
-    return fwhmdf,SNRobj
+    return fwhmdf, SNRobj
 
 
 def calcQCOnResults(mrs,res,resparams,ppmlim):
@@ -89,14 +91,14 @@ def calcQCOnResults(mrs,res,resparams,ppmlim):
     # Generate masks for noise regions
     combinedSpectrum = np.zeros(mrs.FID.size)
     for basemrs in basisMRS:
-        combinedSpectrum += np.real(basemrs.getSpectrum())
+        combinedSpectrum += np.real(basemrs.get_spec())
 
     noisemask = idNoiseRegion(mrs,combinedSpectrum)
 
     # Calculate single spectrum SNR - based on max value of actual data in region
     # No apodisation applied.
-    allSpecHeight = np.max(np.real(mrs.getSpectrum(ppmlim=ppmlim)))
-    unApodNoise = noiseSD(mrs.getSpectrum(),noisemask)
+    allSpecHeight = np.max(np.real(mrs.get_spec(ppmlim=ppmlim)))
+    unApodNoise = noiseSD(mrs.get_spec(),noisemask)
     specSNR = allSpecHeight/unApodNoise
 
     fwhm = []
@@ -141,7 +143,7 @@ def idPeaksCalcFWHM(mrs,estimatedFWHM=15.0,ppmlim=(0.2,4.2)):
 
     """
     fwhmInPnts = estimatedFWHM/(mrs.bandwidth/mrs.numPoints)
-    spectrum = np.real(mrs.getSpectrum(ppmlim=ppmlim))
+    spectrum = np.real(mrs.get_spec(ppmlim=ppmlim))
     with np.errstate(divide='ignore', invalid='ignore'): 
         spectrum /= np.max(spectrum)
     
@@ -170,7 +172,10 @@ def generateBasisFromRes(mrs,res,resparams):
                               basisSelect= metab,
                               noBaseline=True)
         pred = SpecToFID(pred) # predict FID not Spec
-        mrsOut = MRS(pred,cf=mrs.centralFrequency,bw=mrs.bandwidth)
+        mrsOut = MRS(pred,
+                     cf=mrs.centralFrequency,
+                     bw=mrs.bandwidth,
+                     nucleus=mrs.nucleus)
         mrsFits.append(mrsOut)
     return mrsFits
 
@@ -196,7 +201,7 @@ def matchedFilterSNR(mrs,basismrs,lw,noisemask,ppmlim):
 def detectOS(mrs,noiseregionmask):
     """ If OS is detected restrict noise region to inner half"""
 
-    sdSpec = getNoiseSDDist(np.real(mrs.getSpectrum()),noiseregionmask)
+    sdSpec = getNoiseSDDist(np.real(mrs.get_spec()),noiseregionmask)
     sdSpec /= np.nanmean(sdSpec)
     sdSpec = sdSpec[~np.isnan(sdSpec)]
     npoints = sdSpec.size

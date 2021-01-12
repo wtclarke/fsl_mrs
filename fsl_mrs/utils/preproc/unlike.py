@@ -113,7 +113,7 @@ def identifyUnlikeFIDs_report(goodFIDs,badFIDs,hdr,keepIndicies,rmIndicies,metri
     # Add lines to figure
     def addline(fig,mrs,lim,name,linestyle):
         trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                        y=np.real(mrs.getSpectrum(ppmlim=lim)),
+                        y=np.real(mrs.get_spec(ppmlim=lim)),
                         mode='lines',
                         name=name,
                         line=linestyle)
@@ -181,15 +181,15 @@ def identifyUnlikeFIDs_report(goodFIDs,badFIDs,hdr,keepIndicies,rmIndicies,metri
 #     fig = plt.figure(figsize=(13,10))
 #     for idx,fid in enumerate(plotGood):
 #             if idx == 0:
-#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'g',label='Kept')
+#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'g',label='Kept')
 #             else:
-#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'g')
+#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'g')
 #     for idx,fid in enumerate(plotBad):
 #             if idx == 0:
-#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'r',label='Removed')
+#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'r',label='Removed')
 #             else:
-#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.getSpectrum(ppmlim=ppmlim)),'r')
-#     plt.plot(tgtmrs.getAxes(ppmlim=ppmlim),np.real(tgtmrs.getSpectrum(ppmlim=ppmlim)),'k',label='Target')
+#                 plt.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'r')
+#     plt.plot(tgtmrs.getAxes(ppmlim=ppmlim),np.real(tgtmrs.get_spec(ppmlim=ppmlim)),'k',label='Target')
 #     styleSpectrumAxes(plt.gca())    
 #     plt.legend()
 #     plt.show()
@@ -204,11 +204,11 @@ def identifyUnlikeFIDs_report(goodFIDs,badFIDs,hdr,keepIndicies,rmIndicies,metri
 #     ax.set_prop_cycle(color =colors)
 #     for idx,bdidx in enumerate(bdIndex[::2]):
 #         metSD = np.abs(metricBd[bdidx]-metric_avg)/metric_std
-#         plt.plot(plotBad[bdidx].getAxes(ppmlim=ppmlim),np.real(plotBad[bdidx].getSpectrum(ppmlim=ppmlim)),label=f'Removed {idx*2} (SD={metSD:0.2f})')
+#         plt.plot(plotBad[bdidx].getAxes(ppmlim=ppmlim),np.real(plotBad[bdidx].get_spec(ppmlim=ppmlim)),label=f'Removed {idx*2} (SD={metSD:0.2f})')
 
 #     metSD = np.abs(metricGd[gdIndex[0]]-metric_avg)/metric_std
-#     plt.plot(plotGood[gdIndex[0]].getAxes(ppmlim=ppmlim),np.real(plotGood[gdIndex[0]].getSpectrum(ppmlim=ppmlim)),'g',label=f'Kept (SD={metSD:0.2f})')
-#     plt.plot(tgtmrs.getAxes(ppmlim=ppmlim),np.real(tgtmrs.getSpectrum(ppmlim=ppmlim)),'k',label='Target')
+#     plt.plot(plotGood[gdIndex[0]].getAxes(ppmlim=ppmlim),np.real(plotGood[gdIndex[0]].get_spec(ppmlim=ppmlim)),'g',label=f'Kept (SD={metSD:0.2f})')
+#     plt.plot(tgtmrs.getAxes(ppmlim=ppmlim),np.real(tgtmrs.get_spec(ppmlim=ppmlim)),'k',label='Target')
 #     styleSpectrumAxes(plt.gca())
 #     plt.legend()
 #     plt.show()

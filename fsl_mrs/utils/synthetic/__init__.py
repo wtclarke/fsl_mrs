@@ -1,1 +1,3 @@
 from fsl_mrs.utils.synthetic.synthetic import syntheticFID
+from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
+from fsl_mrs.utils.synthetic.synthetic_from_dynamic import synthetic_spectra_from_model

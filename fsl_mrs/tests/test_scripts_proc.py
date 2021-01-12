@@ -17,7 +17,7 @@ import subprocess
 @pytest.fixture
 def svs_data(tmp_path):
     reps = 3
-    noiseconv = 0.1*np.eye(reps)
+    noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
@@ -40,7 +40,7 @@ def svs_data(tmp_path):
 @pytest.fixture
 def mrsi_data(tmp_path):
     reps = 3
-    noiseconv = 0.1*np.eye(reps)
+    noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
@@ -63,9 +63,9 @@ def mrsi_data(tmp_path):
 @pytest.fixture
 def svs_data_uncomb(tmp_path):
     coils = 4
-    noiseconv = 0.1*np.eye(coils)
+    noiseconv = 0.1 * np.eye(coils)
     coilamps = np.random.randn(coils)
-    coilphs = np.random.random(coils)*2*np.pi
+    coilphs = np.random.random(coils) * 2 * np.pi
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
                             coilphase=coilphs)
@@ -83,9 +83,9 @@ def svs_data_uncomb(tmp_path):
 @pytest.fixture
 def mrsi_data_uncomb(tmp_path):
     coils = 4
-    noiseconv = 0.1*np.eye(coils)
+    noiseconv = 0.1 * np.eye(coils)
     coilamps = np.random.randn(coils)
-    coilphs = np.random.random(coils)*2*np.pi
+    coilphs = np.random.random(coils) * 2 * np.pi
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
                             coilphase=coilphs)
@@ -103,7 +103,7 @@ def mrsi_data_uncomb(tmp_path):
 @pytest.fixture
 def svs_data_diff(tmp_path):
     reps = 2
-    noiseconv = 0.1*np.eye(reps)
+    noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
@@ -140,7 +140,7 @@ def svs_data_diff(tmp_path):
 @pytest.fixture
 def mrsi_data_diff(tmp_path):
     reps = 2
-    noiseconv = 0.1*np.eye(reps)
+    noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
@@ -300,7 +300,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     allFileData = [d for d in svsdata]
     directRun, _, _ = preproc.phase_freq_align(allFileData,
                                                4000,
-                                               123E6,
+                                               123.2E6,
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
@@ -325,7 +325,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     allFileData = [d[2, 2, 2, ...] for d in mrsidata[0:3]]
     directRun, _, _ = preproc.phase_freq_align(allFileData,
                                                4000,
-                                               123E6,
+                                               123.2E6,
                                                niter=2,
                                                ppmlim=[-10.0, 10.0],
                                                verbose=False,
@@ -393,8 +393,8 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     # Run using preproc.py directly
     limits = (-10, 10)
     directRun = preproc.hlsvd(svsdata[0],
-                              1/4000,
-                              123.0,
+                              1 / 4000,
+                              123.2,
                               limits,
                               limitUnits='ppm+shift')
 
@@ -415,8 +415,8 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     # Run using preproc.py directly
     limits = (-10, 10)
     directRun = preproc.hlsvd(mrsidata[0][2, 2, 2, ...],
-                              1/4000.0,
-                              123.0,
+                              1 / 4000.0,
+                              123.2,
                               limits,
                               limitUnits='ppm+shift')
 
@@ -425,9 +425,9 @@ def test_remove(svs_data, mrsi_data, tmp_path):
 
 def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
     svsfile1, svsfile2, svsdata1, svsdata2 = svs_data_diff[0], \
-                                             svs_data_diff[1], \
-                                             svs_data_diff[2], \
-                                             svs_data_diff[3]
+        svs_data_diff[1], \
+        svs_data_diff[2], \
+        svs_data_diff[3]
     # mrsifile1, mrsifile2, mrsidata1, mrsidata2 = mrsi_data_diff[0], \
     #                                              mrsi_data_diff[1], \
     #                                              mrsi_data_diff[2], \
@@ -450,7 +450,7 @@ def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
     directRun, _, _, _ = preproc.phase_freq_align_diff(svsdata1,
                                                        svsdata2,
                                                        4000,
-                                                       123E6,
+                                                       123.2E6,
                                                        ppmlim=[-10.0, 10.0])
 
     assert np.isclose(data, directRun[0]).all()
@@ -472,7 +472,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
                                  squeezeSVS=True)
 
     # Run using preproc.py directly
-    directRun = preproc.freqshift(svsdata[0], 1/4000, 1.0*123)
+    directRun = preproc.freqshift(svsdata[0], 1 / 4000, 1.0 * 123.2)
 
     assert np.allclose(data, directRun)
 
@@ -493,7 +493,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     directRun, _ = preproc.shiftToRef(svsdata[0],
                                       4.0,
                                       4000.0,
-                                      123E6,
+                                      123.2E6,
                                       ppmlim=(-5.0, 5.0))
 
     assert np.allclose(data, directRun)
@@ -556,14 +556,14 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
 
     # Run using numpy directly
     directRun = preproc.applyPhase(svsdata[0],
-                                   (np.pi/180.0)*90)
+                                   (np.pi / 180.0) * 90)
 
     directRun, newDT = preproc.timeshift(
-            directRun,
-            1/4000,
-            0.001,
-            0.001,
-            samples=directRun.size)
+        directRun,
+        1 / 4000,
+        0.001,
+        0.001,
+        samples=directRun.size)
 
     assert np.allclose(data, directRun)
 
@@ -582,13 +582,13 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
 
     # Run using preproc.py directly
     directRun = preproc.applyPhase(mrsidata[0][2, 2, 2, ...],
-                                   (np.pi/180.0)*90)
+                                   (np.pi / 180.0) * 90)
 
     directRun, newDT = preproc.timeshift(
-            directRun,
-            1/4000,
-            0.001,
-            0.001,
-            samples=directRun.size)
+        directRun,
+        1 / 4000,
+        0.001,
+        0.001,
+        samples=directRun.size)
 
     assert np.allclose(data[2, 2, 2, ...], directRun)

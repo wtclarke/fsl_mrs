@@ -1,4 +1,5 @@
 import datetime
+import fsl_mrs
 date = datetime.date.today()
 
 # Configuration file for the Sphinx documentation builder.
@@ -25,7 +26,7 @@ copyright = f'{date.year}, Will Clarke & Saad Jbabdi, University of Oxford, Oxfo
 author = 'William Clarke'
 
 # The full version, including alpha/beta/rc tags
-version = '1.0.5'
+version = fsl_mrs.__version__
 release = version
 
 # From PM's fsleyes doc

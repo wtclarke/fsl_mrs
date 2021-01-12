@@ -9,7 +9,7 @@ FSL-MRS is a collection of python modules and wrapper scripts for pre-processing
 ### Installation 
 
 #### Conda package
-The primary installation method is via _conda_. After installing conda and creating or activating a suitable [enviroment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) you can install FSL-MRS from the FSL conda channel.
+The primary installation method is via _conda_. After installing conda and creating or activating a suitable [environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) you can install FSL-MRS from the FSL conda channel.
 
     conda install -c conda-forge \
                   -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
@@ -32,7 +32,7 @@ or
 
     pip install spec2nii
 
-After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/quick_start.html).
+After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/quick_start.html).
 
 ---
 
@@ -59,7 +59,7 @@ After installation see the [quick start guide](https://users.fmrib.ox.ac.uk/~saa
 
 ### Documentation
 
-Documentation can be found online [here](https://users.fmrib.ox.ac.uk/~saad/fsl_mrs/html/index.html).
+Documentation can be found online on the [WIN open science website](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/).
 
 For each of the wrapper scripts above, simply type `<name_of_script> --help` to get the usage.
 

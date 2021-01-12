@@ -112,7 +112,7 @@ def hlsvd_report(inFID, outFID, hdr, limits, limitUnits='ppm',
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                           y=np.real(mrs.getSpectrum(ppmlim=lim)),
+                           y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
                            line=linestyle)

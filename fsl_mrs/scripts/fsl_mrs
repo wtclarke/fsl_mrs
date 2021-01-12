@@ -9,7 +9,7 @@
 # SHBASECOPYRIGHT
 
 # Quick imports
-from fsl_mrs.aux import configargparse
+from fsl_mrs.auxiliary import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
@@ -99,6 +99,8 @@ def main():
                           nargs='+',
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
+    optional.add_argument('--h2o_scale', type=float, default=1.0,
+                          help='Additional scaling modifier for external water referencing.')
     optional.add_argument('--central_frequency', default=None, type=float,
                           help='central frequency in Hz')
     optional.add_argument('--dwell_time', default=None, type=float,
@@ -204,7 +206,7 @@ def main():
                         'Please either set it or include it in data header'))
 
     if args.dwell_time is not None:
-        bw = 1/args.dwell_time
+        bw = 1 / args.dwell_time
     elif dataheader['bandwidth'] is not None:
         bw = dataheader['bandwidth']
         if args.verbose:
@@ -216,7 +218,7 @@ def main():
     # Fix case where basis file contains no header info (e.g. .RAW)
     if basisheader is None:
         basisheader = {'bandwidth': bw,
-                       'dwelltime': 1/bw,
+                       'dwelltime': 1 / bw,
                        'centralFrequency': cf}
     else:
         basisheader = basisheader[0]
@@ -257,7 +259,6 @@ def main():
         if args.verbose:
             print('--->>  Phase correction\n')
         mrs.FID = misc.phase_correct(mrs, mrs.FID)
-        mrs.Spec = misc.FIDToSpec(mrs.FID)
 
     # Keep/Ignore metabolites
     mrs.keep(args.keep)
@@ -281,7 +282,7 @@ def main():
         if not args.verbose:
             print('Adding macromolecules')
         nMM = mrs.add_MM_peaks(gamma=10, sigma=20)
-        G = [i+max(metab_groups)+1 for i in range(nMM)]
+        G = [i + max(metab_groups) + 1 for i in range(nMM)]
         metab_groups += G
 
     # Choose fitting lineshape model.
@@ -310,7 +311,7 @@ def main():
     # Quantification
     # Echo time
     if args.TE is not None:
-        echotime = args.TE*1E-3
+        echotime = args.TE * 1E-3
     elif 'meta' in basisheader:
         if 'TE' in basisheader['meta']:
             echotime = basisheader['meta']['TE']
@@ -330,20 +331,23 @@ def main():
                           ' no absolute quantification will be performed.',
                           UserWarning)
         res.calculateConcScaling(mrs, referenceMetab=args.internal_ref)
-    elif args.tissue_frac is None:
-        res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=None,
-                                 TE=echotime,
-                                 verbose=args.verbose)
-    else:
+    elif args.tissue_frac is not None:
         res.calculateConcScaling(mrs,
                                  referenceMetab=args.internal_ref,
                                  waterRefFID=mrs.H2O,
                                  tissueFractions=args.tissue_frac,
                                  TE=echotime,
-                                 verbose=args.verbose)
+                                 verbose=args.verbose,
+                                 add_scale=args.h2o_scale)
+    else:
+        res.calculateConcScaling(mrs,
+                                 referenceMetab=args.internal_ref,
+                                 waterRefFID=mrs.H2O,
+                                 tissueFractions=None,
+                                 TE=echotime,
+                                 verbose=args.verbose,
+                                 add_scale=args.h2o_scale)
+
     # Combine metabolites.
     if args.combine is not None:
         res.combine(args.combine)
@@ -351,7 +355,7 @@ def main():
 
     # Report on the fitting
     if args.verbose:
-        duration = stop-start
+        duration = stop - start
         print(f'    Fitting lasted          : {duration:.3f} secs.\n')
     # Save output files
     if args.verbose:
