@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-WIP
----
+1.0.6 (Tuesday 12th January 2021)
+---------------------------------
 - Internal changes to core MRS class.
 - New plotting functions added, utility functions for plotting added to MRS class.
 - fsl_mrs/aux folder renamed for Windows compatibility.
@@ -10,6 +10,7 @@ WIP
 - Synthetic spectra now use fitting model directly.
 - Bug fixes in the fsl_Mrs commandline interface. Thanks to Alex Craig-Craven.
 - WIP: Dynamic fitting model and dynamic experiment simulation.
+- spec2nii requirement pinned to 0.2.11 during NIFTI-MRS development.
 
 1.0.5 (Friday 9th October 2020)
 -------------------------------
