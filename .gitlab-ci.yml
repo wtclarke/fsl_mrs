@@ -109,7 +109,9 @@ pytest:
 ############
 
 pages:
-  <<: *only_tags_master
+  only:
+    - master@wclarke/fsl_mrs
+    - tags@fsl/fsl_mrs
   image: python:3.7
   stage: doc
   script:
