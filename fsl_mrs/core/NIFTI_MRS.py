@@ -37,6 +37,22 @@ class NIFTI_MRS(Image):
                 else:
                     self.dim_tags[idx] = std_tags[idx]
 
+    def __getitem__(self, sliceobj):
+        '''Apply conjugation at use. This swaps from the
+        NIFTI-MRS and Levvit inspired right-handed reference frame
+        to a left-handed one, which FSL-MRS development started in.'''
+        # print(f'getting {sliceobj} to conjugate {super().__getitem__(sliceobj)}')
+        return super().__getitem__(sliceobj).conj()
+
+    def __setitem__(self, sliceobj, values):
+        '''Apply conjugation back at write. This swaps from the
+        FSL-MRS left handed convention to the NIFTI-MRS and Levvit
+        inspired right-handed reference frame.'''
+        # print(f'setting {sliceobj} to conjugate of {values[0]}')
+        # print(super().__getitem__(sliceobj)[0])
+        super().__setitem__(sliceobj, values.conj())
+        # print(super().__getitem__(sliceobj)[0])
+
     @property
     def mrs_nifti_version(self):
         '''Get version string'''
@@ -47,6 +63,10 @@ class NIFTI_MRS(Image):
     def dwelltime(self):
         '''Return bandwidth in seconds'''
         return self.header['pixdim'][4]
+
+    @dwelltime.setter
+    def dwelltime(self, new_dt):
+        self.header['pixdim'][4] = new_dt
 
     @property
     def bandwidth(self):
@@ -261,3 +281,10 @@ class NIFTI_MRS(Image):
         if len(out) == 1:
             out = out[0]
         return out
+
+    # If save called do some hairy temporary conjugation
+    # The save method of fsl.data.image.Image makes a call
+    # to __getitem__ resulting in a final undesired conjugation.
+    def save(self, filename=None):
+        self[:] = self[:].conj()
+        super().save(filename=filename)

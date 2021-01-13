@@ -1,43 +1,43 @@
-#!/usr/bin/env python
-
 # shifting.py - Shifting routines
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import numpy as np
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
 
-def timeshift(FID,dwelltime,shiftstart,shiftend,samples=None):
+
+def timeshift(FID, dwelltime, shiftstart, shiftend, samples=None):
     """ Shift data on time axis
-    
+
     Args:
         FID (ndarray): Time domain data
         dwelltime (float): dwell time in seconds
-        shiftstart (float): Shift start point in seconds 
+        shiftstart (float): Shift start point in seconds
         shiftend (float): Shift end point in seconds
         samples (int, optional): Resample to this number of points
 
     Returns:
         FID (ndarray): Shifted FID
     """
-    originalAcqTime = dwelltime*(FID.size-1)    
-    originalTAxis = np.linspace(0,originalAcqTime,FID.size)
-    if samples is None:        
+    originalAcqTime = dwelltime * (FID.size - 1)
+    originalTAxis = np.linspace(0, originalAcqTime, FID.size)
+    if samples is None:
         newDT = dwelltime
     else:
-        totalacqTime = originalAcqTime-shiftstart+shiftend
-        newDT = totalacqTime/samples
-    newTAxis = np.arange(originalTAxis[0]+shiftstart,originalTAxis[-1]+shiftend,newDT)
-    FID = np.interp(newTAxis,originalTAxis,FID,left=0.0+1j*0.0, right=0.0+1j*0.0)
+        totalacqTime = originalAcqTime - shiftstart + shiftend
+        newDT = totalacqTime / samples
+    newTAxis = np.arange(originalTAxis[0] + shiftstart, originalTAxis[-1] + shiftend, newDT)
+    FID = np.interp(newTAxis, originalTAxis, FID, left=0.0 + 1j * 0.0, right=0.0 + 1j * 0.0)
 
-    return FID,newDT
+    return FID, newDT
 
-def freqshift(FID,dwelltime,shift):
+
+def freqshift(FID, dwelltime, shift):
     """ Shift data on frequency axis
     
     Args:
@@ -116,22 +116,29 @@ def pad(FID,k,first_or_last='last'):
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
-def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function='shift'):
+
+def shift_report(inFID,
+                 outFID,
+                 inHdr,
+                 outHdr,
+                 ppmlim=(0.2, 4.2),
+                 html=None,
+                 function='shift'):
     """
     Generate report
     """
     import plotly.graph_objects as go
-    from plotly.subplots import make_subplots  
-    from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
+    from plotly.subplots import make_subplots
+    from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    plotIn = MRS(FID=inFID,header=inHdr) 
-    plotOut = MRS(FID=outFID,header=outHdr) 
+    plotIn = MRS(FID=inFID, header=inHdr)
+    plotOut = MRS(FID=outFID, header=outHdr)
 
     # Fetch line styles
-    lines,colors,_ = plotStyles()
+    lines, _, _ = plotStyles()
 
     # Make a new figure
-    fig = make_subplots(rows=1, cols=2,subplot_titles=['Spectra','FID'])
+    fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
 
     # Add lines to figure
     trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
@@ -144,8 +151,8 @@ def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])
-    fig.add_trace(trace1,row=1,col=1)   
-    fig.add_trace(trace2,row=1,col=1)
+    fig.add_trace(trace1, row=1, col=1)
+    fig.add_trace(trace2, row=1, col=1)
 
     # Add lines to figure
     trace3 = go.Scatter(x=plotIn.getAxes(axis='time'),
@@ -158,17 +165,18 @@ def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function
                         mode='lines',
                         name='Shifted',
                         line=lines['diff'])
-    fig.add_trace(trace3,row=1,col=2)   
-    fig.add_trace(trace4,row=1,col=2)
+    fig.add_trace(trace3, row=1, col=2)
+    fig.add_trace(trace4, row=1, col=2)
 
     # Axes layout
-    plotAxesStyle(fig,ppmlim,title = 'Shift summary')
-    fig.layout.xaxis2.update(title_text='Time (s)')        
-    fig.layout.yaxis2.update(zeroline=True, 
-                             zerolinewidth=1, 
+    plotAxesStyle(fig, ppmlim, title='Shift summary')
+    fig.layout.xaxis2.update(title_text='Time (s)')
+    fig.layout.yaxis2.update(zeroline=True,
+                             zerolinewidth=1,
                              zerolinecolor='Gray',
-                             showgrid=False,showticklabels=False)
-   
+                             showgrid=False,
+                             showticklabels=False)
+
     if html is not None:
         from plotly.offline import plot
         from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
@@ -176,28 +184,28 @@ def shift_report(inFID,outFID,inHdr,outHdr,ppmlim = (0.2,4.2),html=None,function
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
-            htmlfile=op.join(html,filename)
-        elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3] + '.html'
+            htmlfile = op.join(html, filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1] == '.html':
             htmlfile = html
         else:
             raise ValueError('Report html path must be file or directory. ')
-        
-        operation,function,description = reportStrings(function)
+
+        operation, function, description = reportStrings(function)
 
         opName = operation
         timestr = datetime.now().strftime("%H:%M:%S")
         datestr = datetime.now().strftime("%d/%m/%Y")
         headerinfo = f'Report for fsl_mrs.utils.preproc.shifting.{function}.\n'\
-                    + f'Generated at {timestr} on {datestr}.'        
+            + f'Generated at {timestr} on {datestr}.'
         # Figures
-        div = plot(fig, output_type='div',include_plotlyjs='cdn')
-        figurelist = [figgroup(fig = div,
-                            name= '',
-                            foretext= f'{description}',
-                            afttext= f'')]
+        div = plot(fig, output_type='div', include_plotlyjs='cdn')
+        figurelist = [figgroup(fig=div,
+                               name='',
+                               foretext=f'{description}',
+                               afttext='')]
 
-        singleReport(htmlfile,opName,headerinfo,figurelist)
+        singleReport(htmlfile, opName, headerinfo, figurelist)
         return fig
     else:
         return fig
@@ -219,14 +227,14 @@ def reportStrings(funcName):
     elif funcName.lower() == 'pad':
         operation = 'Zero Pad'
         description = 'Zeropadding in time domain.'
-    elif funcName.lower() == 'shift': # Generic
+    elif funcName.lower() == 'shift':  # Generic
         operation = 'Shift'
         funcName = '####'
         description = 'Unspecified shift operation.'
     else:
         raise ValueError(f'{funcName} not recognised as function.')
 
-    return operation,funcName,description
+    return operation, funcName, description
 
 # def shift_report(inFID,outFID,hdr,ppmlim = (0.2,4.2)):
 #     from matplotlib import pyplot as plt
@@ -234,8 +242,8 @@ def reportStrings(funcName):
 
 #     toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
 #     plotIn = toMRSobj(inFID)
-#     plotOut = toMRSobj(outFID)    
-    
+#     plotOut = toMRSobj(outFID)
+
 #     fig,(ax1,ax2) = plt.subplots(1,2,figsize=(12,7))
 
 #     ax1.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)

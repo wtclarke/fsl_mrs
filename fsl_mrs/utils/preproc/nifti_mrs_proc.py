@@ -7,10 +7,16 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
 from fsl_mrs.utils import preproc
+from numpy import abs, zeros
+from fsl_mrs.core import NIFTI_MRS
 
 
 class DimensionsDoNotMatch(Exception):
     pass
+
+
+def first_index(idx):
+    return all([ii == slice(None, None, None) or ii == 0 for ii in idx])
 
 
 def coilcombine(data, reference=None, no_prewhiten=False, report=None, report_all=False):
@@ -18,7 +24,7 @@ def coilcombine(data, reference=None, no_prewhiten=False, report=None, report_al
     :param NIFTI_MRS data: Data to coil combine
     :param NIFTI_MRS reference: reference dataset to calculate weights
     :param no_prewhiten: True to disable prewhitening
-    :param report: Provide path to generate
+    :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
 
     :return: Combined data in NIFTI_MRS format.
@@ -46,15 +52,314 @@ def coilcombine(data, reference=None, no_prewhiten=False, report=None, report_al
                 'weighted',
                 weights=refWeights)
 
-        if report and (report_all or idx == 0):
+        if report and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            combine_FIDs_report(list(main.T),
-                                list(combinedc_obj[idx]),
+            combine_FIDs_report(main,
+                                combinedc_obj[idx],
                                 data.bandwidth,
-                                data.spectrometer_frequency,
-                                data.nucleus,
+                                data.spectrometer_frequency[0],
+                                data.nucleus[0],
                                 ncha=data.shape[data.dim_position('DIM_COIL')],
                                 ppmlim=(0.0, 6.0),
                                 method='svd',
+                                dim='DIM_COIL',
                                 html=report)
     return combinedc_obj
+
+
+def average(data, dim, report=None, report_all=False):
+    '''Average (take the mean) of FIDs across a dimension
+    specified by a tag.
+
+    :param NIFTI_MRS data: Data to average
+    :param str dim: NIFTI-MRS dimension tag
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Combined data in NIFTI_MRS format.
+    '''
+
+    combined_obj = data.copy(remove_dim=dim)
+    for dd, idx in data.iterate_over_dims(dim=dim,
+                                          iterate_over_space=True,
+                                          reduce_dim_index=True):
+        combined_obj[idx] = preproc.combine_FIDs(dd, 'mean')
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.combine import combine_FIDs_report
+            combine_FIDs_report(dd,
+                                combined_obj[idx],
+                                data.bandwidth,
+                                data.spectrometer_frequency[0],
+                                data.nucleus[0],
+                                ncha=data.shape[data.dim_position(dim)],
+                                ppmlim=(0.0, 6.0),
+                                method=f'Mean along dim = {dim}',
+                                html=report)
+    return combined_obj
+
+
+def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, report=None, report_all=False):
+    '''Align frequencies of spectra across a dimension
+    specified by a tag.
+
+    :param NIFTI_MRS data: Data to align
+    :param str dim: NIFTI-MRS dimension tag
+    :param target: Optional target FID
+    :param ppmlim: ppm search limits.
+    :param int niter: Number of total iterations
+    :param float apodize: Apply apodisation in Hz.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Combined data in NIFTI_MRS format.
+    '''
+
+    aligned_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(dim=dim,
+                                          iterate_over_space=True,
+                                          reduce_dim_index=True):
+
+        out = preproc.phase_freq_align(
+            dd.T,
+            data.bandwidth,
+            data.spectrometer_frequency[0],
+            nucleus=data.nucleus[0],
+            ppmlim=ppmlim,
+            niter=niter,
+            apodize=apodize,
+            verbose=False,
+            target=target)
+
+        aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.align import phase_freq_align_report
+            phase_freq_align_report(dd.T,
+                                    aligned_obj[idx].T,
+                                    phi,
+                                    eps,
+                                    data.bandwidth,
+                                    data.spectrometer_frequency[0],
+                                    nucleus=data.nucleus[0],
+                                    ppmlim=ppmlim,
+                                    html=report)
+    return aligned_obj
+
+
+def aligndiff(data,
+              reference,
+              dim,
+              diff_type,
+              target=None,
+              ppmlim=None,
+              report=None,
+              report_all=False):
+    '''Align frequencies of difference spectra across a dimension
+    specified by a tag.
+
+    :param NIFTI_MRS data: Data to align - data modified by alignment
+    :param NIFTI_MRS reference: Data to align - data not modified
+    :param str dim: NIFTI-MRS dimension tag
+    :param str diff_type: Either 'add' or 'sub'
+    :param target: Optional target FID
+    :param ppmlim: ppm search limits.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Combined data in NIFTI_MRS format.
+    '''
+    if data.shape[data.dim_position(dim)] != reference.shape[reference.dim_position(dim)]:
+        raise DimensionsDoNotMatch('Reference and data selected dimension does not match.')
+
+    aligned_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(dim=dim,
+                                          iterate_over_space=True,
+                                          reduce_dim_index=True):
+
+        out = preproc.phase_freq_align_diff(
+            dd.T,
+            reference[idx].T,
+            data.bandwidth,
+            data.spectrometer_frequency[0],
+            nucleus=data.nucleus[0],
+            diffType=diff_type,
+            ppmlim=ppmlim,
+            target=target)
+
+        aligned_obj[idx], _, phi, eps = out[0].T, out[1], out[2], out[3]
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report
+            phase_freq_align_diff_report(dd.T,
+                                         reference[idx].T,
+                                         aligned_obj[idx].T,
+                                         reference[idx].T,
+                                         phi,
+                                         eps,
+                                         data.bandwidth,
+                                         data.spectrometer_frequency[0],
+                                         nucleus=data.nucleus[0],
+                                         diffType=diff_type,
+                                         ppmlim=ppmlim,
+                                         html=report)
+    return aligned_obj
+
+
+def ecc(data, reference, report=None, report_all=False):
+    '''Apply eddy current correction using a reference dataset
+    :param NIFTI_MRS data: Data to eddy current correct
+    :param NIFTI_MRS reference: reference dataset to calculate phase
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Corrected data in NIFTI_MRS format.
+    '''
+    if data.shape != reference.shape:
+        raise DimensionsDoNotMatch('Reference and data shape must match.')
+
+    corrected_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+
+        corrected_obj[idx] = preproc.eddy_correct(dd, reference[idx])
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.eddycorrect import eddy_correct_report
+            eddy_correct_report(dd,
+                                corrected_obj[idx],
+                                reference[idx],
+                                data.bandwidth,
+                                data.spectrometer_frequency[0],
+                                nucleus=data.nucleus[0],
+                                html=report)
+
+    return corrected_obj
+
+
+def remove_peaks(data, limits, limit_units='ppm+shift', report=None, report_all=False):
+    '''Apply HLSVD to remove peaks from specta
+    :param NIFTI_MRS data: Data to remove peaks from
+    :param limits: ppm limits between which peaks will be removed
+    :param str limit_units: Can be 'Hz', 'ppm' or 'ppm+shift'.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Corrected data in NIFTI_MRS format.
+    '''
+    corrected_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+
+        corrected_obj[idx] = preproc.hlsvd(dd,
+                                           data.dwelltime,
+                                           data.spectrometer_frequency[0],
+                                           limits,
+                                           limitUnits=limit_units)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.remove import hlsvd_report
+            hlsvd_report(dd,
+                         corrected_obj[idx],
+                         limits,
+                         data.bandwidth,
+                         data.spectrometer_frequency[0],
+                         nucleus=data.nucleus[0],
+                         limitUnits=limit_units,
+                         html=report)
+
+    return corrected_obj
+
+
+def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, report=None, report_all=False):
+    '''Apply time shift or resampling to each FID
+    :param NIFTI_MRS data: Data to shift
+    :param float tshiftStart: Shift start time (s), negative padds with zeros
+    :param float tshiftEnd: Shift end time (s), negative truncates
+    :param float samples: Resample to this many points
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Shifted data in NIFTI_MRS format.
+    '''
+    if samples is None:
+        samples = data.shape[3]
+        shifted_obj = data.copy()
+    else:
+        new_shape = list(data.shape)
+        new_shape[3] = samples
+        shifted_obj = NIFTI_MRS(
+            zeros(new_shape, dtype=data.dtype),
+            header=data.header)
+    
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        shifted_obj[idx], newDT = preproc.timeshift(dd,
+                                                    data.dwelltime,
+                                                    tshiftStart,
+                                                    tshiftEnd,
+                                                    samples)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.shifting import shift_report
+
+            original_hdr = {'bandwidth': data.bandwidth,
+                            'centralFrequency': data.spectrometer_frequency[0],
+                            'ResonantNucleus': data.nucleus[0]}
+            new_hdr = {'bandwidth': 1 / newDT,
+                       'centralFrequency': data.spectrometer_frequency[0],
+                       'ResonantNucleus': data.nucleus[0]}
+            shift_report(dd,
+                         shifted_obj[idx],
+                         original_hdr,
+                         new_hdr,
+                         html=report,
+                         function='timeshift')
+
+    shifted_obj.dwelltime = newDT
+
+    return shifted_obj
+
+
+def truncate_or_pad(data, npoints, position, report=None, report_all=False):
+    '''Truncate or pad by integer number of points
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param int npoints: Pad (positive) or truncate (negative) by npoints
+    :param str position: 'first' or 'last', add or remove points at the
+    start or end of the FID
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Padded or truncated data in NIFTI_MRS format.
+    '''
+
+    new_shape = list(data.shape)
+    new_shape[3] += npoints
+    trunc_obj = NIFTI_MRS(
+        zeros(new_shape, dtype=data.dtype),
+        header=data.header)
+
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        if npoints > 0:
+            trunc_obj[idx] = preproc.pad(dd,
+                                         abs(npoints),
+                                         position)
+            rep_func = 'pad'
+        elif npoints < 0:
+            trunc_obj[idx] = preproc.truncate(dd,
+                                              abs(npoints),
+                                              position)
+            rep_func = 'truncate'
+        else:
+            rep_func = 'none'
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.shifting import shift_report
+            original_hdr = {'bandwidth': data.bandwidth,
+                            'centralFrequency': data.spectrometer_frequency[0],
+                            'ResonantNucleus': data.nucleus[0]}
+
+            shift_report(dd,
+                         trunc_obj[idx],
+                         original_hdr,
+                         original_hdr,
+                         html=report,
+                         function=rep_func)
+    return trunc_obj

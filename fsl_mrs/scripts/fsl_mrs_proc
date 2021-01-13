@@ -608,7 +608,7 @@ def aligndiff(dataobj, args):
     # This currently contains a bit of a hack - I use reference
     # as a way to load the sub spectra that won't be shifted
     bandwidth = dataobj[0].dataheader['bandwidth']
-    centralFrequency = dataobj[0].dataheader['centralFrequency']*1E6
+    centralFrequency = dataobj[0].dataheader['centralFrequency'] * 1E6
     allFIDs0 = [d.data for d in dataobj]
     allFIDs1 = [d.reference for d in dataobj]
     for ijk in np.ndindex(dataobj[0].data.shape[:3]):
@@ -616,12 +616,12 @@ def aligndiff(dataobj, args):
         FIDlist1 = [fid[ijk] for fid in allFIDs1]
 
         tmpFIDS0, tmpFIDS1, phi, eps = preproc.phase_freq_align_diff(
-                                                    FIDlist0,
-                                                    FIDlist1,
-                                                    bandwidth,
-                                                    centralFrequency,
-                                                    ppmlim=args['ppm'],
-                                                    diffType=args['diff_type'])
+            FIDlist0,
+            FIDlist1,
+            bandwidth,
+            centralFrequency,
+            ppmlim=args['ppm'],
+            diffType=args['diff_type'])
 
         if args['generateReports'] and np.prod(dataobj[0].data.shape[:3]) == 1:
             from fsl_mrs.utils.preproc.align \

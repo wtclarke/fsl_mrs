@@ -1,25 +1,23 @@
-#!/usr/bin/env python
-
 # combine.py - Module containing functions for combining FIDs, includes coil combination
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-
-
 import numpy as np
+
 
 def dephase(FIDlist):
     """
       Uses first data point of each FID to dephase each FID in list
       Returns a list of dephased FIDs
     """
-    return [fid*np.exp(-1j*np.angle(fid[0])) for fid in FIDlist]
+    return [fid * np.exp(-1j * np.angle(fid[0])) for fid in FIDlist]
 
-def prewhiten(FIDlist,prop=.1,C=None):
+
+def prewhiten(FIDlist, prop=.1, C=None):
     """
        Uses noise covariance to prewhiten data
 
@@ -29,28 +27,29 @@ def prewhiten(FIDlist,prop=.1,C=None):
     prop    : proportion of data used to estimate noise covariance
     C       : noise covariance matrix, if provided it is not measured from data.
 
-    Returns : 
+    Returns :
     list of FIDs
     pre-whitening matrix
     noise covariance matrix
     """
-    FIDs = np.asarray(FIDlist,dtype=np.complex)
+    FIDs = np.asarray(FIDlist, dtype=np.complex)
     if C is None:
         # Estimate noise covariance
-        start = int((1-prop)*FIDs.shape[0])
+        start = int((1 - prop) * FIDs.shape[0])
         # Raise warning if not enough samples
-        if (FIDs.shape[0]-start)<1.5*FIDs.shape[1]:
+        if (FIDs.shape[0] - start) < 1.5 * FIDs.shape[1]:
             raise(Warning('You may not have enough samples to robustly estimate the noise covariance'))
-        C     = np.cov(FIDs[start:,:],rowvar=False)
+        C     = np.cov(FIDs[start:, :], rowvar=False)
 
-    D,V   = np.linalg.eigh(C,UPLO='U') #UPLO = 'U' to match matlab implementation    
+    D, V = np.linalg.eigh(C, UPLO='U')  # UPLO = 'U' to match matlab implementation
     # Pre-whitening matrix
-    W     = V@np.diag(1/np.sqrt(D))
+    W = V @ np.diag(1 / np.sqrt(D))
     # Pre-whitened data
-    FIDs = FIDs@W
-    return FIDs,W,C
+    FIDs = FIDs @ W
+    return FIDs, W, C
 
-def svd_reduce(FIDlist,W=None,C=None,return_alpha=False):
+
+def svd_reduce(FIDlist, W=None, C=None, return_alpha=False):
     """
     Combine different channels by SVD method
     Based on C.T. Rodgers and M.D. Robson, Magn Reson Med 63:881–891, 2010
@@ -67,38 +66,39 @@ def svd_reduce(FIDlist,W=None,C=None,return_alpha=False):
     array-like (sensitivities) - optional
     """
     FIDs  = np.asarray(FIDlist)
-    U,S,V = np.linalg.svd(FIDs,full_matrices=False)
+    U, S, V = np.linalg.svd(FIDs, full_matrices=False)
     # U,S,V = svds(FIDs,k=1)  #this is much faster but fails for two coil case
 
-    nCoils = FIDs.shape[1]
-    svdQuality = ((S[0]/np.linalg.norm(S))*np.sqrt(nCoils)-1)/(np.sqrt(nCoils)-1)
+    # nCoils = FIDs.shape[1]
+    # svdQuality = ((S[0] / np.linalg.norm(S)) * np.sqrt(nCoils) - 1) / (np.sqrt(nCoils) - 1)
 
     # get arbitrary amplitude
     iW = np.eye(FIDs.shape[1])
     if W is not None:
         iW = np.linalg.inv(W)
-    amp = V[0,:]@iW
-    
+    amp = V[0, :] @ iW
+
     # arbitrary scaling here such that the first coil weight is real and positive
-    svdRescale = np.linalg.norm(amp)*(amp[0]/np.abs(amp[0]))
+    svdRescale = np.linalg.norm(amp) * (amp[0] / np.abs(amp[0]))
 
     # combined channels
-    FID = U[:,0]*S[0]*svdRescale
+    FID = U[:, 0] * S[0] * svdRescale
 
     if return_alpha:
-        # sensitivities per channel        
+        # sensitivities per channel
         # alpha = amp/svdRescale # equivalent to svdCoilAmplitudes in matlab implementation
 
         # Instead incorporate the effect of the whitening stage as well.
         if C is None:
-            C = np.eye(FIDs.shape[1])        
-        scaledAmps = (amp/svdRescale).conj().T
-        alpha = np.linalg.inv(C)@scaledAmps * svdRescale.conj() * svdRescale    
-        return FID,alpha
+            C = np.eye(FIDs.shape[1])
+        scaledAmps = (amp / svdRescale).conj().T
+        alpha = np.linalg.inv(C) @ scaledAmps * svdRescale.conj() * svdRescale
+        return FID, alpha
     else:
         return FID
 
-def weightedCombination(FIDlist,weights):
+
+def weightedCombination(FIDlist, weights):
     """
     Combine different FIDS with different complex weights
 
@@ -109,21 +109,22 @@ def weightedCombination(FIDlist,weights):
 
     Returns:
     --------
-    array-like (FID)    
+    array-like (FID)
     """
-    if isinstance(FIDlist,list):
+    if isinstance(FIDlist, list):
         FIDlist  = np.asarray(FIDlist)
-    if isinstance(weights,list):
+    if isinstance(weights, list):
         weights = np.asarray(weights)
     # combine channels
-    FID = np.sum(FIDlist*weights[None,:],axis=1)
+    FID = np.sum(FIDlist * weights[None, :], axis=1)
 
     return FID
 
-def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_correct=False,weights=None):
+
+def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=None):
     """
        Combine FIDs (either from multiple coils or multiple averages)
-    
+
     Parameters:
     -----------
     FIDlist   : list of FIDs or array with time dimension first
@@ -137,14 +138,14 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
 
     """
 
-    if isinstance(FIDlist,list):
+    if isinstance(FIDlist, list):
         FIDlist = np.asarray(FIDlist).T
 
     # Pre-whitening
     W = None
     C = None
     if do_prewhiten:
-        FIDlist,W,C = prewhiten(FIDlist)
+        FIDlist, W, C = prewhiten(FIDlist)
 
     # Dephasing
     if do_dephase:
@@ -152,13 +153,13 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
 
     # Combining channels
     if method == 'mean':
-        return np.mean(FIDlist,axis=-1).T
+        return np.mean(FIDlist, axis=-1).T
     elif method == 'svd':
-        return svd_reduce(FIDlist,W)
+        return svd_reduce(FIDlist, W)
     elif method == 'svd_weights':
-        return svd_reduce(FIDlist,W,C,return_alpha=True)
+        return svd_reduce(FIDlist, W, C, return_alpha=True)
     elif method == 'weighted':
-        return weightedCombination(FIDlist,weights)
+        return weightedCombination(FIDlist, weights)
     else:
         raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
 
@@ -171,6 +172,7 @@ def combine_FIDs_report(inFIDs,
                         ncha=2,
                         ppmlim=(0.0, 6.0),
                         method='not specified',
+                        dim=None,
                         html=None):
     """ Take list of FIDs that are passed to combine and output
 
@@ -182,59 +184,61 @@ def combine_FIDs_report(inFIDs,
     from matplotlib.pyplot import cm
 
     def toMRSobj(fid):
-        MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
+        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
 
     # Assemble data to plot
     toPlotIn = []
     colourVecIn = []
     legendIn = []
     if isinstance(inFIDs, list):
-        for idx,fid in enumerate(inFIDs):
-            if inFIDs[0].ndim>1:
-                toPlotIn.extend([toMRSobj(f) for f in fid[:,:ncha].T])
-                colourVecIn.extend([idx/len(inFIDs)]*ncha)
+        for idx, fid in enumerate(inFIDs):
+            if inFIDs[0].ndim > 1 and dim == 'DIM_COIL':
+                toPlotIn.extend([toMRSobj(f) for f in fid[:, :ncha].T])
+                colourVecIn.extend([idx / len(inFIDs)] * ncha)
                 legendIn.extend([f'FID #{idx}: CHA #{jdx}' for jdx in range(ncha)])
             else:
                 toPlotIn.append(toMRSobj(fid))
-                colourVecIn.append(idx/len(inFIDs))
+                colourVecIn.append(idx / len(inFIDs))
                 legendIn.append(f'FID #{idx}')
-            
-    elif inFIDs.ndim>1:
-        toPlotIn.extend([toMRSobj(f) for f in inFIDs[:,:ncha].T])
-        colourVecIn.extend([float(jdx)/ncha for jdx in range(ncha)])
-        legendIn.extend([f'FID #0: CHA #{jdx}' for jdx in range(ncha)])
+    else:
+        toPlotIn.extend([toMRSobj(f) for f in inFIDs[:, :ncha].T])
+        colourVecIn.extend([float(jdx) / ncha for jdx in range(ncha)])
+        if inFIDs.ndim > 1 and dim == 'DIM_COIL':
+            legendIn.extend([f'FID #0: CHA #{jdx}' for jdx in range(ncha)])
+        elif inFIDs.ndim > 1:
+            legendIn.extend([f'FID #{jdx}' for jdx in range(ncha)])
 
     toPlotOut = []
     legendOut = []
-    if outFID.ndim>1:
-        toPlotOut.extend([toMRSobj(f) for f in outFID[:,:ncha].T])
+    if outFID.ndim > 1:
+        toPlotOut.extend([toMRSobj(f) for f in outFID[:, :ncha].T])
         legendOut.extend([f'Combined: CHA #{jdx}' for jdx in range(ncha)])
     else:
         toPlotOut.append(toMRSobj(outFID))
         legendOut.append('Combined')
 
-    def addline(fig,mrs,lim,name,linestyle):
+    def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                        y=np.real(mrs.get_spec(ppmlim=lim)),
-                        mode='lines',
-                        name=name,
-                        line=linestyle)
+                           y=np.real(mrs.get_spec(ppmlim=lim)),
+                           mode='lines',
+                           name=name,
+                           line=linestyle)
         return fig.add_trace(trace)
 
-    lines,colors,_ = plotStyles()
+    lines, colors, _ = plotStyles()
     colors = cm.Spectral(np.array(colourVecIn).ravel())
 
     fig = go.Figure()
-    for idx,fid in enumerate(toPlotIn):
-        cval = np.round(255*colors[idx,:])
-        linetmp = {'color':f'rgb({cval[0]},{cval[1]},{cval[2]})','width':1}
-        fig = addline(fig,fid,ppmlim,legendIn[idx],linetmp)
-    
-    for idx,fid in enumerate(toPlotOut):
-        fig = addline(fig,fid,ppmlim,legendOut[idx],lines['blk'])
-    plotAxesStyle(fig,ppmlim,'Combined')
+    for idx, fid in enumerate(toPlotIn):
+        cval = np.round(255 * colors[idx, :])
+        linetmp = {'color': f'rgb({cval[0]},{cval[1]},{cval[2]})', 'width': 1}
+        fig = addline(fig, fid, ppmlim, legendIn[idx], linetmp)
 
-    # Generate report 
+    for idx, fid in enumerate(toPlotOut):
+        fig = addline(fig, fid, ppmlim, legendOut[idx], lines['blk'])
+    plotAxesStyle(fig, ppmlim, 'Combined')
+
+    # Generate report
     if html is not None:
         from plotly.offline import plot
         from fsl_mrs.utils.preproc.reporting import figgroup, singleReport
@@ -242,26 +246,26 @@ def combine_FIDs_report(inFIDs,
         import os.path as op
 
         if op.isdir(html):
-            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
-            htmlfile=op.join(html,filename)
-        elif op.isdir(op.dirname(html)) and op.splitext(html)[1]=='.html':
+            filename = 'report_' + datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3] + '.html'
+            htmlfile = op.join(html, filename)
+        elif op.isdir(op.dirname(html)) and op.splitext(html)[1] == '.html':
             htmlfile = html
         else:
             raise ValueError('Report html path must be file or directory. ')
-        
+
         opName = 'Combination'
         timestr = datetime.now().strftime("%H:%M:%S")
         datestr = datetime.now().strftime("%d/%m/%Y")
         headerinfo = 'Report for fsl_mrs.utils.preproc.combine.combine_FIDs.\n'\
-                    + f'Generated at {timestr} on {datestr}.'        
+            + f'Generated at {timestr} on {datestr}.'
         # Figures
-        div = plot(fig, output_type='div',include_plotlyjs='cdn')
-        figurelist = [figgroup(fig = div,
-                            name= '',
-                            foretext= f'Combination of spectra. Method = {method}',
-                            afttext= f'')]
+        div = plot(fig, output_type='div', include_plotlyjs='cdn')
+        figurelist = [figgroup(fig=div,
+                               name='',
+                               foretext=f'Combination of spectra. Method = {method}',
+                               afttext='')]
 
-        singleReport(htmlfile,opName,headerinfo,figurelist)
+        singleReport(htmlfile, opName, headerinfo, figurelist)
         return fig
     else:
         return fig
@@ -280,13 +284,13 @@ def combine_FIDs_report(inFIDs,
 
 #     # Assemble data to plot
 #     toPlotIn = []
-#     if isinstance(inFIDs,list):    
+#     if isinstance(inFIDs,list):
 #         for fid in inFIDs:
 #             if inFIDs[0].ndim>1:
 #                 toPlotIn.extend([toMRSobj(f) for f in fid[:,:ncha].T])
 #             else:
 #                 toPlotIn.append(toMRSobj(fid))
-            
+
 #     elif inFIDs.ndim>1:
 #         toPlotIn.extend([toMRSobj(f) for f in inFIDs[:,:ncha].T])
 
@@ -295,7 +299,7 @@ def combine_FIDs_report(inFIDs,
 #         toPlotOut.extend([toMRSobj(f) for f in outFID[:,:ncha].T])
 #     else:
 #         toPlotOut.append(toMRSobj(outFID))
-    
+
 #     ppmlim = (0.0,6.0)
 #     ax = plt.gca()
 #     colourvec = [[i/len(toPlotIn)]*ncha for i in range(len(inFIDs))]
@@ -305,6 +309,6 @@ def combine_FIDs_report(inFIDs,
 #     for fid in toPlotIn:
 #         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)))
 #     for fid in toPlotOut:
-#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'k-')    
+#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'k-')
 #     styleSpectrumAxes(ax)
 #     plt.show()
