@@ -26,6 +26,7 @@ copyright = f'{date.year}, Will Clarke & Saad Jbabdi, University of Oxford, Oxfo
 author = 'William Clarke'
 
 # The full version, including alpha/beta/rc tags
+print(f'fsl_mrs version: {fsl_mrs.__version__}')
 version = fsl_mrs.__version__
 release = version
 
