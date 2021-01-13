@@ -1,4 +1,4 @@
-# MRS.py - NFITI MRS class definition
+# NIFTI_MRS.py - NFITI MRS class definition
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -11,6 +11,10 @@ import numpy as np
 import json
 from fsl.data.image import Image
 from fsl_mrs.core import MRS, MRSI
+
+
+class NIFTIMRS_DimDoesntExist(Exception):
+    pass
 
 
 class NIFTI_MRS(Image):
@@ -71,6 +75,13 @@ class NIFTI_MRS(Image):
         extension = nib.nifti1.Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
+
+    def dim_position(self, dim_tag):
+        '''Return position of dim if it exists.'''
+        if dim_tag in self.dim_tags:
+            return self._dim_tag_to_index(dim_tag)
+        else:
+            raise NIFTIMRS_DimDoesntExist(f"{dim_tag} doesn't exist in list of tags: {self.dim_tags}")
 
     def _dim_tag_to_index(self, dim):
         '''Convert DIM tag str or index (4, 5, 6) to numpy dimension index'''
@@ -245,7 +256,7 @@ class NIFTI_MRS(Image):
                               basis_hdr=basis_hdr,
                               H2O=ref_data)
 
-    def mrs(*args, **kwargs):
+    def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))
         if len(out) == 1:
             out = out[0]

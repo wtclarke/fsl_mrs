@@ -163,22 +163,32 @@ def combine_FIDs(FIDlist,method,do_prewhiten=False,do_dephase=False,do_phase_cor
         raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
 
 
-def combine_FIDs_report(inFIDs,outFID,hdr,ncha=2,ppmlim = (0.0,6.0),method='not specified',html=None):
+def combine_FIDs_report(inFIDs,
+                        outFID,
+                        bw,
+                        cf,
+                        nucleus='1H',
+                        ncha=2,
+                        ppmlim=(0.0, 6.0),
+                        method='not specified',
+                        html=None):
     """ Take list of FIDs that are passed to combine and output
 
     If uncombined data it will display ncha channels (default 2).
     """
     from fsl_mrs.core import MRS
-    import plotly.graph_objects as go    
-    from fsl_mrs.utils.preproc.reporting import plotStyles,plotAxesStyle
+    import plotly.graph_objects as go
+    from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
     from matplotlib.pyplot import cm
-    toMRSobj = lambda fid : MRS(FID=fid,header=hdr)
+
+    def toMRSobj(fid):
+        MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
 
     # Assemble data to plot
     toPlotIn = []
     colourVecIn = []
     legendIn = []
-    if isinstance(inFIDs,list):    
+    if isinstance(inFIDs, list):
         for idx,fid in enumerate(inFIDs):
             if inFIDs[0].ndim>1:
                 toPlotIn.extend([toMRSobj(f) for f in fid[:,:ncha].T])
