@@ -109,12 +109,16 @@ pytest:
 ############
 
 pages:
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "1"
+    GIT_STRATEGY: clone
   only:
     - master@wclarke/fsl_mrs
     - tags@fsl/fsl_mrs
   image: python:3.7
   stage: doc
   script:
+  - git describe --tag --dirty
   - pip install -U sphinx sphinx_rtd_theme
   - pip install .
   - sphinx-build -b html ./docs/user_docs public

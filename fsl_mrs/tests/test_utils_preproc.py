@@ -66,7 +66,7 @@ def test_combine_FIDs():
     
     combfid = preproc.combine_FIDs(testFIDs,'svd',do_prewhiten=True)
     # Check only the first few points otherwise the relative tolarence has to be very high.
-    assert np.allclose(np.abs(combfid[:200]),np.abs(analyticalRoemer[:200]), atol=2E-4, rtol=1E-1)
+    assert np.allclose(np.abs(combfid[:200]),np.abs(analyticalRoemer[:200]), atol=1E-2, rtol=1E-1)
 
 
 # Test the alignment by aligning based on two sets of offset peaks with different offsets and measuring combined peak height
