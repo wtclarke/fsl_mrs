@@ -7,11 +7,15 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
 from fsl_mrs.utils import preproc
-from numpy import abs, zeros
+import numpy as np
 from fsl_mrs.core import NIFTI_MRS
 
 
 class DimensionsDoNotMatch(Exception):
+    pass
+
+
+class OnlySVS(Exception):
     pass
 
 
@@ -287,9 +291,9 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, report=None, repo
         new_shape = list(data.shape)
         new_shape[3] = samples
         shifted_obj = NIFTI_MRS(
-            zeros(new_shape, dtype=data.dtype),
+            np.zeros(new_shape, dtype=data.dtype),
             header=data.header)
-    
+
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         shifted_obj[idx], newDT = preproc.timeshift(dd,
                                                     data.dwelltime,
@@ -333,18 +337,18 @@ def truncate_or_pad(data, npoints, position, report=None, report_all=False):
     new_shape = list(data.shape)
     new_shape[3] += npoints
     trunc_obj = NIFTI_MRS(
-        zeros(new_shape, dtype=data.dtype),
+        np.zeros(new_shape, dtype=data.dtype),
         header=data.header)
 
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         if npoints > 0:
             trunc_obj[idx] = preproc.pad(dd,
-                                         abs(npoints),
+                                         np.abs(npoints),
                                          position)
             rep_func = 'pad'
         elif npoints < 0:
             trunc_obj[idx] = preproc.truncate(dd,
-                                              abs(npoints),
+                                              np.abs(npoints),
                                               position)
             rep_func = 'truncate'
         else:
@@ -363,3 +367,160 @@ def truncate_or_pad(data, npoints, position, report=None, report_all=False):
                          html=report,
                          function=rep_func)
     return trunc_obj
+
+
+def apodize(data, amount, filter='exp', report=None, report_all=False):
+    '''Apodize FIDs using a exponential or Lorentzian to Gaussian filter.
+    Lorentzian to Gaussian filter takes requires two window parameters (t_L and t_G)
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param tuple amount: If filter='exp' single valued. If filter='l2g' then two valued.
+    :param str filter: 'exp' or 'l2g'. Choose exponential or Lorentzian to Gaussian filter
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Filtered data in NIFTI_MRS format.
+    '''
+    apod_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        apod_obj[idx] = preproc.apodize(dd,
+                                        data.dwelltime,
+                                        amount,
+                                        filter=filter)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.filtering import apodize_report
+            apodize_report(dd,
+                           apod_obj[idx],
+                           data.bandwidth,
+                           data.spectrometer_frequency[0],
+                           nucleus=data.nucleus[0],
+                           html=report)
+
+    return apod_obj
+
+
+def fshift(data, amount, report=None, report_all=False):
+    '''Apply frequency shift
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param float amount: Shift amount in Hz
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Shifted data in NIFTI_MRS format.
+    '''
+
+    shift_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        shift_obj[idx] = preproc.freqshift(dd,
+                                           data.dwelltime,
+                                           amount)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.shifting import shift_report
+            original_hdr = {'bandwidth': data.bandwidth,
+                            'centralFrequency': data.spectrometer_frequency[0],
+                            'ResonantNucleus': data.nucleus[0]}
+            shift_report(dd,
+                         shift_obj[idx],
+                         original_hdr,
+                         original_hdr,
+                         html=report,
+                         function='freqshift')
+
+    return shift_obj
+
+
+def shift_to_reference(data, ppm_ref, peak_search, report=None, report_all=False):
+    '''Shift peak to known reference
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param float ppm_ref: Reference shift that peak will be moved to
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Shifted data in NIFTI_MRS format.
+    '''
+
+    shift_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        shift_obj[idx], _ = preproc.shiftToRef(dd,
+                                               ppm_ref,
+                                               data.bandwidth,
+                                               data.spectrometer_frequency[0],
+                                               nucleus=data.nucleus[0],
+                                               ppmlim=peak_search)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.shifting import shift_report
+            original_hdr = {'bandwidth': data.bandwidth,
+                            'centralFrequency': data.spectrometer_frequency[0],
+                            'ResonantNucleus': data.nucleus[0]}
+            shift_report(dd,
+                         shift_obj[idx],
+                         original_hdr,
+                         original_hdr,
+                         html=report,
+                         function='shiftToRef')
+
+    return shift_obj
+
+
+def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, report=None):
+    '''Remove unlike dynamics
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param report: Provide output location as path to generate report
+
+    :return: Shifted data in NIFTI_MRS format.
+    '''
+    if data.shape[:3] != (1, 1, 1):
+        raise OnlySVS("remove_unlike only specified for SVS data")
+
+    if data.ndim > 5:
+        raise ValueError('remove_unlike only makes sense for a single dynamic dimension. Combined coils etc. first')
+    elif data.ndim < 4:
+        raise ValueError('remove_unlike only makes sense for data with a dynamic dimension')
+
+    goodFIDs, badFIDs, gIndicies, bIndicies, metric = \
+        preproc.identifyUnlikeFIDs(data[0, 0, 0, :, :].T,
+                                   data.bandwidth,
+                                   data.spectrometer_frequency[0],
+                                   nucleus=data.nucleus[0],
+                                   ppmlim=ppmlim,
+                                   sdlimit=sdlimit,
+                                   iterations=niter,
+                                   shift=True)
+
+    if report:
+        from fsl_mrs.utils.preproc.unlike import identifyUnlikeFIDs_report
+        identifyUnlikeFIDs_report(goodFIDs,
+                                  badFIDs,
+                                  gIndicies,
+                                  bIndicies,
+                                  metric,
+                                  data.bandwidth,
+                                  data.spectrometer_frequency[0],
+                                  nucleus=data.nucleus[0],
+                                  ppmlim=ppmlim,
+                                  sdlimit=sdlimit,
+                                  html=report)
+
+    goodFIDs = np.asarray(goodFIDs).T
+    goodFIDs = goodFIDs.reshape([1, 1, 1] + list(goodFIDs.shape))
+    # Conjugation here as it doesn't use the __setitem__ method
+    good_out = NIFTI_MRS(
+        goodFIDs.conj(),
+        header=data.header)
+
+    if len(badFIDs) > 0:
+        badFIDs = np.asarray(badFIDs).T
+        badFIDs = badFIDs.reshape([1, 1, 1] + list(badFIDs.shape))
+        bad_out = NIFTI_MRS(
+            badFIDs.conj(),
+            header=data.header)
+    else:
+        bad_out = None
+
+    return good_out, bad_out

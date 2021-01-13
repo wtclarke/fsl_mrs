@@ -39,7 +39,7 @@ def timeshift(FID, dwelltime, shiftstart, shiftend, samples=None):
 
 def freqshift(FID, dwelltime, shift):
     """ Shift data on frequency axis
-    
+
     Args:
         FID (ndarray): Time domain data
         dwelltime (float): dwelltime in seconds
@@ -48,32 +48,51 @@ def freqshift(FID, dwelltime, shift):
     Returns:
         FID (ndarray): Shifted FID
     """
-    tAxis = np.linspace(0,dwelltime*FID.size,FID.size)
-    phaseRamp = 2*np.pi*tAxis*shift
-    FID = FID * np.exp(1j*phaseRamp)
+    tAxis = np.linspace(0, dwelltime * FID.size, FID.size)
+    phaseRamp = 2 * np.pi * tAxis * shift
+    FID = FID * np.exp(1j * phaseRamp)
     return FID
 
-def shiftToRef(FID,target,bw,cf,ppmlim=(2.8,3.2),shift=True):
-    #Find maximum of absolute spectrum in ppm limit
-    padFID = pad(FID,FID.size*3)
-    MRSargs = {'FID':padFID,'bw':bw,'cf':cf}
+
+def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True):
+    '''Find a maximum and shift that maximum to a reference position.
+
+    :param FID: FID
+    :param float target: reference position in ppm
+    :param float bw: Bandwidth or spectral width in Hz.
+    :param float cf: Central or spectrometer frequency (MHz)
+    :param str nucleus: Nucleus string, defaults to 1H
+    :param ppmlim: Search range for peak maximum
+    :param bool shift: If True (default) ppm values include shift
+
+    :return: Shifted FID
+    :return: Shifted amount in ppm 
+    '''
+
+    # Find maximum of absolute spectrum in ppm limit
+    padFID = pad(FID, FID.size * 3)
+    MRSargs = {'FID': padFID,
+               'bw': bw,
+               'cf': cf,
+               'nucleus': nucleus}
     mrs = MRS(**MRSargs)
-    spec = extract_spectrum(mrs,padFID,ppmlim=ppmlim,shift=shift)
+    spec = extract_spectrum(mrs, padFID, ppmlim=ppmlim, shift=shift)
     if shift:
         extractedAxis = mrs.getAxes(ppmlim=ppmlim)
-    else: 
-        extractedAxis = mrs.getAxes(ppmlim=ppmlim,axis='ppm')
+    else:
+        extractedAxis = mrs.getAxes(ppmlim=ppmlim, axis='ppm')
 
     maxIndex = np.argmax(np.abs(spec))
-    shiftAmount = extractedAxis[maxIndex]-target
-    shiftAmountHz = shiftAmount * mrs.centralFrequency/1E6    
+    shiftAmount = extractedAxis[maxIndex] - target
+    shiftAmountHz = shiftAmount * mrs.centralFrequency / 1E6
 
-    return freqshift(FID,1/bw,-shiftAmountHz),shiftAmount
+    return freqshift(FID, 1 / bw, -shiftAmountHz), shiftAmount
 
-def truncate(FID,k,first_or_last='last'):
+
+def truncate(FID, k, first_or_last='last'):
     """
     Truncate parts of a FID
-    
+
     Parameters:
     -----------
     FID           : array-like
@@ -85,7 +104,7 @@ def truncate(FID,k,first_or_last='last'):
     array-like
     """
     FID_trunc = FID.copy()
-    
+
     if first_or_last == 'first':
         return FID_trunc[k:]
     elif first_or_last == 'last':
@@ -93,10 +112,11 @@ def truncate(FID,k,first_or_last='last'):
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
-def pad(FID,k,first_or_last='last'):
+
+def pad(FID, k, first_or_last='last'):
     """
     Pad parts of a FID
-    
+
     Parameters:
     -----------
     FID           : array-like
@@ -108,11 +128,11 @@ def pad(FID,k,first_or_last='last'):
     array-like
     """
     FID_pad = FID.copy()
-    
+
     if first_or_last == 'first':
-        return np.pad(FID_pad,(k,0))
+        return np.pad(FID_pad, (k, 0))
     elif first_or_last == 'last':
-        return np.pad(FID_pad,(0,k))
+        return np.pad(FID_pad, (0, k))
     else:
         raise(Exception("Last parameter must either be 'first' or 'last'"))
 
