@@ -7,18 +7,6 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from dataclasses import dataclass
-
-
-@dataclass
-class datacontainer:
-    '''Class for keeping track of data and reference data together.'''
-    data: np.array
-    dataheader: dict
-    datafilename: str
-    reference: np.array = None
-    refheader: dict = None
-    reffilename: str = None
 
 
 def get_target_FID(FIDlist, target='mean'):

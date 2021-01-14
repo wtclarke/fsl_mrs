@@ -11,10 +11,26 @@ import numpy as np
 import json
 from fsl.data.image import Image
 from fsl_mrs.core import MRS, MRSI
+import fsl.utils.path as fslpath
 
 
 class NIFTIMRS_DimDoesntExist(Exception):
     pass
+
+
+class NotNIFTI_MRS(Exception):
+    pass
+
+
+def is_nifti_mrs(file_path):
+    '''Check that a file is of the NIFTI-MRS format type.'''
+    try:
+        obj = NIFTI_MRS(file_path)
+        if float(obj.mrs_nifti_version) < 0.2:
+            raise NotNIFTI_MRS('NIFTI-MRS > v0.2 required.')
+        return True
+    except fslpath.PathError:
+        raise NotNIFTI_MRS("File isn't  NIFTI-MRS, wrong extension type.")
 
 
 class NIFTI_MRS(Image):

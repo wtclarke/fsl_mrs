@@ -32,6 +32,7 @@ def align_FID(mrs, src_FID, tgt_FID, ppmlim=None, shift=True):
     -------
     array-like
     """
+    normalisation = np.linalg.norm(tgt_FID)
 
     # Internal functions so they can see globals
     def shift_phase_freq(FID, phi, eps, extract=True):
@@ -45,7 +46,7 @@ def align_FID(mrs, src_FID, tgt_FID, ppmlim=None, shift=True):
         eps    = p[1]  # freq shift
         FID    = shift_phase_freq(src_FID, phi, eps)
         target = extract_spectrum(mrs, tgt_FID, ppmlim=ppmlim, shift=shift)
-        xx     = np.linalg.norm(FID - target)
+        xx     = np.linalg.norm((FID - target) / normalisation)
         return xx
     x0 = np.array([0, 0])
     res = minimize(cf, x0, method='Powell')
@@ -71,6 +72,8 @@ def align_FID_diff(mrs, src_FID0, src_FID1, tgt_FID, diffType='add', ppmlim=None
     -------
     array-like
     """
+    normalisation = np.linalg.norm(tgt_FID)
+
     # Internal functions so they can see globals
     def shift_phase_freq(FID0, FID1, phi, eps, extract=True):
         sFID = np.exp(-1j * phi) * shift_FID(mrs, FID0, eps)
@@ -92,9 +95,10 @@ def align_FID_diff(mrs, src_FID0, src_FID1, tgt_FID, diffType='add', ppmlim=None
         eps    = p[1]  # freq shift
         FID    = shift_phase_freq(src_FID0, src_FID1, phi, eps)
         target = extract_spectrum(mrs, tgt_FID, ppmlim=ppmlim, shift=shift)
-        xx     = np.linalg.norm(FID - target)
+        xx     = np.linalg.norm((FID - target) / normalisation)
         return xx
-    x0  = np.array([0, 0])
+
+    x0  = np.array([0.0, 0.0])
     res = minimize(cf, x0)
     phi = res.x[0]
     eps = res.x[1]
@@ -424,8 +428,8 @@ def phase_freq_align_diff_report(inFIDs0,
         else:
             raise ValueError('diffType must be add or sub.')
 
-    meanIn = combine_FIDs(diffFIDListIn.T, 'mean')
-    meanOut = combine_FIDs(diffFIDListOut.T, 'mean')
+    meanIn = combine_FIDs(diffFIDListIn, 'mean')
+    meanOut = combine_FIDs(diffFIDListOut, 'mean')
 
     def toMRSobj(fid):
         return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
