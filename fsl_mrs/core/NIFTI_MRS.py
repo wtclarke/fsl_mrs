@@ -20,6 +20,11 @@ class NIFTIMRS_DimDoesntExist(Exception):
 class NIFTI_MRS(Image):
     """Load NIFTI MRS format data. Derived from nibabel's Nifti2Image."""
     def __init__(self, *args, **kwargs):
+        # If generated from np array include conjugation
+        # to make sure storage is right-handed
+        if isinstance(args[0], np.ndarray):
+            args = list(args)
+            args[0] = args[0].conj()
         super().__init__(*args, **kwargs)
 
         # Extract key parameters from the header extension

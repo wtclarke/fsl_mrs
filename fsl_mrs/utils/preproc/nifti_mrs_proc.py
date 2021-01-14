@@ -509,18 +509,223 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, report=None):
 
     goodFIDs = np.asarray(goodFIDs).T
     goodFIDs = goodFIDs.reshape([1, 1, 1] + list(goodFIDs.shape))
-    # Conjugation here as it doesn't use the __setitem__ method
+
     good_out = NIFTI_MRS(
-        goodFIDs.conj(),
+        goodFIDs,
         header=data.header)
 
     if len(badFIDs) > 0:
         badFIDs = np.asarray(badFIDs).T
         badFIDs = badFIDs.reshape([1, 1, 1] + list(badFIDs.shape))
         bad_out = NIFTI_MRS(
-            badFIDs.conj(),
+            badFIDs,
             header=data.header)
     else:
         bad_out = None
 
     return good_out, bad_out
+
+
+def phase_correct(data, ppmlim, hlsvd=True, report=None, report_all=False):
+    '''Zero-order phase correct based on peak maximum
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param float ppmlim: Search for peak between limits
+    :param bool hlsvd: Use HLSVD to remove peaks outside the ppmlim
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Phased data in NIFTI_MRS format.
+    '''
+
+    phs_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        phs_obj[idx], _, pos = preproc.phaseCorrect(
+            dd,
+            data.bandwidth,
+            data.spectrometer_frequency[0],
+            nucleus=data.nucleus[0],
+            ppmlim=ppmlim,
+            use_hlsvd=hlsvd)
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
+            phaseCorrect_report(dd,
+                                phs_obj[idx],
+                                pos,
+                                data.bandwidth,
+                                data.spectrometer_frequency[0],
+                                nucleus=data.nucleus[0],
+                                ppmlim=ppmlim,
+                                html=report)
+
+    return phs_obj
+
+
+def apply_fixed_phase(data, p0, p1=0.0, report=None, report_all=False):
+    '''Apply fixed phase correction
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param float p0: Zero order phase correction in degrees
+    :param float p0: First order phase correction in seconds
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Phased data in NIFTI_MRS format.
+    '''
+    phs_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        phs_obj[idx] = preproc.applyPhase(dd,
+                                          p0 * (np.pi / 180.0))
+
+        if p1 != 0.0:
+            phs_obj[idx], _ = preproc.timeshift(
+                phs_obj[idx],
+                data.dwelltime,
+                p1,
+                p1,
+                samples=data.shape[3])
+
+        if report and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.general import generic_report
+            original_hdr = {'bandwidth': data.bandwidth,
+                            'centralFrequency': data.spectrometer_frequency[0],
+                            'ResonantNucleus': data.nucleus[0]}
+            generic_report(dd,
+                           phs_obj[idx],
+                           original_hdr,
+                           original_hdr,
+                           ppmlim=(0.2, 4.2),
+                           html=report,
+                           function='fixed phase')
+
+    return phs_obj
+
+
+def subtract(data0, data1=None, dim=None, report=None, report_all=False):
+    '''Either subtract data1 from data0 or subtract index 1 from
+     index 0 along specified dimension
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param data1: If specified data1 will be subtracted from data0
+    :param dim: If specified index 1 will be subtracted from 0 across this dimension.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Subtracted data in NIFTI_MRS format.
+    '''
+
+    if dim is not None:
+        # Check dim is of correct size
+        if data0.shape[data0.dim_tags.index(dim)] != 2:
+            raise DimensionsDoNotMatch('Subtraction dimension must be of length 2.'
+                                       f' Currently {data0.shape[data0.dim_tags.index(dim)]}')
+
+        sub_ob = data0.copy(remove_dim=dim)
+        for dd, idx in data0.iterate_over_dims(dim=dim,
+                                               iterate_over_space=True,
+                                               reduce_dim_index=True):
+            sub_ob[idx] = preproc.subtract(dd.T[0], dd.T[1])
+
+            if report and (report_all or first_index(idx)):
+                from fsl_mrs.utils.preproc.general import generic_report
+                original_hdr = {'bandwidth': data0.bandwidth,
+                                'centralFrequency': data0.spectrometer_frequency[0],
+                                'ResonantNucleus': data0.nucleus[0]}
+                generic_report(dd,
+                               sub_ob[idx],
+                               original_hdr,
+                               original_hdr,
+                               ppmlim=(0.2, 4.2),
+                               html=report,
+                               function='subtract')
+
+    elif data1 is not None:
+
+        sub_ob = data0.copy()
+        sub_ob[:] = (data0[:] - data1[:]) / 2
+
+    else:
+        raise ValueError('One of data1 or dim arguments must not be None.')
+
+    return sub_ob
+
+
+def add(data0, data1=None, dim=None, report=None, report_all=False):
+    '''Either add data1 to data0 or add index 1 to
+     index 0 along specified dimension
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param data1: If specified data1 will be added to data0
+    :param dim: If specified index 1 will be added to 0 across this dimension.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Subtracted data in NIFTI_MRS format.
+    '''
+
+    if dim is not None:
+        # Check dim is of correct size
+        if data0.shape[data0.dim_tags.index(dim)] != 2:
+            raise DimensionsDoNotMatch('Addition dimension must be of length 2.'
+                                       f' Currently {data0.shape[data0.dim_tags.index(dim)]}')
+
+        add_ob = data0.copy(remove_dim=dim)
+        for dd, idx in data0.iterate_over_dims(dim=dim,
+                                               iterate_over_space=True,
+                                               reduce_dim_index=True):
+            add_ob[idx] = preproc.add(dd.T[0], dd.T[1])
+
+            if report and (report_all or first_index(idx)):
+                from fsl_mrs.utils.preproc.general import generic_report
+                original_hdr = {'bandwidth': data0.bandwidth,
+                                'centralFrequency': data0.spectrometer_frequency[0],
+                                'ResonantNucleus': data0.nucleus[0]}
+                generic_report(dd,
+                               add_ob[idx],
+                               original_hdr,
+                               original_hdr,
+                               ppmlim=(0.2, 4.2),
+                               html=report,
+                               function='add')
+
+    elif data1 is not None:
+
+        add_ob = data0.copy()
+        add_ob[:] = (data0[:] + data1[:]) / 2
+
+    else:
+        raise ValueError('One of data1 or dim arguments must not be None.')
+
+    return add_ob
+
+
+def conjugate(data, report=None, report_all=False):
+    '''Conjugate the data
+
+    :param NIFTI_MRS data: Data to truncate or pad
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Conjugated data in NIFTI_MRS format.
+    '''
+
+    conj_data = data.copy()
+    conj_data[:] = conj_data[:].conj()
+
+    if report:
+        for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+            if report_all or first_index(idx):
+                from fsl_mrs.utils.preproc.general import generic_report
+                original_hdr = {'bandwidth': data.bandwidth,
+                                'centralFrequency': data.spectrometer_frequency[0],
+                                'ResonantNucleus': data.nucleus[0]}
+                generic_report(dd,
+                               conj_data[idx],
+                               original_hdr,
+                               original_hdr,
+                               ppmlim=(0.2, 4.2),
+                               html=report,
+                               function='conjugate')
+
+    return conj_data
