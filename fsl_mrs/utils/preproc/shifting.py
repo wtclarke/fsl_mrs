@@ -66,7 +66,7 @@ def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True)
     :param bool shift: If True (default) ppm values include shift
 
     :return: Shifted FID
-    :return: Shifted amount in ppm 
+    :return: Shifted amount in ppm
     '''
 
     # Find maximum of absolute spectrum in ppm limit
