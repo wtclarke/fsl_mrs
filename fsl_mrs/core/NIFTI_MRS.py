@@ -6,12 +6,14 @@
 # Copyright (C) 2021 University of Oxford
 # SHBASECOPYRIGHT
 
-import nibabel as nib
 import numpy as np
 import json
 from fsl.data.image import Image
 from fsl_mrs.core import MRS, MRSI
 import fsl.utils.path as fslpath
+from nibabel.nifti2 import Nifti2Header
+from nibabel.nifti1 import Nifti1Extension
+from fsl_mrs.utils.misc import checkCFUnits
 
 
 class NIFTIMRS_DimDoesntExist(Exception):
@@ -25,12 +27,51 @@ class NotNIFTI_MRS(Exception):
 def is_nifti_mrs(file_path):
     '''Check that a file is of the NIFTI-MRS format type.'''
     try:
-        obj = NIFTI_MRS(file_path)
-        if float(obj.mrs_nifti_version) < 0.2:
-            raise NotNIFTI_MRS('NIFTI-MRS > v0.2 required.')
+        NIFTI_MRS(file_path)
         return True
     except fslpath.PathError:
-        raise NotNIFTI_MRS("File isn't  NIFTI-MRS, wrong extension type.")
+        raise NotNIFTI_MRS("File isn't NIFTI-MRS, wrong extension type.")
+
+
+def gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus='1H', affine=None, dim_tags=[None, None, None]):
+    '''Generate a NIFTI_MRS object from a np array and header info.
+
+    :param np.ndarray data: FID (time-domain) data. Must be atleast 4D.
+    :param float dwelltime: Dwelltime of FID data in seconds.
+    :param float spec_freq: Spectrometer (or central) frequency in MHz.
+    :param str nucleus: Nucleus string, defaults to '1H'
+    :param np.ndarray affine: Optional 4x4 position affine.
+    :param [str] affine: List of dimension tags.
+
+    :return: NIFTI_MRS object
+    '''
+
+    if not np.iscomplex(data).all():
+        raise ValueError('data must be complex')
+    if data.ndim < 4 or data.ndim > 7:
+        raise ValueError(f'data must between 4 and 7 dimensions, currently has {data.ndim}')
+
+    header = Nifti2Header()
+    header['pixdim'][4] = dwelltime
+    hdr_dict = {'SpectrometerFrequency': [checkCFUnits(spec_freq, units='MHz'), ],
+                'ResonantNucleus': [nucleus, ]}
+
+    for idx, dt in enumerate(dim_tags):
+        if dt is not None:
+            if (idx + 4) > data.ndim:
+                raise ValueError('Too many dimension tags passed.')
+            hdr_dict[f'dim_{idx+5}'] = dt
+
+    json_s = json.dumps(hdr_dict)
+    extension = Nifti1Extension(44, json_s.encode('UTF-8'))
+    header.extensions.append(extension)
+
+    header.set_qform(affine)
+    header.set_sform(affine)
+
+    header['intent_name'] = 'mrs_v0_2'.encode()
+
+    return NIFTI_MRS(data, header=header)
 
 
 class NIFTI_MRS(Image):
@@ -42,6 +83,19 @@ class NIFTI_MRS(Image):
             args = list(args)
             args[0] = args[0].conj()
         super().__init__(*args, **kwargs)
+
+        # Check that file meets minimum requirements
+        if float(self.mrs_nifti_version) < 0.2:
+            raise NotNIFTI_MRS('NIFTI-MRS > V0.2 required.')
+
+        if 44 not in self.header.extensions.get_codes():
+            raise NotNIFTI_MRS('NIFTI-MRS must have a header extension.')
+
+        try:
+            self.nucleus
+            self.spectrometer_frequency
+        except KeyError:
+            raise NotNIFTI_MRS('NIFTI-MRS header extension must have nucleus and spectrometerFrequency keys.')
 
         # Extract key parameters from the header extension
         self._set_dim_tags()
@@ -113,7 +167,7 @@ class NIFTI_MRS(Image):
     def hdr_ext(self, hdr_dict):
         '''Update MRS JSON header extension from python dict'''
         json_s = json.dumps(hdr_dict)
-        extension = nib.nifti1.Nifti1Extension(44, json_s.encode('UTF-8'))
+        extension = Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
 

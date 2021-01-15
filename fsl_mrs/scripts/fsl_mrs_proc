@@ -82,8 +82,9 @@ def main():
     align_group = alignparser.add_argument_group('Align arguments')
     align_group.add_argument('--file', type=str, required=True,
                              help='List of files to align')
-    align_group.add_argument('--dim', type=str, required=True,
-                             help='NIFTI-MRS dimension tag to align across')
+    align_group.add_argument('--dim', type=str, default='DIM_DYN',
+                             help='NIFTI-MRS dimension tag to align across.'
+                                  'Default = DIM_DYN')
     align_group.add_argument('--ppm', type=float, nargs=2,
                              metavar='<lower-limit upper-limit>',
                              default=(0.2, 4.2),
@@ -102,7 +103,7 @@ def main():
     alignD_group = alignDparser.add_argument_group('Align subspec arguments')
     alignD_group.add_argument('--file', type=str, required=True,
                               help='Subspectra 1 - List of files to align')
-    alignD_group.add_argument('--dim', type=str, required=True,
+    alignD_group.add_argument('--dim', type=str, default='DIM_DYN',
                               help='NIFTI-MRS dimension tag to align across')
     alignD_group.add_argument('--dim_diff', type=str, default='DIM_EDIT',
                               help='NIFTI-MRS dimension tag to difference across')
@@ -310,8 +311,7 @@ def main():
 
     # Handle data loading
     dataList = loadData(datafiles,
-                        refdatafiles=reffiles,
-                        conjugate=args.conjugate)
+                        refdatafile=reffiles)
 
     # Create output folder if required
     if not op.isdir(args.output):
@@ -363,8 +363,8 @@ def add_common_args(p):
     optional.add_argument('--allreports', action="store_true",
                           help='Generate reports for all inputs.'
                                ' Overrides arguments to reportIndicies.')
-    optional.add_argument('--conjugate', action="store_true",
-                          help='apply conjugate to FID')
+    # optional.add_argument('--conjugate', action="store_true",
+    #                       help='apply conjugate to FID')
     optional.add_argument('--filename', type=str, metavar='<str>',
                           help='Override output file name.')
     optional.add_argument('--verbose', action="store_true",
@@ -407,12 +407,11 @@ def loadData(datafile, refdatafile=None):
     if refdatafile:
         loaded_data = datacontainer(NIFTI_MRS(datafile),
                                     datafile,
-                                    NIFTI_MRS(datafile))
-    else:
-        loaded_data = datacontainer(NIFTI_MRS(datafile),
-                                    datafile,
                                     NIFTI_MRS(refdatafile),
                                     refdatafile)
+    else:
+        loaded_data = datacontainer(NIFTI_MRS(datafile),
+                                    datafile)
 
     return loaded_data
 
@@ -641,9 +640,9 @@ def add(dataobj, args):
 
 
 def conj(dataobj, args):
-    conjugated = preproc.apply_fixed_phase(dataobj.data,
-                                           report=args['generateReports'],
-                                           report_all=args['allreports'])
+    conjugated = preproc.conjugate(dataobj.data,
+                                   report=args['generateReports'],
+                                   report_all=args['allreports'])
 
     return datacontainer(conjugated, dataobj.datafilename)
 

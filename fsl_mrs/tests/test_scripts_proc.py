@@ -2,13 +2,14 @@
 # These tests don't test theat the actual algorithms are doing the right thing,
 # simply that the script handles SVS data and MRSI data properly and that the
 # results from the command line program matches that of the underlying
-# algorithms in preproc.py
+# algorithms in nifti_mrs_proc.py
 
 import pytest
 import os.path as op
+from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
-from fsl_mrs.utils.mrs_io import fsl_io
-from fsl_mrs.utils import preproc
+from fsl_mrs.utils.mrs_io import read_FID
+from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 import numpy as np
 import subprocess
 
@@ -22,19 +23,23 @@ def svs_data(tmp_path):
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
 
-    testFile = []
-    data = []
-    for idx, f in enumerate(FID):
-        testname = f'svsdata_{idx}.nii'
-        testFile.append(op.join(tmp_path, testname))
+    FID = np.asarray(FID).T
+    FID = FID.reshape((1, 1, 1) + FID.shape)
 
-        affine = np.eye(4)
-        data.append(f)
-        fsl_io.saveNIFTI(testFile[idx], data[idx], hdr, affine=affine)
+    nmrs = gen_new_nifti_mrs(FID,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_DYN', None, None])
 
-    return testFile, data
+    testname = 'svsdata.nii'
+    testfile = op.join(tmp_path, testname)
+
+    nmrs.save(testfile)
+
+    return testfile, nmrs
 
 
 @pytest.fixture
@@ -45,19 +50,22 @@ def mrsi_data(tmp_path):
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
 
-    testFile = []
-    data = []
-    for idx, f in enumerate(FID):
-        testname = f'mrsidata_{idx}.nii'
-        testFile.append(op.join(tmp_path, testname))
+    FID = np.asarray(FID).T
+    FID = np.tile(FID, (2, 2, 2, 1, 1))
 
-        affine = np.eye(4)
-        data.append(np.tile(f, (3, 3, 3, 1)))
-        fsl_io.saveNIFTI(testFile[idx], data[idx], hdr, affine=affine)
+    nmrs = gen_new_nifti_mrs(FID,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_DYN', None, None])
 
-    return testFile, data
+    testname = 'mrsidata.nii'
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
+
+    return testfile, nmrs
 
 
 @pytest.fixture
@@ -68,16 +76,22 @@ def svs_data_uncomb(tmp_path):
     coilphs = np.random.random(coils) * 2 * np.pi
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
+
+    FID = np.asarray(FID).T
+    FID = FID.reshape((1, 1, 1) + FID.shape)
+
+    nmrs = gen_new_nifti_mrs(FID,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_COIL', None, None])
 
     testname = 'svsdata_uncomb.nii'
-    testFile = op.join(tmp_path, testname)
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
 
-    affine = np.eye(4)
-    data = np.tile(np.asarray(FID).T, (1, 1, 1, 1, 1))
-    fsl_io.saveNIFTI(testFile, data, hdr, affine=affine)
-
-    return testFile, data
+    return testfile, nmrs
 
 
 @pytest.fixture
@@ -88,16 +102,22 @@ def mrsi_data_uncomb(tmp_path):
     coilphs = np.random.random(coils) * 2 * np.pi
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
+
+    FID = np.asarray(FID).T
+    FID = np.tile(FID, (2, 2, 2, 1, 1))
+
+    nmrs = gen_new_nifti_mrs(FID,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_COIL', None, None])
 
     testname = 'mrsidata_uncomb.nii'
-    testFile = op.join(tmp_path, testname)
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
 
-    affine = np.eye(4)
-    data = np.tile(np.asarray(FID).T, (3, 3, 3, 1, 1))
-    fsl_io.saveNIFTI(testFile, data, hdr, affine=affine)
-
-    return testFile, data
+    return testfile, nmrs
 
 
 @pytest.fixture
@@ -108,33 +128,31 @@ def svs_data_diff(tmp_path):
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
 
-    coilamps = np.ones(reps)
+    coilamps = -1 * np.ones(reps)
     coilphs = np.random.randn(reps)
     FID2, hdr = syntheticFID(noisecovariance=noiseconv,
                              coilamps=coilamps,
-                             coilphase=coilphs)
+                             coilphase=coilphs,
+                             points=512)
 
-    testFile, testFile2 = [], []
-    data, data2 = [], []
-    for idx, f in enumerate(FID):
-        testname = f'svsdata_0_{idx}.nii'
-        testFile.append(op.join(tmp_path, testname))
+    FID = np.asarray(FID).T
+    FID2 = np.asarray(FID2).T
+    FID_comb = np.stack((FID, FID2), axis=2)
+    FID_comb = FID_comb.reshape((1, 1, 1) + FID_comb.shape)
 
-        affine = np.eye(4)
-        data.append(f)
-        fsl_io.saveNIFTI(testFile[idx], data[idx], hdr, affine=affine)
+    nmrs = gen_new_nifti_mrs(FID_comb,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
-    for idx, f in enumerate(FID2):
-        testname = f'svsdata_1_{idx}.nii'
-        testFile2.append(op.join(tmp_path, testname))
+    testname = 'svsdata_diff.nii'
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
 
-        affine = np.eye(4)
-        data2.append(f)
-        fsl_io.saveNIFTI(testFile2[idx], data2[idx], hdr, affine=affine)
-
-    return testFile, testFile2, data, data2
+    return testfile, nmrs
 
 
 @pytest.fixture
@@ -145,33 +163,31 @@ def mrsi_data_diff(tmp_path):
     coilphs = np.zeros(reps)
     FID, hdr = syntheticFID(noisecovariance=noiseconv,
                             coilamps=coilamps,
-                            coilphase=coilphs)
+                            coilphase=coilphs,
+                            points=512)
 
-    coilamps = np.ones(reps)
+    coilamps = -1 * np.ones(reps)
     coilphs = np.random.randn(reps)
     FID2, hdr = syntheticFID(noisecovariance=noiseconv,
                              coilamps=coilamps,
-                             coilphase=coilphs)
+                             coilphase=coilphs,
+                             points=512)
 
-    testFile, testFile2 = [], []
-    data, data2 = [], []
-    for idx, f in enumerate(FID):
-        testname = f'mrsidata_{idx}.nii'
-        testFile.append(op.join(tmp_path, testname))
+    FID = np.asarray(FID).T
+    FID2 = np.asarray(FID2).T
+    FID_comb = np.stack((FID, FID2), axis=2)
+    FID_comb = np.tile(FID_comb, (2, 2, 2, 1, 1, 1))
 
-        affine = np.eye(4)
-        data.append(np.tile(f, (3, 3, 3, 1)))
-        fsl_io.saveNIFTI(testFile[idx], data[idx], hdr, affine=affine)
+    nmrs = gen_new_nifti_mrs(FID_comb,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
-    for idx, f in enumerate(FID2):
-        testname = f'mrsidata_{idx}.nii'
-        testFile2.append(op.join(tmp_path, testname))
+    testname = 'mrsidata_diff.nii'
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
 
-        affine = np.eye(4)
-        data2.append(np.tile(f, (3, 3, 3, 1)))
-        fsl_io.saveNIFTI(testFile2[idx], data2[idx], hdr, affine=affine)
-
-    return testFile, testFile2, data, data2
+    return testfile, nmrs
 
 
 def splitdata(svs, mrsi):
@@ -181,24 +197,24 @@ def splitdata(svs, mrsi):
 def test_filecreation(svs_data, mrsi_data, svs_data_uncomb, mrsi_data_uncomb):
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
 
-    data, hdr = fsl_io.readNIFTI(svsfile[0], squeezeSVS=False)
-    assert data.shape == (1, 1, 1, 2048)
-    assert np.isclose(data, svsdata[0]).all()
+    data = read_FID(svsfile)
+    assert data.shape == (1, 1, 1, 512, 3)
+    assert np.allclose(data.data, svsdata.data)
 
-    data, hdr = fsl_io.readNIFTI(mrsifile[0], squeezeSVS=False)
-    assert data.shape == (3, 3, 3, 2048)
-    assert np.isclose(data, mrsidata[0]).all()
+    data = read_FID(mrsifile)
+    assert data.shape == (2, 2, 2, 512, 3)
+    assert np.allclose(data.data, mrsidata.data)
 
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data_uncomb,
                                                      mrsi_data_uncomb)
 
-    data, hdr = fsl_io.readNIFTI(svsfile, squeezeSVS=False)
-    assert data.shape == (1, 1, 1, 2048, 4)
-    assert np.isclose(data, svsdata).all()
+    data = read_FID(svsfile)
+    assert data.shape == (1, 1, 1, 512, 4)
+    assert np.allclose(data.data, svsdata.data)
 
-    data, hdr = fsl_io.readNIFTI(mrsifile, squeezeSVS=False)
-    assert data.shape == (3, 3, 3, 2048, 4)
-    assert np.isclose(data, mrsidata).all()
+    data = read_FID(mrsifile)
+    assert data.shape == (2, 2, 2, 512, 4)
+    assert np.allclose(data.data, mrsidata.data)
 
 
 def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
@@ -213,15 +229,12 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.combine_FIDs(svsdata[0, 0, 0, ...],
-                                     'svd',
-                                     do_prewhiten=True)
+    # Run directly
+    directRun = preproc.coilcombine(svsdata)
 
-    assert np.isclose(data, directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -231,14 +244,12 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.combine_FIDs(mrsidata[2, 2, 2, ...], 'svd',
-                                     do_prewhiten=True)
+    # Run directly
+    directRun = preproc.coilcombine(mrsidata)
 
-    assert np.isclose(data[2, 2, 2, ...], directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_average(svs_data, mrsi_data, tmp_path):
@@ -247,38 +258,34 @@ def test_average(svs_data, mrsi_data, tmp_path):
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'average',
-                           '--file', svsfile[0], svsfile[1], svsfile[2],
-                           '--avgfiles',
+                           '--file', svsfile,
+                           '--dim', 'DIM_DYN',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    allFileData = np.array([d for d in svsdata])
-    directRun = preproc.combine_FIDs(allFileData.T, 'mean')
+    # Run directly
+    directRun = preproc.average(svsdata, 'DIM_DYN')
 
-    assert np.isclose(data, directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'average',
-                           '--file', mrsifile[0], mrsifile[1], mrsifile[2],
-                           '--avgfiles',
+                           '--file', mrsifile,
+                           '--dim', 'DIM_DYN',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    allFileData = np.array([d for d in mrsidata])
-    directRun = preproc.combine_FIDs(allFileData.T, 'mean')
+    # Run directly
+    directRun = preproc.average(mrsidata, 'DIM_DYN')
 
-    assert np.isclose(data, directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_align(svs_data, mrsi_data, tmp_path):
@@ -287,53 +294,36 @@ def test_align(svs_data, mrsi_data, tmp_path):
     # Run align on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
-                           '--file', svsfile[0], svsfile[1], svsfile[2],
+                           '--dim', 'DIM_DYN',
+                           '--file', svsfile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp_000.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    allFileData = [d for d in svsdata]
-    directRun, _, _ = preproc.phase_freq_align(allFileData,
-                                               4000,
-                                               123.2E6,
-                                               niter=2,
-                                               ppmlim=[-10.0, 10.0],
-                                               verbose=False,
-                                               target=None,
-                                               apodize=10)
+    # Run directly
+    directRun = preproc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10))
 
-    assert np.allclose(data, directRun[0])
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
-                           '--file', mrsifile[0], mrsifile[1], mrsifile[2],
+                           '--dim', 'DIM_DYN',
+                           '--file', mrsifile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp_000.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    allFileData = [d[2, 2, 2, ...] for d in mrsidata[0:3]]
-    directRun, _, _ = preproc.phase_freq_align(allFileData,
-                                               4000,
-                                               123.2E6,
-                                               niter=2,
-                                               ppmlim=[-10.0, 10.0],
-                                               verbose=False,
-                                               target=None,
-                                               apodize=10)
+    # Run directly
+    directRun = preproc.align(mrsidata, 'DIM_DYN', ppmlim=(-10, 10))
 
-    assert np.allclose(data[2, 2, 2, ...], directRun[0],
-                       atol=1E-1, rtol=1E-1)
+    assert np.allclose(data.data, directRun.data, atol=1E-1, rtol=1E-1)
 
 
 def test_ecc(svs_data, mrsi_data, tmp_path):
@@ -342,37 +332,34 @@ def test_ecc(svs_data, mrsi_data, tmp_path):
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'ecc',
-                           '--file', svsfile[0],
-                           '--reference', svsfile[1],
+                           '--file', svsfile,
+                           '--reference', svsfile,
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.eddy_correct(svsdata[0], svsdata[1])
+    # Run directly
+    directRun = preproc.ecc(svsdata, svsdata)
 
-    assert np.isclose(data, directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
-    # Run coil combination on both sets of data using the command line
+    # Run coil ecc on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'ecc',
-                           '--file', mrsifile[0],
-                           '--reference', mrsifile[1],
+                           '--file', mrsifile,
+                           '--reference', mrsifile,
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.eddy_correct(mrsidata[0][2, 2, 2, ...],
-                                     mrsidata[1][2, 2, 2, ...])
+    # Run directly
+    directRun = preproc.ecc(mrsidata, mrsidata)
 
-    assert np.isclose(data[2, 2, 2, ...], directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_remove(svs_data, mrsi_data, tmp_path):
@@ -381,79 +368,58 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     # Run remove on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'remove',
-                           '--file', svsfile[0],
+                           '--file', svsfile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    limits = (-10, 10)
-    directRun = preproc.hlsvd(svsdata[0],
-                              1 / 4000,
-                              123.2,
-                              limits,
-                              limitUnits='ppm+shift')
+    # Run directly
+    directRun = preproc.remove_peaks(svsdata, (-10, 10))
 
-    assert np.isclose(data, directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'remove', '--file',
-                           mrsifile[0],
+                           mrsifile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    limits = (-10, 10)
-    directRun = preproc.hlsvd(mrsidata[0][2, 2, 2, ...],
-                              1 / 4000.0,
-                              123.2,
-                              limits,
-                              limitUnits='ppm+shift')
+    # Run directly
+    directRun = preproc.remove_peaks(mrsidata, (-10, 10))
 
-    assert np.isclose(data[2, 2, 2, ...], directRun).all()
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
-    svsfile1, svsfile2, svsdata1, svsdata2 = svs_data_diff[0], \
-        svs_data_diff[1], \
-        svs_data_diff[2], \
-        svs_data_diff[3]
-    # mrsifile1, mrsifile2, mrsidata1, mrsidata2 = mrsi_data_diff[0], \
-    #                                              mrsi_data_diff[1], \
-    #                                              mrsi_data_diff[2], \
-    #                                              mrsi_data_diff[3]
+    svsfile, svsdata = svs_data_diff[0], svs_data_diff[1]
 
     # Run alignment via commandline
     subprocess.check_call(['fsl_mrs_proc',
                            'align-diff',
-                           '--file', svsfile1[0], svsfile1[1],
-                           '--reference', svsfile2[0], svsfile2[1],
+                           '--file', svsfile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp_000.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun, _, _, _ = preproc.phase_freq_align_diff(svsdata1,
-                                                       svsdata2,
-                                                       4000,
-                                                       123.2E6,
-                                                       ppmlim=[-10.0, 10.0])
+    # Run directly
+    directRun = preproc.aligndiff(svsdata,
+                                  'DIM_DYN',
+                                  'DIM_EDIT',
+                                  'add',
+                                  ppmlim=(-10, 10))
 
-    assert np.isclose(data, directRun[0]).all()
+    assert np.allclose(data.data, directRun.data)
     # TODO: finish MRSI test
 
 
@@ -462,23 +428,22 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
 
     subprocess.check_call(['fsl_mrs_proc',
                            'fshift',
-                           '--file', svsfile[0],
+                           '--file', svsfile,
                            '--shiftppm', '1.0',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.freqshift(svsdata[0], 1 / 4000, 1.0 * 123.2)
+    # Run directly
+    directRun = preproc.fshift(svsdata, 1.0 * 123.2)
 
-    assert np.allclose(data, directRun)
+    assert np.allclose(data.data, directRun.data)
 
     subprocess.check_call(['fsl_mrs_proc',
                            'fshift',
-                           '--file', svsfile[0],
+                           '--file', svsfile,
                            '--shiftRef',
                            '--ppm', '-5.0', '5.0',
                            '--target', '4.0',
@@ -486,17 +451,12 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun, _ = preproc.shiftToRef(svsdata[0],
-                                      4.0,
-                                      4000.0,
-                                      123.2E6,
-                                      ppmlim=(-5.0, 5.0))
+    # Run directly
+    directRun = preproc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
 
-    assert np.allclose(data, directRun)
+    assert np.allclose(data.data, directRun.data)
     # TODO: finish MRSI test
 
 
@@ -507,34 +467,32 @@ def test_conj(svs_data, mrsi_data, tmp_path):
     # Run remove on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'conj',
-                           '--file', svsfile[0],
+                           '--file', svsfile,
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using numpy directly
-    directRun = np.conj(svsdata[0])
+    # Run directly
+    directRun = preproc.conjugate(svsdata)
 
-    assert np.allclose(data, directRun)
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'conj',
-                           '--file', mrsifile[0],
+                           '--file', mrsifile,
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = np.conj(mrsidata[0][2, 2, 2, ...])
+    # Run directly
+    directRun = preproc.conjugate(mrsidata)
 
-    assert np.allclose(data[2, 2, 2, ...], directRun)
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_fixed_phase(svs_data, mrsi_data, tmp_path):
@@ -544,51 +502,33 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     # Run remove on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'fixed_phase',
-                           '--file', svsfile[0],
+                           '--file', svsfile,
                            '--p0', '90',
                            '--p1', '0.001',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using numpy directly
-    directRun = preproc.applyPhase(svsdata[0],
-                                   (np.pi / 180.0) * 90)
+    # Run directly
+    directRun = preproc.apply_fixed_phase(svsdata, 90, 0.001)
 
-    directRun, newDT = preproc.timeshift(
-        directRun,
-        1 / 4000,
-        0.001,
-        0.001,
-        samples=directRun.size)
-
-    assert np.allclose(data, directRun)
+    assert np.allclose(data.data, directRun.data)
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'fixed_phase',
-                           '--file', mrsifile[0],
+                           '--file', mrsifile,
                            '--p0', '90',
                            '--p1', '0.001',
                            '--output', tmp_path,
                            '--filename', 'tmp'])
 
     # Load result for comparison
-    data, hdr = fsl_io.readNIFTI(op.join(tmp_path, 'tmp.nii.gz'),
-                                 squeezeSVS=True)
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
-    # Run using preproc.py directly
-    directRun = preproc.applyPhase(mrsidata[0][2, 2, 2, ...],
-                                   (np.pi / 180.0) * 90)
+    # Run directly
+    directRun = preproc.apply_fixed_phase(mrsidata, 90, 0.001)
 
-    directRun, newDT = preproc.timeshift(
-        directRun,
-        1 / 4000,
-        0.001,
-        0.001,
-        samples=directRun.size)
-
-    assert np.allclose(data[2, 2, 2, ...], directRun)
+    assert np.allclose(data.data, directRun.data)

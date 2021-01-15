@@ -13,7 +13,7 @@ from fsl_mrs.core import MRS
 from fsl_mrs.utils import mrs_io, misc
 import matplotlib.pyplot as plt
 import nibabel as nib
-from fsl_mrs.utils.mrs_io.fsl_io import saveNIFTI, readNIFTI
+from fsl_mrs.utils.mrs_io import fsl_io
 
 
 class MRSI(object):
@@ -288,7 +288,7 @@ class MRSI(object):
             data[data > 1e10]    = 0
 
         if nt == self.FID_points:
-            saveNIFTI(file_path_name, data, self.header)
+            fsl_io.saveNIFTI(file_path_name, data, self.header)
         else:
             img = nib.Nifti1Image(data, self.header['nifti'].affine)
             nib.save(img, file_path_name)
@@ -304,7 +304,8 @@ class MRSI(object):
         """ Load MRSI data directly from files """
         data, hdr = mrs_io.read_FID(data_file)
         if mask_file is not None:
-            mask, _ = readNIFTI(mask_file)
+            nib_img = nib.load(mask_file)
+            mask = np.asanyarray(nib_img.dataobj)
         else:
             mask = None
 
