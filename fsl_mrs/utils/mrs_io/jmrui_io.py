@@ -11,7 +11,43 @@ import os.path as op
 from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
 
 
-# Read jMRUI style text files
+def readjMRUItxt_fid(txtfile):
+    '''Read FID files in jMRUI txt format
+    :param txtfile: .txt format file path
+    :return: NIFTI_MRS
+    '''
+
+    data, header = readjMRUItxt(txtfile, unpack_header=True)
+
+    if 'TypeOfNucleus' in header['jmrui']:
+        nucleus = header['jmrui']['TypeOfNucleus']
+    else:
+        nucleus = '1H'
+
+    data = data.reshape((1, 1, 1) + data.shape)
+
+    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus)
+
+
+# Read jMRUI .txt files containing basis
+def read_txtBasis_files(txtfiles):
+    basis = []
+    names = []
+    header = []
+    for file in txtfiles:
+        b, h = readjMRUItxt(file)
+        basis.append(b)
+
+        prefix, _ = op.splitext(op.basename(file))
+        names.append(prefix)
+
+        header.append(h)
+
+    basis = np.array(basis).conj().T
+    return basis, names, header
+
+
+# generically read jMRUI style text files
 def readjMRUItxt(filename, unpack_header=True):
     """
     Read .txt format file
@@ -57,12 +93,7 @@ def readjMRUItxt(filename, unpack_header=True):
     # Clean up header
     header = translateHeader(header)
 
-    if 'TypeOfNucleus' in header['jmrui']:
-        nucleus = header['jmrui']['TypeOfNucleus']
-    else:
-        nucleus = '1H'
-
-    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus)
+    return data, header
 
 
 # Translate jMRUI header to mandatory fields
@@ -82,24 +113,6 @@ def num(s):
             return float(s)
         except ValueError:
             return s
-
-
-# Read jMRUI .txt files containing basis
-def read_txtBasis_files(txtfiles):
-    basis = []
-    names = []
-    header = []
-    for file in txtfiles:
-        b, h = readjMRUItxt(file)
-        basis.append(b)
-
-        prefix, _ = op.splitext(op.basename(file))
-        names.append(prefix)
-
-        header.append(h)
-
-    basis = np.array(basis).conj().T
-    return basis, names, header
 
 
 # Write functions

@@ -85,8 +85,12 @@ class NIFTI_MRS(Image):
         super().__init__(*args, **kwargs)
 
         # Check that file meets minimum requirements
-        if float(self.mrs_nifti_version) < 0.2:
-            raise NotNIFTI_MRS('NIFTI-MRS > V0.2 required.')
+        try:
+            nmrs_version = self.mrs_nifti_version
+            if float(nmrs_version) < 0.2:
+                raise NotNIFTI_MRS('NIFTI-MRS > V0.2 required.')
+        except IndexError:
+            raise NotNIFTI_MRS('NIFTI-MRS intent code not set.')
 
         if 44 not in self.header.extensions.get_codes():
             raise NotNIFTI_MRS('NIFTI-MRS must have a header extension.')

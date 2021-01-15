@@ -64,6 +64,7 @@ def read_lcm_raw_h2o(filename):
     :return: NIFTI_MRS
     """
     data, header = readLCModelRaw(filename)
+    data = data.reshape((1, 1, 1) + data.shape)
 
     return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'])
 

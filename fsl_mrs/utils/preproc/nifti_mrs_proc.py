@@ -485,12 +485,13 @@ def shift_to_reference(data, ppm_ref, peak_search, report=None, report_all=False
 
 
 def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, report=None):
-    '''Remove unlike dynamics
+    '''Remove unlike dynamics operating on DIM_DYN
 
     :param NIFTI_MRS data: Data to truncate or pad
     :param report: Provide output location as path to generate report
 
-    :return: Shifted data in NIFTI_MRS format.
+    :return: Data passing likeness criteria.
+    :return: Data failing likness criteria
     '''
     if data.shape[:3] != (1, 1, 1):
         raise OnlySVS("remove_unlike only specified for SVS data")

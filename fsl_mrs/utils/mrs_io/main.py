@@ -13,7 +13,7 @@ from fsl_mrs.utils.mrs_io import fsl_io as fsl
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
 from fsl_mrs.core.NIFTI_MRS import NIFTI_MRS, NotNIFTI_MRS
-
+import fsl.utils.path as fslpath
 
 class FileNotRecognisedError(Exception):
     pass
@@ -34,7 +34,7 @@ def check_datatype(filename):
     """
     try:
         NIFTI_MRS(filename)
-    except NotNIFTI_MRS:
+    except (NotNIFTI_MRS, fslpath.PathError):
         _, ext = os.path.splitext(filename)
         if ext.lower() == '.nii' or ext.lower() == '.nii.gz':
             fsl.readNIFTI(filename)
@@ -64,15 +64,17 @@ def read_FID(filename):
      array-like (complex)
      dict (header info)
     """
-    data_type = check_datatype(filename)
-    if data_type == 'NIFTI_MRS':
+    try:
         return NIFTI_MRS(filename)
-    elif data_type == 'RAW':
+    except (NotNIFTI_MRS, fslpath.PathError):
+        data_type = check_datatype(filename)
+
+    if data_type == 'RAW':
         return lcm.read_lcm_raw_h2o(filename)
     elif data_type == 'NIFTI':
         return fsl.readNIFTI(filename)
     elif data_type == 'TXT':
-        return jmrui.readjMRUItxt(filename)
+        return jmrui.readjMRUItxt_fid(filename)
     else:
         raise FileNotRecognisedError(f'Cannot read data format {data_type} for file {filename}.')
 
