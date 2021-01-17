@@ -12,8 +12,9 @@ import numpy as np
 from fsl_mrs.utils.mrs_io import fsl_io as fsl
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
-from fsl_mrs.core.NIFTI_MRS import NIFTI_MRS, NotNIFTI_MRS
+from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NotNIFTI_MRS
 import fsl.utils.path as fslpath
+
 
 class FileNotRecognisedError(Exception):
     pass
@@ -35,14 +36,14 @@ def check_datatype(filename):
     try:
         NIFTI_MRS(filename)
     except (NotNIFTI_MRS, fslpath.PathError):
-        _, ext = os.path.splitext(filename)
-        if ext.lower() == '.nii' or ext.lower() == '.nii.gz':
+        _, ext = filename.split(os.extsep, 1)
+        if ext.lower() == 'nii' or ext.lower() == 'nii.gz':
             fsl.readNIFTI(filename)
             return 'NIFTI'
-        elif ext.lower() == '.raw' or ext.lower() == '.h2o':
+        elif ext.lower() == 'raw' or ext.lower() == 'h2o':
             lcm.readLCModelRaw(filename)
             return 'RAW'
-        elif ext.lower() == '.txt':
+        elif ext.lower() == 'txt':
             jmrui.readjMRUItxt(filename)
             return 'TXT'
         else:

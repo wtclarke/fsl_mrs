@@ -1,3 +1,4 @@
-from fsl_mrs.core.MRS import MRS
-from fsl_mrs.core.MRSI import MRSI
-from fsl_mrs.core.NIFTI_MRS import NIFTI_MRS, is_nifti_mrs
+from .mrs import MRS
+from .mrsi import MRSI
+from .nifti_mrs import NIFTI_MRS
+from .utility import mrs_from_files, is_nifti_mrs, mrsi_from_files

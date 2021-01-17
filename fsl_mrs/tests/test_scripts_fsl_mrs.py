@@ -6,8 +6,8 @@ import os.path as op
 
 # Files
 testsPath = op.dirname(__file__)
-data = {'metab': op.join(testsPath, 'testdata/fsl_mrs/metab.nii'),
-        'water': op.join(testsPath, 'testdata/fsl_mrs/water.nii'),
+data = {'metab': op.join(testsPath, 'testdata/fsl_mrs/metab.nii.gz'),
+        'water': op.join(testsPath, 'testdata/fsl_mrs/wref.nii.gz'),
         'basis': op.join(testsPath, 'testdata/fsl_mrs/steam_basis'),
         'seg': op.join(testsPath, 'testdata/fsl_mrs/segmentation.json')}
 

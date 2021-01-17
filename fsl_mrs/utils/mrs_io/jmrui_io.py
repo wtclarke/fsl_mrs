@@ -8,7 +8,7 @@
 import numpy as np
 import re
 import os.path as op
-from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
 
 
 def readjMRUItxt_fid(txtfile):
@@ -21,6 +21,9 @@ def readjMRUItxt_fid(txtfile):
 
     if 'TypeOfNucleus' in header['jmrui']:
         nucleus = header['jmrui']['TypeOfNucleus']
+        if nucleus == 0.0:
+            # Not sure if this is correct interpretation of TypeOfNucleus
+            nucleus = '1H'
     else:
         nucleus = '1H'
 

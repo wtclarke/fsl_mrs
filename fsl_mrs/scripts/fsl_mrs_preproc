@@ -62,8 +62,6 @@ def main():
                           help='spit out verbose info')
     optional.add_argument('--conjugate', action="store_true",
                           help='apply conjugate to FID')
-    optional.add_argument('--no_conjugate', action="store_true",
-                          help='Forbid automatic conjugation')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--report', action="store_true",

@@ -10,27 +10,10 @@ import numpy as np
 import json
 from fsl.data.image import Image
 from fsl_mrs.core import MRS, MRSI
-import fsl.utils.path as fslpath
-from nibabel.nifti2 import Nifti2Header
 from nibabel.nifti1 import Nifti1Extension
+
+from nibabel.nifti2 import Nifti2Header
 from fsl_mrs.utils.misc import checkCFUnits
-
-
-class NIFTIMRS_DimDoesntExist(Exception):
-    pass
-
-
-class NotNIFTI_MRS(Exception):
-    pass
-
-
-def is_nifti_mrs(file_path):
-    '''Check that a file is of the NIFTI-MRS format type.'''
-    try:
-        NIFTI_MRS(file_path)
-        return True
-    except fslpath.PathError:
-        raise NotNIFTI_MRS("File isn't NIFTI-MRS, wrong extension type.")
 
 
 def gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus='1H', affine=None, dim_tags=[None, None, None]):
@@ -46,7 +29,7 @@ def gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus='1H', affine=None, dim
     :return: NIFTI_MRS object
     '''
 
-    if not np.iscomplex(data).all():
+    if not np.iscomplexobj(data):
         raise ValueError('data must be complex')
     if data.ndim < 4 or data.ndim > 7:
         raise ValueError(f'data must between 4 and 7 dimensions, currently has {data.ndim}')
@@ -72,6 +55,14 @@ def gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus='1H', affine=None, dim
     header['intent_name'] = 'mrs_v0_2'.encode()
 
     return NIFTI_MRS(data, header=header)
+
+
+class NIFTIMRS_DimDoesntExist(Exception):
+    pass
+
+
+class NotNIFTI_MRS(Exception):
+    pass
 
 
 class NIFTI_MRS(Image):
@@ -304,7 +295,15 @@ class NIFTI_MRS(Image):
             basis_hdr = basis_hdr[0]
 
         if ref_data is not None:
-            ref_data = ref_data.data
+            if isinstance(ref_data, str):
+                ref_data = NIFTI_MRS(ref_data).data
+            elif isinstance(ref_data, NIFTI_MRS):
+                ref_data = ref_data.data
+            elif isinstance(ref_data, np.ndarray):
+                pass
+            else:
+                raise TypeError('ref_data must be a path to a NIFTI-MRS file,'
+                                'a NIFTI_MRS object, or a numpy array.')
 
         for data, _ in self.iterate_over_dims(dim=dim):
             if np.prod(data.shape[:3]) > 1:
@@ -332,6 +331,9 @@ class NIFTI_MRS(Image):
                                basis_hdr=basis_hdr,
                                H2O=ref_data)
             else:
+                if ref_data is not None:
+                    ref_data = ref_data.squeeze()
+
                 # Generate MRS objects
                 if data.ndim > 4:
                     out = []

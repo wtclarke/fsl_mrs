@@ -11,7 +11,7 @@ import numpy as np
 import os
 import re
 from fsl_mrs.utils.misc import checkCFUnits
-from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
 
 
 # Raw file reading

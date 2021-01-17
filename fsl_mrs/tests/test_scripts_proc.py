@@ -6,7 +6,7 @@
 
 import pytest
 import os.path as op
-from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc

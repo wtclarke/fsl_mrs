@@ -101,10 +101,6 @@ def main():
                                ' Defaults to tCr (Cr+PCr).')
     optional.add_argument('--h2o_scale', type=float, default=1.0,
                           help='Additional scaling modifier for external water referencing.')
-    optional.add_argument('--central_frequency', default=None, type=float,
-                          help='central frequency in Hz')
-    optional.add_argument('--dwell_time', default=None, type=float,
-                          help='dwell time in seconds')
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
@@ -143,7 +139,6 @@ def main():
     import os
     import shutil
     import warnings
-    from fsl_mrs.core import MRS
     from fsl_mrs.utils import mrs_io
     from fsl_mrs.utils import report
     from fsl_mrs.utils import fitting
@@ -185,49 +180,23 @@ def main():
         print(f'  {args.data}')
         print(f'  {args.basis}\n')
 
-    FID, dataheader = mrs_io.read_FID(args.data)
+    FID = mrs_io.read_FID(args.data)
     basis, names, basisheader = mrs_io.read_basis(args.basis)
 
     if args.h2o is not None:
-        H2O, _ = mrs_io.read_FID(args.h2o)
+        H2O = mrs_io.read_FID(args.h2o)
     else:
         H2O = None
 
-    # Collect useful info
-    if args.central_frequency is not None:
-        cf = args.central_frequency
-    elif dataheader['centralFrequency'] is not None:
-        cf = dataheader['centralFrequency']
-        if args.verbose:
-            print(f'     Detected central frequency'
-                  f' in header info cf = {cf:0.6f} MHz')
-    else:
-        raise(Exception('Cannot determine central frequency.'
-                        'Please either set it or include it in data header'))
-
-    if args.dwell_time is not None:
-        bw = 1 / args.dwell_time
-    elif dataheader['bandwidth'] is not None:
-        bw = dataheader['bandwidth']
-        if args.verbose:
-            print(f'      Detected bandwidth in header info bw = {bw:0.1f} Hz')
-    else:
-        raise(Exception('Cannot determine bandwidth.'
-                        'Please either set it or include it in data header'))
-
-    # Fix case where basis file contains no header info (e.g. .RAW)
-    if basisheader is None:
-        basisheader = {'bandwidth': bw,
-                       'dwelltime': 1 / bw,
-                       'centralFrequency': cf}
-    else:
-        basisheader = basisheader[0]
-
     # Instantiate MRS object
-    MRSargs = {'FID': FID, 'basis': basis,
-               'basis_hdr': basisheader, 'names': names,
-               'H2O': H2O, 'cf': cf, 'bw': bw}
-    mrs = MRS(**MRSargs)
+    mrs = FID.mrs(basis=basis,
+                  names=names,
+                  basis_hdr=basisheader[0],
+                  ref_data=H2O)
+
+    if isinstance(mrs, list):
+        raise ValueError('fsl_mrs only handles a single FID at a time.'
+                         ' Please preprocess data.')
 
     # Check the FID and basis / conjugate
     if args.conjfid is not None:
@@ -268,7 +237,7 @@ def main():
     if args.verbose:
         print('--->> Start fitting\n\n')
         print('    Algorithm = [{}]\n'.format(args.algo))
-        start = time.time()
+    start = time.time()
 
     ppmlim = args.ppmlim
     if ppmlim is not None:
@@ -312,15 +281,14 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE * 1E-3
-    elif 'meta' in basisheader:
-        if 'TE' in basisheader['meta']:
-            echotime = basisheader['meta']['TE']
-            if echotime > 1.0:  # Assume in ms.
-                echotime *= 1E-3
-            else:
-                echotime = None
-    elif 'TE' in dataheader:
-        echotime = dataheader['TE']
+    elif 'meta' in basisheader and 'TE' in basisheader['meta']:
+        echotime = basisheader['meta']['TE']
+        if echotime > 1.0:  # Assume in ms.
+            echotime *= 1E-3
+        else:
+            echotime = None
+    elif 'EchoTime' in FID.hdr_ext:
+        echotime = FID.hdr_ext['TE']
     else:
         echotime = None
 

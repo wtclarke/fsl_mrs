@@ -9,11 +9,10 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.core import MRS
-from fsl_mrs.utils import mrs_io, misc
 import matplotlib.pyplot as plt
-import nibabel as nib
-from fsl_mrs.utils.mrs_io import fsl_io
+
+from fsl_mrs.core import MRS
+from fsl_mrs.utils import misc
 
 
 class MRSI(object):
@@ -267,8 +266,9 @@ class MRSI(object):
         self.gm = gm
         self.tissue_seg_loaded = True
 
-    def write_output(self, data_list, file_path_name, indicies=None, cleanup=True, dtype=float):
-        '''Write 3D or 4D array of data to nifti file with current orientation.'''
+    def list_to_matched_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+        '''Convert 3D or 4D array of data indexed from an mrsi object
+        to a  numpy array matching the shape of the mrsi data.'''
         if indicies is None:
             indicies = self.get_indicies_in_order()
 
@@ -287,54 +287,4 @@ class MRSI(object):
             data[data < 1e-10]   = 0
             data[data > 1e10]    = 0
 
-        if nt == self.FID_points:
-            fsl_io.saveNIFTI(file_path_name, data, self.header)
-        else:
-            img = nib.Nifti1Image(data, self.header['nifti'].affine)
-            nib.save(img, file_path_name)
-
-    @classmethod
-    def from_files(cls, data_file,
-                   mask_file=None,
-                   basis_file=None,
-                   H2O_file=None,
-                   csf_file=None,
-                   gm_file=None,
-                   wm_file=None):
-        """ Load MRSI data directly from files """
-        data, hdr = mrs_io.read_FID(data_file)
-        if mask_file is not None:
-            nib_img = nib.load(mask_file)
-            mask = np.asanyarray(nib_img.dataobj)
-        else:
-            mask = None
-
-        if basis_file is not None:
-            basis, names, basisHdr = mrs_io.read_basis(basis_file)
-        else:
-            basis, names, basisHdr = None, None, [None, ]
-        if H2O_file is not None:
-            data_w, hdr_w = mrs_io.read_FID(H2O_file)
-        else:
-            data_w = None
-
-        out = cls(data, hdr,
-                  mask=mask,
-                  basis=basis,
-                  names=names,
-                  basis_hdr=basisHdr[0],
-                  H2O=data_w)
-
-        def loadNii(f):
-            nii = np.asanyarray(nib.load(f).dataobj)
-            if nii.ndim == 2:
-                nii = np.expand_dims(nii, 2)
-            return nii
-
-        if (csf_file is not None) and (gm_file is not None) and (wm_file is not None):
-            csf = loadNii(csf_file)
-            gm = loadNii(gm_file)
-            wm = loadNii(wm_file)
-            out.set_tissue_seg(csf, wm, gm)
-
-        return out
+        return data

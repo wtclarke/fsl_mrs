@@ -13,7 +13,7 @@ import os
 import glob
 import re
 import scipy.signal as ss
-from fsl_mrs.core.NIFTI_MRS import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
 
 
 # NIFTI I/O
