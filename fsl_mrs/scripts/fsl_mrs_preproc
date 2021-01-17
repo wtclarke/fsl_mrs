@@ -140,7 +140,7 @@ def main():
         # Separate ecc data
         ecc_data = mrs_io.read_FID(args.ecc)
         if args.verbose:
-            print(f'.... Found quant with shape {ecc_data.shape}.\n\n')
+            print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
     else:
         ecc_data = None
 
@@ -259,9 +259,9 @@ def main():
         if args.verbose:
             print('... Truncation ...')
         supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, args.leftshift, 'first', report=report_dir)
-        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, args.leftshift, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, args.leftshift, 'first')
         if args.quant is not None:
-            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, args.leftshift, 'first', report=report_dir)
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, args.leftshift, 'first')
 
     # Apply shift to reference
     if args.verbose:
@@ -273,9 +273,9 @@ def main():
         print('... Phasing on tCr ...')
     supp_data = nifti_mrs_proc.phase_correct(supp_data, (2.9, 3.1), report=report_dir)
     if args.quant is not None:
-        final_wref = nifti_mrs_proc.phase_correct(quant_data, (4.55, 4.7), report=report_dir)
+        final_wref = nifti_mrs_proc.phase_correct(quant_data, (4.55, 4.7), hlsvd=False, report=report_dir)
     else:
-        final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), report=report_dir)
+        final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
     # Save the data
     if args.verbose:
