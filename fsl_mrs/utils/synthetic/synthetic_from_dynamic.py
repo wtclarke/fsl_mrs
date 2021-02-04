@@ -93,7 +93,7 @@ def synthetic_spectra_from_model(config_file,
                 'eps': 0,
                 'gamma': 10,
                 'sigma': 10,
-                'baseline': (0, 0),
+                'baseline': [0, 0] * (baseline_order + 1),
                 'conc': concentrations}
 
     for key in defined_vals:
@@ -117,7 +117,7 @@ def synthetic_spectra_from_model(config_file,
                     syn_free_params.extend([defined_vals[param], ] * vm.mapped_sizes[index])
             elif param in std_vals:
                 if hasattr(std_vals[param], "__len__") \
-                        and len(defined_vals[param]) == vm.mapped_sizes[index]:
+                        and len(std_vals[param]) == vm.mapped_sizes[index]:
                     syn_free_params.extend(std_vals[param])
                 elif hasattr(std_vals[param], "__len__"):
                     raise ValueError('Must be the same length as sizes.')

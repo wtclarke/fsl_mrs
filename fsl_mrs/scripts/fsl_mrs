@@ -139,6 +139,8 @@ def main():
     import os
     import shutil
     import warnings
+    import matplotlib
+    matplotlib.use('agg')
     from fsl_mrs.utils import mrs_io
     from fsl_mrs.utils import report
     from fsl_mrs.utils import fitting
@@ -248,7 +250,7 @@ def main():
 
     # Include Macromolecules? These should have their own metab groups
     if args.add_MM:
-        if not args.verbose:
+        if args.verbose:
             print('Adding macromolecules')
         nMM = mrs.add_MM_peaks(gamma=10, sigma=20)
         G = [i + max(metab_groups) + 1 for i in range(nMM)]

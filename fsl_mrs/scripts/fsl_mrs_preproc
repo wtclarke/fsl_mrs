@@ -253,7 +253,7 @@ def main():
         if args.verbose:
             print('... Residual water removal ...')
         hlsvdlimits = [-0.35, 0.35]
-        supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, report=report_dir)
+        supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, limit_units='ppm', report=report_dir)
 
     if args.leftshift:
         if args.verbose:
