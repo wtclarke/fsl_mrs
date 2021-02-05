@@ -317,6 +317,14 @@ def main():
     if not op.isdir(args.output):
         makedirs(args.output)
 
+    # Handle report generation output location.
+    # Bit of a hack, but I messed up the type expected by the
+    # nifti mrs proc functions.
+    if args.generateReports:
+        args.generateReports = args.output
+    else:
+        args.generateReports = None
+
     # Call function - pass dict like view of args
     #  for compatibility with other modules
     dataout = args.func(dataList, vars(args))
@@ -406,17 +414,18 @@ def loadData(datafile, refdatafile=None):
 
     if refdatafile:
         loaded_data = datacontainer(NIFTI_MRS(datafile),
-                                    datafile,
+                                    op.basename(datafile),
                                     NIFTI_MRS(refdatafile),
-                                    refdatafile)
+                                    op.basename(datafile))
     else:
         loaded_data = datacontainer(NIFTI_MRS(datafile),
-                                    datafile)
+                                    op.basename(datafile))
 
     return loaded_data
 
 
 def writeData(dataobj, args):
+
     if args.filename is None:
         fileout = op.join(args.output, dataobj.datafilename)
     else:

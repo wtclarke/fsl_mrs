@@ -552,6 +552,10 @@ class MRS(object):
         from fsl_mrs.utils.plotting import plot_spectrum
         plot_spectrum(self, ppmlim=ppmlim)
 
+    def plot_ref(self, ppmlim=(2.65, 6.65)):
+        from fsl_mrs.utils.plotting import plot_spectrum
+        plot_spectrum(self, FID=self.H2O, ppmlim=ppmlim)
+
     def plot_fid(self, tlim=None):
         from fsl_mrs.utils.plotting import plot_fid
         plot_fid(self, tlim)

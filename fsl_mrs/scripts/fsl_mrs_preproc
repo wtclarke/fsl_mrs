@@ -246,7 +246,9 @@ def main():
     ref_data = nifti_mrs_proc.ecc(ref_data, eccRef)
     # Typically if a separate "quantification" water reference
     #  has been collected it will have most gradients removed
-    # (OVS and water suppression), therefore do not apply ecc.
+    # (OVS and water suppression), therefore use it as it's own reference.
+    if args.quant is not None:
+        quant_data = nifti_mrs_proc.ecc(quant_data, quant_data)
 
     # HLSVD
     if args.hlsvd:
@@ -258,10 +260,10 @@ def main():
     if args.leftshift:
         if args.verbose:
             print('... Truncation ...')
-        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, args.leftshift, 'first', report=report_dir)
-        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, args.leftshift, 'first')
+        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
         if args.quant is not None:
-            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, args.leftshift, 'first')
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
 
     # Apply shift to reference
     if args.verbose:

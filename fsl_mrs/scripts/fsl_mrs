@@ -291,7 +291,7 @@ def main():
         else:
             echotime = None
     elif 'EchoTime' in FID.hdr_ext:
-        echotime = FID.hdr_ext['TE']
+        echotime = FID.hdr_ext['EchoTime']
     else:
         echotime = None
 
