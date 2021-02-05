@@ -6,13 +6,15 @@
 # Copyright (C) 2021 University of Oxford
 # SHBASECOPYRIGHT
 
-import numpy as np
 import json
+from pathlib import Path
+
+import numpy as np
+from nibabel.nifti1 import Nifti1Extension
+from nibabel.nifti2 import Nifti2Header
+
 from fsl.data.image import Image
 from fsl_mrs.core import MRS, MRSI
-from nibabel.nifti1 import Nifti1Extension
-
-from nibabel.nifti2 import Nifti2Header
 from fsl_mrs.utils.misc import checkCFUnits
 
 
@@ -73,6 +75,10 @@ class NIFTI_MRS(Image):
         if isinstance(args[0], np.ndarray):
             args = list(args)
             args[0] = args[0].conj()
+        elif isinstance(args[0], Path):
+            args = list(args)
+            args[0] = str(args[0])
+
         super().__init__(*args, **kwargs)
 
         # Check that file meets minimum requirements
