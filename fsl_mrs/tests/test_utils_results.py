@@ -25,6 +25,7 @@ def data():
     begintime = 0.00005
 
     basisFIDs = []
+    basisHdr = None
     for idx, _ in enumerate(amplitude):
         tmp, basisHdr = syntheticFID(noisecovariance=[[0.0]],
                                      chemicalshift=[chemshift[idx] + 0.1],

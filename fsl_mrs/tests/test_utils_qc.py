@@ -1,6 +1,6 @@
 '''FSL-MRS test script
 
-Test elements of the QC parameter calculation process. 
+Test elements of the QC parameter calculation process.
 
 Copyright Will Clarke, University of Oxford, 2021'''
 
