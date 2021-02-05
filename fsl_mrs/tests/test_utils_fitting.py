@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test the main fitting routines
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 from fsl_mrs.core import MRS
@@ -23,6 +29,7 @@ def data():
     basisNames = ['Cr', 'PCr', 'NAA']
 
     basisFIDs = []
+    basisHdr = None
     for idx, _ in enumerate(amplitude):
         tmp, basisHdr = syntheticFID(noisecovariance=[[0.0]],
                                      chemicalshift=[chemshift[idx]],

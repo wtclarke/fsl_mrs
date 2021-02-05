@@ -1,8 +1,13 @@
-# Tests for the individual proc functions.
-# These tests don't test theat the actual algorithms are doing the right thing,
-# simply that the script handles SVS data and MRSI data properly and that the
-# results from the command line program matches that of the underlying
-# algorithms in nifti_mrs_proc.py
+'''FSL-MRS test script
+
+Tests for the individual proc functions.
+These tests don't test theat the actual algorithms are doing the right thing,
+simply that the script handles SVS data and MRSI data properly and that the
+results from the command line program matches that of the underlying
+algorithms in nifti_mrs_proc.py
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 
 import pytest
 import os.path as op

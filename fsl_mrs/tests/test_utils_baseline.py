@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test baseline tools
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 from fsl_mrs.utils import baseline
 from fsl_mrs.core import MRS
 import numpy as np

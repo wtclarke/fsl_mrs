@@ -1,5 +1,10 @@
-# Tests for the quantify module.
-# Utilise the independently constructed MRS fitting challenge data to test against
+'''FSL-MRS test script
+
+Tests for the quantify module.
+Utilise the independently constructed MRS fitting challenge data to test against
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 
 import os.path as op
 import fsl_mrs.utils.mrs_io as mrsio

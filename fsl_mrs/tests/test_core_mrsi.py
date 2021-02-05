@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test core MRSI class.
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 from fsl_mrs.core import MRSI, mrsi_from_files
 from pathlib import Path
 from fsl_mrs.utils import mrs_io

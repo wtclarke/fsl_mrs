@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test the svs preprocessing script
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 import subprocess
 from pathlib import Path
 

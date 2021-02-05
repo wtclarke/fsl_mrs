@@ -1,3 +1,8 @@
+'''FSL-MRS test script
+
+Test core MRS class.
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 
 from pathlib import Path

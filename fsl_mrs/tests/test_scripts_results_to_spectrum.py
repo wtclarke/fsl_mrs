@@ -1,4 +1,9 @@
-# Test the generation of spectra from fsl_mrs output
+'''FSL-MRS test script
+
+Test the generation of spectra from fsl_mrs output
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 
 # Imports
 import subprocess

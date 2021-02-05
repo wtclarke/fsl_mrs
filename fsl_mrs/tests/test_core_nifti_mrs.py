@@ -1,4 +1,8 @@
-# Test the NIFTI-MRS class implementation
+'''FSL-MRS test script
+
+Test the NIFTI-MRS class implementation
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 from pathlib import Path

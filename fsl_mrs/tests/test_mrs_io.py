@@ -1,4 +1,10 @@
-# Test io functions
+'''FSL-MRS test script
+
+Test io functions
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
+
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
 from fsl_mrs.utils import plotting

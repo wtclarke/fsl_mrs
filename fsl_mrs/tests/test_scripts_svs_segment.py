@@ -1,4 +1,9 @@
-# Test the svs segmentation script
+'''FSL-MRS test script
+
+Test the svs segmentation script
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 
 # Imports
 import subprocess

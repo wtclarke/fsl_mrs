@@ -1,4 +1,8 @@
-# Test the merge report script
+'''FSL-MRS test script
+
+Test the merge report script
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess

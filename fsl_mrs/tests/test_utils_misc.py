@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test functions that appear in utils.misc module
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 from fsl_mrs.utils.mrs_io.main import read_FID
 from fsl_mrs.utils import misc
 from fsl_mrs.utils import synthetic as synth
