@@ -138,6 +138,7 @@ def main():
     import time
     import os
     import shutil
+    import json
     import warnings
     import matplotlib
     matplotlib.use('agg')
@@ -170,7 +171,7 @@ def main():
 
     # Save chosen arguments
     with open(os.path.join(args.output, "options.txt"), "w") as f:
-        f.write(str(args))
+        f.write(json.dumps(vars(args)))
         f.write("\n--------\n")
         f.write(p.format_values())
 
