@@ -12,9 +12,11 @@
 #    3. doc:       Building user documentation which appears at:
 #                  https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/
 #
-#    4. build     
-#       & deploy:  Build in three stages fsl-ci-pre, fsl-ci-build, 
-#                  sl-ci-deploy
+#    4. build
+#       & deploy:  Build conda package in three stages fsl-ci-pre,
+#                  fsl-ci-build, fsl-ci-deploy (fsl-ci-test is not
+#                  used in this repository).
+#
 #
 # A custom docker image is used for the test job - images are
 # available at:
@@ -39,6 +41,7 @@ stages:
   - doc
   - fsl-ci-pre
   - fsl-ci-build
+  - fsl-ci-test
   - fsl-ci-deploy
 
 ####################################
