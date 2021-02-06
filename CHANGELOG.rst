@@ -5,6 +5,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Support for NIfTI-MRS format.
 - Preprocessing scripts reoriented around NIfTI-MRS framework
 - New script results_to_spectrum for generating full fits in NIfTI-MRS format from fsl_mrs results.
+- Documentation and example data updated for move to NIfTI-MRS.
 
 1.0.6 (Tuesday 12th January 2021)
 ---------------------------------
