@@ -31,7 +31,6 @@ def synthetic_spectra_from_model(config_file,
                                  noisecovariance=[[0.1]],
                                  bandwidth=4000,
                                  points=2048):
-
     """ Create synthetic dynamic data from FSL-MRS basis file and dynamic configuration file.
         Model parameters may be specified using the defined_vals argument. Otheriwse values are randomly set between
             the model defined bounds (or -1 and 1 if bounds not set).

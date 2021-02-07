@@ -40,8 +40,8 @@ def syntheticFID(coilamps=[1.0],
                                            noisecovariance,
                                            points)
 
-    dwelltime = 1/bandwidth
-    taxis = np.linspace(0.0, dwelltime*(points - 1), points)
+    dwelltime = 1 / bandwidth
+    taxis = np.linspace(0.0, dwelltime * (points - 1), points)
     syntheticFID = np.zeros(points, dtype=np.complex128)
     ttrue = taxis + begintime
 
@@ -50,18 +50,18 @@ def syntheticFID(coilamps=[1.0],
 
     for a, p, d, cs, gg in zip(amplitude, phase, damping, chemicalshift, g):
         # Lorentzian peak at chemicalShift
-        syntheticFID += a * np.exp(1j*p) * np.exp(-d*(1-gg+gg*ttrue)*ttrue
-                                                  + 1j*2*np.pi
-                                                  * cs
-                                                  * centralfrequency
-                                                  * ttrue)
+        syntheticFID += a * np.exp(1j * p) * np.exp(-d * (1 - gg + gg * ttrue) * ttrue
+                                                    + 1j * 2 * np.pi
+                                                    * cs
+                                                    * centralfrequency
+                                                    * ttrue)
 
     FIDs = []
     for cDx, (camp, cphs) in enumerate(zip(coilamps, coilphase)):
-        FIDs.append((camp*np.exp(1j*cphs)*syntheticFID)+noise[:, cDx])
+        FIDs.append((camp * np.exp(1j * cphs) * syntheticFID) + noise[:, cDx])
 
-    freqAxis = np.linspace(-bandwidth/2, bandwidth/2, points)
-    ppmaxis = freqAxis/centralfrequency
+    freqAxis = np.linspace(-bandwidth / 2, bandwidth / 2, points)
+    ppmaxis = freqAxis / centralfrequency
 
     headers = {'noiseless': syntheticFID,
                'cov': noisecovariance,
@@ -71,7 +71,7 @@ def syntheticFID(coilamps=[1.0],
                'inputopts': inputs,
                'centralFrequency': centralfrequency,
                'bandwidth': bandwidth,
-               'dwelltime': 1/bandwidth,
+               'dwelltime': 1 / bandwidth,
                'ResonantNucleus': nucleus}
 
     return FIDs, headers

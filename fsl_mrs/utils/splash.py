@@ -5,9 +5,8 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
-
 
 
 def splash(logo='mrs'):

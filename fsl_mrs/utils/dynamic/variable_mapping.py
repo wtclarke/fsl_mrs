@@ -79,8 +79,6 @@ class VariableMapping(object):
     def __repr__(self) -> str:
         return str(self)
 
-
-
     def calc_nfree(self):
         """
         Calculate number of free parameters based on mapped behaviour
@@ -230,7 +228,7 @@ class VariableMapping(object):
 
             elif (self.Parameters[name] == 'variable'):  # copy one param for each time point
                 for t in range(self.ntimes):
-                    mapped_params[t, index] = p[counter :counter + nmapped]
+                    mapped_params[t, index] = p[counter:counter + nmapped]
                     counter += nmapped
 
             else:
@@ -248,7 +246,7 @@ class VariableMapping(object):
                         for t in range(self.ntimes):
                             mapped_params[t, index] = mapped[t, :]
                     else:
-                        mapped = np.empty((self.ntimes, nmapped),dtype=object)
+                        mapped = np.empty((self.ntimes, nmapped), dtype=object)
                         for i in range(nmapped):
                             params      = p[counter:counter + nfree]
                             for t in range(self.ntimes):
@@ -340,7 +338,7 @@ class VariableMapping(object):
 
         return free_params
 
-    def get_gradient_fcn(self,param_name):
+    def get_gradient_fcn(self, param_name):
         """
         Get the gradient function for a given parameter
         Returns:

@@ -94,7 +94,6 @@ class dynMRS(object):
             raise (Exception(f'Unrecognised method {method}'))
         res_list = self.collect_results(x, model, method, ppmlim, baseline_order)
 
-
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
         return {'x': x, 'resList': res_list}
@@ -190,7 +189,6 @@ class dynMRS(object):
 
     def dyn_loss_grad(self, x):
         """Add gradients across data list"""
-        g = []
         mapped = self.vm.free_to_mapped(x)
         LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
@@ -247,4 +245,3 @@ class dynMRS(object):
             results.loadResults(mrs, np.hstack(mapped[t]))
             dynresList.append(results)
         return dynresList
-
