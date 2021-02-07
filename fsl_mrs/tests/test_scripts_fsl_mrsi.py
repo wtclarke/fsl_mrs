@@ -1,4 +1,8 @@
-# Test the main svs fitting script
+'''FSL-MRS test script
+
+Test the main mrsi fitting script
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess

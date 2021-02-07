@@ -1,4 +1,8 @@
-# Test the visualisation script
+'''FSL-MRS test script
+
+Test the visualisation script
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess
@@ -6,7 +10,7 @@ from pathlib import Path
 
 # Files
 testsPath = Path(__file__).parent
-svs = testsPath / 'testdata/fsl_mrs/metab.nii'
+svs = testsPath / 'testdata/fsl_mrs/metab.nii.gz'
 basis = testsPath / 'testdata/fsl_mrs/steam_basis'
 
 

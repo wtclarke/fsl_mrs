@@ -11,24 +11,24 @@ Below we describe an end-to-end pipeline that includes data conversion, processi
 
 1. Convert your data
 ~~~~~~~~~~~~~~~~~~~~
-Before running FSL-MRS, time domain data must be prepared in a complex 4D-NIFTI + json format. You can do this by running the accompanying spec2nii tool (see :ref:`Data Conversion <data_conversion>`).
+Before running FSL-MRS, time domain data must be prepared in a complex NIfTI-MRS format. You can do this by running the accompanying spec2nii tool (see :ref:`Data Conversion <data_conversion>`).
 
 Example conversion::
 
-    spec2nii dicom -f my_metab_file -j metab.dcm
+    spec2nii dicom -f my_metab_file metab.dcm
 
-This will convert the dicom file (metab.dcm) to a NIfTI file named my_metab_file.nii and because the -j option was specified, a JSON file called my_metab_file.json. Conversion of other formats is possible by changing the first argument "dicom" to another option. For a list of supported formats see :ref:`Data Conversion <data_conversion>`.
+This will convert the dicom file (metab.dcm) to a NIfTI file named my_metab_file.nii.gz. Conversion of other formats is possible by changing the first argument "dicom" to another option. For a list of supported formats see :ref:`Data Conversion <data_conversion>`.
 
 A directory of DICOM data can also be converted::
 
-    spec2nii dicom -f my_metab_file -j ./dcm_metab_dir/
+    spec2nii dicom -f my_metab_file ./dcm_metab_dir/
 
-The output of the above command will be `my_metab_file_000.nii.gz, *_001.nii.gz, *_002.nii.gz, ...` continuing up to the number of DICOM instances in the directory. This number should match the number of transients acquired in an SVS sequence. There will also be matching JSON files: `my_metab_file_000.json, *_001.json, *_002.json, ...`
+The output of the above command will also be `my_metab_file.nii.gz` but the converter will append dynamics into higher NIfTI-MRS dimensions (continuing up to the number of DICOM instances in the directory).
 
 You might need to covert multiple files to process a single spectroscopy acquisition. A typical single voxel dataset will have both water suppressed and water unsuppressed data. Depending on format these might be contained in a single raw data file or be spread over two or more. Some protocols may acquire additional data to be used in pre-processing, e.g. for eddy-current correction. These files should be converted with a different name::
 
-    spec2nii dicom -f my_wref_file -j ./dcm_wref_dir/
-    spec2nii dicom -f my_ecc_file -j ./dcm_ecc_dir/
+    spec2nii dicom -f my_wref_file ./dcm_wref_dir/
+    spec2nii dicom -f my_ecc_file ./dcm_ecc_dir/
 
 But note that there are frequently multiple calibration scans for e.g. shimming and water suppression calibration acquired before the actual MRS acquisition. These files aren't used for analysis and can be safely ignored.
 
@@ -36,16 +36,16 @@ But note that there are frequently multiple calibration scans for e.g. shimming 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 You can use :code:`mrs_vis` on the command line to view your data at any stage of the process::
 
-    mrs_vis my_metab_file_000.nii.gz
+    mrs_vis my_metab_file.nii.gz
 
-You should see some **noisy** data
+:code:`mrs_vis` will automatically perform coil combination and averaging down to a single spectrum for display purposes only.
 
 .. image:: data/raw_conv.png
     :width: 600
 
-You can also see all the converted data in a directory::
+You can also quickly view data across one of the NIfTI-MRS higher dimensions (those containing uncombined coils, or averages etc.) In this case we plot all the transients stored in the dimension tagged *DIM_DYN* (i.e. averages)::
 
-    mrs_vis ./my_conv_data/
+    mrs_vis my_metab_file.nii.gz --display_dim DIM_DYN
 
 .. image:: data/mrs_vis_dir.png
     :width: 600
@@ -56,15 +56,15 @@ Have a look at the :ref:`Visualisation <visualisation>` page for more informatio
 
 2. Process your raw data
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Some data requires pre-processing. Often MRSI data will have gone through appropriate pre-processing during reconstruction, if so skip to step 3. For unprocessed single voxel (SVS) data, read on.
+Some data requires pre-processing. Often MRSI data will have gone through appropriate pre-processing during reconstruction, if so skip to step 3. For unprocessed single-voxel (SVS) data, read on.
 
-Use the :code:`fsl_mrs_proc` commands to pre-process your raw data. :code:`fsl_mrs_proc` contains routines for many common steps (e.g. coil combination, phase-frequency alignment, residual water removal). E.g.::
+Use the :code:`fsl_mrs_proc` commands to pre-process your raw data. :code:`fsl_mrs_proc` contains routines for many common processing steps (e.g. coil combination, phase-frequency alignment, residual water removal). For example::
 
-    fsl_mrs_proc coilcombine --file my_metab_file*.nii.gz --reference my_wref_file.nii.gz --output combined -r
-    fsl_mrs_proc align       --file combined*.nii.gz --ppm 1.8 3.5                        --output aligned -r
-    fsl_mrs_proc average     --file aligned*.nii.gz --avgfiles                            --output avg -r
-    fsl_mrs_proc remove      --file avg.nii.gz                                            --output water_removed -r
-    fsl_mrs_proc phase       --file water_removed.nii.gz                                  --output metab -r
+    fsl_mrs_proc coilcombine --file my_metab_file.nii.gz --reference my_wref_file.nii.gz --output combined -r
+    fsl_mrs_proc align       --file combined.nii.gz --ppm 1.8 3.5                        --output aligned -r
+    fsl_mrs_proc average     --file aligned.nii.gz  --dim DIM_DYN                        --output avg -r
+    fsl_mrs_proc remove      --file avg.nii.gz                                           --output water_removed -r
+    fsl_mrs_proc phase       --file water_removed.nii.gz                                 --output metab -r
 
 The -r requests a HTML report to be generated for each stage of the processing. The different HTML reports can be merged using::
 
@@ -74,7 +74,7 @@ If your data is unedited single voxel (SVS) try out the prepackaged processing p
 
 ::
 
-    fsl_mrs_preproc --output processed --data my_metab_file*.nii.gz --reference my_wref_file*.nii.gz --report 
+    fsl_mrs_preproc --output processed --data my_metab_file.nii.gz --reference my_wref_file.nii.gz --report 
 
 Have a look at the source code for :code:`fsl_mrs_preproc` to see how you can construct your own python script using the processing modules. You can always prototype using Jupyter/IPython (see :ref:`Demos <demos>`)
 
@@ -128,9 +128,9 @@ For visualising MRSI data, fits, and fitting results, `FSLeyes
 
 Demos
 -----
-Two demo Jupyter notebooks are provided alongside some sample data in the `example_usage` directory. These notebooks show an example processing pipeline implemented both on the command-line and in interactive python.
+Demo Jupyter notebooks are provided alongside some sample data in the `example_usage` directory. These notebooks show an example processing pipeline implemented both on the command-line and in interactive python.
 
-To access these clone the |fslmrs_gitlab|_ with `Git LFS <https://git-lfs.github.com/>`_ installed, or download directly from |fslmrs_pkg_data|_.
+To access these clone the |fslmrs_gitlab|_ with `Git LFS <https://git-lfs.github.com/>`_ installed.
 
 You will need to have jupyter notebook installed::
 

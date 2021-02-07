@@ -43,5 +43,6 @@ setup(name='fsl_mrs',
                 'fsl_mrs/scripts/mrs_vis',
                 'fsl_mrs/scripts/merge_mrs_reports',
                 'fsl_mrs/scripts/svs_segment',
-                'fsl_mrs/scripts/mrsi_segment']               
+                'fsl_mrs/scripts/mrsi_segment',
+                'fsl_mrs/scripts/results_to_spectrum']
      )

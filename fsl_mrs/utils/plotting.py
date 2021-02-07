@@ -8,6 +8,7 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
+from fsl_mrs.utils import mrs_io
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
@@ -1194,14 +1195,14 @@ def plot_voxel_orient(t1file,voxfile):
     return plt.gcf()
 
 
-def plot_world_orient(t1file,voxfile):
+def plot_world_orient(t1file, voxfile):
     """
     Plot sagittal/coronal/axial T1 centered on voxel
     Overlay voxel in red
     Plots in world coordinates with the 'MNI' convention
     """
     t1      = nib.load(t1file)
-    vox     = nib.load(voxfile)
+    vox     = mrs_io.read_FID(voxfile)
     t1_data = t1.get_fdata()
 
     # transform t1 data into world coordinate system,
@@ -1234,7 +1235,7 @@ def plot_world_orient(t1file,voxfile):
                                        cval=0)
 
     # centre of MRS voxel in (transformed) T1 voxel space
-    ijk = xyz2ijk(ijk2xyz([0,0,0],vox.affine),np.linalg.inv(offaff))
+    ijk = xyz2ijk(ijk2xyz([0,0,0],vox.voxToWorldMat),np.linalg.inv(offaff))
     i,j,k = ijk
 
     

@@ -2,21 +2,23 @@
 
 Data Conversion
 ===============
-There is a plethora of spectroscopy data formats in existence. Many are vendor specific and proprietary. The fitting capabilities of FSL-MRS can be used with either NIfTI or an ASCII file format, but to access the full features of the post-processing tools data must be in the NIfTI + JSON format. To facilitate the conversion of data to this format FSL-MRS is distributed with an additional conversion tool :code:`spec2nii`. Spec2nii currently converts SVS and MRSI data to NIfTI from the following formats. 
+There is a plethora of spectroscopy data formats in existence. Many are vendor specific and proprietary. The fitting capabilities of FSL-MRS can be used with either NIfTI or an ASCII file format, but to access the full features of the post-processing tools data must be in the NIfTI-MRS format. To facilitate the conversion of data to this format FSL-MRS is distributed with an additional conversion tool :code:`spec2nii`. Spec2nii currently converts SVS and MRSI data to NIfTI-MRS from the following formats. 
 
 =============== ================ ===== ===== =======================
  Format          File extension   SVS   CSI   Automatic orientation  
 =============== ================ ===== ===== ======================= 
  Siemens Twix    .dat             Yes   No    Yes                    
  Siemens DICOM   .ima / .dcm      Yes   Yes   Yes                    
- Philips         .SPAR/.SDAT      Yes   No    No                     
- GE              .7 (pfile)       Yes   No    No                     
+ Philips         .SPAR/.SDAT      Yes   No    Yes                     
+ GE              .7 (pfile)       Yes   No    Yes
+ UIH DICOM       .dcm             Yes   Yes   Yes 
  LCModel         .RAW             Yes   No    No                     
- jMRUI           .txt             Yes   No    No                     
+ jMRUI           .txt             Yes   No    No
+ jMRUI           .mrui            Yes   No    No
  ASCII           .txt             Yes   No    No                     
 =============== ================ ===== ===== =======================
 
-The authors of the tool are happy to provide additional conversion routines if sample data and a thorough description of the format is provided. Please see the spec2nii `project page on Github <https://github.com/wexeee/spec2nii>`_.
+Bruker format conversion is currently under development. The authors of the tool are happy to provide additional conversion routines if sample data and a thorough description of the format is provided. Please see the spec2nii `project page on Github <https://github.com/wexeee/spec2nii>`_.
 
 Use of spec2nii 
 ---------------
@@ -44,6 +46,8 @@ Spec2nii can then be run to convert all data from a single ‘evalinfo’ flag.
 
 ‘Image’ is the most typically used for the main dataset. Other flags might be used for noise data, water reference data or any other use specified by the sequence programmer. 
 
+Twix format loop variables (e.g. `Ave` or `ida`) can be assigned to specific NIfTI-MRS dimensions using the :code:`-d{5,6,7}` command line options. NIfTI MRS dimension tags (e.g. `DIM_COIL`) can be specified using the :code:`-t{5,6,7}` command line options.
+
 DICOM
 ~~~~~
 
@@ -51,17 +55,28 @@ Spec2nii can be passed a single file or directory of DICOM files for conversion.
 ::
 
     spec2nii dicom <file_or_dir>
- 
+
+NIfTI-MRS dimension tags (e.g. `DIM_COIL`) can be specified using the `-t` command line argument.
+
+UIH DICOM
+~~~~~~~~~
+Conversion for UIH DICOM format SVS and CSI spectroscopy.
+::
+
+    spec2nii uih DCM_FILE_or_DIR
+
+NIfTI MRS dimension tags (e.g. `DIM_COIL`) can be specified using the `-t` command line argument.
+
 Philips
 ~~~~~~~
-Conversion for Philips SDAT/SPAR files. Orientation information not validated.
+Conversion for Philips SDAT/SPAR files.
 ::
 
     spec2nii philips <SDAT> <SPAR>
 
 GE
 ~~
-Conversion for GE pfiles (.7). Orientation information not validated.
+Conversion for GE pfiles (.7).
 ::
 
     spec2nii GE <file>

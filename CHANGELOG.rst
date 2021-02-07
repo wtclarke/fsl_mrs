@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.0 (WIP)
+---------------------------------
+- Support for NIfTI-MRS format.
+- Preprocessing scripts reoriented around NIfTI-MRS framework
+- New script results_to_spectrum for generating full fits in NIfTI-MRS format from fsl_mrs results.
+- Documentation and example data updated for move to NIfTI-MRS.
+
 1.0.6 (Tuesday 12th January 2021)
 ---------------------------------
 - Internal changes to core MRS class.
@@ -10,7 +17,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Synthetic spectra now use fitting model directly.
 - Bug fixes in the fsl_Mrs commandline interface. Thanks to Alex Craig-Craven.
 - WIP: Dynamic fitting model and dynamic experiment simulation.
-- spec2nii requirement pinned to 0.2.11 during NIFTI-MRS development.
+- spec2nii requirement pinned to 0.2.11 during NIfTI-MRS development.
 
 1.0.5 (Friday 9th October 2020)
 -------------------------------

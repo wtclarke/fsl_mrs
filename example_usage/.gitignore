@@ -1,3 +1,7 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:38d22eb5166ad546ad6b4306e3ddcee8c363f9a9e9555c5f668307716c2ce078
-size 10
+tmp*
+fit*
+*.nii.gz
+MRSI
+*.html
+*.json
+

@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# core.py - main MRS class definition
+# MRS.py - main MRS class definition
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -11,7 +9,6 @@
 
 import warnings
 
-from fsl_mrs.utils import mrs_io as io
 from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 
@@ -60,22 +57,6 @@ class MRS(object):
         # Other properties that need defaults
         self.metab_groups = None
         self.scaling = {'FID': 1.0, 'basis': 1.0}
-
-    def from_files(self, FID_file, Basis_file, H2O_file=None):
-        '''Load data from files into empty MRS class object'''
-
-        FID, FIDheader = io.read_FID(FID_file)
-        basis, names, Bheader = io.read_basis(Basis_file)
-        if H2O_file is not None:
-            H2O, _ = io.read_FID(H2O_file)
-        else:
-            H2O = None
-
-        MRSArgs = {'header': FIDheader,
-                   'basis': basis, 'basis_hdr': Bheader[0],
-                   'names': names}
-
-        self.__init__(FID=FID, H2O=H2O, **MRSArgs)
 
     def __str__(self):
         cf_MHz = self.centralFrequency / 1e6
@@ -169,7 +150,7 @@ class MRS(object):
                (cf_MHz > sevent_range[0] and cf_MHz < sevent_range[1]) or \
                (cf_MHz > ninefourt_range[0] and cf_MHz < ninefourt_range[1]) or \
                (cf_MHz > elevensevent_range[0] and cf_MHz < elevensevent_range[1]):
-                #print(f'Identified as {key} nucleus data.'
+                # print(f'Identified as {key} nucleus data.'
                 #      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
                 return key
 
@@ -570,6 +551,10 @@ class MRS(object):
     def plot(self, ppmlim=(0.2, 4.2)):
         from fsl_mrs.utils.plotting import plot_spectrum
         plot_spectrum(self, ppmlim=ppmlim)
+
+    def plot_ref(self, ppmlim=(2.65, 6.65)):
+        from fsl_mrs.utils.plotting import plot_spectrum
+        plot_spectrum(self, FID=self.H2O, ppmlim=ppmlim)
 
     def plot_fid(self, tlim=None):
         from fsl_mrs.utils.plotting import plot_fid

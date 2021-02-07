@@ -12,11 +12,8 @@
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-from fsl_mrs.utils import mrs_io
-import numpy as np
 import os.path as op
 from os import mkdir
-
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 
@@ -34,21 +31,21 @@ def main():
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True, type=str, nargs='+', metavar='<str>',
-                          help='list of input files')
+                          required=True, type=str, metavar='<str>',
+                          help='input files')
     required.add_argument('--reference',
-                          required=True, type=str, nargs='+', metavar='<str>',
-                          help='list of non-water suppressed files')
+                          required=True, type=str, metavar='<str>',
+                          help='Reference non-water suppressed file')
     required.add_argument('--output',
                           required=True, type=str, metavar='<str>',
                           help='output folder')
 
     # ADDITONAL OPTIONAL ARGUMENTS
-    optional.add_argument('--quant', type=str, nargs='+',
+    optional.add_argument('--quant', type=str,
                           default=None, metavar='<str>',
                           help='Water reference data for'
                                ' quantification (Optional).')
-    optional.add_argument('--ecc', type=str, nargs='+',
+    optional.add_argument('--ecc', type=str,
                           default=None, metavar='<str>',
                           help='Water reference data for eddy'
                                ' current correction (Optional).')
@@ -65,8 +62,6 @@ def main():
                           help='spit out verbose info')
     optional.add_argument('--conjugate', action="store_true",
                           help='apply conjugate to FID')
-    optional.add_argument('--no_conjugate', action="store_true",
-                          help='Forbid automatic conjugation')                      
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--report', action="store_true",
@@ -84,9 +79,9 @@ def main():
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import shutil
-    from fsl_mrs.utils import preproc
+    from fsl_mrs.utils.preproc import nifti_mrs_proc
     from fsl_mrs.utils import plotting
-    import copy
+    from fsl_mrs.utils import mrs_io
     # ######################################################
 
     # Check if output folder exists
@@ -112,70 +107,67 @@ def main():
         f.write("\n--------\n")
         f.write(p.format_values())
 
+    if args.report:
+        report_dir = args.output
+    else:
+        # Will suppress report generation
+        report_dir = None
+
     # ######  Do the work #######
     if args.verbose:
         print('Load the data....')
 
-    # Read all data
+    # Read the data
     # Suppressed data
-    FIDlist, hdr, shape, datatype = readData(args.data)
+    supp_data = mrs_io.read_FID(args.data)
     if args.verbose:
-        print(f'.... Found {len(FIDlist)} repeats of the data'
-              f' FIDs with shape {shape} each.\n\n')
+        print(f'.... Found data with shape {supp_data.shape}.\n\n')
+
     # Reference data
-    Reflist, refhdr, refshape, _ = readData(args.reference)
+    ref_data = mrs_io.read_FID(args.reference)
     if args.verbose:
-        print(f'.... Found {len(Reflist)} repeats of the reference'
-              f' FIDs with shape {refshape} each.\n\n')
+        print(f'.... Found reference with shape {ref_data.shape}.\n\n')
 
     if args.quant is not None:
         # Separate quant data
-        quantlist, quanthdr, quantshape, _ = readData(args.quant)
+        quant_data = mrs_io.read_FID(args.quant)
         if args.verbose:
-            print(f'.... Found {len(quantlist)} repeats of the quant'
-                  f' FIDs with shape {quantshape} each.\n\n')
+            print(f'.... Found quant with shape {quant_data.shape}.\n\n')
+    else:
+        quant_data = None
 
     if args.ecc is not None:
         # Separate ecc data
-        ecclist, ecchdr, eccshape, _ = readData(args.ecc)
+        ecc_data = mrs_io.read_FID(args.ecc)
         if args.verbose:
-            print(f'.... Found {len(ecclist)} repeats of the ecc FIDs'
-                  f' with shape {eccshape} each.\n\n')
+            print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
+    else:
+        ecc_data = None
 
     # Data conjugation
-    if args.no_conjugate:
+    if args.conjugate:
         if args.verbose:
-            print('No conjugation explicitly set,'
-                  'skipping automatic determination.')
-        pass
-    elif args.conjugate or auto_conj(FIDlist,hdr):
-        if args.verbose and args.conjugate:
             print('Conjugation explicitly set,'
                   'applying conjugation.')
-        elif args.verbose:
-            print('Automatic conjugation applied')
 
-        def iterFunction(flist):
-            return [np.conj(fid) for fid in flist]
-
-        FIDlist = iterFunction(FIDlist)
-        Reflist = iterFunction(Reflist)
+        supp_data = nifti_mrs_proc.conjugate(supp_data)
+        ref_data = nifti_mrs_proc.conjugate(ref_data)
         if args.quant is not None:
-            quantlist = iterFunction(quantlist)
+            quant_data = nifti_mrs_proc.conjugate(quant_data)
         if args.ecc is not None:
-            ecclist = iterFunction(ecclist)
+            ecc_data = nifti_mrs_proc.conjugate(ecc_data)
 
     # Determine if coils have been combined already
     if args.verbose:
         print('.... Determine if coil combination is needed')
-    if len(shape) == 1:
-        do_coil_combine = False
-        if args.verbose:
-            print('   ----> NO.\n')
-    else:
+    if 'DIM_COIL' in supp_data.dim_tags:
         do_coil_combine = True
         if args.verbose:
             print('  ----> YES.\n')
+    else:
+        do_coil_combine = False
+        if args.verbose:
+            print('   ----> NO.\n')
 
     # Do preproc
     if args.verbose:
@@ -185,229 +177,115 @@ def main():
         if args.verbose:
             print('... Coil Combination ...')
 
-        # Weights from reference data
-        w = np.zeros((Reflist[0].shape[1]), dtype=np.complex128)
-        for idx, r in enumerate(Reflist):
-            Reflist[idx], wtmp = preproc.combine_FIDs(r, 'svd_weights')
-            w += wtmp
-        w /= len(Reflist)
+        if 'DIM_DYN' in ref_data.dim_tags:
+            avg_ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
+        else:
+            avg_ref_data = ref_data
 
-        for idx, fid in enumerate(FIDlist):
-            if args.verbose:
-                print('{}/{}'.format(idx, len(FIDlist)), end='\r')
-            FIDlist[idx] = preproc.combine_FIDs(fid, 'weighted', weights=w)
-
-            if idx == 0 and args.report:
-                # Report
-                preproc.combine.combine_FIDs_report(
-                    fid, FIDlist[idx], hdr,
-                    ncha=len(fid),
-                    ppmlim=(0.0, 6.0),
-                    method='svd',
-                    html=args.output)
+        supp_data = nifti_mrs_proc.coilcombine(supp_data, reference=avg_ref_data, report=report_dir)
+        ref_data = nifti_mrs_proc.coilcombine(ref_data, reference=avg_ref_data)
 
         if args.quant is not None:
-            for idx, fid in enumerate(quantlist):
-                quantlist[idx] = preproc.combine_FIDs(fid, 'weighted',
-                                                      weights=w)
-
+            quant_data = nifti_mrs_proc.coilcombine(quant_data, reference=avg_ref_data)
         if args.ecc is not None:
-            for idx, fid in enumerate(ecclist):
-                ecclist[idx] = preproc.combine_FIDs(fid, 'weighted',
-                                                    weights=w)
-
-    # Some useful quantitites from the headers
-    bw = hdr['bandwidth']
-    dt = hdr['dwelltime']
-    cf = hdr['centralFrequency']*1E6
-
-    # Save a copy of the combined data for the report output later
-    FIDComblist = copy.deepcopy(FIDlist)
+            ecc_data = nifti_mrs_proc.coilcombine(ecc_data, reference=avg_ref_data)
 
     # Bad average removal on the suppressed data
     if args.verbose:
         print('... Removing unlike averages (>1.96\u03C3 from mean) ...')
 
-    FIDlist, rmFIDs, keepIndicies, rmIndicies, metric = \
-        preproc.identifyUnlikeFIDs(
-            FIDlist, bw, cf,
-            sdlimit=1.96,
-            iterations=2,
-            ppmlim=(0, 4.2),
-            shift=True)
+    supp_data, bd_data = nifti_mrs_proc.remove_unlike(supp_data,
+                                                      sdlimit=1.96,
+                                                      niter=2,
+                                                      ppmlim=(0, 4.2),
+                                                      report=report_dir)
 
     if args.verbose:
-        print(f'{len(rmIndicies)}/{len(rmIndicies)+len(rmIndicies)}'
+        print(f'{bd_data.shape[4]}/{supp_data.shape[4] + bd_data.shape[4]}'
               ' bad averages identified and removed.')
-        print(f'The removed averages were {rmIndicies}.')
-    if args.report:
-        # Report
-        preproc.unlike.identifyUnlikeFIDs_report(
-            FIDlist, rmFIDs, hdr,
-            keepIndicies, rmIndicies, metric,
-            ppmlim=(0.0, 4.2),
-            sdlimit=1.96,
-            html=args.output)
 
     # Frequency and phase align the FIDs
     if args.verbose:
-        print('... Average FIDs ...')
-    reportlist = copy.deepcopy(FIDlist)
-    FIDlist, phi, eps = preproc.phase_freq_align(FIDlist, bw, cf,
-                                                 ppmlim=(0, 4.2),
-                                                 niter=2)
-    Reflist, _, _ = preproc.phase_freq_align(Reflist, bw, cf,
-                                             ppmlim=(0, 4.2),
-                                             niter=2)
-    if args.quant is not None:
-        quantlist, _, _ = preproc.phase_freq_align(quantlist, bw, cf,
-                                                   ppmlim=(0, 4.2),
-                                                   niter=2)
-    if args.ecc is not None:
-        ecclist, _, _ = preproc.phase_freq_align(ecclist, bw, cf,
-                                                 ppmlim=(0, 4.2),
-                                                 niter=2)
+        print('... Align Dynamics ...')
+    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=(0, 4.2), report=report_dir)
 
-    if args.report:
-        # Report
-        preproc.align.phase_freq_align_report(reportlist, FIDlist, hdr,
-                                              phi, eps,
-                                              ppmlim=(0, 4.2),
-                                              shift=True,
-                                              html=args.output)
+    if 'DIM_DYN' in ref_data.dim_tags:
+        ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
+
+    if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
+        quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
+    if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
+        ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
 
     # Average the data (if asked to do so)
-    # Force everything to stay as a list so that data writing can be agnostic
-    # of averaging later on.
     if args.average:
         if args.verbose:
             print('... Average FIDs ...')
-        reportlist = copy.deepcopy(FIDlist)
-        FIDlist = [preproc.combine_FIDs(FIDlist, 'mean')]
-        Reflist = [preproc.combine_FIDs(Reflist, 'mean')]
-        if args.quant is not None:
-            quantlist = [preproc.combine_FIDs(quantlist, 'mean')]
-        if args.report:
-            # Report
-            preproc.combine.combine_FIDs_report(reportlist, FIDlist[0], hdr,
-                                                method='mean',
-                                                html=args.output)
+        supp_data = nifti_mrs_proc.average(supp_data, 'DIM_DYN', report=report_dir)
+        if 'DIM_DYN' in ref_data.dim_tags:
+            ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
+        if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
+            quant_data = nifti_mrs_proc.average(quant_data, 'DIM_DYN')
 
     # Always average ecc if it exists as a separate scan
-    if args.ecc is not None:
-        ecclist = [preproc.combine_FIDs(ecclist, 'mean')]
+    if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
+        ecc_data = nifti_mrs_proc.average(ecc_data, 'DIM_DYN')
 
     # Eddy current correction
+    if args.verbose:
+        print('... ECC correction ...')
     if args.ecc is not None:
-        eccRef = ecclist[0]
+        eccRef = ecc_data
     else:
-        eccRef = preproc.combine_FIDs(Reflist, 'mean')
+        if 'DIM_DYN' in ref_data.dim_tags:
+            eccRef = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
+        else:
+            eccRef = ref_data
 
-    def iterFunction(flist):
-        return [preproc.eddy_correct(fid, eccRef) for fid in flist]
-
-    reportlist = copy.deepcopy(FIDlist)
-    FIDlist = iterFunction(FIDlist)
-    Reflist = iterFunction(Reflist)
-
+    supp_data = nifti_mrs_proc.ecc(supp_data, eccRef, report=report_dir)
+    ref_data = nifti_mrs_proc.ecc(ref_data, eccRef)
     # Typically if a separate "quantification" water reference
     #  has been collected it will have most gradients removed
-    # (OVS and water suppression), therefore apply ecc using
-    # its phase as a phase reference
+    # (OVS and water suppression), therefore use it as it's own reference.
     if args.quant is not None:
-        quantlist = [preproc.eddy_correct(fid, quantlist[0])
-                     for fid in quantlist]
-    if args.report:
-        # Report
-        preproc.eddycorrect.eddy_correct_report(
-            reportlist[0],
-            FIDlist[0],
-            eccRef,
-            hdr,
-            ppmlim=(0.2, 4.2),
-            html=args.output)
+        quant_data = nifti_mrs_proc.ecc(quant_data, quant_data)
 
     # HLSVD
     if args.hlsvd:
+        if args.verbose:
+            print('... Residual water removal ...')
         hlsvdlimits = [-0.35, 0.35]
-        reportlist = copy.deepcopy(FIDlist)
-        FIDlist = [preproc.hlsvd(fid, dt, cf, hlsvdlimits) for fid in FIDlist]
-        if args.report:
-            # Report
-            preproc.remove.hlsvd_report(
-                reportlist[0], FIDlist[0], hdr, hlsvdlimits,
-                html=args.output)
+        supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, limit_units='ppm', report=report_dir)
 
     if args.leftshift:
-        def iterFunction(flist):
-            return [preproc.truncate(fid,
-                                     args.leftshift,
-                                     first_or_last='first')
-                    for fid in flist]
-        reportlist = copy.deepcopy(FIDlist)
-        FIDlist = iterFunction(FIDlist)
-        Reflist = iterFunction(Reflist)
+        if args.verbose:
+            print('... Truncation ...')
+        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
         if args.quant is not None:
-            quantlist = iterFunction(quantlist)
-        FIDComblist = iterFunction(FIDComblist)
-        if args.report:
-            # Report
-            preproc.shifting.shift_report(
-                reportlist[0], FIDlist[0], hdr, hdr,
-                html=args.output,
-                function='truncate')
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
 
     # Apply shift to reference
-    def iterFunction(flist):
-        return [preproc.shiftToRef(fid, 3.027, bw, cf, ppmlim=(2.9, 3.1))[0]
-                for fid in flist]
-    reportlist = copy.deepcopy(FIDlist)
-    FIDlist = iterFunction(FIDlist)
-    FIDComblist = iterFunction(FIDComblist)
-    if args.report:
-        # Report
-        preproc.shifting.shift_report(
-            reportlist[0], FIDlist[0], hdr, hdr,
-            html=args.output,
-            function='shifttoref')
+    if args.verbose:
+        print('... Shift Cr to 3.027 ...')
+    supp_data = nifti_mrs_proc.shift_to_reference(supp_data, 3.027, (2.9, 3.1), report=report_dir)
 
     # Apply phasing based on a single peak (Cr)
-    def iterFunction(flist, ppm):
-        return [preproc.phaseCorrect(fid, bw, cf, ppmlim=ppm)[0]
-                for fid in flist]
-    reportlist = copy.deepcopy(FIDlist)
-    FIDlist = iterFunction(FIDlist, (2.9, 3.1))
-    reportlist2 = copy.deepcopy(Reflist)
-    Reflist = iterFunction(Reflist, (4.6, 4.7))
+    if args.verbose:
+        print('... Phasing on tCr ...')
+    supp_data = nifti_mrs_proc.phase_correct(supp_data, (2.9, 3.1), report=report_dir)
     if args.quant is not None:
-        reportlist2 = copy.deepcopy(quantlist)
-        quantlist = iterFunction(quantlist, (4.6, 4.7))
-    FIDComblist = iterFunction(FIDComblist, (2.9, 3.1))
-    if args.report:
-        # Report
-        preproc.phasing.phaseCorrect_report(
-            reportlist[0], FIDlist[0], hdr, None,
-            ppmlim=(2.8, 3.2),
-            html=args.output)
-        if args.quant:
-            preproc.phasing.phaseCorrect_report(
-                reportlist2[0], quantlist[0], hdr, None,
-                ppmlim=(4.6, 4.7),
-                html=args.output)
-        else:
-            preproc.phasing.phaseCorrect_report(
-                reportlist2[0], Reflist[0], hdr, None,
-                ppmlim=(4.6, 4.7),
-                html=args.output)
+        final_wref = nifti_mrs_proc.phase_correct(quant_data, (4.55, 4.7), hlsvd=False, report=report_dir)
+    else:
+        final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
     # Save the data
-    saveData(FIDlist, hdr, args.output, 'metab', datatype=datatype)
-    if args.quant is not None:
-        saveData(quantlist, hdr, args.output, 'wref', datatype=datatype)
-    else:
-        saveData(Reflist, hdr, args.output, 'wref', datatype=datatype)
+    if args.verbose:
+        print('... Saving data ...')
+    supp_data.save(op.join(args.output, 'metab'))
+    final_wref.save(op.join(args.output, 'wref'))
 
-    # Produce html report
+    # Produce full html report
     if args.report:
         import subprocess
         import glob
@@ -417,70 +295,11 @@ def main():
         subprocess.call(['merge_mrs_reports', '-d',
                          op.join(args.output, 'metab'),
                          '-o', args.output,
-                         '--delete']+htmlfiles)
+                         '--delete'] + htmlfiles)
 
         if args.t1 is not None:
-            if datatype == 'NIFTI':
-                fig = plotting.plot_world_orient(args.t1, args.data[0])
-                fig.savefig(op.join(args.output, 'voxel_location.png'))
-
-
-def readData(files):
-    FIDlist = []
-    shape = None
-    datatype = None
-    for filename in files:
-        dtype = mrs_io.check_datatype(filename)
-        fid, header = mrs_io.read_FID(filename)
-        fid = np.squeeze(fid)
-
-        if shape is not None:
-            if fid.shape != shape:
-                raise(Exception('FIDs are incompatible in shapes'))
-            if dtype != datatype:
-                raise(Exception('FID files must all be of the same data type'
-                                ' (e.g. RAW or NIFTI)'))
-        else:
-            shape = fid.shape
-            datatype = dtype
-
-        FIDlist.append(fid)
-
-    return FIDlist, header, shape, datatype
-
-
-def saveData(FIDlist, hdr, outputDir, basename, datatype='NIFTI'):
-    if len(FIDlist) == 1:
-        def nameGen(x, y):
-            return op.join(outputDir, f'{basename}.{y}')
-    else:
-        def nameGen(x, y):
-            return op.join(outputDir, f'{basename}_{x:03.0f}.{y}')
-    for iDx, f in enumerate(FIDlist):
-        if datatype == 'RAW':
-            filename = nameGen(iDx, 'RAW')
-            mrs_io.lcm_io.saveRAW(filename, f, hdr)
-        elif datatype == 'NIFTI':
-            filename = nameGen(iDx, 'nii.gz')
-            mrs_io.fsl_io.saveNIFTI(filename, f, hdr)
-
-
-def auto_conj(FIDlist, hdr):
-    from fsl_mrs.core import MRS
-    auto_conj = 0
-    for fid in FIDlist:
-        if fid.ndim > 1:
-            mrs = MRS(FID=np.mean(fid, axis=1), header=hdr)
-            auto_conj += mrs.check_FID(repair=True)
-        else:
-            mrs = MRS(FID=fid, header=hdr)
-            auto_conj += mrs.check_FID(repair=True)
-
-    auto_conj /= len(FIDlist)
-    if auto_conj > 0.5:
-        return True
-    else:
-        return False
+            fig = plotting.plot_world_orient(args.t1, args.data)
+            fig.savefig(op.join(args.output, 'voxel_location.png'))
 
 
 if __name__ == '__main__':

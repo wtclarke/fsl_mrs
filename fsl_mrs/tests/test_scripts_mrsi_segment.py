@@ -1,4 +1,8 @@
-# Test the mrsi segmentation script
+'''FSL-MRS test script
+
+Test the mrsi segmentation script
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess

@@ -4,13 +4,13 @@ Processing
 **For SVS**
 
 
-Processed SVS data comprises a time domain signal localised to a single spatial volume. This is Fourier transformed to give a frequency domain spectrum. In an un-processed state, the data might not be coil-combined, might have multiple transients needing averaging and might have other acquisition loops requiring specific processing. Typically, SVS data requires no “reconstruction” per-se, but several steps must be followed to achieve the highest quality data possible from an acquisition. 
+Processed SVS data comprises a time domain signal localised to a single spatial volume. This is Fourier transformed to give a frequency domain spectrum. In an un-processed state, the data might not be coil-combined, might have multiple transients needing averaging, and might have other acquisition loops requiring specific processing. Typically, SVS data requires no “reconstruction” per-se, but several steps must be followed to achieve the highest quality data possible from an acquisition. 
 
-For a complete overview of pre-processing we recommend [NEAR20]_. In short, the data must be coil combined, processed to remove small frequency drifts and corrupted transients, averaged, corrected for eddy currents and phased. Optionally large residual water signals can be removed. This is summarised in the table below.
+For a complete overview of pre-processing we recommend [NEAR20]_. In short, the data must be coil combined, processed to remove small frequency drifts and corrupted transients, averaged, corrected for eddy currents, and finally phased. Optionally, large residual water signals can be removed. This is summarised in the table below.
 
 **For MRSI**
 
-MRSI comprises an “image” of spectroscopy data, each voxel contains time or frequency domain data. MRSI data will require reconstruction from the raw (k-space) data collected by the scanner. This may be carried out either online (on the scanner) or offline. Typically, this reconstruction incorporates some of the steps described above for SVS data (e.g. coil combination or averaging). Other steps used for SVS processing would not be commonly used for MRSI data (e.g. Bad average removal). However, the majority of the fsl_mrs_proc commands can be run on MRSI data stored in NIfTI format where the processing will be applied independently per-voxel. 
+MRSI comprises an “image” of spectroscopy data, each voxel contains time or frequency domain data. MRSI data will require reconstruction from the raw (k-space) data collected by the scanner. This may be carried out either online (on the scanner) or offline. Typically, this reconstruction incorporates some of the steps described above for SVS data (e.g. coil combination or averaging). Other steps used for SVS processing would not be commonly used for MRSI data (e.g. bad average removal). However, the majority of the fsl_mrs_proc commands can be run on MRSI data stored in NIfTI format where the processing will be applied independently per-voxel. 
 
 Due to the complexity and specialism of MRSI reconstruction FSL-MRS does not provide MRSI reconstruction. Nor do we advise application of pre-processing beyond that the data should be coil-combined and repetitions averaged before fitting. 
 
@@ -25,10 +25,10 @@ Subcommands
 ======================= ==============================================================
 fsl_mrs_proc operation	 Description	
 ======================= ==============================================================
-coilcombine	             Combine individual coils of receiver phased array.
+coilcombine	         Combine individual coils of receiver phased array.
 average             	 Average FIDs, with optional complex weighting.	
 align               	 Phase and frequency align FIDs using spectral registration.
-align-diff	             Phase and frequency align sub-spectra for differencing.
+align-diff	         Phase and frequency align sub-spectra for differencing.
 ecc  	                 Eddy current correction using a water phase reference scan.
 remove	                 Remove peak (typically residual water) using HLSVD.
 tshift	                 shift/re-sample in time domain.	
@@ -68,7 +68,7 @@ fsl_mrs_preproc
 ---------------
 
 :code:`fsl_mrs_preproc` combines a number of processing steps to provide a one step processing of non-edited SVS data.
-The script requires a list of transients to be averaged (--data), water reference data (--reference) and an output location (--output). The data can be coil combined or un-combined but must be consistent. 
+The script requires the user to provide unsuppressed data (--data), water reference data (--reference) and an output location (--output). The data can be coil combined or un-combined but must be consistent. 
 ::
 
     fsl_mrs_preproc --output my_subj --data metab*.nii.gz --reference wref*.nii.gz --report 
@@ -88,9 +88,9 @@ Python & Interactive Interface
 To access the processing methods in either a python or interactive python enviroment load the `preproc` module
 ::
 
-    import fsl_mrs.utils.preproc
+    from fsl_mrs.utils.preproc import nifti_mrs_proc
 
-Reports can be generated using the associated [subcmd]_report functions in the preproc submodules.
+Reports and figures can be generated using the :code:`figure` and :code:`report` keyword arguments.
 
 fsl_mrs_proc subcommand specifics
 ---------------------------------
@@ -99,7 +99,7 @@ fsl_mrs_proc subcommand specifics
         Takes a list of files (:code:`--file`) and runs a weighted SVD [RODG10]_ coil combination on them optionally using a single water reference dataset (:code:`--reference`) to calculate the complex weightings of each coil. The function expects data to be stored as 5D data, with the last dimension storing individual coil data. Each file is treated separately. Pre-whitening can be disabled (:code:`--noprewhiten`). 
 
 2. average (averaging) 
-        Takes either a single file or list of files (:code:`--file`) and takes the mean across the list of files (:code:`--avgfiles`) or across a certain dimension (:code:`--dim`, indexes from 0). 
+        Takes a file as input (:code:`--file`) and takes the mean across across a certain dimension (:code:`--dim`, either a NIfTI-MRS tag or dim index (5, 6, 7).
 
 3. align (phase-frequency alignment) 
         Takes a list of files (:code:`--file`) and aligns each FID to the FID nearest to the mean, or to a single passed reference FID (:code:`--reference`). The ppm range can be defined (:code:`--ppm`, default = 0.2->4.2 ppm). 

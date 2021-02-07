@@ -1,4 +1,8 @@
-# Test features of the results class
+'''FSL-MRS test script
+
+Test features of the results class
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 from fsl_mrs.utils.synthetic import syntheticFID
@@ -12,8 +16,8 @@ import numpy as np
 @fixture(scope='module')
 def data():
     noiseCov = 0.001
-    amplitude = np.asarray([0.5, 0.5, 1.0])*10
-    chemshift = np.asarray([3.0, 3.05, 2.0])-4.65
+    amplitude = np.asarray([0.5, 0.5, 1.0]) * 10
+    chemshift = np.asarray([3.0, 3.05, 2.0]) - 4.65
     lw = [10, 10, 10]
     phases = [0, 0, 0]
     g = [0, 0, 0]
@@ -21,11 +25,12 @@ def data():
     begintime = 0.00005
 
     basisFIDs = []
+    basisHdr = None
     for idx, _ in enumerate(amplitude):
         tmp, basisHdr = syntheticFID(noisecovariance=[[0.0]],
-                                     chemicalshift=[chemshift[idx]+0.1],
+                                     chemicalshift=[chemshift[idx] + 0.1],
                                      amplitude=[1.0],
-                                     linewidth=[lw[idx]/5],
+                                     linewidth=[lw[idx] / 5],
                                      phase=[phases[idx]],
                                      g=[g[idx]],
                                      begintime=0)
@@ -46,7 +51,7 @@ def data():
                  basis_hdr=basisHdr,
                  names=basisNames)
 
-    metab_groups = [0]*synMRS.numBasis
+    metab_groups = [0] * synMRS.numBasis
     Fitargs = {'ppmlim': [0.2, 4.2],
                'method': 'MH',
                'baseline_order': -1,
@@ -69,12 +74,12 @@ def test_peakcombination(data):
     fittedconcs = res.getConc()
     fittedRelconcs = res.getConc(scaling='internal')
 
-    amplitudes = np.append(amplitudes, amplitudes[0]+amplitudes[1])
+    amplitudes = np.append(amplitudes, amplitudes[0] + amplitudes[1])
 
     assert 'Cr+PCr' in res.metabs
     assert np.allclose(fittedconcs, amplitudes, atol=2E-1)
     assert np.allclose(fittedRelconcs,
-                       amplitudes/(amplitudes[0]+amplitudes[1]),
+                       amplitudes / (amplitudes[0] + amplitudes[1]),
                        atol=2E-1)
 
 
@@ -90,13 +95,13 @@ def test_units(data):
     shift = res.getShiftParams(units='ppm')
     shift_hz = res.getShiftParams(units='Hz')
     assert np.isclose(shift, 0.1, atol=1E-2)
-    assert np.isclose(shift_hz, 0.1*123.0, atol=1E-1)
+    assert np.isclose(shift_hz, 0.1 * 123.0, atol=1E-1)
 
     # Linewidth
     lw = res.getLineShapeParams(units='Hz')[0]
     lw_ppm = res.getLineShapeParams(units='ppm')[0]
     assert np.isclose(lw, 8.0, atol=1E-1)  # 10-2
-    assert np.isclose(lw_ppm, 8.0/123.0, atol=1E-1)
+    assert np.isclose(lw_ppm, 8.0 / 123.0, atol=1E-1)
 
 
 def test_qcOutput(data):
