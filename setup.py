@@ -4,7 +4,7 @@ from setuptools import setup
 import versioneer
 
 with open('requirements.txt', 'rt') as f:
-    install_requires = [l.strip() for l in f.readlines()]
+    install_requires = [line.strip() for line in f.readlines()]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -13,8 +13,8 @@ setup(name='fsl_mrs',
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
       description='FSL Tools for Spectroscopy',
-      author=['Saad Jbabdi','William Clarke'],
-      author_email=['saad@fmrib.ox.ac.uk','william.clarke@ndcn.ox.ac.uk'],
+      author=['Saad Jbabdi', 'William Clarke'],
+      author_email=['saad@fmrib.ox.ac.uk', 'william.clarke@ndcn.ox.ac.uk'],
       url='www.fmrib.ox.ac.uk/fsl',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -30,18 +30,20 @@ setup(name='fsl_mrs',
                 'fsl_mrs.mmbasis',
                 'fsl_mrs.auxiliary'
                 ],
-      package_data={'fsl_mrs.denmatsim':['spinSystems.json'],
-                    'fsl_mrs.mmbasis':['mmbasis.json'],
-                    'fsl_mrs.utils.preproc':['templates/*.html'],
-                    'fsl_mrs':['pkg_data/mrs_fitting_challenge/*/*']},
+      package_data={'fsl_mrs.denmatsim': ['spinSystems.json'],
+                    'fsl_mrs.mmbasis': ['mmbasis.json'],
+                    'fsl_mrs.utils.preproc': ['templates/*.html'],
+                    'fsl_mrs': ['pkg_data/mrs_fitting_challenge/*/*']},
       install_requires=install_requires,
       scripts=['fsl_mrs/scripts/fsl_mrs',
-                'fsl_mrs/scripts/fsl_mrsi',
-                'fsl_mrs/scripts/fsl_mrs_preproc',
-                'fsl_mrs/scripts/fsl_mrs_proc',
-                'fsl_mrs/scripts/fsl_mrs_sim',
-                'fsl_mrs/scripts/mrs_vis',
-                'fsl_mrs/scripts/merge_mrs_reports',
-                'fsl_mrs/scripts/svs_segment',
-                'fsl_mrs/scripts/mrsi_segment']               
-     )
+               'fsl_mrs/scripts/fsl_mrsi',
+               'fsl_mrs/scripts/fsl_mrs_preproc',
+               'fsl_mrs/scripts/fsl_mrs_proc',
+               'fsl_mrs/scripts/fsl_mrs_sim',
+               'fsl_mrs/scripts/mrs_vis',
+               'fsl_mrs/scripts/mrs_info',
+               'fsl_mrs/scripts/merge_mrs_reports',
+               'fsl_mrs/scripts/svs_segment',
+               'fsl_mrs/scripts/mrsi_segment',
+               'fsl_mrs/scripts/results_to_spectrum']
+      )

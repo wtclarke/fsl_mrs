@@ -1,3 +1,9 @@
+'''FSL-MRS test script
+
+Test generation of synthetic spectra
+
+Copyright Will Clarke, University of Oxford, 2021'''
+
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.utils import mrs_io

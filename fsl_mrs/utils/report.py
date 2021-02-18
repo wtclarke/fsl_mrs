@@ -5,7 +5,7 @@
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
 #
-# Copyright (C) 2019 University of Oxford 
+# Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
 import pandas as pd
@@ -21,16 +21,16 @@ from fsl_mrs.utils import plotting
 from fsl_mrs.utils import misc
 
 
-
 def to_div(fig):
     """
-    Turns Plotly Figure into HTML 
+    Turns Plotly Figure into HTML
     """
     return plotly.offline.plot(fig,
                                output_type='div',
                                include_plotlyjs='cdn')
 
-def create_plotly_div(mrs,res):
+
+def create_plotly_div(mrs, res):
     """
     Create HTML <div> sections for a few different report figures
     The output is a dict
@@ -46,11 +46,10 @@ def create_plotly_div(mrs,res):
     quant_table           ; Table with quantification results
 
     """
-    divs={}
+    divs = {}
 
-    
     # Summary plot
-    fig = plotting.plotly_fit(mrs,res)
+    fig = plotting.plotly_fit(mrs, res)
     divs['summary'] = to_div(fig)
 
     # tables
@@ -59,37 +58,37 @@ def create_plotly_div(mrs,res):
     divs['table-lineshape-phase'] = to_div(fig)
     #  qc
     fig = plotting.plot_table_qc(res)
-    divs['table-qc'] = to_div(fig)        
+    divs['table-qc'] = to_div(fig)
 
     # MCMC results (if available)
     if res.method == 'MH':
-        fig1 = plotting.plot_corr(res,title='MCMC Correlations')
-        fig2 = plotting.plot_dist_mcmc(res,refname=res.concScalings['internalRef'])
+        fig1 = plotting.plot_corr(res, title='MCMC Correlations')
+        fig2 = plotting.plot_dist_mcmc(res, refname=res.concScalings['internalRef'])
     else:
-        fig1 = plotting.plot_corr(res,corr=res.corr,title='Laplace approx Correlations')
-        fig2 = plotting.plot_dist_approx(res,refname=res.concScalings['internalRef'])    
-    divs['corr']       = to_div(fig1)
+        fig1 = plotting.plot_corr(res, corr=res.corr, title='Laplace approx Correlations')
+        fig2 = plotting.plot_dist_approx(res, refname=res.concScalings['internalRef'])
+    divs['corr'] = to_div(fig1)
     divs['posteriors'] = to_div(fig2)
-    
-    fig = plotting.plot_real_imag(mrs,res,ppmlim=(.2,4.2))
-    divs['real-imag'] = to_div(fig) #plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-    
-    fig = plotting.plot_indiv_stacked(mrs,res,ppmlim=res.ppmlim)
-    divs['indiv'] = to_div(fig) #plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
-    
+
+    fig = plotting.plot_real_imag(mrs, res, ppmlim=(.2, 4.2))
+    divs['real-imag'] = to_div(fig)  # plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
+
+    fig = plotting.plot_indiv_stacked(mrs, res, ppmlim=res.ppmlim)
+    divs['indiv'] = to_div(fig)  # plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
+
     # Quantification table
-    if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['info']['q_info'],'f_GM'):
+    if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['info']['q_info'], 'f_GM'):
         Q = res.concScalings['info']['q_info']
         quant_df = pd.DataFrame()
-        quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM,Q.d_WM,Q.d_CSF]
-        quant_df['Tissue volume fractions'] = [Q.f_GM,Q.f_WM,Q.f_CSF]
-        quant_df['Water T2 (ms)'] = [Q.T2['H2O_GM']*1000,Q.T2['H2O_WM']*1000,Q.T2['H2O_CSF']*1000]
+        quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM, Q.d_WM, Q.d_CSF]
+        quant_df['Tissue volume fractions'] = [Q.f_GM, Q.f_WM, Q.f_CSF]
+        quant_df['Water T2 (ms)'] = [Q.T2['H2O_GM'] * 1000, Q.T2['H2O_WM'] * 1000, Q.T2['H2O_CSF'] * 1000]
         quant_df.index = ['GM', 'WM', 'CSF']
         quant_df.index.name = 'Tissue'
         quant_df.reset_index(inplace=True)
         tab = plotting.create_table(quant_df)
         fig = go.Figure(data=[tab])
-        fig.update_layout(height=100,margin=dict(l=0,r=0,t=0,b=0))
+        fig.update_layout(height=100, margin=dict(l=0, r=0, t=0, b=0))
         divs['quant_table'] = to_div(fig)
 
     return divs
@@ -106,7 +105,7 @@ def static_image(imgfile):
     fig = go.Figure()
 
     # Constants
-    img_width  = img.width
+    img_width = img.width
     img_height = img.height
     scale_factor = 0.5
 
@@ -147,7 +146,7 @@ def static_image(imgfile):
             sizing="stretch",
             source=img)
     )
-    
+
     # Configure other layout
     fig.update_layout(
         width=img_width * scale_factor,
@@ -155,18 +154,16 @@ def static_image(imgfile):
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
     )
 
-
     return fig
 
 
-def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig = None):
+def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, location_fig=None):
     """
     Creates and writes to file an html report
     """
 
-    divs= create_plotly_div(mrs,res)
+    divs = create_plotly_div(mrs, res)
 
-    
     template = f"""<!DOCTYPE html>
     <html>
     <head>
@@ -185,7 +182,7 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
         flex-grow: 1;
     }}
 
-    </style>       
+    </style>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
     <body style="background-color:white">
@@ -201,46 +198,45 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
     </div>
     <hr>
     <center>
-    <a href="#summary">Summary</a> - 
-    <a href="#nuisance">Nuisance</a> - 
-    <a href="#qc">QC</a> - 
-    <a href="#uncertainty">Uncertainty</a> - 
-    <a href="#realimag">Real/Imag</a> - 
+    <a href="#summary">Summary</a> -
+    <a href="#nuisance">Nuisance</a> -
+    <a href="#qc">QC</a> -
+    <a href="#uncertainty">Uncertainty</a> -
+    <a href="#realimag">Real/Imag</a> -
     <a href="#metabs">Metabs</a> -
-    <a href="#quantification">Quantification</a> -  
+    <a href="#quantification">Quantification</a> -
     <a href="#methods">Methods</a>
     </center>
-    <hr>      
+    <hr>
     """
 
-    
     # Summary section
-    section=f"""
-    <h1><a name="summary">Summary</a></h1>    
+    section = f"""
+    <h1><a name="summary">Summary</a></h1>
     <div id=fit>{divs['summary']}</div>
     <hr>
     """
-    template+=section
+    template += section
 
     # Location
     if location_fig is not None:
         fig = static_image(location_fig)
-        template+=f"<h1>Voxel location</h1><div>{to_div(fig)}</div><hr>"
-    
+        template += f"<h1>Voxel location</h1><div>{to_div(fig)}</div><hr>"
+
     # Tables section
-    section=f"""
-    <h1><a name="nuisance">Nuisance parameters</a></h1>    
+    section = f"""
+    <h1><a name="nuisance">Nuisance parameters</a></h1>
     <div style="width:70%">{divs['table-lineshape-phase']}</div>
-    
+
     <hr>
     <h1><a name="qc">QC parameters</a></h1>
     <div style="width:70%">{divs['table-qc']}</div>
     <hr>
     """
-    template+=section
-    
+    template += section
+
     # Dist section
-    section=f"""
+    section = f"""
     <h1><a name="uncertainty">Uncertainties</a></h1>
     <table width=100%>
     <tr>
@@ -250,30 +246,30 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
     </table>
     <hr>
     """
-    template+=section
+    template += section
 
     # Real/imag section
-    section=f"""
+    section = f"""
     <h1><a name="realimag">Fitting summary (real/imag)</a></h1>
     {divs['real-imag']}
     <hr>
     """
-    template+=section
-    
+    template += section
+
     # Indiv spectra section
-    section=f"""
+    section = f"""
     <h1><a name="metabs">Individual metabolite spectra</a></h1>
     {divs['indiv']}
     <hr>
     """
-    template+=section
+    template += section
 
     # Quantification information
     # Table of CSF,GM,WM
-        # Fractions
-        # T2 info (water)
-        # T2 info (metab)
-        # Tissue water densities
+    # Fractions
+    # T2 info (water)
+    # T2 info (metab)
+    # Tissue water densities
     # Relaxation corrected water
     # Relaxation correction for metab
     # Final scalings for molality & molarity
@@ -282,10 +278,10 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
         relax_water_conc = Q.relaxationCorrWater_molar
         metabRelaxCorr = Q.relaxationCorrMetab
 
-        if  hasattr(res.concScalings['info']['q_info'],'f_GM'):
-            section=f"""
+        if hasattr(res.concScalings['info']['q_info'], 'f_GM'):
+            section = f"""
             <h1><a name="quantification">Quantification information</a></h1>
-            <div style="width:70%">{divs['quant_table']}</div>        
+            <div style="width:70%">{divs['quant_table']}</div>
             <table>
                 <tr>
                     <td class="titles">Metabolite T<sub>2</sub>:</td>
@@ -316,17 +312,17 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
             """
         else:
             if 'H2O' in Q.T2:
-                waterstr =f"""
+                waterstr = f"""
                     <td class="titles">Water T<sub>2</sub></td>
                     <td> : {1000*Q.T2['H2O']} ms</td>
                     """
             else:
-                waterstr =f"""
+                waterstr = """
                     <td class="titles">Water T<sub>2</sub></td>
                     <td> : Inf (no relaxation)</td>
                     """
-            section=f"""
-            <h1><a name="quantification">Quantification information</a></h1>            
+            section = f"""
+            <h1><a name="quantification">Quantification information</a></h1>
             <table>
                 <tr>
                     {waterstr}
@@ -358,11 +354,11 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
             </table>
             <hr>
             """
-        template+=section
+        template += section
 
     # Details of the methods
-    #methodsfile="/path/to/file"
-    #methods = np.readtxt(methodsfile)
+    # methodsfile="/path/to/file"
+    # methods = np.readtxt(methodsfile)
     from fsl_mrs import __version__
     if res.method == "Newton":
         algo = "Model fitting was performed using the truncated Newton algorithm as implemented in Scipy."
@@ -370,51 +366,47 @@ def create_report(mrs,res,filename,fidfile,basisfile,h2ofile,date,location_fig =
         algo = "Model fitting was performed using the Metropolis Hastings algorithm."
     else:
         algo = ""
-        
-    methods=f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex-valued spectrum in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). {algo} <p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
-    section=f"""
+
+    methods = f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex-valued spectrum in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). {algo} <p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    section = f"""
     <h1><a name="methods">Analysis methods</a></h1>
     <div>{methods}</div>
     <hr>
     """
-    template+=section
+    template += section
 
     # End of report
-    template+="""
-    </body>    
+    template += """
+    </body>
     </html>
     """
-    
-    # write 
+
+    # write
     with open(filename, 'w') as f:
         f.write(template)
 
-    
 
-
-def fitting_summary_fig(mrs,res,filename):
+def fitting_summary_fig(mrs, res, filename):
     """
     Simple spectrum+fit plot
     """
-    fig = plotting.plot_fit(mrs,pred=res.pred,baseline=res.baseline)
+    fig = plotting.plot_fit(mrs, pred=res.pred, baseline=res.baseline)
     fig.savefig(filename)
 
 
-
-
 # --------- MRSI reporting
-def save_params(params,names,data_hdr,mask,folder,cleanup=True):
+def save_params(params, names, data_hdr, mask, folder, cleanup=True):
     """
     Save MRSI results into NIFTI image files
     """
-    for i,p in enumerate(names):
-        x = misc.list_to_volume(list(params[:,i]),mask)
+    for i, p in enumerate(names):
+        x = misc.list_to_volume(list(params[:, i]), mask)
         if cleanup:
             x[np.isnan(x)] = 0
             x[np.isinf(x)] = 0
-            x[x<1e-10]     = 0
-            x[x>1e10]      = 0
-        
-        img      = nib.Nifti1Image(x,data_hdr.affine)
-        filename = os.path.join(folder,p+'.nii.gz')
+            x[x < 1e-10] = 0
+            x[x > 1e10] = 0
+
+        img = nib.Nifti1Image(x, data_hdr.affine)
+        filename = os.path.join(folder, p + '.nii.gz')
         nib.save(img, filename)

@@ -15,7 +15,7 @@ There are 4 ways of visualising/interacting with MRS data in FSL-MRS:
 1. Quick glance
 ---------------
 
-The first thing one might want to do when given a FID file or simulated spectra is to have a quick look at the FFTs to see if they look like one would expect. FSL-MRS provides a light-weight script (:code:`mrs_vis`) to quickly glance at the MRS or MRSI data. For example, running :code:`mrs_vis` on the provided example SVS data:
+The first thing one might want to do when given a FID file or simulated spectra is to have a quick look at the spectra to see if they look like one would expect. To get a sense of the dimensionality and basic status of the data run :code:`mrs_info` for a quick text summary. FSL-MRS then provides a light-weight script (:code:`mrs_vis`) to quickly visualise the MRS or MRSI data. For example, running :code:`mrs_vis` on the provided example SVS data:
 
 ::
 
@@ -26,7 +26,7 @@ gives the following basic plot:
 .. image:: data/mrs_vis_svs.png
   :width: 400
 
-Note that the reason :code:`mrs_vis` "knows" how to scale the x-axis is that the relevant information is stored in the JSON sidecar (namely the *dwell time* and the *central frequency*).
+Note that the reason :code:`mrs_vis` "knows" how to scale the x-axis is that the relevant information is stored in the NIfTI-MRS MRS header extension (namely the *dwell time* and the *central frequency*).
 
 :code:`mrs_vis` can also visualise a folder of mrs data::
 

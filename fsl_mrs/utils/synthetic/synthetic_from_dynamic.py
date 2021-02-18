@@ -31,7 +31,6 @@ def synthetic_spectra_from_model(config_file,
                                  noisecovariance=[[0.1]],
                                  bandwidth=4000,
                                  points=2048):
-
     """ Create synthetic dynamic data from FSL-MRS basis file and dynamic configuration file.
         Model parameters may be specified using the defined_vals argument. Otheriwse values are randomly set between
             the model defined bounds (or -1 and 1 if bounds not set).
@@ -93,13 +92,16 @@ def synthetic_spectra_from_model(config_file,
                 'eps': 0,
                 'gamma': 10,
                 'sigma': 10,
-                'baseline': (0, 0),
+                'baseline': [0, 0] * (baseline_order + 1),
                 'conc': concentrations}
 
+    def_vals_int = {}
     for key in defined_vals:
         if isinstance(defined_vals[key], str) \
                 and defined_vals[key] in std_vals:
-            defined_vals[key] = std_vals[defined_vals[key]]
+            def_vals_int[key] = std_vals[defined_vals[key]]
+        else:
+            def_vals_int[key] = defined_vals[key]
 
     rng = np.random.default_rng()
 
@@ -107,17 +109,17 @@ def synthetic_spectra_from_model(config_file,
     for index, param in enumerate(vm.mapped_names):
         beh = vm.Parameters[param]
         if beh == 'fixed':
-            if param in defined_vals:
-                if hasattr(defined_vals[param], "__len__") \
-                        and len(defined_vals[param]) == vm.mapped_sizes[index]:
-                    syn_free_params.extend(defined_vals[param])
-                elif hasattr(defined_vals[param], "__len__"):
+            if param in def_vals_int:
+                if hasattr(def_vals_int[param], "__len__") \
+                        and len(def_vals_int[param]) == vm.mapped_sizes[index]:
+                    syn_free_params.extend(def_vals_int[param])
+                elif hasattr(def_vals_int[param], "__len__"):
                     raise ValueError('Must be the same length as sizes.')
                 else:
-                    syn_free_params.extend([defined_vals[param], ] * vm.mapped_sizes[index])
+                    syn_free_params.extend([def_vals_int[param], ] * vm.mapped_sizes[index])
             elif param in std_vals:
                 if hasattr(std_vals[param], "__len__") \
-                        and len(defined_vals[param]) == vm.mapped_sizes[index]:
+                        and len(std_vals[param]) == vm.mapped_sizes[index]:
                     syn_free_params.extend(std_vals[param])
                 elif hasattr(std_vals[param], "__len__"):
                     raise ValueError('Must be the same length as sizes.')
@@ -136,23 +138,54 @@ def synthetic_spectra_from_model(config_file,
                     current_bounds = [-1, 1]
                 syn_free_params.extend(rng.uniform(current_bounds[0], current_bounds[1], size=vm.mapped_sizes[index]))
         elif beh == 'variable':
-            pass
+            if param in def_vals_int:
+                if hasattr(def_vals_int[param], "__len__") \
+                        and len(def_vals_int[param]) == (vm.mapped_sizes[index] * vm.ntimes):
+                    syn_free_params.extend(def_vals_int[param])
+                elif hasattr(def_vals_int[param], "__len__"):
+                    raise ValueError('Must be the same length as sizes.')
+                else:
+                    syn_free_params.extend([def_vals_int[param], ] * (vm.mapped_sizes[index] * vm.ntimes))
+            elif param in std_vals:
+                if hasattr(std_vals[param], "__len__") \
+                        and len(std_vals[param]) == (vm.mapped_sizes[index] * vm.ntimes):
+                    syn_free_params.extend(std_vals[param])
+                elif hasattr(std_vals[param], "__len__") \
+                        and not len(std_vals[param]) % vm.mapped_sizes[index]:
+                    syn_free_params.extend(std_vals[param] * vm.ntimes)
+                elif hasattr(std_vals[param], "__len__"):
+                    raise ValueError('Must be the same length as sizes.')
+                else:
+                    syn_free_params.extend([std_vals[param], ] * (vm.mapped_sizes[index] * vm.ntimes))
+            else:
+                if vm.defined_bounds is not None \
+                        and param in vm.defined_bounds:
+                    current_bounds = list(vm.defined_bounds[param])
+                    if current_bounds[0] is None:
+                        current_bounds[0] = -1
+                    if current_bounds[1] is None:
+                        current_bounds[1] = 1
+                else:
+                    current_bounds = [-1, 1]
+                syn_free_params.extend(rng.uniform(current_bounds[0],
+                                                   current_bounds[1],
+                                                   size=(vm.mapped_sizes[index] * vm.ntimes)))
 
         elif 'dynamic' in beh:
             dyn_name = vm.Parameters[param]['params']
             for x in range(vm.mapped_sizes[index]):
                 for y in dyn_name:
-                    if y in defined_vals:
-                        if hasattr(defined_vals[y], "__len__") \
-                                and len(defined_vals[y]) == vm.mapped_sizes[index]:
-                            syn_free_params.append(defined_vals[y][x])
-                        elif hasattr(defined_vals[y], "__len__"):
+                    if y in def_vals_int:
+                        if hasattr(def_vals_int[y], "__len__") \
+                                and len(def_vals_int[y]) == vm.mapped_sizes[index]:
+                            syn_free_params.append(def_vals_int[y][x])
+                        elif hasattr(def_vals_int[y], "__len__"):
                             raise ValueError('Must be the same length as sizes.')
                         else:
-                            syn_free_params.append(defined_vals[y])
+                            syn_free_params.append(def_vals_int[y])
                     elif y in std_vals:
                         if hasattr(std_vals[y], "__len__") \
-                                and len(defined_vals[y]) == vm.mapped_sizes[index]:
+                                and len(def_vals_int[y]) == vm.mapped_sizes[index]:
                             syn_free_params.append(std_vals[y][x])
                         elif hasattr(std_vals[y], "__len__"):
                             raise ValueError('Must be the same length as sizes.')

@@ -74,7 +74,7 @@ def main():
     if args.filename is None:
         mask_name = 'mask.nii.gz'
     else:
-        mask_name = args.filename+'_mask.nii.gz'
+        mask_name = args.filename + '_mask.nii.gz'
     flirt_out = op.join(args.output, mask_name)
 
     flirt(flirt_in,
@@ -121,7 +121,7 @@ def main():
         if args.filename is None:
             seg_name = 'segmentation.json'
         else:
-            seg_name = args.filename+'_segmentation.json'
+            seg_name = args.filename + '_segmentation.json'
 
         with open(op.join(args.output, seg_name), 'w', encoding='utf-8') as f:
             json.dump(segresults, f, ensure_ascii=False, indent='\t')

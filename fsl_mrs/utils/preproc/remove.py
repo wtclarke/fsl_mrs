@@ -49,10 +49,10 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
     # Limit by frequencies
     if limitUnits.lower() == 'ppm':
         centralFrequency = checkCFUnits(centralFrequency, units='MHz')
-        frequencylimit = np.array(limits)*centralFrequency
+        frequencylimit = np.array(limits) * centralFrequency
     elif limitUnits.lower() == 'ppm+shift':
         centralFrequency = checkCFUnits(centralFrequency, units='MHz')
-        frequencylimit = (np.array(limits)-H2O_PPM_TO_TMS)*centralFrequency
+        frequencylimit = (np.array(limits) - H2O_PPM_TO_TMS) * centralFrequency
     elif limitUnits.lower() == 'hz':
         frequencylimit = limits
     else:
@@ -61,7 +61,7 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
                     (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape, dtype=np.complex128)
-    timeAxis = np.linspace(0, dwelltime*(FID.size-1), FID.size)
+    timeAxis = np.linspace(0, dwelltime * (FID.size - 1), FID.size)
 
     for use, f, d, a, p in zip(limitIndicies,
                                frequencies,
@@ -69,14 +69,22 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
                                amplitudes,
                                phases):
         if use:
-            sumFID += a * np.exp((timeAxis/d) +
-                                 1j*2*np.pi * (f*timeAxis+p/360.0))
+            sumFID += a * np.exp((timeAxis / d)
+                                 + 1j * 2 * np.pi
+                                 * (f * timeAxis + p / 360.0))
 
     return FID - sumFID
 
 
-def hlsvd_report(inFID, outFID, hdr, limits, limitUnits='ppm',
-                 plotlim=(0.2, 6), html=None):
+def hlsvd_report(inFID,
+                 outFID,
+                 limits,
+                 bw,
+                 cf,
+                 nucleus='1H',
+                 limitUnits='ppm',
+                 plotlim=(0.2, 6),
+                 html=None):
     """
     Generate hlsvd report
     """
@@ -87,19 +95,19 @@ def hlsvd_report(inFID, outFID, hdr, limits, limitUnits='ppm',
 
     # Turn input FIDs into mrs objects
     def toMRSobj(fid):
-        return MRS(FID=fid, header=hdr)
+        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
 
     plotIn = toMRSobj(inFID)
     plotOut = toMRSobj(outFID)
-    plotDiff = toMRSobj(outFID-inFID)
+    plotDiff = toMRSobj(outFID - inFID)
 
     if limitUnits.lower() == 'ppm':
-        limits = np.array(limits)+H2O_PPM_TO_TMS
+        limits = np.array(limits) + H2O_PPM_TO_TMS
     elif limitUnits.lower() == 'ppm+shift':
         pass
     elif limitUnits.lower() == 'hz':
-        limits = (np.array(limits)/(plotIn.centralFrequency/1E6)) + \
-                 H2O_PPM_TO_TMS
+        limits = (np.array(limits) / (plotIn.centralFrequency / 1E6)) + \
+            H2O_PPM_TO_TMS
     else:
         raise ValueError('limitUnits should be one of: ppm, ppm+shift or hz.')
 
@@ -135,7 +143,7 @@ def hlsvd_report(inFID, outFID, hdr, limits, limitUnits='ppm',
 
         if op.isdir(html):
             filename = 'report_' + \
-                       datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]+'.html'
+                       datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3] + '.html'
             htmlfile = op.join(html, filename)
         elif op.isdir(op.dirname(html)) and op.splitext(html)[1] == '.html':
             htmlfile = html

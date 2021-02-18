@@ -24,17 +24,16 @@ def simulated(ID=1):
     basisfolder = fileDir / '../pkg_data/mrs_fitting_challenge/basisset_JMRUI'
 
     # Load data and basis
-    FID, FIDheader = mrs_io.read_FID(str(datafolder / f'dataset{ID}_WS.txt'))
-    FIDW, _ = mrs_io.read_FID(str(datafolder / f'dataset{ID}_nWS.txt'))
+    FID = mrs_io.read_FID(str(datafolder / f'dataset{ID}_WS.txt'))
+    FIDW = mrs_io.read_FID(str(datafolder / f'dataset{ID}_nWS.txt'))
     basis, names, Bheader = mrs_io.read_basis(basisfolder)
 
-    MRSArgs = {'header': FIDheader,
-               'basis': basis,
+    MRSArgs = {'basis': basis,
                'names': names,
                'basis_hdr': Bheader[0],
                'H2O': FIDW}
 
-    mrs = MRS(FID=FID, **MRSArgs)
+    mrs = FID.mrs(**MRSArgs)
     # Check orientation and rescale for extra robustness
     mrs.processForFitting()
 
@@ -134,12 +133,12 @@ def dMRS_SNR(avg=1, path='/Users/saad/Desktop/Spectroscopy/'):
     bvals   = [20, 3020, 6000, 10000, 20000, 30000, 50000]
     MRSlist = []
     for b in bvals:
-        FID, FIDheader = mrs_io.read_FID(str(FIDpath / f'b_{b:05}.nii.gz'))
-        MRSArgs = {'header': FIDheader,
-                   'basis': basis,
+        FID = mrs_io.read_FID(str(FIDpath / f'b_{b:05}.nii.gz'))
+        MRSArgs = {'basis': basis,
                    'names': names,
                    'basis_hdr': Bheader[0]}
-        mrs = MRS(FID=FID, **MRSArgs)
+
+        mrs = FID.mrs(**MRSArgs)
         MRSlist.append(mrs)
 
     MRSlist[0].rescaleForFitting()

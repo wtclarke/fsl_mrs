@@ -52,6 +52,8 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 : simulate basis spectra
 - **mrs_vis**
 : quick visualisation of the spectra or basis spectra
+- **mrs_info**
+: quick information on NIfTI MRS file
 - **svs_segment & mrsi_segment**
 : Run tissue segmentation for SVS/MRSI from T1 image.
 

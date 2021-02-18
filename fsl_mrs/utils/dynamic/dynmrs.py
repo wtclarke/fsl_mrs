@@ -15,6 +15,7 @@ from fsl_mrs.utils import models, fitting
 from . import variable_mapping as varmap
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.stats import mh, dist
+from fsl_mrs.utils.misc import calculate_lap_cov
 
 
 class dynMRS(object):
@@ -36,6 +37,7 @@ class dynMRS(object):
     def fit(self,
             config_file,
             method='Newton',
+            mh_jumps=600,
             model='voigt',
             ppmlim=(.2, 4.2),
             baseline_order=2,
@@ -50,6 +52,7 @@ class dynMRS(object):
         config_file    : string
         method         : string  ('Newton' or 'MH')
         model          : string  ('voigt' or 'lorentzian')
+        mh_jumps       : int
         ppmlim         : tuple
         baseline_order : int
         metab_groups   : array-like
@@ -82,22 +85,29 @@ class dynMRS(object):
         # MCMC or Newton
         if method.lower() == 'newton':
             sol = minimize(fun=self.dyn_loss, x0=x0, jac=self.dyn_loss_grad, method='TNC', bounds=bounds)
+            # breakpoint()
+            # calculate covariance
+            data = np.asarray(self.data).flatten()
+            x_cov = calculate_lap_cov(sol.x, self.full_fwd, data)
             x = sol.x
+            x_out = x
+            x_all = x
         elif method.lower() == 'mh':
             self.prior_means = np.zeros_like(self.vm.nfree)
             self.prior_stds = np.ones_like(self.vm.nfree) * 1E3
-            mcmc = mh.MH(self.dyn_loglik, self.dyn_logpr, burnin=10, njumps=300, sampleevery=1)
+            mcmc = mh.MH(self.dyn_loglik, self.dyn_logpr, burnin=100, njumps=mh_jumps, sampleevery=5)
             LB, UB = mcmc.bounds_from_list(self.vm.nfree, self.vm.Bounds)
-            samples = mcmc.fit(x0, LB=LB, UB=UB, verbose=verbose)
-            x = np.mean(samples, axis=0)
+            x = mcmc.fit(x0, LB=LB, UB=UB, verbose=verbose)
+            x_out = np.mean(x, axis=0)
+            x_all = x
+            x_cov = np.cov(x.T)
         else:
             raise (Exception(f'Unrecognised method {method}'))
         res_list = self.collect_results(x, model, method, ppmlim, baseline_order)
 
-
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
-        return {'x': x, 'resList': res_list}
+        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list}
 
     def get_constants(self, model, ppmlim, baseline_order, metab_groups):
         """collect constants for forward model"""
@@ -179,6 +189,15 @@ class dynMRS(object):
         grad_imag = np.mean(np.imag(g) * np.imag(e[:, None]), axis=0)
         return grad_real + grad_imag
 
+    def full_fwd(self, x):
+        '''Return flattened vector of the full estimated model'''
+        fwd = np.zeros((self.vm.ntimes, self.data[0].shape[0]), dtype=np.complex64)
+        mapped = self.vm.free_to_mapped(x)
+        for time_index in range(self.vm.ntimes):
+            p = np.hstack(mapped[time_index, :])
+            fwd[time_index, :] = self.forward(p)
+        return fwd.flatten()
+
     def dyn_loss(self, x):
         """Add loss functions across data list"""
         ret = 0
@@ -190,7 +209,6 @@ class dynMRS(object):
 
     def dyn_loss_grad(self, x):
         """Add gradients across data list"""
-        g = []
         mapped = self.vm.free_to_mapped(x)
         LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
@@ -233,7 +251,22 @@ class dynMRS(object):
     def collect_results(self, x, model, method, ppmlim, baseline_order):
         """Create list of FitRes object"""
         _, _, _, base_poly, metab_groups, _, _, _ = self.constants
-        mapped = self.vm.free_to_mapped(x)
+        if method.lower() == 'mh':
+            mapped = []
+            for xx in x:
+                tmp = self.vm.free_to_mapped(xx)
+                tmp_tmp = []
+                for tt in tmp:
+                    tmp_tmp.append(np.hstack(tt))
+                mapped.append(np.asarray(tmp_tmp))
+            mapped = np.asarray(mapped)
+            mapped = np.moveaxis(mapped, 0, 1)
+        else:
+            tmp = self.vm.free_to_mapped(x)
+            tmp_tmp = []
+            for tt in tmp:
+                tmp_tmp.append(np.hstack(tt))
+            mapped = np.asarray(tmp_tmp)
         dynresList = []
         for t in range(self.vm.ntimes):
             mrs = self.mrs_list[t]
@@ -244,7 +277,6 @@ class dynMRS(object):
                              baseline_order,
                              base_poly,
                              ppmlim)
-            results.loadResults(mrs, np.hstack(mapped[t]))
+            results.loadResults(mrs, mapped[t])
             dynresList.append(results)
         return dynresList
-

@@ -49,31 +49,15 @@ stages:
 # when and where jobs are executed.
 ####################################
 
-
-.only_upstream: &only_upstream
-  only:
-    - branches@fsl/fsl_mrs
-
-
-.only_master: &only_master
-  only:
-    - master
-
-
-.only_releases: &only_releases
-  only:
-    - tags@fsl/fsl_mrs
-
-
 .except_releases: &except_releases
   except:
     - tags
-
 
 # ############
 # # 1. style 
 # ############
 flake8:
+  <<: *except_releases
   image: python:3.7-slim-buster
   stage: style
   before_script:
@@ -81,6 +65,7 @@ flake8:
   - pip install flake8  
   script:
   - flake8 fsl_mrs
+  - flake8 fsl_mrs/scripts/*
   allow_failure: true
 
 ############
@@ -88,6 +73,7 @@ flake8:
 ############
 
 pytest:
+  <<: *except_releases
   image: wtclarke/fsl_mrs_tests:1.0
   stage: test
   variables:
@@ -108,10 +94,16 @@ pytest:
 ############
 
 pages:
-  <<: *only_master
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "1"
+    GIT_STRATEGY: clone
+  only:
+    - master@wclarke/fsl_mrs
+    - tags@fsl/fsl_mrs
   image: python:3.7
   stage: doc
   script:
+  - git describe --tag --dirty
   - pip install -U sphinx sphinx_rtd_theme
   - pip install .
   - sphinx-build -b html ./docs/user_docs public

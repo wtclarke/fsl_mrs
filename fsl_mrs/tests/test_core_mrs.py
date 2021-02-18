@@ -1,7 +1,12 @@
+'''FSL-MRS test script
+
+Test core MRS class.
+
+Copyright Will Clarke, University of Oxford, 2021'''
 
 
 from pathlib import Path
-from fsl_mrs.core import MRS
+from fsl_mrs.core import MRS, mrs_from_files
 import pytest
 from fsl_mrs.utils import synthetic as syn
 import numpy as np
@@ -10,8 +15,8 @@ from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
 # Files
 testsPath = Path(__file__).parent
-svs_metab = testsPath / 'testdata/fsl_mrs/metab.nii'
-svs_water = testsPath / 'testdata/fsl_mrs/water.nii'
+svs_metab = testsPath / 'testdata/fsl_mrs/metab.nii.gz'
+svs_water = testsPath / 'testdata/fsl_mrs/wref.nii.gz'
 svs_basis = testsPath / 'testdata/fsl_mrs/steam_basis'
 
 
@@ -58,14 +63,13 @@ def synth_data():
 
 def test_load_from_file():
 
-    mrs = MRS()
-    mrs.from_files(str(svs_metab),
-                   str(svs_basis),
-                   H2O_file=str(svs_water))
+    mrs = mrs_from_files(str(svs_metab),
+                         str(svs_basis),
+                         H2O_file=str(svs_water))
 
-    assert mrs.FID.shape == (4096,)
-    assert mrs.basis.shape == (4096, 20)
-    assert mrs.H2O.shape == (4096,)
+    assert mrs.FID.shape == (4095,)
+    assert mrs.basis.shape == (4095, 20)
+    assert mrs.H2O.shape == (4095,)
 
 
 def test_load(synth_data):
