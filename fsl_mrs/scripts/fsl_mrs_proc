@@ -13,6 +13,7 @@ from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 from os import makedirs
+from shutil import rmtree
 import os.path as op
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 from fsl_mrs.core import NIFTI_MRS, is_nifti_mrs
@@ -315,6 +316,9 @@ def main():
 
     # Create output folder if required
     if not op.isdir(args.output):
+        makedirs(args.output)
+    elif op.isdir(args.output) and args.overwrite:
+        rmtree(args.output)
         makedirs(args.output)
 
     # Handle report generation output location.

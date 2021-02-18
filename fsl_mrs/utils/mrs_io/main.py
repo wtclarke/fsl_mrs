@@ -12,7 +12,7 @@ import numpy as np
 from fsl_mrs.utils.mrs_io import fsl_io as fsl
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
-from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NotNIFTI_MRS
+from fsl_mrs.core import nifti_mrs  # import NIFTI_MRS, NotNIFTI_MRS
 import fsl.utils.path as fslpath
 
 
@@ -34,8 +34,8 @@ def check_datatype(filename):
     Returns one of: 'NIFTI_MRS', 'NIFTI','RAW','TXT','Unknown'
     """
     try:
-        NIFTI_MRS(filename)
-    except (NotNIFTI_MRS, fslpath.PathError):
+        nifti_mrs.NIFTI_MRS(filename)
+    except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
         _, ext = filename.split(os.extsep, 1)
         if ext.lower() == 'nii' or ext.lower() == 'nii.gz':
             fsl.readNIFTI(filename)
@@ -66,8 +66,8 @@ def read_FID(filename):
      dict (header info)
     """
     try:
-        return NIFTI_MRS(filename)
-    except (NotNIFTI_MRS, fslpath.PathError):
+        return nifti_mrs.NIFTI_MRS(filename)
+    except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
         data_type = check_datatype(filename)
 
     if data_type == 'RAW':

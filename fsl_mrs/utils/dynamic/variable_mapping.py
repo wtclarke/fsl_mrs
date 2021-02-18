@@ -319,6 +319,7 @@ class VariableMapping(object):
                     func_name = self.Parameters[name]['dynamic']
                     time_var  = self.time_variable
                     func      = partial(self.fcns[func_name], t=time_var)
+                    gradfunc  = partial(self.get_gradient_fcn(name), t=time_var)
                     nfree     = len(self.Parameters[name]['params'])
 
                     pp = np.stack(p[:, index][:], axis=0)
@@ -326,10 +327,22 @@ class VariableMapping(object):
                         def loss(x):
                             pred = func(x)
                             return np.mean((pp[:, ppp] - pred)**2)
+
+                        def loss_grad(x):
+                            jac_out = []
+                            S = func(x)
+                            for ds in gradfunc(x):
+                                jac_out.append(np.sum((2 * S * ds)
+                                                      - (2 * pp[:, ppp] * ds)))
+                            return np.asarray(jac_out)
+
                         bounds = self.Bounds[counter:counter + nfree]
                         vals = minimize(loss,
                                         np.zeros(len(self.Parameters[name]['params'])),
-                                        method='TNC', bounds=bounds).x
+                                        jac=loss_grad,
+                                        method='TNC',
+                                        bounds=bounds).x
+
                         free_params[counter:counter + nfree] = vals
                         counter += nfree
 

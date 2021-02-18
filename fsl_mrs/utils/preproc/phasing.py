@@ -116,6 +116,10 @@ def phaseCorrect_report(inFID,
         # re-estimate here.
         position = np.argmax(np.abs(plotIn.get_spec(ppmlim=ppmlim)))
 
+    # Deal with rounding errors
+    if position >= len(plotIn.getAxes(ppmlim=ppmlim)):
+        position = len(plotIn.getAxes(ppmlim=ppmlim)) - 1
+
     axis    = [plotIn.getAxes(ppmlim=ppmlim)[position]]
     y_data  = [np.real(plotIn.get_spec(ppmlim=ppmlim))[position]]
     trace = go.Scatter(x=axis, y=y_data,
