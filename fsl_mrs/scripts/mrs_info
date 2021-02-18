@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+# mrs_info - quick NIfTI MRS information
+#
+# Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+#
+# Copyright (C) 2021 University of Oxford
+# SHBASECOPYRIGHT
+
+import argparse
+from pathlib import Path
+
+
+def main():
+    p = argparse.ArgumentParser(description='FSL MRS Tools: NIfTI-MRS information')
+    p.add_argument('file', type=Path, metavar='FILE or list of FILEs',
+                   help='NIfTI MRS file(s)', nargs= '+')
+    args = p.parse_args()
+
+    from fsl_mrs.utils.mrs_io import read_FID
+    from fsl_mrs.utils.constants import GYRO_MAG_RATIO
+
+    for file in args.file:
+        data = read_FID(str(file))
+
+        print(f'\nRead file {file.name} ({file.parent.resolve()}).')
+        print(f'NIfTI-MRS version {data.mrs_nifti_version}')
+        print(f'Data shape {data.shape}')
+        print(f'Dimension tags: {data.dim_tags}')
+
+        print(f'Spectrometer Frequency: {data.spectrometer_frequency[0]} MHz')
+        print(f'Dwelltime (Bandwidth): {data.dwelltime:0.3E}s ({data.bandwidth:0.0f} Hz)')
+        print(f'Nucleus: {data.nucleus[0]}')
+        if data.nucleus[0] in GYRO_MAG_RATIO:
+            field_strength = data.spectrometer_frequency[0] / GYRO_MAG_RATIO[data.nucleus[0]]
+            print(f'Field Strength: {field_strength:0.2f} T')
+        print()
+
+
+if __name__ == '__main__':
+    main()
