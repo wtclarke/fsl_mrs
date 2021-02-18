@@ -14,7 +14,7 @@ from pathlib import Path
 def main():
     p = argparse.ArgumentParser(description='FSL MRS Tools: NIfTI-MRS information')
     p.add_argument('file', type=Path, metavar='FILE or list of FILEs',
-                   help='NIfTI MRS file(s)', nargs= '+')
+                   help='NIfTI MRS file(s)', nargs='+')
     args = p.parse_args()
 
     from fsl_mrs.utils.mrs_io import read_FID

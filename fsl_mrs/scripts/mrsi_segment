@@ -21,8 +21,8 @@ from fsl.data.image import Image
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-            description="FSL Magnetic Resonance Spectroscopy"
-                        " - register fast segmentation to mrsi.")
+        description="FSL Magnetic Resonance Spectroscopy"
+                    " - register fast segmentation to mrsi.")
 
     parser.add_argument('mrsi', type=str, metavar='MRSI',
                         help='MRSI nifti file')
@@ -63,11 +63,11 @@ def main():
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
     applywarp_func(op.join(anat, 'T1_fast_pve_0.nii.gz'),
-                   op.join(args.output, args.filename+'_csf.nii.gz'))
+                   op.join(args.output, args.filename + '_csf.nii.gz'))
     applywarp_func(op.join(anat, 'T1_fast_pve_1.nii.gz'),
-                   op.join(args.output, args.filename+'_gm.nii.gz'))
+                   op.join(args.output, args.filename + '_gm.nii.gz'))
     applywarp_func(op.join(anat, 'T1_fast_pve_2.nii.gz'),
-                   op.join(args.output, args.filename+'_wm.nii.gz'))
+                   op.join(args.output, args.filename + '_wm.nii.gz'))
 
     remove(op.join(args.output, 'tmp.nii.gz'))
 
