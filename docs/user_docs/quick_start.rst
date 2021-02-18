@@ -34,7 +34,20 @@ But note that there are frequently multiple calibration scans for e.g. shimming 
 
 1.1 Take a look at your data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-You can use :code:`mrs_vis` on the command line to view your data at any stage of the process::
+You can use :code:`mrs_info` and :code:`mrs_vis` on the command line to view your data at any stage of the process. First mrs_info to see the dimensionality of the data::
+
+    mrs_info my_metab_file.nii.gz
+
+    Read file my_metab_file.nii.gz (/path_to_file).
+    NIfTI-MRS version 0.2
+    Data shape (1, 1, 1, 4096, 32, 64)
+    Dimension tags: ['DIM_COIL', 'DIM_DYN', None]
+    Spectrometer Frequency: 297.219948 MHz
+    Dwelltime (Bandwidth): 8.330E-05s (12005 Hz)
+    Nucleus: 1H
+    Field Strength: 6.98 T
+
+Then mrs_vis to visualise the data::
 
     mrs_vis my_metab_file.nii.gz
 
