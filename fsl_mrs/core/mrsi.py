@@ -22,17 +22,6 @@ class MRSI(object):
                  mask=None, basis=None, names=None,
                  basis_hdr=None, H2O=None):
 
-        # process mask
-        if mask is None:
-            mask = np.full(FID.shape, True)
-        elif mask.shape[0:3] == FID.shape[0:3]:
-            mask = mask != 0.0
-        else:
-            raise ValueError(f'Mask must be None or numpy'
-                             f' array of the same shape'
-                             f' as FID. Mask {mask.shape[0:3]},'
-                             f' FID {FID.shape[0:3]}.')
-
         # process H2O
         if H2O is None:
             H2O = np.full(FID.shape, None)
@@ -43,7 +32,9 @@ class MRSI(object):
         # Load into properties
         self.data   = FID
         self.H2O    = H2O
-        self.mask   = mask
+
+        # process mask
+        self.set_mask(mask)
 
         if header is not None:
             self.header = header
@@ -244,7 +235,7 @@ class MRSI(object):
     def set_mask(self, mask):
         """ Load mask as numpy array."""
         if mask is None:
-            mask = np.full(self.data.shape, True)
+            mask = np.full(self.data.shape[0:3], True)
         elif mask.shape[0:3] == self.data.shape[0:3]:
             mask = mask != 0.0
         else:
