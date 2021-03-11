@@ -349,13 +349,12 @@ def main():
 
     # Save image of MRS voxel
     location_fig = None
-    if args.t1 is not None:
-        datatype = mrs_io.check_datatype(args.data)
-        if datatype == 'NIFTI':
-            fig = plotting.plot_world_orient(args.t1, args.data)
-            fig.tight_layout()
-            location_fig = os.path.join(args.output, 'voxel_location.png')
-            fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
+    if args.t1 is not None \
+            and FID.getXFormCode() > 0:
+        fig = plotting.plot_world_orient(args.t1, args.data)
+        fig.tight_layout()
+        location_fig = os.path.join(args.output, 'voxel_location.png')
+        fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
 
     # Save quick summary figure
     report.fitting_summary_fig(mrs, res,

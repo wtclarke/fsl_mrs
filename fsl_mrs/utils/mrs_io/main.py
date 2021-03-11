@@ -28,28 +28,21 @@ class FileNotRecognisedError(Exception):
 # Reciever bandwidth
 # Dwell time
 # central frequency
-def check_datatype(filename):
+def _check_datatype(filename):
     """
-    Identify the file type (.nii(.gz),.RAW/.H2O,.txt)
-    Returns one of: 'NIFTI_MRS', 'NIFTI','RAW','TXT','Unknown'
+    If data isn't NIFTI_MRS then
+    identify the file type (.nii(.gz),.RAW/.H2O,.txt)
+    Returns one of: 'NIFTI', 'RAW', 'TXT', 'Unknown'
     """
-    try:
-        nifti_mrs.NIFTI_MRS(filename)
-    except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
-        _, ext = filename.split(os.extsep, 1)
-        if ext.lower() == 'nii' or ext.lower() == 'nii.gz':
-            fsl.readNIFTI(filename)
-            return 'NIFTI'
-        elif ext.lower() == 'raw' or ext.lower() == 'h2o':
-            lcm.readLCModelRaw(filename)
-            return 'RAW'
-        elif ext.lower() == 'txt':
-            jmrui.readjMRUItxt(filename)
-            return 'TXT'
-        else:
-            return 'Unknown'
+    _, ext = filename.split(os.extsep, 1)
+    if 'nii' in ext.lower() or 'nii.gz' in ext.lower():
+        return 'NIFTI'
+    elif ext.lower() == 'raw' or ext.lower() == 'h2o':
+        return 'RAW'
+    elif ext.lower() == 'txt':
+        return 'TXT'
     else:
-        return 'NIFTI_MRS'
+        return 'Unknown'
 
 
 def read_FID(filename):
@@ -68,7 +61,7 @@ def read_FID(filename):
     try:
         return nifti_mrs.NIFTI_MRS(filename)
     except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
-        data_type = check_datatype(filename)
+        data_type = _check_datatype(filename)
 
     if data_type == 'RAW':
         return lcm.read_lcm_raw_h2o(filename)
