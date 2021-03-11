@@ -60,7 +60,7 @@ def calcQC(mrs, res, ppmlim=(0.2, 4.2)):
     first, last = mrs.ppmlim_to_range(ppmlim=res.ppmlim)
     baseline = FIDToSpec(res.predictedFID(mrs, mode='baseline'))[first:last]
     spectrumMinusBaseline = mrs.get_spec(ppmlim=res.ppmlim) - baseline
-    snrResidual_height = np.max(np.real(spectrumMinusBaseline))
+    snrResidual_height = np.max(np.abs(np.real(spectrumMinusBaseline)))
     rmse = 2.0 * np.sqrt(res.mse)
     snrResidual = snrResidual_height / rmse
 
@@ -97,7 +97,7 @@ def calcQCOnResults(mrs, res, resparams, ppmlim):
 
     # Calculate single spectrum SNR - based on max value of actual data in region
     # No apodisation applied.
-    allSpecHeight = np.max(np.real(mrs.get_spec(ppmlim=ppmlim)))
+    allSpecHeight = np.max(np.abs(np.real(mrs.get_spec(ppmlim=ppmlim))))
     unApodNoise = noiseSD(mrs.get_spec(), noisemask)
     specSNR = allSpecHeight / unApodNoise
 
@@ -195,7 +195,7 @@ def matchedFilterSNR(mrs, basismrs, lw, noisemask, ppmlim):
     apodSpec = specApodise(mrs, lw)
     currNoise = noiseSD(apodSpec, noisemask)
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
-    peakHeight = np.max(np.real(apodbasis[first:last]))
+    peakHeight = np.max(np.abs(np.real(apodbasis[first:last])))
     # import matplotlib.pyplot as plt
     # plt.plot(np.real(apodSpec))
     # plt.plot(noisemask*np.max(np.real(apodSpec)))
