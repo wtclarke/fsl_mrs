@@ -8,7 +8,6 @@
 
 from fsl_mrs.core import MRS
 from fsl_mrs.utils import dynamic
-from fsl_mrs.utils.misc import parse_metab_groups
 from fsl_mrs.utils.models import getModelFunctions, FSLModel_vars
 from fsl_mrs.utils.synthetic.synthetic_from_basis import prep_mrs_for_synthetic, synthetic_from_fwd_model
 import numpy as np
@@ -66,14 +65,14 @@ def synthetic_spectra_from_model(config_file,
         vm: fsl_mrs.utils.dynamic.VariableMapping object.
         syn_free_params: Value of model free parameters used in the simulation.
     """
-    empty_mrs, concentrations = prep_mrs_for_synthetic(basis_file,
-                                                       points,
-                                                       bandwidth,
-                                                       ignore,
-                                                       ind_scaling,
-                                                       concentrations)
-
-    mg = parse_metab_groups(empty_mrs, metab_groups)
+    empty_mrs, concentrations, mg = prep_mrs_for_synthetic(basis_file,
+                                                           points,
+                                                           bandwidth,
+                                                           ignore,
+                                                           ind_scaling,
+                                                           concentrations,
+                                                           metab_groups,
+                                                           False)
 
     model = 'voigt'
     _, _, forward, x2p, p2x = getModelFunctions(model)

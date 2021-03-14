@@ -7,12 +7,14 @@
 #
 # Copyright (C) 2019 University of Oxford
 
-from fsl_mrs.auxiliary import configargparse
+import time
+import warnings
 
+from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-from fsl_mrs.utils import fitting, misc, mrs_io
-import time
+from fsl_mrs.utils import fitting, misc, mrs_io, quantify
+
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 
@@ -83,6 +85,8 @@ def main():
     # ADDITONAL OPTIONAL ARGUMENTS
     optional.add_argument('--TE', type=float, default=None, metavar='TE',
                           help='Echo time for relaxation correction (ms)')
+    optional.add_argument('--TR', type=float, default=None, metavar='TR',
+                          help='Repetition time for relaxation correction (s)')
     optional.add_argument('--tissue_frac', type=str, nargs=3, default=None,
                           help='Tissue fraction nifti files registered to'
                                ' MRSI volume. Supplied in order: WM, GM, CSF.')
@@ -122,7 +126,6 @@ def main():
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import os
     import shutil
-    import warnings
     import numpy as np
     from fsl_mrs.utils import report
     from fsl_mrs.core import NIFTI_MRS
@@ -212,16 +215,17 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE * 1E-3
-    elif 'meta' in mrsi.basis_hdr and 'TE' in mrsi.basis_hdr['meta']:
-        echotime = mrsi.basis_hdr['meta']['TE']
-        if echotime > 1.0:  # Assume in ms.
-            echotime *= 1E-3
-        else:
-            echotime = None
     elif 'TE' in mrsi.header:
         echotime = mrsi.header['TE']
     else:
         echotime = None
+    # Repetition time
+    if args.TR is not None:
+        repetition_time = args.TR
+    elif 'RepetitionTime' in mrsi_data.hdr_ext:
+        repetition_time = mrsi_data.hdr_ext['RepetitionTime']
+    else:
+        repetition_time = None
 
     # Fitting
     if args.verbose:
@@ -234,7 +238,7 @@ def main():
     mrs = mrsi.mrs_from_average()
     Fitargs_init = Fitargs.copy()
     Fitargs_init['method'] = 'Newton'
-    res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime)
+    res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
     Fitargs['x0'] = res_init.params
 
     # quick summary figure
@@ -260,7 +264,7 @@ def main():
             print('    Running sequentially (are you sure about that?) ')
         results = []
         for idx, mrs in enumerate(mrsi):
-            res = runvoxel(mrs, args, Fitargs, echotime)
+            res = runvoxel(mrs, args, Fitargs, echotime, repetition_time)
             results.append(res)
             if args.verbose:
                 print(f'{idx+1}/{mrsi.num_masked_voxels} voxels completed')
@@ -268,7 +272,7 @@ def main():
         if args.verbose:
             print(f'    Parallelising over {mp.cpu_count()} workers ')
 
-        func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime)
+        func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
         with mp.Pool(processes=mp.cpu_count()) as p:
             results = p.map_async(func, mrsi)
             if args.verbose:
@@ -406,7 +410,7 @@ def main():
         print('\n\n\nDone.')
 
 
-def runvoxel(mrs_in, args, Fitargs, echotime):
+def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
     mrs, index, tissue_seg = mrs_in
 
     # Parse metabolite groups
@@ -420,22 +424,33 @@ def runvoxel(mrs_in, args, Fitargs, echotime):
         new_metab_groups = metab_groups.copy()
     res = fitting.fit_FSLModel(mrs, **Fitargs, metab_groups=new_metab_groups)
 
-    # Quantification
     # Internal and Water quantification if requested
-    if (mrs.H2O is None) or (echotime is None):
-        res.calculateConcScaling(mrs, referenceMetab=args.internal_ref)
-    elif tissue_seg is None:
-        res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=None,
-                                 TE=echotime)
+    if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
+        if echotime is None:
+            warnings.warn('H2O file provided but could not determine TE:'
+                          ' no absolute quantification will be performed.',
+                          UserWarning)
+        if repetition_time is None:
+            warnings.warn('H2O file provided but could not determine TR:'
+                          ' no absolute quantification will be performed.',
+                          UserWarning)
+        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
     else:
+        # Form quantification information
+        q_info = quantify.QuantificationInfo(echotime,
+                                             repetition_time,
+                                             mrs.names,
+                                             mrs.centralFrequency / 1E6)
+
+        if tissue_seg:
+            q_info.set_fractions(tissue_seg)
+        if args.h2o_scale:
+            q_info.add_corr = args.h2o_scale
+
         res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=tissue_seg,
-                                 TE=echotime)
+                                 quant_info=q_info,
+                                 internal_reference=args.internal_ref,
+                                 verbose=args.verbose)
     # Combine metabolites.
     if args.combine is not None:
         res.combine(args.combine)

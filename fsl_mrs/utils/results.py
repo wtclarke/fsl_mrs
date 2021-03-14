@@ -11,6 +11,7 @@ import fsl_mrs.utils.models as models
 import fsl_mrs.utils.quantify as quant
 import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
+
 import numpy as np
 from copy import deepcopy
 
@@ -96,61 +97,49 @@ class FitRes(object):
             self.combine([['Cr', 'PCr']])
             self.calculateConcScaling(mrs)
 
-    def calculateConcScaling(self, mrs,
-                             referenceMetab=['Cr', 'PCr'],
-                             waterRefFID=None,
-                             tissueFractions=None,
-                             TE=None,
-                             T2='Default',
-                             waterReferenceMetab='Cr',
-                             wRefMetabProtons=5,
-                             reflimits=(2, 5),
-                             verbose=False,
-                             Q=None,
-                             add_scale=None):
+    def calculateConcScaling(self,
+                             mrs,
+                             quant_info=None,
+                             internal_reference=['Cr', 'PCr'],
+                             verbose=False):
+        """Run calculation of internal and (if possible) water concentration scaling.
 
-        self.intrefstr = '+'.join(referenceMetab)
-        self.referenceMetab = referenceMetab
-        self.waterReferenceMetab = waterReferenceMetab
-        self.waterReferenceMetabProtons = wRefMetabProtons
+        :param mrs: MRS object
+        :type mrs: fsl_mrs.core.mrs.MRS
+        :param quant_info: Quantification information for water scaling, defaults to None
+        :type quant_info: fsl_mrs.utils.quantify.QuantificationInfo, optional
+        :param internal_reference: Internal referencing emtabolite, defaults to ['Cr', 'PCr'] i.e. tCr
+        :type internal_reference: list, optional
+        :param verbose: Enable for verbose output, defaults to False
+        :type verbose: bool, optional
+        """
 
-        internalRefScaling = quant.quantifyInternal(referenceMetab, self.getConc(), self.metabs)
+        self.intrefstr = '+'.join(internal_reference)
+        self.referenceMetab = internal_reference
 
-        if (waterRefFID is not None) and ((TE is not None) or (Q is not None)):
-            refFID = self.predictedFID(mrs, mode=waterReferenceMetab, noBaseline=True)
-            if Q is None:
-                if T2 == 'Default':
-                    Q = quant.loadDefaultQuantificationInfo(TE, tissueFractions, mrs.centralFrequency / 1E6)
-                else:
-                    Q = quant.QuantificationInfo(TE, T2, tissueFractions)
+        internalRefScaling = quant.quantifyInternal(internal_reference, self.getConc(), self.metabs)
 
-            if add_scale is not None:
-                Q.additionalCorr *= add_scale
-
-            molalityScaling, molarityScaling, quant_info = quant.quantifyWater(mrs,
-                                                                               waterRefFID,
-                                                                               refFID,
-                                                                               waterReferenceMetab,
-                                                                               self.getConc(),
-                                                                               self.metabs,
-                                                                               wRefMetabProtons,
-                                                                               Q,
-                                                                               reflimits=reflimits,
-                                                                               verbose=verbose)
+        if mrs.H2O is not None and quant_info is not None:
+            molalityScaling, molarityScaling, ref_info = quant.quantifyWater(mrs,
+                                                                             self,
+                                                                             quant_info,
+                                                                             verbose=verbose)
 
             self.concScalings = {
                 'internal': internalRefScaling,
                 'internalRef': self.intrefstr,
                 'molarity': molarityScaling,
                 'molality': molalityScaling,
-                'info': quant_info}
+                'quant_info': quant_info,
+                'ref_info': ref_info}
         else:
             self.concScalings = {
                 'internal': internalRefScaling,
                 'internalRef': self.intrefstr,
                 'molarity': None,
                 'molality': None,
-                'info': None}
+                'quant_info': None,
+                'ref_info': None}
 
     def combine(self, combineList):
         """Combine two or more basis into single result"""
@@ -219,7 +208,7 @@ class FitRes(object):
 
         return out[first:last]
 
-    def predictedFID(self, mrs, mode='Full', noBaseline=False):
+    def predictedFID(self, mrs, mode='Full', noBaseline=False, no_phase=False):
         if mode.lower() == 'full':
             out = models.getFittedModel(
                 self.model,
@@ -227,10 +216,17 @@ class FitRes(object):
                 self.base_poly,
                 self.metab_groups,
                 mrs,
-                noBaseline=noBaseline)
+                noBaseline=noBaseline,
+                no_phase=no_phase)
         elif mode.lower() == 'baseline':
-            out = models.getFittedModel(self.model, self.params, self.base_poly,
-                                        self.metab_groups, mrs, baselineOnly=True)
+            out = models.getFittedModel(
+                self.model,
+                self.params,
+                self.base_poly,
+                self.metab_groups,
+                mrs,
+                baselineOnly=True,
+                no_phase=no_phase)
         elif mode in self.metabs:
             out = models.getFittedModel(
                 self.model,
@@ -240,7 +236,8 @@ class FitRes(object):
                 mrs,
                 basisSelect=mode,
                 baselineOnly=False,
-                noBaseline=noBaseline)
+                noBaseline=noBaseline,
+                no_phase=no_phase)
         else:
             raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
         return SpecToFID(out)
