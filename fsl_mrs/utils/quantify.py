@@ -6,7 +6,6 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
-from fsl_mrs.core.nifti_mrs import NIFTI_MRS
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
@@ -94,6 +93,8 @@ class WaterRef(FIDIntegrator):
 class RefIntegral(FIDIntegrator):
     def __init__(self, mrs_obj, res_obj, metab, limits):
         super().__init__(mrs_obj, limits)
+        self.original_fid = res_obj.predictedFID(
+            mrs_obj, mode=metab, noBaseline=False, no_phase=False)
         self.fid = res_obj.predictedFID(
             mrs_obj, mode=metab, noBaseline=True, no_phase=True)
 

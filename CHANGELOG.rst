@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+WIP
+---
+- SNR measurements should cope with negative peak amplitudes correctly
+- Quantification now takes into account T1 relaxation
+- Quantification module now fits the water reference FID to deal with corruption of first FID points.
+- Restructure of internal quantification code.
+
 1.1.0 (Thursday 18th February 2021)
 -----------------------------------
 - Support for NIfTI-MRS format.

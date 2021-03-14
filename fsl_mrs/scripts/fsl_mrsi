@@ -94,6 +94,15 @@ def main():
                           nargs='+',
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
+    optional.add_argument('--wref_metabolite', type=str, default=None,
+                          help='Metabolite(s) used as an the reference for water scaling.'
+                               ' Uses internal defaults otherwise.')
+    optional.add_argument('--ref_protons', type=int, default=None,
+                          help='Number of protons that reference metabolite is equivalent to.'
+                               ' No effect without setting --wref_metabolite.')
+    optional.add_argument('--ref_int_limits', type=int, default=None, nargs=2,
+                          help='Reference spectrum integration limits (low, high).'
+                               ' No effect without setting --wref_metabolite.')
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
@@ -440,7 +449,10 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
         q_info = quantify.QuantificationInfo(echotime,
                                              repetition_time,
                                              mrs.names,
-                                             mrs.centralFrequency / 1E6)
+                                             mrs.centralFrequency / 1E6,
+                                             water_ref_metab=args.wref_metabolite,
+                                             water_ref_metab_protons=args.ref_protons,
+                                             water_ref_metab_limits=args.ref_int_limits)
 
         if tissue_seg:
             q_info.set_fractions(tissue_seg)

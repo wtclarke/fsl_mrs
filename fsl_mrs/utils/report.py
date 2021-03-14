@@ -77,13 +77,13 @@ def create_plotly_div(mrs, res):
     divs['indiv'] = to_div(fig)  # plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
 
     # Quantification table
-    if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['quant_info'], 'f_GM'):
+    if (res.concScalings['molality'] is not None) and res.concScalings['quant_info'].f_GM is not None:
         Q = res.concScalings['quant_info']
         quant_df = pd.DataFrame()
         quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM, Q.d_WM, Q.d_CSF]
         quant_df['Tissue volume fractions'] = [Q.f_GM, Q.f_WM, Q.f_CSF]
-        quant_df['Water T2 (ms)'] = [Q.t2['H2O_GM'] * 1000, Q.t2['H2O_WM'] * 1000, Q.t2['H2O_CSF'] * 1000]
-        quant_df['Water T1 (s)'] = [Q.t1['H2O_GM'], Q.t1['H2O_WM'], Q.t1['H2O_CSF']]
+        quant_df['Water T2 (ms)'] = np.around([Q.t2['H2O_GM'] * 1000, Q.t2['H2O_WM'] * 1000, Q.t2['H2O_CSF'] * 1000])
+        quant_df['Water T1 (s)'] = np.around([Q.t1['H2O_GM'], Q.t1['H2O_WM'], Q.t1['H2O_CSF']], decimals=2)
         quant_df.index = ['GM', 'WM', 'CSF']
         quant_df.index.name = 'Tissue'
         quant_df.reset_index(inplace=True)
@@ -91,6 +91,10 @@ def create_plotly_div(mrs, res):
         fig = go.Figure(data=[tab])
         fig.update_layout(height=100, margin=dict(l=0, r=0, t=0, b=0))
         divs['quant_table'] = to_div(fig)
+
+    if res.concScalings['molality'] is not None:
+        fig = plotting.plot_references(mrs, res)
+        divs['refs'] = to_div(fig)
 
     return divs
 
@@ -303,7 +307,7 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
                     <td>{Q.tr} s</td>
                 </tr>
                 <tr>
-                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration:</td>
+                    <td class="titles">Relaxation corrected water concentration:</td>
                     <td>{relax_water_conc:0.0f} mmol/kg</td>
                 </tr>
                 <tr>
@@ -369,6 +373,14 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
             <hr>
             """
         template += section
+
+    # Real/imag section
+    section = f"""
+    <h2><a name="refs">Water referencing</a></h2>
+    {divs['refs']}
+    <hr>
+    """
+    template += section
 
     # Details of the methods
     # methodsfile="/path/to/file"
