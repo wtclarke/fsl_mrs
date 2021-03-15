@@ -354,7 +354,7 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
                     <td>{Q.tr} s</td>
                 </tr>
                 <tr>
-                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration</td>
+                    <td class="titles">Relaxation corrected water concentration</td>
                     <td> : {relax_water_conc:0.0f} mmol/kg</td>
                 </tr>
                 <tr>
