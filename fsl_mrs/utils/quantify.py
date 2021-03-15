@@ -239,7 +239,7 @@ class QuantificationInfo(object):
                 raise TypeError(f'Specified reference metabolite should be string not {type(specified_metab)}')
             if not isinstance(specified_protons, int):
                 raise TypeError(f'Specified reference metabolite protons should be int not {type(specified_protons)}')
-            if not isinstance(specified_limits, {list, tuple}):
+            if not isinstance(specified_limits, (list, tuple)):
                 raise TypeError(f'Specified reference metabolite limits should be tuple not {type(specified_limits)}')
 
             if specified_metab in metab_list:
