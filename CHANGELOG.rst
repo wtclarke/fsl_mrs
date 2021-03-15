@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-WIP
----
+1.1.1 (Monday 15th March 2021)
+------------------------------
 - SNR measurements should cope with negative peak amplitudes correctly
 - New metabolites added to list of default water referencing metabolites (Cr, PCr and NAA)
 - Quantification now takes into account T1 relaxation
