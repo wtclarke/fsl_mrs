@@ -77,12 +77,13 @@ def create_plotly_div(mrs, res):
     divs['indiv'] = to_div(fig)  # plotly.offline.plot(fig, output_type='div',include_plotlyjs='cdn')
 
     # Quantification table
-    if (res.concScalings['molality'] is not None) and hasattr(res.concScalings['info']['q_info'], 'f_GM'):
-        Q = res.concScalings['info']['q_info']
+    if (res.concScalings['molality'] is not None) and res.concScalings['quant_info'].f_GM is not None:
+        Q = res.concScalings['quant_info']
         quant_df = pd.DataFrame()
         quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM, Q.d_WM, Q.d_CSF]
         quant_df['Tissue volume fractions'] = [Q.f_GM, Q.f_WM, Q.f_CSF]
-        quant_df['Water T2 (ms)'] = [Q.T2['H2O_GM'] * 1000, Q.T2['H2O_WM'] * 1000, Q.T2['H2O_CSF'] * 1000]
+        quant_df['Water T2 (ms)'] = np.around([Q.t2['H2O_GM'] * 1000, Q.t2['H2O_WM'] * 1000, Q.t2['H2O_CSF'] * 1000])
+        quant_df['Water T1 (s)'] = np.around([Q.t1['H2O_GM'], Q.t1['H2O_WM'], Q.t1['H2O_CSF']], decimals=2)
         quant_df.index = ['GM', 'WM', 'CSF']
         quant_df.index.name = 'Tissue'
         quant_df.reset_index(inplace=True)
@@ -90,6 +91,10 @@ def create_plotly_div(mrs, res):
         fig = go.Figure(data=[tab])
         fig.update_layout(height=100, margin=dict(l=0, r=0, t=0, b=0))
         divs['quant_table'] = to_div(fig)
+
+    if res.concScalings['molality'] is not None:
+        fig = plotting.plot_references(mrs, res)
+        divs['refs'] = to_div(fig)
 
     return divs
 
@@ -268,31 +273,41 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
     # Table of CSF,GM,WM
     # Fractions
     # T2 info (water)
+    # T1 info (water)
     # T2 info (metab)
+    # T1 info (metab)
     # Tissue water densities
     # Relaxation corrected water
     # Relaxation correction for metab
     # Final scalings for molality & molarity
     if res.concScalings['molality'] is not None:
-        Q = res.concScalings['info']['q_info']
-        relax_water_conc = Q.relaxationCorrWater_molar
-        metabRelaxCorr = Q.relaxationCorrMetab
+        Q = res.concScalings['quant_info']
+        relax_water_conc = Q.relax_corr_water_molar
+        metabRelaxCorr = Q.relax_corr_metab
 
-        if hasattr(res.concScalings['info']['q_info'], 'f_GM'):
+        if res.concScalings['quant_info'].f_GM is not None:
             section = f"""
             <h1><a name="quantification">Quantification information</a></h1>
             <div style="width:70%">{divs['quant_table']}</div>
             <table>
                 <tr>
                     <td class="titles">Metabolite T<sub>2</sub>:</td>
-                    <td>{1000*Q.T2['METAB']} ms</td>
+                    <td>{1000*Q.t2['METAB']} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">Metabolite T<sub>1</sub>:</td>
+                    <td>{Q.t1['METAB']} s</td>
                 </tr>
                 <tr>
                     <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
-                    <td>{1000*Q.TE} ms</td>
+                    <td>{1000*Q.te} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration:</td>
+                    <td class="titles">Sequence repetition time (T<sub>R</sub>):</td>
+                    <td>{Q.tr} s</td>
+                </tr>
+                <tr>
+                    <td class="titles">Relaxation corrected water concentration:</td>
                     <td>{relax_water_conc:0.0f} mmol/kg</td>
                 </tr>
                 <tr>
@@ -311,32 +326,35 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
             <hr>
             """
         else:
-            if 'H2O' in Q.T2:
-                waterstr = f"""
-                    <td class="titles">Water T<sub>2</sub></td>
-                    <td> : {1000*Q.T2['H2O']} ms</td>
-                    """
-            else:
-                waterstr = """
-                    <td class="titles">Water T<sub>2</sub></td>
-                    <td> : Inf (no relaxation)</td>
-                    """
             section = f"""
             <h1><a name="quantification">Quantification information</a></h1>
             <table>
                 <tr>
-                    {waterstr}
+                    <td class="titles">Water T<sub>2</sub></td>
+                    <td> : {(1000*Q.t2['H2O_GM'] + 1000*Q.t2['H2O_WM']) / 2} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">Metabolite T<sub>2</sub></td>
-                    <td> : {1000*Q.T2['METAB']} ms</td>
+                    <td class="titles">Water T<sub>1</sub></td>
+                    <td> : {(1000*Q.t1['H2O_GM'] + 1000*Q.t1['H2O_WM']) / 2} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">Sequence echo time (T<sub>E</sub>)</td>
-                    <td> : {1000*Q.TE} ms</td>
+                    <td class="titles">Metabolite T<sub>2</sub>:</td>
+                    <td>{1000*Q.t2['METAB']} ms</td>
                 </tr>
                 <tr>
-                    <td class="titles">T<sub>2</sub> relaxation corrected water concentration</td>
+                    <td class="titles">Metabolite T<sub>1</sub>:</td>
+                    <td>{Q.t1['METAB']} s</td>
+                </tr>
+                <tr>
+                    <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
+                    <td>{1000*Q.te} ms</td>
+                </tr>
+                <tr>
+                    <td class="titles">Sequence repetition time (T<sub>R</sub>):</td>
+                    <td>{Q.tr} s</td>
+                </tr>
+                <tr>
+                    <td class="titles">Relaxation corrected water concentration</td>
                     <td> : {relax_water_conc:0.0f} mmol/kg</td>
                 </tr>
                 <tr>
@@ -355,6 +373,14 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
             <hr>
             """
         template += section
+
+    # Real/imag section
+    section = f"""
+    <h2><a name="refs">Water referencing</a></h2>
+    {divs['refs']}
+    <hr>
+    """
+    template += section
 
     # Details of the methods
     # methodsfile="/path/to/file"

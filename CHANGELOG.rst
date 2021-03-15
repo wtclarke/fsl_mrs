@@ -1,5 +1,14 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.1 (Monday 15th March 2021)
+------------------------------
+- SNR measurements should cope with negative peak amplitudes correctly
+- New metabolites added to list of default water referencing metabolites (Cr, PCr and NAA)
+- Quantification now takes into account T1 relaxation
+- Quantification module now fits the water reference FID to deal with corruption of first FID points.
+- Added plot in report to clarify referencing signals.
+- Restructure of internal quantification code.
+
 1.1.0 (Thursday 18th February 2021)
 -----------------------------------
 - Support for NIfTI-MRS format.

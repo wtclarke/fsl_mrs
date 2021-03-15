@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
+from fsl_mrs.utils.mrs_io.main import _check_datatype
 from fsl_mrs.utils import plotting
 import numpy as np
 import os.path as op
@@ -150,3 +151,17 @@ def test_fslBasisRegen():
     assert names_fsl2 == names_fsl
     for r in headerReqFields:
         assert headers_fsl[0][r] == headers_fsl2[0][r]
+
+
+def test_check_datatype():
+    '''Check various paths through _check_datatype'''
+
+    assert _check_datatype('fake/path/test.RAW') == 'RAW'
+    assert _check_datatype('fake/path/test.H2O') == 'RAW'
+
+    assert _check_datatype('fake/path/test.txt') == 'TXT'
+
+    assert _check_datatype('fake/path/test.nii') == 'NIFTI'
+    assert _check_datatype('fake/path/test.nii.gz') == 'NIFTI'
+    assert _check_datatype('fake/path/test.blah.nii.gz') == 'NIFTI'
+    assert _check_datatype('fake/path/test.blah.nii') == 'NIFTI'

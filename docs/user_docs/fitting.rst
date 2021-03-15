@@ -168,6 +168,14 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Allow independent scaling of specified basis spectra before fitting. For example this can be used to independently scale empirically measured macromolecules combined with simulated metabolite spectra.
 :code:`--disable_MH_priors`        
     Disable the priors on the MH fitting. The priors are tuned for *in vivo* human brain spectroscopy. Use this option if your spectra has significantly different line widths, phases or large shifts. E.g. in liquid phase phantom or (potentially) pre-clinical systems. Priors can be fine tuned by altering the values in :code:`fsl_mrs.utils.constants`.
+:code:`--internal_ref`
+    Set alternative metabolites for internal reference scaling (default is tCr = Cr + PCr). Multiple arguments can be specified for a combined internal reference.
+:code:`--wref_metabolite`
+    Set alternative water scaling reference (default is Cr). Must be used if none of Cr, PCr and NAA are present in the basis set.
+:code:`--ref_protons`
+    Number of protons that the water scaling reference is equivalent to (between defined integration limits). E.g. Cr is equivalent to 5 between 2 and 5 ppm. Only active when --wref_metabolite is used.
+:code:`--ref_int_limits`
+    Integration limits for water scaling reference. Only active when --wref_metabolite is used.
 
 The wrapper scripts can also take a configuration file as an input. For example, say we have a text file called :code:`config.txt` which contains the below:
 

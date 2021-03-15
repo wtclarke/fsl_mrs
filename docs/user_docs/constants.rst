@@ -20,8 +20,7 @@ Tissue water density [0]_::
 
     TISSUE_WATER_DENSITY = {'GM':0.78,'WM':0.65,'CSF':0.97} 
 
-
-Mollecular mass of water::
+Molecular mass of water::
 
     H2O_MOLECULAR_MASS = 18.01528   # g/mol
 
@@ -32,6 +31,15 @@ Molality of pure water::
 Number of protons in water::
 
     H2O_PROTONS = 2
+
+The integrated water signal is referenced to a single reference basis.
+There are three defaults defined in FSL-MRS, and each are tried in the order listed here.
+Each possible reference is equivalent to a predetermined number of protons and has associated integration limits.
+There are::
+
+    WATER_SCALING_METAB = ['Cr', 'PCr', 'NAA']
+    WATER_SCALING_METAB_PROTONS = [5, 5, 3]
+    WATER_SCALING_DEFAULT_LIMITS = [(2, 5), (2, 5), (1.8, 2.2)]
 
 Relaxation parameters
 *********************

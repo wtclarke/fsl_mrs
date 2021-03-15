@@ -896,6 +896,81 @@ def plot_indiv(mrs, res, ppmlim=(.2, 4.2)):
     return fig
 
 
+def plot_references(mrs, res):
+    """Generate figure showing the areas and metabolites used to estimate the water scaling.
+
+    :param mrs: MRS object with unsuppressed water reference data.
+    :type mrs: fsl_mrs.core.mrs.MRS
+    :param res: FSL-MRS results object.
+    :type res: fsl_mrs.utils.results.FitRes
+    :return: Figure
+    :rtype: go.Figure
+    """
+    fig = make_subplots(rows=1, cols=2, subplot_titles=['Unsuppressed', 'Suppressed'])
+
+    quant_info = res.concScalings['quant_info']
+    min_val = np.min([res.ppmlim[0], quant_info.ref_limits[0], quant_info.h2o_limits[0]])
+    max_val = np.max([res.ppmlim[1], quant_info.ref_limits[1], quant_info.h2o_limits[1]])
+    data_range = (min_val, max_val)
+    axis = mrs.getAxes(ppmlim=data_range)
+    first, last = mrs.ppmlim_to_range(ppmlim=data_range)
+    water_first, water_last = res.concScalings['ref_info']['water_ref'].limits
+    water_axis = mrs.getAxes()[water_first:water_last]
+    metab_first, metab_last = res.concScalings['ref_info']['metab_ref'].limits
+    metab_axis = mrs.getAxes()[metab_first:metab_last]
+
+    y_data = np.real(FIDToSpec(mrs.H2O))[first:last]
+    trace1 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color='rgb(0,0,0)', width=1))
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['water_ref'].fid))[water_first:water_last]
+    trace2 = go.Scatter(x=water_axis, y=y_data,
+                        mode='lines',
+                        name='Fitted, integrated water',
+                        fill='tozeroy',
+                        line=dict(color='rgb(255,0,0)', width=1))
+    fig.add_trace(trace1, 1, 1)
+    fig.add_trace(trace2, 1, 1)
+
+    y_data = np.real(FIDToSpec(mrs.FID))[first:last]
+    trace3 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color='rgb(0,0,0)', width=1))
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].original_fid))[first:last]
+    trace4 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        name='Fitted Reference',
+                        line=dict(color='rgb(0,0,255)', width=1))
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].fid))[metab_first:metab_last]
+    trace5 = go.Scatter(x=metab_axis, y=y_data,
+                        mode='lines',
+                        name='Metabolite integrated',
+                        fill='tozeroy',
+                        line=dict(color='rgb(255,0,0)', width=1))
+    fig.add_trace(trace3, 1, 2)
+    fig.add_trace(trace4, 1, 2)
+    fig.add_trace(trace5, 1, 2)
+
+    fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                            tick0=2, dtick=.5,
+                            range=[max_val, min_val])
+    fig.layout.xaxis2.update(title_text='Chemical shift (ppm)',
+                             tick0=2, dtick=.5,
+                             range=[max_val, min_val])
+
+    fig.layout.yaxis2.update(zeroline=True,
+                             zerolinewidth=1,
+                             zerolinecolor='Gray',
+                             showgrid=False)
+    fig.layout.yaxis.update(zeroline=True,
+                            zerolinewidth=1,
+                            zerolinecolor='Gray',
+                            showgrid=False)
+    return fig
+
+
 def create_table(df):
     """
     Generate plotly graphical Table from pandas dataframe

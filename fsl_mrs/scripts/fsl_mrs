@@ -67,7 +67,7 @@ def main():
     fitting_args.add_argument('--baseline_order', default=2, type=int,
                               metavar=('ORDER'),
                               help='order of baseline polynomial'
-                                   ' (default=2,-1 disables)')
+                                   ' (default=2, -1 disables)')
     fitting_args.add_argument('--metab_groups', default=0, nargs='+',
                               type=str_or_int_arg,
                               help='metabolite groups: list of groups'
@@ -89,6 +89,8 @@ def main():
                           help='structural image (for report)')
     optional.add_argument('--TE', type=float, default=None, metavar='TE',
                           help='Echo time for relaxation correction (ms)')
+    optional.add_argument('--TR', type=float, default=None, metavar='TR',
+                          help='Repetition time for relaxation correction (s)')
     optional.add_argument('--tissue_frac', type=tissue_frac_arg,
                           action=TissueFracAction, nargs='+',
                           default=None, metavar='WM GM CSF OR json',
@@ -99,14 +101,21 @@ def main():
                           nargs='+',
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
+    optional.add_argument('--wref_metabolite', type=str, default=None,
+                          help='Metabolite(s) used as an the reference for water scaling.'
+                               ' Uses internal defaults otherwise.')
+    optional.add_argument('--ref_protons', type=int, default=None,
+                          help='Number of protons that reference metabolite is equivalent to.'
+                               ' No effect without setting --wref_metabolite.')
+    optional.add_argument('--ref_int_limits', type=float, default=None, nargs=2,
+                          help='Reference spectrum integration limits (low, high).'
+                               ' No effect without setting --wref_metabolite.')
     optional.add_argument('--h2o_scale', type=float, default=1.0,
                           help='Additional scaling modifier for external water referencing.')
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
-    optional.add_argument('--phase_correct', action="store_true",
-                          help='do phase correction')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--conj_fid', dest='conjfid', action="store_true",
@@ -147,6 +156,7 @@ def main():
     from fsl_mrs.utils import fitting
     from fsl_mrs.utils import plotting
     from fsl_mrs.utils import misc
+    from fsl_mrs.utils import quantify
     import datetime
     # ######################################################
     if not args.verbose:
@@ -226,12 +236,6 @@ def main():
     if not args.no_rescale:
         mrs.rescaleForFitting(ind_scaling=args.ind_scale)
 
-    # Do phase correction
-    if args.phase_correct:
-        if args.verbose:
-            print('--->>  Phase correction\n')
-        mrs.FID = misc.phase_correct(mrs, mrs.FID)
-
     # Keep/Ignore metabolites
     mrs.keep(args.keep)
     mrs.ignore(args.ignore)
@@ -284,40 +288,48 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE * 1E-3
-    elif 'meta' in basisheader and 'TE' in basisheader['meta']:
-        echotime = basisheader['meta']['TE']
-        if echotime > 1.0:  # Assume in ms.
-            echotime *= 1E-3
-        else:
-            echotime = None
     elif 'EchoTime' in FID.hdr_ext:
         echotime = FID.hdr_ext['EchoTime']
     else:
         echotime = None
+    # Repetition time
+    if args.TR is not None:
+        repetition_time = args.TR
+    elif 'RepetitionTime' in FID.hdr_ext:
+        repetition_time = FID.hdr_ext['RepetitionTime']
+    else:
+        repetition_time = None
 
     # Internal and Water quantification if requested
-    if (mrs.H2O is None) or (echotime is None):
+    if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
         if echotime is None:
             warnings.warn('H2O file provided but could not determine TE:'
                           ' no absolute quantification will be performed.',
                           UserWarning)
-        res.calculateConcScaling(mrs, referenceMetab=args.internal_ref)
-    elif args.tissue_frac is not None:
-        res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=args.tissue_frac,
-                                 TE=echotime,
-                                 verbose=args.verbose,
-                                 add_scale=args.h2o_scale)
+        if repetition_time is None:
+            warnings.warn('H2O file provided but could not determine TR:'
+                          ' no absolute quantification will be performed.',
+                          UserWarning)
+        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
     else:
+        # Form quantification information
+        q_info = quantify.QuantificationInfo(echotime,
+                                             repetition_time,
+                                             mrs.names,
+                                             mrs.centralFrequency / 1E6,
+                                             water_ref_metab=args.wref_metabolite,
+                                             water_ref_metab_protons=args.ref_protons,
+                                             water_ref_metab_limits=args.ref_int_limits)
+
+        if args.tissue_frac:
+            q_info.set_fractions(args.tissue_frac)
+        if args.h2o_scale:
+            q_info.add_corr = args.h2o_scale
+
         res.calculateConcScaling(mrs,
-                                 referenceMetab=args.internal_ref,
-                                 waterRefFID=mrs.H2O,
-                                 tissueFractions=None,
-                                 TE=echotime,
-                                 verbose=args.verbose,
-                                 add_scale=args.h2o_scale)
+                                 quant_info=q_info,
+                                 internal_reference=args.internal_ref,
+                                 verbose=args.verbose)
 
     # Combine metabolites.
     if args.combine is not None:
@@ -349,13 +361,12 @@ def main():
 
     # Save image of MRS voxel
     location_fig = None
-    if args.t1 is not None:
-        datatype = mrs_io.check_datatype(args.data)
-        if datatype == 'NIFTI':
-            fig = plotting.plot_world_orient(args.t1, args.data)
-            fig.tight_layout()
-            location_fig = os.path.join(args.output, 'voxel_location.png')
-            fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
+    if args.t1 is not None \
+            and FID.getXFormCode() > 0:
+        fig = plotting.plot_world_orient(args.t1, args.data)
+        fig.tight_layout()
+        location_fig = os.path.join(args.output, 'voxel_location.png')
+        fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
 
     # Save quick summary figure
     report.fitting_summary_fig(mrs, res,

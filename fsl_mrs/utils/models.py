@@ -581,7 +581,8 @@ def getModelJac(model):
 
 
 def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
-                   basisSelect=None, baselineOnly=False, noBaseline=False):
+                   basisSelect=None, baselineOnly=False, noBaseline=False,
+                   no_phase=False):
     """ Return the predicted model given some fitting parameters
 
         model     (str)  : Model string
@@ -601,8 +602,15 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
     else:
         bp = base_poly
 
+    if no_phase:
+        p = x2p(resParams, numBasis, numGroups)
+        p = p[0:-3] + (0.0, 0.0) + p[-1:]
+        params = p2x(*p)
+    else:
+        params = resParams
+
     if basisSelect is None and not baselineOnly:
-        return forward(resParams,
+        return forward(params,
                        mrs.frequencyAxis,
                        mrs.timeAxis,
                        mrs.basis,
@@ -610,7 +618,7 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
                        metab_groups,
                        numGroups)
     elif baselineOnly:
-        p = x2p(resParams, numBasis, numGroups)
+        p = x2p(params, numBasis, numGroups)
         p = (np.zeros(numBasis),) + p[1:]
         xx = p2x(*p)
         return forward(xx,
@@ -621,7 +629,7 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
                        metab_groups,
                        numGroups)
     elif basisSelect is not None:
-        p = x2p(resParams, numBasis, numGroups)
+        p = x2p(params, numBasis, numGroups)
         tmp = np.zeros(numBasis)
         basisIdx = mrs.names.index(basisSelect)
         tmp[basisIdx] = p[0][basisIdx]

@@ -50,7 +50,7 @@ def standardConcentrations(basisNames):
     return concs
 
 
-def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations):
+def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations, metab_groups, add_mm):
     """Prepare an mrs object for use in creating a synthetic spectrum,
        and return selected concentrations.
 
@@ -70,6 +70,12 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
     empty_mrs.ignore(ignore)
     empty_mrs.processForFitting(ind_scaling=ind_scaling)
 
+    mg = parse_metab_groups(empty_mrs, metab_groups)
+    if add_mm:
+        n = empty_mrs.add_MM_peaks(gamma=40, sigma=30)
+        new_metab_groups = [i + max(mg) + 1 for i in range(n)]
+        mg = mg + new_metab_groups
+
     if concentrations is None:
         concentrations = standardConcentrations(empty_mrs.names)
     elif isinstance(concentrations, (list, np.ndarray)):
@@ -87,7 +93,7 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
     else:
         raise ValueError('Concentrations must be None, a list,'
                          'or a dict containing overides for particular metabolites.')
-    return empty_mrs, concentrations
+    return empty_mrs, concentrations, mg
 
 
 def syntheticFromBasisFile(basisFile,
@@ -99,11 +105,14 @@ def syntheticFromBasisFile(basisFile,
                            baseline_ppm=None,
                            broadening=(9.0, 0.0),
                            shifting=0.0,
+                           phi0=0.0,
+                           phi1=0.0,
                            coilamps=[1.0],
                            coilphase=[0.0],
                            noisecovariance=[[0.1]],
                            bandwidth=4000.0,
-                           points=2048):
+                           points=2048,
+                           add_default_mm=False):
     """ Create synthetic data from a set of FSL-MRS basis files.
 
     Args:
@@ -127,6 +136,7 @@ def syntheticFromBasisFile(basisFile,
             noisecovariance (list of floats, optional): N coils x N coils array of noise variance/covariance.
             bandwidth (float,optional): Bandwidth of output spectrum in Hz
             points (int,optional): Number of points in output spectrum.
+            add_default_mm (bool,optional): Add default MM after scaling
 
     Returns:
         FIDs: Numpy array of synthetic FIDs
@@ -134,16 +144,17 @@ def syntheticFromBasisFile(basisFile,
         concentrations: Final concentration scalings
     """
 
-    empty_mrs, concentrations = prep_mrs_for_synthetic(basisFile,
-                                                       points,
-                                                       bandwidth,
-                                                       ignore,
-                                                       ind_scaling,
-                                                       concentrations)
+    empty_mrs, concentrations, mg = prep_mrs_for_synthetic(basisFile,
+                                                           points,
+                                                           bandwidth,
+                                                           ignore,
+                                                           ind_scaling,
+                                                           concentrations,
+                                                           metab_groups,
+                                                           add_default_mm)
 
     # Currently hardcoded to voigt model. Sigma can always be set to 0.
     _, _, fwd_model, _, p2x = models.getModelFunctions('voigt')
-    mg = parse_metab_groups(empty_mrs, metab_groups)
     g = max(mg) + 1
 
     if not isinstance(broadening, list):
@@ -187,8 +198,8 @@ def syntheticFromBasisFile(basisFile,
                        gamma,
                        sigma,
                        eps,
-                       0,
-                       0,
+                       phi0,
+                       phi1,
                        b)
 
     FIDs = synthetic_from_fwd_model(fwd_model,
