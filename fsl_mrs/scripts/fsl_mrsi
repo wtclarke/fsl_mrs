@@ -103,6 +103,8 @@ def main():
     optional.add_argument('--ref_int_limits', type=float, default=None, nargs=2,
                           help='Reference spectrum integration limits (low, high).'
                                ' No effect without setting --wref_metabolite.')
+    optional.add_argument('--h2o_scale', type=float, default=1.0,
+                          help='Additional scaling modifier for external water referencing.')
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
@@ -210,7 +212,7 @@ def main():
     if ppmlim is not None:
         ppmlim = (ppmlim[0], ppmlim[1])
 
-    # Store info in disctionaries to be passed to MRS and fitting
+    # Store info in dictionaries to be passed to MRS and fitting
     Fitargs = {'ppmlim': ppmlim, 'method': args.algo,
                'baseline_order': args.baseline_order}
     if args.lorentzian:
