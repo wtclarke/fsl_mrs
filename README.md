@@ -53,7 +53,7 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 - **mrs_vis**
 : quick visualisation of the spectra or basis spectra
 - **mrs_info**
-: quick information on NIfTI MRS file
+: quick information on a NIfTI-MRS file
 - **svs_segment & mrsi_segment**
 : Run tissue segmentation for SVS/MRSI from T1 image.
 
@@ -69,9 +69,9 @@ Example command-line usage is demonstrated in the packaged [Jupyter Notebook](ht
 
 ### File types
 
-FSL-MRS accepts FID data in NIfTI + JSON format. Some scripts can also read .RAW (LCModel) and text (jMRUI).
+FSL-MRS accepts FID data in NIfTI-MRS format. Some scripts can also read .RAW (LCModel) and text (jMRUI).
 
-Conversion to NIfTI is provided by [spec2nii](https://github.com/wexeee/spec2nii).
+Conversion to NIfTI-MRS is provided by [spec2nii](https://github.com/wexeee/spec2nii).
 
 ### Working in python
 
@@ -83,7 +83,8 @@ If you don't want to use the wrapper scripts, you can use the python modules dir
 
 If you use FSL-MRS in your research please cite:
 
-    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020
+    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: https://doi.org/10.1002/mrm.28630.
+
 
 Please see the [LICENSE](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/LICENSE) file for licensing information.
 
