@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.2 (Friday 16th April 2021)
+------------------------------
+- Added 2H information
+- Bug fixes
+- Added documentation around installation from conda
+
 1.1.1 (Monday 15th March 2021)
 ------------------------------
 - SNR measurements should cope with negative peak amplitudes correctly
