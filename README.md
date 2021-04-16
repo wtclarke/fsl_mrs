@@ -1,44 +1,45 @@
 # FSL-MRS
 
 
-### Description
+## Description
 
 FSL-MRS is a collection of python modules and wrapper scripts for pre-processing and model fitting of Magnetic Resonance Spectroscopy (MRS) data.
 
 ---
-### Installation 
+## Installation 
 
-#### Conda package
-The primary installation method is via _conda_. After installing conda and creating or activating a suitable [environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) you can install FSL-MRS from the FSL conda channel.
+### Conda package
+The primary installation method is via _conda_. First you should install conda and creating  a suitable [environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). For example, in the base conda environment execute: 
 
-    conda install -c conda-forge \
+    conda create --name fsl_mrs -c conda-forge python=3.8
+
+Then activate the environment:
+    
+    conda activate fsl_mrs
+
+
+Finally install FSL-MRS and its dependencies from the FSL conda channel.
+
+    conda install -c conda-forge -c defaults \
                   -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
                   fsl_mrs
 
-#### Source code
+### Source code
 
 To get the source code with the packaged example data, make sure [git-lfs](https://git-lfs.github.com/) is installed.
 
-    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/saad/fsl_mrs.git
+    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
     cd fsl_mrs
     pip install .
 
-#### Dependencies
-The spec2nii package can be installed to convert data to NIfTI format.
-
-    conda install -c conda-forge spec2nii
-
-or
-
-    pip install spec2nii
 
 After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/quick_start.html).
 
 ---
 
-### Content
+## Content
 
-#### Scripts:
+### Scripts:
 
 - **fsl\_mrs**
 : fit a single voxel spectroscopy (SVS) spectrum 
@@ -59,7 +60,7 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 
 ---
 
-### Documentation
+## Documentation
 
 Documentation can be found online on the [WIN open science website](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/).
 
@@ -67,19 +68,22 @@ For each of the wrapper scripts above, simply type `<name_of_script> --help` to 
 
 Example command-line usage is demonstrated in the packaged [Jupyter Notebook](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/example_usage/Example%20SVS%20processing%20-%20command-line.ipynb.).
 
-### File types
+## Getting help
+Please seek help via the [FSL JISC email list](mailto:FSL@JISCMAIL.AC.UK) or by submitting an issue on the [FSL-MRS Github mirror](https://github.com/wexeee/fsl_mrs/issues).
+
+## File types
 
 FSL-MRS accepts FID data in NIfTI-MRS format. Some scripts can also read .RAW (LCModel) and text (jMRUI).
 
 Conversion to NIfTI-MRS is provided by [spec2nii](https://github.com/wexeee/spec2nii).
 
-### Working in python
+## Working in python
 
 If you don't want to use the wrapper scripts, you can use the python modules directly in your own python scripts/programs. Or in an interactive Python environment (see example [notebook](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/example_usage/Example%20SVS%20processing%20-%20interactive%20notebook.ipynb)) 
 
 ---
 
-### Permissions and citations
+## Permissions and citations
 
 If you use FSL-MRS in your research please cite:
 

@@ -44,7 +44,7 @@ rst_epilog = """
 .. _fslmrs_github_tracker: https://github.com/wexeee/fsl_mrs/issues
 
 .. |fslmrs_pkg_data| replace:: FSL-MRS example data
-.. _fslmrs_pkg_data: https://users.fmrib.ox.ac.uk/~wclarke/fsl_mrs/example_usage.zip
+.. _fslmrs_pkg_data: https://git.fmrib.ox.ac.uk/fsl/fsl_mrs/-/archive/master/fsl_mrs-master.zip?path=example_usage/example_data
 
 .. |dev_email| replace:: developers
 .. _dev_email: mailto:william.clarke@ndcn.ox.ac.uk,saad@fmrib.ox.ac.uk

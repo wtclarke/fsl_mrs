@@ -30,6 +30,8 @@ For more information on coherence filters see this `reference <https://www.ncbi.
 
 For a description of the sequence file parameters see the :ref:`sequence file <seq_file_params>` page. Alternatively see the examples in the simulator package (examplePRESS.json & exampleSTEAM.json).
 
+Please note that delays in the sequence description file do not include the duration of the pulse. I.e., the time from the centroid to the start/end of the RF pulse must be added to the delay to calculate the time between pulse centroids.
+
 Using fsl_mrs_sim 
 -----------------
 
