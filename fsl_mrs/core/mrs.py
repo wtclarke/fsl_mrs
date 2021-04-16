@@ -257,9 +257,9 @@ class MRS(object):
                                        self.numPoints)
         except misc.InsufficentTimeCoverageError:
             raise BasisHasInsufficentCoverage('The basis spectra covers too little time. '
-                                            'Please provide a basis with time-domain coverage '
-                                            'greater than the input data. Alternatively truncate '
-                                            'your input data.')
+                                              'Please provide a basis with time-domain coverage '
+                                              'greater than the input data. Alternatively truncate '
+                                              'your input data.')
 
         self.basis_dwellTime = self.dwellTime
         self.basis_bandwidth = 1 / self.dwellTime
