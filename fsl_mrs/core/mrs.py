@@ -15,6 +15,10 @@ from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 import numpy as np
 
 
+class BasisHasInsufficentPoints(Exception):
+    pass
+
+
 class MRS(object):
     """
       MRS Class - container for FID, Basis, and sequence info
@@ -242,11 +246,21 @@ class MRS(object):
            Usually the basis is simulated using different
            timings and/or number of points.
            This interpolates the basis to match the FID
+
+           This only works if the basis has greater time-domain
+           coverage than the FID.
         """
-        self.basis = misc.ts_to_ts(self.basis,
-                                   self.basis_dwellTime,
-                                   self.dwellTime,
-                                   self.numPoints)
+        try:
+            self.basis = misc.ts_to_ts(self.basis,
+                                       self.basis_dwellTime,
+                                       self.dwellTime,
+                                       self.numPoints)
+        except misc.InsufficentTimeCoverageError:
+            raise BasisHasInsufficentPoints('The basis spectra covers too little time. '
+                                            'Please provide a basis with time-domain coverage '
+                                            'greater than the input data. Alternatively truncate '
+                                            'your input data.')
+
         self.basis_dwellTime = self.dwellTime
         self.basis_bandwidth = 1 / self.dwellTime
         self.numBasisPoints = self.numPoints

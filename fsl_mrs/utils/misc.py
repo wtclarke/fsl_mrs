@@ -161,6 +161,10 @@ def filter(mrs, FID, ppmlim, filter_type='bandpass'):
     return y
 
 
+class InsufficentTimeCoverageError(Exception):
+    pass
+
+
 def ts_to_ts(old_ts, old_dt, new_dt, new_n):
     """Temporal resampling where the new time series has a smaller number of points
 
@@ -173,6 +177,10 @@ def ts_to_ts(old_ts, old_dt, new_dt, new_n):
     old_n = old_ts.shape[0]
     old_t = np.linspace(old_dt, old_dt * old_n, old_n) - old_dt
     new_t = np.linspace(new_dt, new_dt * new_n, new_n) - new_dt
+
+    if new_t[-1] > old_t[-1]:
+        raise InsufficentTimeCoverageError('Input data covers less time than is requested by interpolation.'
+                                           ' Change interpolation points or dwell time.')
 
     f = interp1d(old_t, old_ts, axis=0)
     new_ts = f(new_t)
