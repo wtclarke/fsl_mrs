@@ -15,7 +15,7 @@ from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 import numpy as np
 
 
-class BasisHasInsufficentPoints(Exception):
+class BasisHasInsufficentCoverage(Exception):
     pass
 
 
@@ -256,7 +256,7 @@ class MRS(object):
                                        self.dwellTime,
                                        self.numPoints)
         except misc.InsufficentTimeCoverageError:
-            raise BasisHasInsufficentPoints('The basis spectra covers too little time. '
+            raise BasisHasInsufficentCoverage('The basis spectra covers too little time. '
                                             'Please provide a basis with time-domain coverage '
                                             'greater than the input data. Alternatively truncate '
                                             'your input data.')

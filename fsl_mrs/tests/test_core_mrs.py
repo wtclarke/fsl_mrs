@@ -11,7 +11,7 @@ import pytest
 import numpy as np
 
 from fsl_mrs.core import MRS, mrs_from_files
-from fsl_mrs.core.mrs import BasisHasInsufficentPoints
+from fsl_mrs.core.mrs import BasisHasInsufficentCoverage
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec, hz2ppm
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO
@@ -205,7 +205,7 @@ def test_basis_size(synth_data):
 
     # Truncate basis to test error reporting
     basis = basis[:, :512]
-    with pytest.raises(BasisHasInsufficentPoints):
+    with pytest.raises(BasisHasInsufficentCoverage):
         MRS(FID=fid,
             header=hdr,
             basis=basis,
