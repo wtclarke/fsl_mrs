@@ -6,10 +6,13 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 
 from pathlib import Path
-from fsl_mrs.core import MRS, mrs_from_files
+
 import pytest
-from fsl_mrs.utils import synthetic as syn
 import numpy as np
+
+from fsl_mrs.core import MRS, mrs_from_files
+from fsl_mrs.core.mrs import BasisHasInsufficentCoverage
+from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec, hz2ppm
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
@@ -195,3 +198,16 @@ def test_nucleus_identification():
                       header=hdr)
 
             assert mrs.nucleus == nuc
+
+
+def test_basis_size(synth_data):
+    fid, hdr, basis, names, bheader, axes = synth_data
+
+    # Truncate basis to test error reporting
+    basis = basis[:, :512]
+    with pytest.raises(BasisHasInsufficentCoverage):
+        MRS(FID=fid,
+            header=hdr,
+            basis=basis,
+            names=names,
+            basis_hdr=bheader[0])

@@ -13,15 +13,18 @@
 # MHz/tesla
 H1_gamma = 42.576
 GYRO_MAG_RATIO = {'1H': H1_gamma,
+                  '2H': 6.536,
                   '13C': 10.7084,
                   '31P': 17.235}
 
 H2O_PPM_TO_TMS = 4.65  # Shift of water to Tetramethylsilane
 PPM_SHIFT = {'1H': H2O_PPM_TO_TMS,
+             '2H': H2O_PPM_TO_TMS,  # Placeholder
              '13C': 0.0,
              '31P': 0.0}
 
 PPM_RANGE = {'1H': (0.2, 4.2),
+             '2H': (0.0, 6),
              '13C': (10, 100),
              '31P': (-20, 10)}
 

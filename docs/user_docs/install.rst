@@ -23,7 +23,7 @@ The primary installation method is via *conda*. After installing conda and creat
 
 ::
 
-    conda install -c conda-forge \
+    conda install -c conda-forge -c defaults \
                   -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
                   fsl_mrs
 
@@ -32,15 +32,6 @@ Example data with conda
 Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data|_.
 
 
-spec2nii
-~~~~~~~~
-To convert data to NIfTI install the spec2nii program from conda.
-
-::
-
-    conda install -c conda-forge spec2nii
-
-
 Operating systems
 ~~~~~~~~~~~~~~~~~
-FSL-MRS has been tested thoroughly on Mac and Linux operating systems. FSL-MRS dependencies and FSL-MRS is available on native Windows installations, but has not currently been tested. `Windows Subsytem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2) offers a Linux interface on Windows. FSL-MRS has been tested on WSL.
+FSL-MRS has been tested thoroughly on Mac and Linux operating systems. FSL-MRS dependencies and FSL-MRS is available on native Windows installations, but has not currently been tested. `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2) offers a Linux interface on Windows. FSL-MRS has been tested on WSL.

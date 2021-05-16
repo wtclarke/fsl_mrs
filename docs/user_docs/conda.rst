@@ -12,7 +12,7 @@ This is a short guide on setting up conda for the first time.
 
 ::
 
-    conda create --name fsl_mrs python=3.7
+    conda create --name fsl_mrs -c conda-forge python=3.7
 
 3. Activate the enviroment.
 
@@ -20,11 +20,11 @@ This is a short guide on setting up conda for the first time.
 
     conda activate fsl_mrs
 
-4. Optionally install Jupyter notebooks. This is required to run the example Jupyter notebooks.
+4. Optionally install JupyterLab to access notebooks. This is required to run the example Jupyter notebooks.
 
 ::
 
-    conda install -c conda-forge notebook
+    conda install -c conda-forge jupyterlab
 
 5. Follow the FSL-MRS & spec2nii install instructions on the :ref:`Installation 
 <install>` page.

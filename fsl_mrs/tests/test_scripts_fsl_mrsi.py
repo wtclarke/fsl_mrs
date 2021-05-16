@@ -27,6 +27,7 @@ def test_fsl_mrsi(tmp_path):
                            '--output', str(tmp_path / 'fit_out'),
                            '--h2o', data['water'],
                            '--TE', '30',
+                           '--TR', '2.0',
                            '--add_MM',
                            '--mask', data['mask'],
                            '--tissue_frac',
@@ -42,6 +43,7 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/concs').exists()
 
     assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out/concs/molality/NAA.nii.gz').exists()
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
