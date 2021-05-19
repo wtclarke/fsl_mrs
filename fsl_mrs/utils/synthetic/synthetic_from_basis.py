@@ -12,6 +12,7 @@ from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 from fsl_mrs.core import MRS
 from fsl_mrs.utils import models
+from pathlib import Path
 
 
 def standardConcentrations(basisNames):
@@ -57,7 +58,10 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
        metabolites in the basis file can be ignored or independently scaled.
     """
 
-    basis, names, header = mrs_io.read_basis(basisFile)
+    if isinstance(basisFile, (str, Path)):
+        basis, names, header = mrs_io.read_basis(basisFile)
+    else:
+        basis, names, header = basisFile
 
     empty_mrs = MRS(FID=np.ones((points,)),
                     cf=header[0]['centralFrequency'],
