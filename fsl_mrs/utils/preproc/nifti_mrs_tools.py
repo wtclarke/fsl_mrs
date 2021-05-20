@@ -3,9 +3,16 @@
     Author: Will Clarke <william.clarke@ndcn.ox.ac.uk>
     Copyright (C) 2021 University of Oxford
 """
+import re
+import json
 
 import numpy as np
+from nibabel.nifti1 import Nifti1Extension
 from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NIFTIMRS_DimDoesntExist
+
+
+class NIfTI_MRSIncompatible(Exception):
+    pass
 
 
 def split(nmrs, dimension, index_or_indicies):
@@ -66,10 +73,6 @@ def split(nmrs, dimension, index_or_indicies):
     return nmrs_1, nmrs_2
 
 
-class NIfTI_MRSIncompatible(Exception):
-    pass
-
-
 def merge(array_of_nmrs, dimension):
     """Concatenate NIfTI-MRS objects along specified higher dimension
 
@@ -119,11 +122,86 @@ def merge(array_of_nmrs, dimension):
             raise NIfTI_MRSIncompatible('The shape of all concatentated objects must match.'
                                         f' The shape ({nmrs.shape}) of the {idx} object does'
                                         f' not match that of the first ({array_of_nmrs[0].shape}).')
+        # Check dim tags for compatibility
         if not check_tag(nmrs):
             raise NIfTI_MRSIncompatible('The tags of all concatentated objects must match.'
                                         f' The tags ({nmrs.dim_tags}) of the {idx} object does'
                                         f' not match that of the first ({array_of_nmrs[0].dim_tags}).')
-        # Check dim tags for compatibility
-        to_concat.append(nmrs.data)
+
+        if nmrs.ndim == dim_index:
+            # If a squeezed singleton on the end.
+            to_concat.append(np.expand_dims(nmrs.data, -1))
+        else:
+            to_concat.append(nmrs.data)
 
     return NIFTI_MRS(np.concatenate(to_concat, axis=dim_index), header=array_of_nmrs[0].header)
+
+
+def reorder(nmrs, dim_tag_list):
+    """Reorder the higher dimensions of a NIfTI-MRS object.
+    Can force a singleton dimension with new tag.
+
+    :param nmrs: NIFTI-MRS object to reorder.
+    :type nmrs: fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    :param dim_tag_list: List of dimension tags in desired order
+    :type dim_tag_list: List of str
+    :return: Reordered NIfTI-MRS object.
+    :rtype: fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    """
+
+    # Check existing tags are in the list of desired tags
+    for idx, tag in enumerate(nmrs.dim_tags):
+        if tag not in dim_tag_list\
+                and tag is not None:
+            raise NIfTI_MRSIncompatible(f'The existing tag ({tag}) does not appear '
+                                        f'in the requested tag order ({dim_tag_list}).')
+
+    # Create singleton dimensions if required
+    original_dims = nmrs.ndim
+    new_dim = sum(x is not None for x in nmrs.dim_tags) + 4
+    dims_to_add = tuple(range(original_dims, new_dim + 1))
+    data_with_singleton = np.expand_dims(nmrs.data, dims_to_add)
+
+    # Create list of source indicies
+    # Create list of destination indicies
+    # Keep track of singleton tags
+    source_indicies = []
+    dest_indicies = []
+    singleton_tags = {}
+    counter = 0
+    for idx, tag in enumerate(dim_tag_list):
+        if tag is not None:
+            if tag in nmrs.dim_tags:
+                source_indicies.append(nmrs.dim_tags.index(tag) + 4)
+            else:
+                source_indicies.append(nmrs.ndim + counter)
+                counter += 1
+                singleton_tags.update({(idx + 5): tag})
+
+            dest_indicies.append(idx + 4)
+
+    # Sort header_ext dim_tags
+    dim_n = re.compile(r'dim_[567].*')
+    new_hdr_dict = {}
+    for key in nmrs.hdr_ext:
+        if dim_n.match(key):
+            new_index = dest_indicies[source_indicies.index(int(key[4]) - 1)] + 1
+            new_key = 'dim_' + str(new_index) + key[5:]
+            new_hdr_dict.update({new_key: nmrs.hdr_ext[key]})
+        else:
+            new_hdr_dict.update({key: nmrs.hdr_ext[key]})
+
+    # For any singleton dimensions we've added
+    for dim in singleton_tags:
+        new_hdr_dict.update({f'dim_{dim}': singleton_tags[dim]})
+
+    new_header = nmrs.header.copy()
+    json_s = json.dumps(new_hdr_dict)
+    extension = Nifti1Extension(44, json_s.encode('UTF-8'))
+    new_header.extensions.clear()
+    new_header.extensions.append(extension)
+
+    new_nmrs = NIFTI_MRS(np.moveaxis(data_with_singleton, source_indicies, dest_indicies),
+                         header=new_header)
+
+    return new_nmrs

@@ -186,3 +186,47 @@ def test_merge():
     assert np.allclose(out.data[:, :, :, :, :, 2:], nmrs_2.data)
     assert out.hdr_ext == nmrs_1.hdr_ext
     assert np.allclose(out.getAffine('voxel', 'world'), nmrs_1.getAffine('voxel', 'world'))
+
+    # Merge along squeezed singleton
+    nmrs_1_e = nmrs_tools.reorder(nmrs_1, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
+    nmrs_2_e = nmrs_tools.reorder(nmrs_2, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
+    out = nmrs_tools.merge((nmrs_1_e, nmrs_2_e), 'DIM_EDIT')
+    assert out.data.shape == (1, 1, 1, 4096, 32, 2, 2)
+    assert out.hdr_ext['dim_7'] == 'DIM_EDIT'
+
+
+def test_reorder():
+    """Test the reorder functionality
+    """
+    nmrs = mrs_io.read_FID(test_data_split)
+
+    # Error testing
+    # Miss existing tag
+    with pytest.raises(nmrs_tools.NIfTI_MRSIncompatible) as exc_info:
+        nmrs_tools.reorder(nmrs, ['DIM_COIL', 'DIM_EDIT'])
+
+    assert exc_info.type is nmrs_tools.NIfTI_MRSIncompatible
+    assert exc_info.value.args[0] == "The existing tag (DIM_DYN) does not appear"\
+                                     " in the requested tag order (['DIM_COIL', 'DIM_EDIT'])."
+
+    # Functionality testing
+    # Swap order of dimensions
+    out = nmrs_tools.reorder(nmrs, ['DIM_DYN', 'DIM_COIL'])
+    assert out.data.shape == (1, 1, 1, 4096, 64, 32)
+    assert np.allclose(np.swapaxes(nmrs.data, 4, 5), out.data)
+    assert out.hdr_ext['dim_5'] == 'DIM_DYN'
+    assert out.hdr_ext['dim_6'] == 'DIM_COIL'
+
+    # # Add an additional singleton at end (not reported in shape)
+    out = nmrs_tools.reorder(nmrs, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
+    assert out.data.shape == (1, 1, 1, 4096, 32, 64)
+    assert out.hdr_ext['dim_5'] == 'DIM_COIL'
+    assert out.hdr_ext['dim_6'] == 'DIM_DYN'
+    assert out.hdr_ext['dim_7'] == 'DIM_EDIT'
+
+    # Add an additional singleton at 5 (not reported in shape)
+    out = nmrs_tools.reorder(nmrs, ['DIM_EDIT', 'DIM_COIL', 'DIM_DYN'])
+    assert out.data.shape == (1, 1, 1, 4096, 1, 32, 64)
+    assert out.hdr_ext['dim_5'] == 'DIM_EDIT'
+    assert out.hdr_ext['dim_6'] == 'DIM_COIL'
+    assert out.hdr_ext['dim_7'] == 'DIM_DYN'

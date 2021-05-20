@@ -106,12 +106,11 @@ class NIFTI_MRS(Image):
         std_tags = ['DIM_COIL', 'DIM_DYN', 'DIM_INDIRECT_0']
         for idx in range(3):
             curr_dim = idx + 5
-            if self.ndim >= curr_dim:
-                curr_tag = f'dim_{curr_dim}'
-                if curr_tag in self.hdr_ext:
-                    self.dim_tags[idx] = self.hdr_ext[curr_tag]
-                else:
-                    self.dim_tags[idx] = std_tags[idx]
+            curr_tag = f'dim_{curr_dim}'
+            if curr_tag in self.hdr_ext:
+                self.dim_tags[idx] = self.hdr_ext[curr_tag]
+            elif curr_dim < self.ndim:
+                self.dim_tags[idx] = std_tags[idx]
 
     def __getitem__(self, sliceobj):
         '''Apply conjugation at use. This swaps from the
@@ -171,6 +170,7 @@ class NIFTI_MRS(Image):
         extension = Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
+        self._set_dim_tags()
 
     def dim_position(self, dim_tag):
         '''Return position of dim if it exists.'''
