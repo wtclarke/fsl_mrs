@@ -14,7 +14,9 @@ from fsl_mrs.utils.preproc import nifti_mrs_tools as nmrs_tools
 
 testsPath = Path(__file__).parent
 test_data_split = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'metab_raw.nii.gz'
-test_data_merge = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'wref_raw.nii.gz'
+test_data_merge_1 = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'wref_raw.nii.gz'
+test_data_merge_2 = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'quant_raw.nii.gz'
+test_data_other = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'ecc.nii.gz'
 
 
 def test_split():
@@ -114,3 +116,73 @@ def test_split():
     test_list = np.delete(test_list, [0, 32, 63])
     assert np.allclose(out_1.data, nmrs.data[:, :, :, :, :, test_list])
     assert np.allclose(out_2.data, nmrs.data[:, :, :, :, :, [0, 32, 63]])
+
+
+def test_merge():
+    """Test the merge functionality
+    """
+    nmrs_1 = mrs_io.read_FID(test_data_merge_1)
+    nmrs_2 = mrs_io.read_FID(test_data_merge_2)
+
+    nmrs_bad_shape, _ = nmrs_tools.split(nmrs_2, 'DIM_COIL', 4)
+    nmrs_no_tag = mrs_io.read_FID(test_data_other)
+
+    # Error testing
+    # Wrong dim tag
+    with pytest.raises(ValueError) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_2), 'DIM_EDIT')
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == "DIM_EDIT not found as dimension tag."\
+                                     " This data contains ['DIM_COIL', 'DIM_DYN', None]."
+
+    # Wrong dim index (no dim in this data)
+    with pytest.raises(ValueError) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_2), 6)
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == "Dimension must be one of 4, 5, or 6 (or DIM_TAG string)."\
+                                     " This data has 6 dimensions,"\
+                                     " i.e. a maximum dimension value of 5."
+
+    # Wrong dim index (too low)
+    with pytest.raises(ValueError) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_2), 3)
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == "Dimension must be one of 4, 5, or 6 (or DIM_TAG string)."\
+                                     " This data has 6 dimensions,"\
+                                     " i.e. a maximum dimension value of 5."
+
+    # Wrong dim index type
+    with pytest.raises(TypeError) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_2), [3, ])
+
+    assert exc_info.type is TypeError
+    assert exc_info.value.args[0] == "Dimension must be an int (4, 5, or 6) or string (DIM_TAG string)."
+
+    # Incompatible shapes
+    with pytest.raises(nmrs_tools.NIfTI_MRSIncompatible) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_bad_shape), 'DIM_DYN')
+
+    assert exc_info.type is nmrs_tools.NIfTI_MRSIncompatible
+    assert exc_info.value.args[0] == "The shape of all concatentated objects must match. "\
+                                     "The shape ((1, 1, 1, 4096, 4, 2)) of the 1 object does "\
+                                     "not match that of the first ((1, 1, 1, 4096, 32, 2))."
+
+    # Incompatible tags
+    with pytest.raises(nmrs_tools.NIfTI_MRSIncompatible) as exc_info:
+        nmrs_tools.merge((nmrs_1, nmrs_no_tag), 'DIM_DYN')
+
+    assert exc_info.type is nmrs_tools.NIfTI_MRSIncompatible
+    assert exc_info.value.args[0] == "The tags of all concatentated objects must match. "\
+                                     "The tags (['DIM_COIL', None, None]) of the 1 object does "\
+                                     "not match that of the first (['DIM_COIL', 'DIM_DYN', None])."
+
+    # Functionality testing
+    out = nmrs_tools.merge((nmrs_1, nmrs_2), 'DIM_DYN')
+    assert out.data.shape == (1, 1, 1, 4096, 32, 4)
+    assert np.allclose(out.data[:, :, :, :, :, 0:2], nmrs_1.data)
+    assert np.allclose(out.data[:, :, :, :, :, 2:], nmrs_2.data)
+    assert out.hdr_ext == nmrs_1.hdr_ext
+    assert np.allclose(out.getAffine('voxel', 'world'), nmrs_1.getAffine('voxel', 'world'))

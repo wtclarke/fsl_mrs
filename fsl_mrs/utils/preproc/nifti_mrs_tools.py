@@ -14,7 +14,8 @@ def split(nmrs, dimension, index_or_indicies):
 
     :param nmrs: Input nifti_mrs object to split
     :type nmrs: fsl_mrs.core.nifti_mrs.NIFTI_MRS
-    :param dimension: Dimension tag or one of 4, 5, 6 (for 0-indexed 5th, 6th, and 7th)
+    :param dimension: Dimension along which to split.
+        Dimension tag or one of 4, 5, 6 (for 0-indexed 5th, 6th, and 7th)
     :type dimension: str or int
     :param index_or_indicies: Single integer index to split after,
         or list of interger indices to insert into second array.
@@ -63,3 +64,66 @@ def split(nmrs, dimension, index_or_indicies):
     nmrs_2 = NIFTI_MRS(np.take(nmrs.data, index, axis=dim_index), header=nmrs.header)
 
     return nmrs_1, nmrs_2
+
+
+class NIfTI_MRSIncompatible(Exception):
+    pass
+
+
+def merge(array_of_nmrs, dimension):
+    """Concatenate NIfTI-MRS objects along specified higher dimension
+
+    :param array_of_nmrs: Array of NIFTI-MRS objects to concatenate
+    :type array_of_nmrs: tuple or list of fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    :param dimension: Dimension along which to concatenate.
+        Dimension tag or one of 4, 5, 6 (for 0-indexed 5th, 6th, and 7th).
+    :type dimension: int or str
+    :return: Concatenated NIFTI-MRS object
+    :rtype: fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    """
+    if isinstance(dimension, str):
+        try:
+            dim_index = array_of_nmrs[0].dim_position(dimension)
+        except NIFTIMRS_DimDoesntExist:
+            raise ValueError(f'{dimension} not found as dimension tag. This data contains {array_of_nmrs[0].dim_tags}.')
+    elif isinstance(dimension, int):
+        if dimension > (array_of_nmrs[0].ndim - 1) or dimension < 4:
+            raise ValueError('Dimension must be one of 4, 5, or 6 (or DIM_TAG string).'
+                             f' This data has {array_of_nmrs[0].ndim} dimensions,'
+                             f' i.e. a maximum dimension value of {array_of_nmrs[0].ndim-1}.')
+        dim_index = dimension
+    else:
+        raise TypeError('Dimension must be an int (4, 5, or 6) or string (DIM_TAG string).')
+
+    # Check shapes and tags are compatible.
+    # If they are and enter the data into a tuple for concatenation
+    def check_shape(to_compare):
+        for dim in range(to_compare.ndim):
+            # Do not compare on selected dimension
+            if dim == dim_index:
+                continue
+            if to_compare.shape[dim] != array_of_nmrs[0].shape[dim]:
+                return False
+        return True
+
+    def check_tag(to_compare):
+        for tdx in range(3):
+            if array_of_nmrs[0].dim_tags[tdx] != to_compare.dim_tags[tdx]:
+                return False
+        return True
+
+    to_concat = []
+    for idx, nmrs in enumerate(array_of_nmrs):
+        # Check shape
+        if not check_shape(nmrs):
+            raise NIfTI_MRSIncompatible('The shape of all concatentated objects must match.'
+                                        f' The shape ({nmrs.shape}) of the {idx} object does'
+                                        f' not match that of the first ({array_of_nmrs[0].shape}).')
+        if not check_tag(nmrs):
+            raise NIfTI_MRSIncompatible('The tags of all concatentated objects must match.'
+                                        f' The tags ({nmrs.dim_tags}) of the {idx} object does'
+                                        f' not match that of the first ({array_of_nmrs[0].dim_tags}).')
+        # Check dim tags for compatibility
+        to_concat.append(nmrs.data)
+
+    return NIFTI_MRS(np.concatenate(to_concat, axis=dim_index), header=array_of_nmrs[0].header)
