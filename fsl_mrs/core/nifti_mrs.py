@@ -258,8 +258,8 @@ class NIFTI_MRS(Image):
             if isinstance(hdr_obj[key], list):
                 size_chk(hdr_obj[key])
             elif isinstance(hdr_obj[key], dict)\
-                    and 'value' in hdr_obj[key]:
-                size_chk(hdr_obj[key]['value'])
+                    and 'Value' in hdr_obj[key]:
+                size_chk(hdr_obj[key]['Value'])
 
         current_hdr_ext = self.hdr_ext
         current_hdr_ext[f'dim_{dim + 1}_header'] = hdr_obj

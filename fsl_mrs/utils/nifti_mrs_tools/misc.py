@@ -43,8 +43,8 @@ def check_type(in_format):
             and 'start' in in_format:
         return 'short'
     elif isinstance(in_format, dict)\
-            and 'value' in in_format:
-        return check_type(in_format['value'])
+            and 'Value' in in_format:
+        return check_type(in_format['Value'])
 
 
 def dim_n_header_short_to_long(in_format, elements):
@@ -54,9 +54,9 @@ def dim_n_header_short_to_long(in_format, elements):
             and 'start' in in_format:
         return _dict_to_list(in_format, elements)
     elif isinstance(in_format, dict)\
-            and 'value' in in_format:
+            and 'Value' in in_format:
         out = in_format.copy()
-        out['value'] = _dict_to_list(out['value'], elements)
+        out['Value'] = _dict_to_list(out['Value'], elements)
         return out
 
 
@@ -67,9 +67,9 @@ def dim_n_header_long_to_short(in_format):
             and 'start' in in_format:
         return in_format
     elif isinstance(in_format, dict)\
-            and 'value' in in_format:
+            and 'Value' in in_format:
         out = in_format.copy()
-        out['value'] = _list_to_dict(in_format['value'])
+        out['Value'] = _list_to_dict(in_format['Value'])
         return out
 
 

@@ -14,11 +14,11 @@ def test_short_to_long():
     dict_repr = misc.dim_n_header_short_to_long([0.0, 0.1, 0.2], 3)
     assert dict_repr == [0.0, 0.1, 0.2]
 
-    dict_repr = misc.dim_n_header_short_to_long({'value': [0.0, 0.1, 0.2], 'description': 'test'}, 3)
-    assert dict_repr == {'value': [0.0, 0.1, 0.2], 'description': 'test'}
+    dict_repr = misc.dim_n_header_short_to_long({'Value': [0.0, 0.1, 0.2], 'description': 'test'}, 3)
+    assert dict_repr == {'Value': [0.0, 0.1, 0.2], 'description': 'test'}
 
-    dict_repr = misc.dim_n_header_short_to_long({'value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}, 3)
-    assert dict_repr == {'value': [0.0, 0.1, 0.2], 'description': 'test'}
+    dict_repr = misc.dim_n_header_short_to_long({'Value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}, 3)
+    assert dict_repr == {'Value': [0.0, 0.1, 0.2], 'description': 'test'}
 
 
 def test_long_to_short():
@@ -28,11 +28,11 @@ def test_long_to_short():
     dict_repr = misc.dim_n_header_long_to_short({'start': 0.0, 'increment': 0.1})
     assert dict_repr == {'start': 0.0, 'increment': 0.1}
 
-    dict_repr = misc.dim_n_header_long_to_short({'value': [0.0, 0.1, 0.2], 'description': 'test'})
-    assert dict_repr == {'value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}
+    dict_repr = misc.dim_n_header_long_to_short({'Value': [0.0, 0.1, 0.2], 'description': 'test'})
+    assert dict_repr == {'Value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}
 
-    dict_repr = misc.dim_n_header_long_to_short({'value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'})
-    assert dict_repr == {'value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}
+    dict_repr = misc.dim_n_header_long_to_short({'Value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'})
+    assert dict_repr == {'Value': {'start': 0.0, 'increment': 0.1}, 'description': 'test'}
 
 
 def test_dict_to_list():

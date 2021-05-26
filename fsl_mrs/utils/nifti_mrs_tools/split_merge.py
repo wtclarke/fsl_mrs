@@ -110,12 +110,12 @@ def _split_dim_header(hdr, dimension, dim_length, index):
 
     def split_user_or_std(hdr_val):
         if isinstance(hdr_val, dict)\
-                and 'value' in hdr_val:
-            tmp_1, tmp_2 = split_list(hdr_val['value'])
+                and 'Value' in hdr_val:
+            tmp_1, tmp_2 = split_list(hdr_val['Value'])
             out_1 = hdr_val.copy()
             out_2 = hdr_val.copy()
-            out_1.update({'value': tmp_1})
-            out_2.update({'value': tmp_2})
+            out_1.update({'Value': tmp_1})
+            out_2.update({'Value': tmp_2})
             return out_1, out_2
         else:
             return split_list(hdr_val)
@@ -243,10 +243,10 @@ def _merge_dim_header(hdr1, hdr2, dimension, dim_length1, dim_length2):
 
     def merge_user_or_std(hdr_val1, hdr_val2):
         if isinstance(hdr_val1, dict)\
-                and 'value' in hdr_val1:
-            tmp = merge_list(hdr_val1['value'], hdr_val2['value'])
+                and 'Value' in hdr_val1:
+            tmp = merge_list(hdr_val1['Value'], hdr_val2['Value'])
             out = hdr_val1.copy()
-            out.update({'value': tmp})
+            out.update({'Value': tmp})
             return out
         else:
             return merge_list(hdr_val1, hdr_val2)

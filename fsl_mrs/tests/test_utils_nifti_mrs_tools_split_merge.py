@@ -33,7 +33,7 @@ def test_split_dim_header():
                                'p2': [0.1, 0.2, 0.3, 0.4]},
               'dim_7': 'DIM_USER_0',
               'dim_7_info': 'other',
-              'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+              'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     # Headers occuring as a list.
@@ -48,7 +48,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
     assert hdr2 == {'dim_5': 'DIM_DYN',
                     'dim_5_info': 'averages',
@@ -60,7 +60,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr1, hdr2 = nmrs_tools.split_merge._split_dim_header(hdr_in, 5, 4, [1, 3])
@@ -74,7 +74,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
     assert hdr2 == {'dim_5': 'DIM_DYN',
                     'dim_5_info': 'averages',
@@ -86,7 +86,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     # Headers as a dict
@@ -101,7 +101,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
     assert hdr2 == {'dim_5': 'DIM_DYN',
                     'dim_5_info': 'averages',
@@ -113,7 +113,7 @@ def test_split_dim_header():
                                      'p2': [0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr1, hdr2 = nmrs_tools.split_merge._split_dim_header(hdr_in, 6, 4, [1, ])
@@ -127,7 +127,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
     assert hdr2 == {'dim_5': 'DIM_DYN',
                     'dim_5_info': 'averages',
@@ -139,7 +139,7 @@ def test_split_dim_header():
                                      'p2': [0.2, ]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     # User defined structures
@@ -154,7 +154,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.1, 0.2]}}
     assert hdr2 == {'dim_5': 'DIM_DYN',
                     'dim_5_info': 'averages',
@@ -166,7 +166,7 @@ def test_split_dim_header():
                                      'p2': [0.1, 0.2, 0.3, 0.4]},
                     'dim_7': 'DIM_USER_0',
                     'dim_7_info': 'other',
-                    'dim_7_header': {'p1': {'value': {'start': 3, 'increment': 1}, 'description': 'user'},
+                    'dim_7_header': {'p1': {'Value': {'start': 3, 'increment': 1}, 'description': 'user'},
                                      'p2': [0.3, 0.4]}}
 
 
@@ -182,7 +182,7 @@ def test_merge_dim_header():
                                  'p2': [0.1, 0.2, 0.3, 0.4]},
                 'dim_7': 'DIM_USER_0',
                 'dim_7_info': 'other',
-                'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                  'p2': [0.1, 0.2, 0.3, 0.4]}}
     hdr_in_2 = {'dim_5': 'DIM_DYN',
                 'dim_5_info': 'averages',
@@ -194,7 +194,7 @@ def test_merge_dim_header():
                                  'p2': [0.1, 0.2, 0.3, 0.4]},
                 'dim_7': 'DIM_USER_0',
                 'dim_7_info': 'other',
-                'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                  'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr_out = nmrs_tools.split_merge._merge_dim_header(hdr_in_1, hdr_in_2, 5, 4, 4)
@@ -208,7 +208,7 @@ def test_merge_dim_header():
                                         'p2': [0.1, 0.2, 0.3, 0.4]},
                        'dim_7': 'DIM_USER_0',
                        'dim_7_info': 'other',
-                       'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                       'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                         'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr_in_2 = {'dim_5': 'DIM_DYN',
@@ -221,7 +221,7 @@ def test_merge_dim_header():
                                  'p2': [0.1, 0.2, 0.3, 0.4]},
                 'dim_7': 'DIM_USER_0',
                 'dim_7_info': 'other',
-                'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                  'p2': [0.1, 0.2, 0.3, 0.4]}}
     hdr_out = nmrs_tools.split_merge._merge_dim_header(hdr_in_1, hdr_in_2, 6, 4, 4)
     assert hdr_out == {'dim_5': 'DIM_DYN',
@@ -234,7 +234,7 @@ def test_merge_dim_header():
                                         'p2': [0.1, 0.2, 0.3, 0.4, 0.1, 0.2, 0.3, 0.4]},
                        'dim_7': 'DIM_USER_0',
                        'dim_7_info': 'other',
-                       'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                       'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                         'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr_out = nmrs_tools.split_merge._merge_dim_header(hdr_in_2, hdr_in_1, 6, 4, 4)
@@ -248,7 +248,7 @@ def test_merge_dim_header():
                                         'p2': [0.1, 0.2, 0.3, 0.4, 0.1, 0.2, 0.3, 0.4]},
                        'dim_7': 'DIM_USER_0',
                        'dim_7_info': 'other',
-                       'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                       'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                         'p2': [0.1, 0.2, 0.3, 0.4]}}
 
     hdr_in_2 = {'dim_5': 'DIM_DYN',
@@ -261,7 +261,7 @@ def test_merge_dim_header():
                                  'p2': [0.1, 0.2, 0.3, 0.4]},
                 'dim_7': 'DIM_USER_0',
                 'dim_7_info': 'other',
-                'dim_7_header': {'p1': {'value': {'start': 5, 'increment': 1}, 'description': 'user'},
+                'dim_7_header': {'p1': {'Value': {'start': 5, 'increment': 1}, 'description': 'user'},
                                  'p2': [0.1, 0.2, 0.3, 0.4]}}
     hdr_out = nmrs_tools.split_merge._merge_dim_header(hdr_in_1, hdr_in_2, 7, 4, 4)
     assert hdr_out == {'dim_5': 'DIM_DYN',
@@ -274,7 +274,7 @@ def test_merge_dim_header():
                                         'p2': [0.1, 0.2, 0.3, 0.4]},
                        'dim_7': 'DIM_USER_0',
                        'dim_7_info': 'other',
-                       'dim_7_header': {'p1': {'value': {'start': 1, 'increment': 1}, 'description': 'user'},
+                       'dim_7_header': {'p1': {'Value': {'start': 1, 'increment': 1}, 'description': 'user'},
                                         'p2': [0.1, 0.2, 0.3, 0.4, 0.1, 0.2, 0.3, 0.4]}}
 
     with pytest.raises(NIfTI_MRSIncompatible) as exc_info:
