@@ -9,6 +9,7 @@ import json
 import numpy as np
 from nibabel.nifti1 import Nifti1Extension
 from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NIFTIMRS_DimDoesntExist
+from fsl_mrs.utils.nifti_mrs_tools import misc
 
 
 class NIfTI_MRSIncompatible(Exception):
@@ -67,10 +68,77 @@ def split(nmrs, dimension, index_or_indicies):
     else:
         raise TypeError('index_or_indicies must be single index or list of indicies')
 
-    nmrs_1 = NIFTI_MRS(np.delete(nmrs.data, index, axis=dim_index), header=nmrs.header)
-    nmrs_2 = NIFTI_MRS(np.take(nmrs.data, index, axis=dim_index), header=nmrs.header)
+    # Split header down
+    split_hdr_ext_1, split_hdr_ext_2 = _split_dim_header(nmrs.hdr_ext,
+                                                         dim_index + 1,
+                                                         nmrs.shape[dim_index],
+                                                         index_or_indicies)
+    out_hdr_1 = misc.modify_hdr_ext(split_hdr_ext_1, nmrs.header)
+    out_hdr_2 = misc.modify_hdr_ext(split_hdr_ext_2, nmrs.header)
+
+    nmrs_1 = NIFTI_MRS(np.delete(nmrs.data, index, axis=dim_index), header=out_hdr_1)
+    nmrs_2 = NIFTI_MRS(np.take(nmrs.data, index, axis=dim_index), header=out_hdr_2)
 
     return nmrs_1, nmrs_2
+
+
+def _split_dim_header(hdr, dimension, dim_length, index):
+    """Split dim_N_header keys in header extensions.
+
+    :param hdr: Header extension to split
+    :type hdr: dict
+    :param dimension: Dimension (5, 6, or 7) to split along
+    :type dimension: int
+    :param dim_length: Length of dimension
+    :type index: int
+    :param index: Index to split after or indicies to extract
+    :type index: int or list of ints
+    :return: Split header eextension dicts
+    :rtype: dict
+    """
+    hdr1 = hdr.copy()
+    hdr2 = hdr.copy()
+
+    def split_list(in_list):
+        if isinstance(index, int):
+            out_1 = in_list[:(index + 1)]
+            out_2 = in_list[(index + 1):]
+        elif isinstance(index, list):
+            out_1 = np.delete(np.asarray(in_list), index).tolist()
+            out_2 = np.take(np.asarray(in_list), index).tolist()
+        return out_1, out_2
+
+    def split_user_or_std(hdr_val):
+        if isinstance(hdr_val, dict)\
+                and 'value' in hdr_val:
+            tmp_1, tmp_2 = split_list(hdr_val['value'])
+            out_1 = hdr_val.copy()
+            out_2 = hdr_val.copy()
+            out_1.update({'value': tmp_1})
+            out_2.update({'value': tmp_2})
+            return out_1, out_2
+        else:
+            return split_list(hdr_val)
+
+    def split_single(hdr_val):
+        hdr_type = misc.check_type(hdr_val)
+        long_fmt = misc.dim_n_header_short_to_long(hdr_val, dim_length)
+        long_fmt_1, long_fmt_2 = split_user_or_std(long_fmt)
+        if hdr_type == 'long':
+            return long_fmt_1, long_fmt_2
+        else:
+            return misc.dim_n_header_long_to_short(long_fmt_1), misc.dim_n_header_long_to_short(long_fmt_2)
+
+    key_str = f'dim_{dimension}_header'
+    if key_str in hdr:
+        new_h1 = {}
+        new_h2 = {}
+        for sub_key in hdr[key_str]:
+            new_h1[sub_key], new_h2[sub_key] = split_single(hdr[key_str][sub_key])
+
+        hdr1[key_str] = new_h1
+        hdr2[key_str] = new_h2
+    return hdr1, hdr2
 
 
 def merge(array_of_nmrs, dimension):
@@ -134,7 +202,96 @@ def merge(array_of_nmrs, dimension):
         else:
             to_concat.append(nmrs.data)
 
-    return NIFTI_MRS(np.concatenate(to_concat, axis=dim_index), header=array_of_nmrs[0].header)
+        # Merge header extension
+        if idx == 0:
+            merged_hdr_ext = nmrs.hdr_ext
+            merged_length = to_concat[-1].shape[dim_index]
+        else:
+            merged_hdr_ext = _merge_dim_header(merged_hdr_ext,
+                                               nmrs.hdr_ext,
+                                               dim_index + 1,
+                                               merged_length,
+                                               to_concat[-1].shape[dim_index])
+            merged_length += to_concat[-1].shape[dim_index]
+
+    out_hdr = misc.modify_hdr_ext(merged_hdr_ext, array_of_nmrs[0].header)
+
+    return NIFTI_MRS(np.concatenate(to_concat, axis=dim_index), header=out_hdr)
+
+
+def _merge_dim_header(hdr1, hdr2, dimension, dim_length1, dim_length2):
+    """Merge dim_N_header keys in header extensions.
+    Output header copies all other fields from hdr1
+
+    :param hdr1: header extension from 1st file
+    :type hdr1: dict
+    :param hdr2: header extension from 2nd file
+    :type hdr2: dict
+    :param dimension: Dimension (5,6, or 7) to merge along
+    :type dimension: int
+    :param dim_length1: Dimension length of first file
+    :type dimension: int
+    :param dim_length2: Dimension length of second file
+    :type dimension: int
+    :return: Merged header extension dict
+    :rtype: dict
+    """
+    out_hdr = hdr1.copy()
+
+    def merge_list(list_1, list_2):
+        return list_1 + list_2
+
+    def merge_user_or_std(hdr_val1, hdr_val2):
+        if isinstance(hdr_val1, dict)\
+                and 'value' in hdr_val1:
+            tmp = merge_list(hdr_val1['value'], hdr_val2['value'])
+            out = hdr_val1.copy()
+            out.update({'value': tmp})
+            return out
+        else:
+            return merge_list(hdr_val1, hdr_val2)
+
+    def merge_single(hdr_val1, hdr_val2):
+        hdr_type = misc.check_type(hdr_val1)
+        long_fmt_1 = misc.dim_n_header_short_to_long(hdr_val1, dim_length1)
+        long_fmt_2 = misc.dim_n_header_short_to_long(hdr_val2, dim_length1)
+        long_fmt = merge_user_or_std(long_fmt_1, long_fmt_2)
+        if hdr_type == 'long':
+            return long_fmt
+        else:
+            return misc.dim_n_header_long_to_short(long_fmt)
+
+    key_str = f'dim_{dimension}_header'
+
+    def run_check():
+        # Check all other dimension fields are consistent
+        dim_n = re.compile(r'dim_[567].*')
+        for key in hdr1:
+            if dim_n.match(key) and key != key_str:
+                if hdr1[key] != hdr2[key]:
+                    raise NIfTI_MRSIncompatible(f'Both files must have matching dimension headers apart from the '
+                                                f'one being merged. {key} does not match.')
+
+    if key_str in hdr1 and key_str in hdr2:
+        run_check()
+        # Check the subfields of the header to merge are consistent
+        if not hdr1[key_str].keys() == hdr2[key_str].keys():
+            raise NIfTI_MRSIncompatible(f'Both NIfTI-MRS files must have matching dim {dimension} header fields.'
+                                        f'The first header contains {hdr1[key_str].keys()}. '
+                                        f'The second header contains {hdr2[key_str].keys()}.')
+        new_h = {}
+        for sub_key in hdr1[key_str]:
+            new_h[sub_key] = merge_single(hdr1[key_str][sub_key], hdr2[key_str][sub_key])              
+
+        out_hdr[key_str] = new_h
+    elif key_str in hdr1 and key_str not in hdr2\
+            or key_str not in hdr1 and key_str in hdr2:
+        # Incompatible headers
+        raise NIfTI_MRSIncompatible(f'Both NIfTI-MRS files must have matching dim {dimension} header fields')
+    elif key_str not in hdr1 and key_str not in hdr2:
+        # Nothing to merge - still run check
+        run_check()
+    return out_hdr
 
 
 def reorder(nmrs, dim_tag_list):
