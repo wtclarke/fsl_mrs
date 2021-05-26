@@ -1,0 +1,172 @@
+#!/usr/bin/env python
+
+""" mrs_tools - top level script for calling general mrs handling tools
+
+Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+
+Copyright (C) 2021 University of Oxford
+SHBASECOPYRIGHT
+"""
+
+import argparse
+from pathlib import Path
+
+from fsl_mrs import __version__
+
+
+def main():
+    # Parse command-line arguments
+    p = argparse.ArgumentParser(description="FSL Magnetic Resonance Spectroscopy - Tools")
+
+    p.add_argument('-v', '--version', action='version', version=__version__)
+
+    sp = p.add_subparsers(title='subcommands',
+                          description='Availible tools',
+                          required=True,
+                          dest='subcommand')
+
+    # Info tool
+    infoparser = sp.add_parser(
+        'info',
+        help='Information about the NIfTI-MRS file.')
+    infoparser.add_argument(
+        'file',
+        type=Path,
+        metavar='FILE or list of FILEs',
+        help='NIfTI MRS file(s)', nargs='+')
+    infoparser.set_defaults(func=info)
+
+    # Vis tool
+    visparser = sp.add_parser(
+        'vis',
+        help='Quick visualisation of a NIfTI-MRS file or FSL-MRS basis set.')
+    visparser.add_argument('file', type=Path, metavar='FILE or DIR',
+                           help='NIfTI file or directory of basis sets')
+    visparser.add_argument('--ppmlim', default=(.2, 4.2), type=float,
+                           nargs=2, metavar=('LOW', 'HIGH'),
+                           help='limit the fit to a freq range (default=(.2,4.2))')
+    visparser.add_argument('--mask', default=None, type=str, help='Mask for MRSI')
+    visparser.add_argument('--save', default=None, type=str, help='Save fig to path')
+    visparser.add_argument('--display_dim', default=None, type=str,
+                           help='NIFTI-MRS tag. Do not average across this dimension.')
+    visparser.set_defaults(func=vis)
+
+    # Parse command-line arguments
+    args = p.parse_args()
+
+    # Call function
+    args.func(args)
+
+
+def info(args):
+    from fsl_mrs.utils.mrs_io import read_FID
+    from fsl_mrs.utils.constants import GYRO_MAG_RATIO
+
+    for file in args.file:
+        data = read_FID(str(file))
+
+        print(f'\nRead file {file.name} ({file.parent.resolve()}).')
+        print(f'NIfTI-MRS version {data.mrs_nifti_version}')
+        print(f'Data shape {data.shape}')
+        print(f'Dimension tags: {data.dim_tags}')
+
+        print(f'Spectrometer Frequency: {data.spectrometer_frequency[0]} MHz')
+        print(f'Dwelltime (Bandwidth): {data.dwelltime:0.3E}s ({data.bandwidth:0.0f} Hz)')
+        print(f'Nucleus: {data.nucleus[0]}')
+        if data.nucleus[0] in GYRO_MAG_RATIO:
+            field_strength = data.spectrometer_frequency[0] / GYRO_MAG_RATIO[data.nucleus[0]]
+            print(f'Field Strength: {field_strength:0.2f} T')
+        print()
+
+
+def vis(args):
+    from fsl_mrs.utils.plotting import plot_spectrum, FID2Spec, plot_spectra
+    from fsl_mrs.utils.mrs_io import read_FID, read_basis
+    import matplotlib.pyplot as plt
+    from fsl_mrs.core import MRS
+    import numpy as np
+    from fsl_mrs.utils.preproc import nifti_mrs_proc
+    import nibabel as nib
+
+    # Some logic to figure out what we are dealing with
+    p = args.file
+    nifti_files = list(p.glob('*.nii*'))
+
+    # Identify BASIS
+    if p.is_dir() and len(nifti_files) == 0 or \
+       p.suffix.upper() == '.BASIS':
+
+        basis, names, basishdr = read_basis(args.file)
+        fid = np.zeros(basis.shape[0])
+
+        mrs = MRS(FID=fid,
+                  header=basishdr[0],
+                  basis=basis,
+                  names=names,
+                  basis_hdr=basishdr[0])
+
+        mrs.check_Basis(repair=True)
+        first, last = mrs.ppmlim_to_range(ppmlim=args.ppmlim)
+        plt.figure(figsize=(8, 8))
+        for idx, n in enumerate(names):
+            plt.plot(mrs.getAxes(ppmlim=args.ppmlim),
+                     np.real(FID2Spec(mrs.basis[:, idx]))[first:last],
+                     label=n)
+
+        plt.gca().invert_xaxis()
+        plt.xlabel('Chemical shift (ppm)')
+        plt.legend()
+        if args.save is not None:
+            plt.savefig(args.save)
+        else:
+            plt.show()
+
+    # Identify directory of nifti files
+    elif p.is_dir() and len(nifti_files) > 0:
+        raise ValueError('mrs_vis should be called on a single'
+                         ' NIFTI-MRS file, not a directory (unless'
+                         ' it contains basis files).')
+
+    # Single nifti file
+    elif p.is_file():
+        data = read_FID(args.file)
+        if data.ndim > 4 and 'DIM_COIL' in data.dim_tags:
+            print('Performing coil combination')
+            data = nifti_mrs_proc.coilcombine(data)
+
+        if np.prod(data.shape[:3]) == 1:
+            # SVS
+            if args.display_dim:
+                for idx in range(data.ndim - 4):
+                    if data.dim_tags[idx] != args.display_dim:
+                        print(f'Averaging {data.dim_tags[idx]}')
+                        data = nifti_mrs_proc.average(data, data.dim_tags[idx])
+
+                fig = plot_spectra(data.mrs(), ppmlim=args.ppmlim)
+            else:
+                while data.ndim > 4:
+                    print(f'Averaging {data.dim_tags[0]}')
+                    data = nifti_mrs_proc.average(data, data.dim_tags[0])
+                fig = plot_spectrum(data.mrs(), ppmlim=args.ppmlim)
+            if args.save is not None:
+                fig.savefig(args.save)
+            else:
+                plt.show()
+
+        else:
+            while data.ndim > 4:
+                print(f'Averaging {data.dim_tags[0]}')
+                data = nifti_mrs_proc.average(data, data.dim_tags[0])
+
+            mrsi = data.mrs()
+            if args.mask is not None:
+                mask_hdr = nib.load(args.mask)
+                mask = np.asanyarray(mask_hdr.dataobj)
+                if mask.ndim == 2:
+                    mask = np.expand_dims(mask, 2)
+                mrsi.set_mask(mask)
+            mrsi.plot()
+
+
+if __name__ == '__main__':
+    main()
