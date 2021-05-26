@@ -364,7 +364,7 @@ def test_split():
 
     # Functionality testing
 
-    out_1, out_2 = nmrs_tools.split(nmrs, 'DIM_DYN', 32)
+    out_1, out_2 = nmrs_tools.split(nmrs, 'DIM_DYN', 31)
     assert out_1.data.shape == (1, 1, 1, 4096, 32, 32)
     assert out_2.data.shape == (1, 1, 1, 4096, 32, 32)
     assert np.allclose(out_1.data, nmrs.data[:, :, :, :, :, 0:32])
@@ -381,6 +381,21 @@ def test_split():
     test_list = np.delete(test_list, [0, 32, 63])
     assert np.allclose(out_1.data, nmrs.data[:, :, :, :, :, test_list])
     assert np.allclose(out_2.data, nmrs.data[:, :, :, :, :, [0, 32, 63]])
+
+    # Split some synthetic data with header information
+    nhdr_1 = gen_new_nifti_mrs(np.ones((1, 1, 1, 10, 4), dtype=complex),
+                               1 / 1000,
+                               100,
+                               '1H',
+                               dim_tags=['DIM_DYN', None, None])
+
+    nhdr_1.set_dim_header('DIM_DYN', {'RepetitionTime': [1, 2, 3, 4]})
+
+    out_1, out_2 = nmrs_tools.split(nhdr_1, 'DIM_DYN', 1)
+    assert out_1.shape == (1, 1, 1, 10, 2)
+    assert out_1.hdr_ext['dim_5'] == 'DIM_DYN'
+    assert out_1.hdr_ext['dim_5_header'] == {'RepetitionTime': [1, 2]}
+    assert out_2.hdr_ext['dim_5_header'] == {'RepetitionTime': [3, 4]}
 
 
 def test_merge():
