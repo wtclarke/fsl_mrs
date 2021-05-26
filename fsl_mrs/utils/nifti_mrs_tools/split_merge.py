@@ -281,7 +281,7 @@ def _merge_dim_header(hdr1, hdr2, dimension, dim_length1, dim_length2):
                                         f'The second header contains {hdr2[key_str].keys()}.')
         new_h = {}
         for sub_key in hdr1[key_str]:
-            new_h[sub_key] = merge_single(hdr1[key_str][sub_key], hdr2[key_str][sub_key])              
+            new_h[sub_key] = merge_single(hdr1[key_str][sub_key], hdr2[key_str][sub_key])
 
         out_hdr[key_str] = new_h
     elif key_str in hdr1 and key_str not in hdr2\

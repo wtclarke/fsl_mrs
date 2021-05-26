@@ -404,7 +404,7 @@ def test_merge():
     nmrs_1 = mrs_io.read_FID(test_data_merge_1)
     nmrs_2 = mrs_io.read_FID(test_data_merge_2)
 
-    nmrs_bad_shape, _ = nmrs_tools.split(nmrs_2, 'DIM_COIL', 4)
+    nmrs_bad_shape, _ = nmrs_tools.split(nmrs_2, 'DIM_COIL', 3)
     nmrs_no_tag = mrs_io.read_FID(test_data_other)
 
     # Error testing
@@ -497,6 +497,26 @@ def test_merge():
     assert out.data.shape == (1, 1, 1, 10, 8)
     assert out.hdr_ext['dim_5'] == 'DIM_DYN'
     assert out.hdr_ext['dim_5_header'] == {'RepetitionTime': {'start': 1, 'increment': 1}}
+
+    # Merge along squeezed singleton with header
+    nhdr_1 = gen_new_nifti_mrs(np.ones((1, 1, 1, 10, 4), dtype=complex),
+                               1 / 1000,
+                               100,
+                               '1H',
+                               dim_tags=['DIM_DYN', None, None])
+    nhdr_2 = nhdr_1.copy()
+    nhdr_1_e = nmrs_tools.reorder(nhdr_1, ['DIM_DYN', 'DIM_EDIT', None])
+    nhdr_2_e = nmrs_tools.reorder(nhdr_2, ['DIM_DYN', 'DIM_EDIT', None])
+
+    nhdr_1_e.set_dim_header('DIM_DYN', {'RepetitionTime': {'start': 1, 'increment': 1}})
+    nhdr_2_e.set_dim_header('DIM_DYN', {'RepetitionTime': {'start': 1, 'increment': 1}})
+    nhdr_1_e.set_dim_header('DIM_EDIT', {'OtherTime': [0.1, ]})
+    nhdr_2_e.set_dim_header('DIM_EDIT', {'OtherTime': [0.2, ]})
+
+    out = nmrs_tools.merge((nhdr_1_e, nhdr_2_e), 'DIM_EDIT')
+    assert out.data.shape == (1, 1, 1, 10, 4, 2)
+    assert out.hdr_ext['dim_6'] == 'DIM_EDIT'
+    assert out.hdr_ext['dim_6_header'] == {'OtherTime': [0.1, 0.2, ]}
 
 
 def test_reorder():

@@ -246,7 +246,12 @@ class NIFTI_MRS(Image):
 
         # Check size
         def size_chk(obj):
-            if len(obj) != self.shape[dim]:
+            # Allow for expansion along the next dimension
+            if dim == self.ndim:
+                dim_len = 1
+            else:
+                dim_len = self.shape[dim]
+            if len(obj) != dim_len:
                 raise ValueError(f'New dim header length must be {self.shape[dim]}')
 
         for key in hdr_obj:

@@ -26,6 +26,7 @@ setup(name='fsl_mrs',
                 'fsl_mrs.utils.preproc',
                 'fsl_mrs.utils.synthetic',
                 'fsl_mrs.utils.dynamic',
+                'fsl_mrs.utils.nifti_mrs_tools',
                 'fsl_mrs.denmatsim',
                 'fsl_mrs.mmbasis',
                 'fsl_mrs.auxiliary'
