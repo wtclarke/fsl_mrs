@@ -51,6 +51,59 @@ def main():
                            help='NIFTI-MRS tag. Do not average across this dimension.')
     visparser.set_defaults(func=vis)
 
+    # Merge tool - Merge NIfTI MRS along higher dimensions
+    mergeparser = sp.add_parser(
+        'merge',
+        help='Merge NIfTI-MRS along higher dimensions.')
+    mergeparser.add_argument('--files', type=Path, required=True, nargs='+',
+                             help='List of files to merge')
+    mergeparser.add_argument('--dim', type=str, required=True,
+                             help='NIFTI-MRS dimension tag to merge across.')
+    mergeparser.add_argument('--output',
+                             required=True, type=Path, default=Path('.'),
+                             help='output folder (defaults to current directory)')
+    mergeparser.add_argument('--filename', type=str,
+                             help='Override output file name.')
+    mergeparser.set_defaults(func=merge)
+
+    # Split tool
+    splitparser = sp.add_parser(
+        'split',
+        help='Split NIfTI-MRS along higher dimensions.')
+    splitparser.add_argument('--file', type=Path, required=True,
+                             help='File to split')
+    splitparser.add_argument('--dim', type=str, required=True,
+                             help='NIFTI-MRS dimension tag to split across.')
+    group = splitparser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--indices', type=int, nargs='+',
+                       help='List of indices to extract into second file.'
+                            'All indices are zero-indexed.')
+    group.add_argument('--index', type=int, nargs='+',
+                       help='Index to split at (split after index, zero-indexed).')
+    splitparser.add_argument('--output',
+                             required=True, type=Path, default=Path('.'),
+                             help='output folder (defaults to current directory)')
+    splitparser.add_argument('--filename', type=str,
+                             help='Override output file names.')
+    splitparser.set_defaults(func=split)
+
+    # Reorder tool
+    reorderparser = sp.add_parser(
+        'reorder',
+        help='Reorider higher dimensions of NIfTI-MRS.')
+    reorderparser.add_argument('--file', type=Path, required=True,
+                               help='File to reorder')
+    reorderparser.add_argument('--dim_order', type=str, nargs='+', required=True,
+                               help='NIFTI-MRS dimension tags in desired order. '
+                                    'Enter as strings (min:1, max:3). '
+                                    'Can create singleton dimension at end.')
+    reorderparser.add_argument('--output',
+                               required=True, type=Path, default=Path('.'),
+                               help='output folder (defaults to current directory)')
+    reorderparser.add_argument('--filename', type=str,
+                               help='Override output file names.')
+    reorderparser.set_defaults(func=reorder)
+
     # Parse command-line arguments
     args = p.parse_args()
 
@@ -59,6 +112,10 @@ def main():
 
 
 def info(args):
+    """Prints basic information about NIfTI-MRS files
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
     from fsl_mrs.utils.mrs_io import read_FID
     from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
@@ -80,6 +137,10 @@ def info(args):
 
 
 def vis(args):
+    """Visualiser for NIfTI-MRS files
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
     from fsl_mrs.utils.plotting import plot_spectrum, FID2Spec, plot_spectra
     from fsl_mrs.utils.mrs_io import read_FID, read_basis
     import matplotlib.pyplot as plt
@@ -166,6 +227,87 @@ def vis(args):
                     mask = np.expand_dims(mask, 2)
                 mrsi.set_mask(mask)
             mrsi.plot()
+
+
+def merge(args):
+    """Merges one or more NIfTI-MRS files along a specified dimension
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils import nifti_mrs_tools as nmrs_tools
+    from fsl_mrs.utils import mrs_io
+    # 1. Load the files
+    if len(args.files) < 2:
+        raise ValueError('Files argument must provide two or more files to merge.')
+
+    to_concat = []
+    concat_names = []
+    for fp in args.files:
+        concat_names.append(fp.with_suffix('').with_suffix('').name)
+        to_concat.append(mrs_io.read_FID(str(fp)))
+
+    # 2. Merge the files
+    merged = nmrs_tools.merge(to_concat, args.dim)
+
+    # 3. Save the output file
+    if args.filename:
+        file_out = args.output / args.filename
+    else:
+        file_out = args.output / ('_'.join(concat_names) + '_merged')
+    merged.save(file_out)
+
+
+def split(args):
+    """Splits a NIfTI-MRS file into two along a specified dimension
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils import nifti_mrs_tools as nmrs_tools
+    from fsl_mrs.utils import mrs_io
+    # 1. Load the file
+    to_split = mrs_io.read_FID(str(args.file))
+    split_name = args.file.with_suffix('').with_suffix('').name
+
+    # 2. Merge the files
+    if args.index:
+        split_1, split_2 = nmrs_tools.split(to_split, args.dim, args.index)
+    elif args.indices:
+        split_1, split_2 = nmrs_tools.split(to_split, args.dim, args.indices)
+
+    # 3. Save the output file
+    if args.filename:
+        file_out_1 = args.output / (args.filename + '_1')
+        file_out_2 = args.output / (args.filename + '_2')
+    else:
+        file_out_1 = args.output / (split_name + '_1')
+        file_out_2 = args.output / (split_name + '_2')
+    split_1.save(file_out_1)
+    split_2.save(file_out_2)
+
+
+def reorder(args):
+    """Reorders the higher dimensions of a NIfTI-MRS file
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils import nifti_mrs_tools as nmrs_tools
+    from fsl_mrs.utils import mrs_io
+    # 1. Load the file
+    to_reorder = mrs_io.read_FID(str(args.file))
+    reorder_name = args.file.with_suffix('').with_suffix('').name
+
+    # 2. Merge the files
+    dim_order = args.dim_order
+    while len(dim_order) < 3:
+        dim_order.append(None)
+    reordered = nmrs_tools.reorder(to_reorder, args.dim_order)
+
+    # 3. Save the output file
+    if args.filename:
+        file_out = args.output / args.filename
+    else:
+        file_out = args.output / (reorder_name + '_reordered')
+    reordered.save(file_out)
 
 
 if __name__ == '__main__':
