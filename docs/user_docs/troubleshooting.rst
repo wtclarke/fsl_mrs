@@ -31,7 +31,7 @@ Troubleshooting hints
 .. _TS_4:
 
 4. Data looks 'wrong' after conversion
-    If when using :code:`mrs_vis` you see no signal and just noise try conjugating the data using :code:`fsl_mrs_proc conj` or try expanding the ppm range plotted :code:`--ppmlim -10 10`. If you see a flat line, then conversion failed. The data might be corrupted - did the acquisition complete successfully?
+    If when using :code:`mrs_tools vis` you see no signal and just noise try conjugating the data using :code:`fsl_mrs_proc conj` or try expanding the ppm range plotted :code:`--ppmlim -10 10`. If you see a flat line, then conversion failed. The data might be corrupted - did the acquisition complete successfully?
 
 .. image:: data/bad_data.png
     :width: 600

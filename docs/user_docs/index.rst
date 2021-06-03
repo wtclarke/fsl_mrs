@@ -19,6 +19,7 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    install
    quick_start
    data_conversion
+   data_handling
    processing
    fitting
    quantitation

@@ -8,6 +8,7 @@
 
 import json
 from pathlib import Path
+import re
 
 import numpy as np
 from nibabel.nifti1 import Nifti1Extension
@@ -106,12 +107,11 @@ class NIFTI_MRS(Image):
         std_tags = ['DIM_COIL', 'DIM_DYN', 'DIM_INDIRECT_0']
         for idx in range(3):
             curr_dim = idx + 5
-            if self.ndim >= curr_dim:
-                curr_tag = f'dim_{curr_dim}'
-                if curr_tag in self.hdr_ext:
-                    self.dim_tags[idx] = self.hdr_ext[curr_tag]
-                else:
-                    self.dim_tags[idx] = std_tags[idx]
+            curr_tag = f'dim_{curr_dim}'
+            if curr_tag in self.hdr_ext:
+                self.dim_tags[idx] = self.hdr_ext[curr_tag]
+            elif curr_dim < self.ndim:
+                self.dim_tags[idx] = std_tags[idx]
 
     def __getitem__(self, sliceobj):
         '''Apply conjugation at use. This swaps from the
@@ -171,6 +171,7 @@ class NIFTI_MRS(Image):
         extension = Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
+        self._set_dim_tags()
 
     def dim_position(self, dim_tag):
         '''Return position of dim if it exists.'''
@@ -186,6 +187,83 @@ class NIFTI_MRS(Image):
                 dim = self.dim_tags.index(dim)
                 dim += 4
         return dim
+
+    def add_hdr_field(self, key, value):
+        """Add a field to the header extension
+        To do: validate type (standard or user)
+
+        :param key: Field key
+        :type key: str
+        :param value: Value of field to add
+        """
+        dim_n = re.compile(r'dim_[567].*')
+        if dim_n.match(key):
+            raise ValueError('Modify dimension headers through dedicated methods.')
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext.update({key: value})
+        self.hdr_ext = current_hdr_ext
+
+    def remove_hdr_field(self, key):
+        """Remove a field from the header extension
+
+        :param key: Key to remove
+        :type key: str
+        """
+        if key == 'SpectrometerFrequency' or key == 'ResonantNucleus':
+            raise ValueError('You cannot remove the required metadata.')
+
+        dim_n = re.compile(r'dim_[567].*')
+        if dim_n.match(key):
+            raise ValueError('Modify dimension headers through dedicated methods.')
+
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext.pop(key, None)
+        self.hdr_ext = current_hdr_ext
+
+    def set_dim_info(self, dim, info_str):
+        """Set or update the 'dim_N_info' field
+
+        :param dim: The dim tag or python dimension index (i.e. N-1)
+        :type dim: str or int
+        :param info_str: New info string
+        :type info_str: str
+        """
+        dim = self._dim_tag_to_index(dim)
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext[f'dim_{dim + 1}_info'] = info_str
+        self.hdr_ext = current_hdr_ext
+
+    def set_dim_header(self, dim, hdr_obj):
+        """Set or update the 'dim_N_header' field
+        hdr_obj replaces the current value.
+
+        :param dim: The dim tag or python dimension index (i.e. N-1)
+        :type dim: str or int
+        :param hdr_obj: dict containing the dimension headers
+        :type hdr_obj: dict
+        """
+        dim = self._dim_tag_to_index(dim)
+
+        # Check size
+        def size_chk(obj):
+            # Allow for expansion along the next dimension
+            if dim == self.ndim:
+                dim_len = 1
+            else:
+                dim_len = self.shape[dim]
+            if len(obj) != dim_len:
+                raise ValueError(f'New dim header length must be {self.shape[dim]}')
+
+        for key in hdr_obj:
+            if isinstance(hdr_obj[key], list):
+                size_chk(hdr_obj[key])
+            elif isinstance(hdr_obj[key], dict)\
+                    and 'Value' in hdr_obj[key]:
+                size_chk(hdr_obj[key]['Value'])
+
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext[f'dim_{dim + 1}_header'] = hdr_obj
+        self.hdr_ext = current_hdr_ext
 
     def copy(self, remove_dim=None):
         '''Return a copy of this image, optionally with a dimension removed.
@@ -204,10 +282,13 @@ class NIFTI_MRS(Image):
                 if dd > new_obj.ndim:
                     hdr_ext.pop(f'dim_{dd}', None)
                     hdr_ext.pop(f'dim_{dd}_header', None)
+                    hdr_ext.pop(f'dim_{dd}_info', None)
                 elif dd >= dim:
                     hdr_ext[f'dim_{dd}'] = hdr_ext[f'dim_{dd + 1}']
                     if f'dim_{dd + 1}_header' in hdr_ext:
                         hdr_ext[f'dim_{dd}_header'] = hdr_ext[f'dim_{dd + 1}_header']
+                    if f'dim_{dd + 1}_info' in hdr_ext:
+                        hdr_ext[f'dim_{dd}_info'] = hdr_ext[f'dim_{dd + 1}_info']
             new_obj.hdr_ext = hdr_ext
 
             new_obj._set_dim_tags()

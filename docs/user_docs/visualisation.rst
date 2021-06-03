@@ -15,32 +15,32 @@ There are 4 ways of visualising/interacting with MRS data in FSL-MRS:
 1. Quick glance
 ---------------
 
-The first thing one might want to do when given a FID file or simulated spectra is to have a quick look at the spectra to see if they look like one would expect. To get a sense of the dimensionality and basic status of the data run :code:`mrs_info` for a quick text summary. FSL-MRS then provides a light-weight script (:code:`mrs_vis`) to quickly visualise the MRS or MRSI data. For example, running :code:`mrs_vis` on the provided example SVS data:
+The first thing one might want to do when given a FID file or simulated spectra is to have a quick look at the spectra to see if they look like one would expect. To get a sense of the dimensionality and basic status of the data run :code:`mrs_tools info` for a quick text summary. FSL-MRS then provides a light-weight script (:code:`mrs_tools vis`) to quickly visualise the MRS or MRSI data. For example, running :code:`mrs_tools vis` on the provided example SVS data:
 
 ::
 
-    mrs_vis example_usage/example_data/metab.nii
+    mrs_tools vis example_usage/example_data/metab.nii
 
 gives the following basic plot:
 
 .. image:: data/mrs_vis_svs.png
   :width: 400
 
-Note that the reason :code:`mrs_vis` "knows" how to scale the x-axis is that the relevant information is stored in the NIfTI-MRS MRS header extension (namely the *dwell time* and the *central frequency*).
+Note that the reason :code:`mrs_tools vis` "knows" how to scale the x-axis is that the relevant information is stored in the NIfTI-MRS MRS header extension (namely the *dwell time* and the *central frequency*).
 
-:code:`mrs_vis` can also visualise a folder of mrs data::
+:code:`mrs_tools vis` can also visualise a folder of mrs data::
 
-    mrs_vis ./converted_data_dir/
+    mrs_tools vis ./converted_data_dir/
 
 .. image:: data/mrs_vis_dir.png
     :width: 600
 
 
-We can also run :code:`mrs_vis` to visualise the metabolite basis. Again below we do so for the simulated basis provided with the example data:
+We can also run :code:`mrs_tools vis` to visualise the metabolite basis. Again below we do so for the simulated basis provided with the example data:
 
 ::
 
-    mrs_vis example_usage/example_data/steam_11ms/
+  mrs_tools vis example_usage/example_data/steam_11ms/
 
 
 .. image:: data/mrs_vis_basis.png

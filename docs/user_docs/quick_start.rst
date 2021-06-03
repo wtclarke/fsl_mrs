@@ -34,9 +34,9 @@ But note that there are frequently multiple calibration scans for e.g. shimming 
 
 1.1 Take a look at your data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-You can use :code:`mrs_info` and :code:`mrs_vis` on the command line to view your data at any stage of the process. First mrs_info to see the dimensionality of the data::
+You can use :code:`mrs_tools info` and :code:`mrs_tools vis` on the command line to view your data at any stage of the process. First :code:`mrs_tools info` to see the dimensionality of the data::
 
-    mrs_info my_metab_file.nii.gz
+    mrs_tools info my_metab_file.nii.gz
 
     Read file my_metab_file.nii.gz (/path_to_file).
     NIfTI-MRS version 0.2
@@ -47,25 +47,25 @@ You can use :code:`mrs_info` and :code:`mrs_vis` on the command line to view you
     Nucleus: 1H
     Field Strength: 6.98 T
 
-Then mrs_vis to visualise the data::
+Then :code:`mrs_tools vis` to visualise the data::
 
-    mrs_vis my_metab_file.nii.gz
+    mrs_tools vis my_metab_file.nii.gz
 
-:code:`mrs_vis` will automatically perform coil combination and averaging down to a single spectrum for display purposes only.
+:code:`mrs_tools vis` will automatically perform coil combination and averaging down to a single spectrum for display purposes only.
 
 .. image:: data/raw_conv.png
     :width: 600
 
 You can also quickly view data across one of the NIfTI-MRS higher dimensions (those containing uncombined coils, or averages etc.) In this case we plot all the transients stored in the dimension tagged *DIM_DYN* (i.e. averages)::
 
-    mrs_vis my_metab_file.nii.gz --display_dim DIM_DYN
+    mrs_tools vis my_metab_file.nii.gz --display_dim DIM_DYN
 
 .. image:: data/mrs_vis_dir.png
     :width: 600
 
 If you see a significantly different picture (no data, just noise, etc.) stop and investigate. See :ref:`Troubleshooting <TS_4>`.
 
-Have a look at the :ref:`Visualisation <visualisation>` page for more information on :code:`mrs_vis`.
+Have a look at the :ref:`Visualisation <visualisation>` page for more information on :code:`mrs_tools vis`.
 
 2. Process your raw data
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -101,9 +101,9 @@ The fitting in FSL-MRS requires the user to provide basis spectra. Basis spectra
 
 `my_sequence_description.json` contains a description of the sequence broken down into blocks of RF pulses and gradients. This must be created for each sequence manually once. `metabs.txt` contains a list of metabolites to simulate. Much more information on constructing a suitable sequence description JSON file can be found on the :ref:`Basis Spectra Simulation <simulation>` page. 
 
-Have a quick check of your basis set using mrs_vis::
+Have a quick check of your basis set using :code:`mrs_tools vis`::
 
-    mrs_vis my_basis_spectra/
+    mrs_tools vis my_basis_spectra/
 
 4. Tissue Segmentation
 ~~~~~~~~~~~~~~~~~~~~~~
