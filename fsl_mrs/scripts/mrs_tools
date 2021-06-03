@@ -184,7 +184,7 @@ def vis(args):
 
     # Identify directory of nifti files
     elif p.is_dir() and len(nifti_files) > 0:
-        raise ValueError('mrs_vis should be called on a single'
+        raise ValueError('mrs_tools vis should be called on a single'
                          ' NIFTI-MRS file, not a directory (unless'
                          ' it contains basis files).')
 
