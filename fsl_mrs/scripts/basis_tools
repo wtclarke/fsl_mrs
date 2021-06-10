@@ -1,0 +1,192 @@
+#!/usr/bin/env python
+
+""" basis_tools - top level script for calling general mrs basis set handling tools
+
+Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
+
+Copyright (C) 2021 University of Oxford
+SHBASECOPYRIGHT
+"""
+
+import argparse
+from pathlib import Path
+
+from fsl_mrs import __version__
+
+
+def main():
+    # Parse command-line arguments
+    p = argparse.ArgumentParser(description="FSL Magnetic Resonance Spectroscopy - Basis Set Tools")
+
+    p.add_argument('-v', '--version', action='version', version=__version__)
+
+    sp = p.add_subparsers(title='subcommands',
+                          description='Availible tools',
+                          required=True,
+                          dest='subcommand')
+
+    # Info tool
+    infoparser = sp.add_parser(
+        'info',
+        help='Information about the basis set.')
+    infoparser.add_argument(
+        'file',
+        type=Path,
+        help='Basis file or folder')
+    infoparser.set_defaults(func=info)
+
+    # Vis tool
+    visparser = sp.add_parser(
+        'vis',
+        help='Quick visualisation of a basis set.')
+    visparser.add_argument('file', type=Path, metavar='FILE or DIR',
+                           help='NIfTI file or directory of basis sets')
+    visparser.add_argument('--ppmlim', default=(.2, 4.2), type=float,
+                           nargs=2, metavar=('LOW', 'HIGH'),
+                           help='limit the fit to a freq range (default=(.2,4.2))')
+    visparser.set_defaults(func=vis)
+
+    # Convert tool - Convert lcm or jmrui format to fsl format
+    convertparser = sp.add_parser(
+        'convert',
+        help='Convert LCModel or jMRUI formated basis to FSL format.')
+    convertparser.add_argument('input', type=Path,
+                               help='Input basis file or folder')
+    convertparser.add_argument('output', type=Path,
+                               help='Output fsl formatted folder, will be created if needed.')
+    convertparser.set_defaults(func=convert)
+
+    # Add tool - add a json formatted fid to a basis set
+    addparser = sp.add_parser(
+        'add',
+        help='Add a json formatted basis spectrum to a basis set.')
+    addparser.add_argument('new', type=Path,
+                           help='Basis to add')
+    addparser.add_argument('target', type=str,
+                           help='Basis to add to.')
+    addparser.add_argument('--info', type=str, default=None,
+                           help='Optional info string added to basis file.')
+    addparser.add_argument('--name', type=str, default=None,
+                           help='Optionally provide a different name for the basis.')
+    addparser.add_argument('--scale', action="store_true",
+                           help='Rescale amplitude to mean of target basis.')
+    addparser.set_defaults(func=add)
+
+    # Shift tool
+    shiftparser = sp.add_parser(
+        'shift',
+        help='Frequency shift a single basis spectrum.')
+    shiftparser.add_argument('file', type=Path,
+                             help='Basis file to modify')
+    shiftparser.add_argument('metabolite', type=str,
+                             help='Metabolite to shift')
+    shiftparser.add_argument('ppm_shift', type=float,
+                             help='Shift to apply (in ppm).')
+    shiftparser.add_argument('output', type=Path,
+                             help='Output location, can overwrite.')
+    shiftparser.set_defaults(func=shift)
+
+    # Rescale tool
+    scaleparser = sp.add_parser(
+        'scale',
+        help='Rescale a single basis spectrum to the mean of the other spectra.')
+    scaleparser.add_argument('file', type=Path,
+                             help='Basis file to modify')
+    scaleparser.add_argument('metabolite', type=str,
+                             help='Metabolite to shift')
+    scaleparser.add_argument('--target_scale', type=float,
+                             default=None,
+                             help='Use to specifiy an explicit scaling.')
+    scaleparser.add_argument('output', type=Path,
+                             help='Output location, can overwrite.')
+    scaleparser.set_defaults(func=rescale)
+
+    # Parse command-line arguments
+    args = p.parse_args()
+
+    # Call function
+    args.func(args)
+
+
+def info(args):
+    """Prints basic information about Basis sets
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils.mrs_io import read_basis
+    print(read_basis(args.file))
+
+
+def vis(args):
+    """Visualiser for Basis set
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils.mrs_io import read_basis
+    import matplotlib.pyplot as plt
+
+    # Some heuristics
+    if args.file.is_dir():
+        conj = True
+    else:
+        conj = False
+
+    basis = read_basis(args.file)
+    _ = basis.plot(ppmlim=args.ppmlim, conjugate=conj)
+    plt.show()
+
+
+def convert(args):
+    """Converter for lcm/jmrui basis sets
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils import basis_tools
+    basis_tools.convert_lcm_basis(args.input, args.output)
+
+
+def add(args):
+    from fsl_mrs.utils import basis_tools
+    import json
+    import numpy as np
+
+    with open(args.new, 'r') as fp:
+        json_dict = json.load(fp)
+
+    if 'basis' in json_dict:
+        json_dict = json_dict['basis']
+
+    fid = np.asarray(json_dict['basis_re']) + 1j * np.asarray(json_dict['basis_im'])
+    if args.name:
+        name = args.name
+    else:
+        name = json_dict['basis_name']
+    cf = json_dict['basis_centre']
+    bw = 1 / json_dict['basis_dwell']
+    width = json_dict['basis_width']
+
+    basis_tools.add_basis(fid, name, cf, bw, args.target, scale=args.scale, width=width, sim_info=args.info)
+
+
+def shift(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+
+    basis = read_basis(args.file)
+    basis = basis_tools.shift_basis(basis, args.metabolite, args.ppm_shift)
+
+    basis.save(args.output, overwrite=True)
+
+
+def rescale(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+
+    basis = read_basis(args.file)
+    basis = basis_tools.rescale_basis(basis, args.metabolite, args.target_scale)
+
+    basis.save(args.output, overwrite=True)
+
+
+if __name__ == '__main__':
+    main()

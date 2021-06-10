@@ -62,6 +62,10 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, sim_info='Manu
     :param scale: Rescale the fid so its norm is the mean of the norms of the
      other basis spectra, defaults to False
     :type scale: bool, optional
+    :param width: Width (fwhm in Hz) of added basis, defaults to None. If None it will be estimated.
+    :type width: float, optional
+    :param sim_info: String added to the meta.SimVersion field, defaults to 'Manually added'
+    :type sim_info: str, optional
     """
     # 1. Check that target exists
     target = Path(target)
@@ -97,7 +101,7 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, sim_info='Manu
     target_basis.add_fid_to_basis(resampled_fid, name, width=width)
 
     # 6. Write to json without overwriting existing files
-    target_basis.save(target)
+    target_basis.save(target, info_str=sim_info)
 
 
 def shift_basis(basis, name, amount):
@@ -126,4 +130,26 @@ def shift_basis(basis, name, amount):
 
 
 def rescale_basis(basis, name, target_scale=None):
-    pass
+    """Rescale a single basis FID in place to either the mean of the set or a particular target
+
+    :param basis: Unmodified basis set
+    :type basis: fsl_mrs.core.basis.Basis
+    :param name: Metabolite name to SCALE
+    :type name: str
+    :param target_scale: Norm of slected basis will be scaled to this target, defaults to None = mean of other FIDs
+    :type target_scale: float, optional
+    :return: Basis object with new scaling
+    :rtype: fsl_mrs.core.basis.Basis
+    """
+    index = basis.names.index(name)
+    indexed_fid = basis.original_basis_array[:, index]
+    all_except_index = np.delete(basis.original_basis_array, index, axis=1)
+
+    if target_scale:
+        indexed_fid *= target_scale / np.linalg.norm(indexed_fid)
+    else:
+        indexed_fid *= np.linalg.norm(np.mean(all_except_index, axis=1), axis=0) / np.linalg.norm(indexed_fid)
+
+    basis.update_fid(indexed_fid, name)
+
+    return basis

@@ -73,3 +73,21 @@ def test_shift():
     t = basis.original_time_axis
     shifted_fid = basis.original_basis_array[:, index] * np.exp(-1j * 2 * np.pi * t * amount_in_hz)
     assert np.allclose(shifted.original_basis_array[:, index], shifted_fid)
+
+
+def test_rescale():
+    basis = mrs_io.read_basis(fsl_basis_path)
+
+    index = basis.names.index('Mac')
+    indexed_fid = basis.original_basis_array[:, index]
+    original_scale = np.linalg.norm(indexed_fid)
+
+    basis = basis_tools.rescale_basis(basis, 'Mac')
+    indexed_fid = basis.original_basis_array[:, index]
+    new_scale = np.linalg.norm(indexed_fid)
+    assert new_scale != original_scale
+
+    basis = basis_tools.rescale_basis(basis, 'Mac', target_scale=1.0)
+    indexed_fid = basis.original_basis_array[:, index]
+    new_scale = np.linalg.norm(indexed_fid)
+    assert np.isclose(new_scale, 1.0)
