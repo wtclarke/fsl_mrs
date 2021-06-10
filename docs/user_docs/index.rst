@@ -25,6 +25,7 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    quantitation
    macromolecules
    simulation
+   basis_tools
    visualisation
    constants
    troubleshooting

@@ -53,6 +53,8 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 : simulate basis spectra
 - **mrs_tools**
 : Collection of tools for NIfTI-MRS. Includes quick visualisation and information.
+- **basis_tools**
+: Collection of tools for manipulating basis sets.
 - **svs_segment & mrsi_segment**
 : Run tissue segmentation for SVS/MRSI from T1 image.
 
