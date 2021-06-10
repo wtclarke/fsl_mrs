@@ -29,15 +29,17 @@ def data():
     basisNames = ['Cr', 'PCr', 'NAA']
 
     basisFIDs = []
-    basisHdr = None
+    basisHdr = []
     for idx, _ in enumerate(amplitude):
-        tmp, basisHdr = syntheticFID(noisecovariance=[[0.0]],
-                                     chemicalshift=[chemshift[idx]],
-                                     amplitude=[1.0],
-                                     linewidth=[lw[idx] / 5],
-                                     phase=[phases[idx]],
-                                     g=[g[idx]])
+        tmp, hdr = syntheticFID(noisecovariance=[[0.0]],
+                                chemicalshift=[chemshift[idx]],
+                                amplitude=[1.0],
+                                linewidth=[lw[idx] / 5],
+                                phase=[phases[idx]],
+                                g=[g[idx]])
+        hdr['fwhm'] = lw[idx] / 5
         basisFIDs.append(tmp[0])
+        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
 
     synFID, synHdr = syntheticFID(noisecovariance=[[noiseCov]],
@@ -145,9 +147,9 @@ def test_fit_FSLModel_on_invivo_sim():
                                                   broadening=(9.0, 9.0),
                                                   concentrations={'Mac': 2.0})
 
-    basis, names, header = mrs_io.read_basis(basis_path)
+    basis = mrs_io.read_basis(basis_path)
 
-    mrs = MRS(FID=FIDs, header=hdr, basis=basis, basis_hdr=header[0], names=names)
+    mrs = MRS(FID=FIDs, header=hdr, basis=basis)
     mrs.processForFitting()
 
     metab_groups = [0] * mrs.numBasis
@@ -162,6 +164,6 @@ def test_fit_FSLModel_on_invivo_sim():
     fittedRelconcs = res.getConc(scaling='internal', metab=mrs.names)
 
     answers = np.asarray(trueconcs)
-    answers /= (answers[names.index('Cr')] + trueconcs[names.index('PCr')])
+    answers /= (answers[basis.names.index('Cr')] + trueconcs[basis.names.index('PCr')])
 
     assert np.allclose(fittedRelconcs, answers, atol=5E-2)

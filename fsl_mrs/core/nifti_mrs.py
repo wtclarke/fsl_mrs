@@ -15,7 +15,7 @@ from nibabel.nifti1 import Nifti1Extension
 from nibabel.nifti2 import Nifti2Header
 
 from fsl.data.image import Image
-from fsl_mrs.core import MRS, MRSI
+import fsl_mrs.core as core
 from fsl_mrs.utils.misc import checkCFUnits
 
 
@@ -373,13 +373,25 @@ class NIFTI_MRS(Image):
         else:
             raise TypeError('dim should be int or a string matching one of the dim tags.')
 
-    def generate_mrs(self, dim=None, basis_file=None, basis=None, names=None, basis_hdr=None, ref_data=None):
-        """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list."""
+    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None):
+        """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
+
+        :param dim: Dimension to generate over, dimension index (4, 5, 6) or tag. None iterates over all indices,
+            defaults to None
+        :type dim: Int or str, optional
+        :param basis_file: Path to basis file, defaults to None
+        :type basis_file: Str, optional
+        :param basis: Basis object, defaults to None
+        :type basis: fsl_mrs.core.basis.Basis, optional
+        :param ref_data: Reference data as a path string, NIfTI-MRS object or ndarray, defaults to None
+        :type ref_data: Str or fsl_mrs.core.NIFTI_MRS or numpy.ndarray, optional
+        :yield: MRS or MRSI object
+        :rtype: fsl_mrs.core.MRS or fsl_mrs.core.MRSI
+        """
 
         if basis_file is not None:
             import fsl_mrs.utils.mrs_io as mrs_io
-            basis, names, basis_hdr = mrs_io.read_basis(basis_file)
-            basis_hdr = basis_hdr[0]
+            basis = mrs_io.read_basis(basis_file)
 
         if ref_data is not None:
             if isinstance(ref_data, str):
@@ -399,24 +411,20 @@ class NIFTI_MRS(Image):
                     pass
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
-                        out.append(MRSI(FID=dd,
-                                        bw=self.bandwidth,
-                                        cf=self.spectrometer_frequency[0],
-                                        nucleus=self.nucleus[0],
-                                        basis=basis,
-                                        names=names,
-                                        basis_hdr=basis_hdr,
-                                        H2O=ref_data))
+                        out.append(core.MRSI(FID=dd,
+                                             bw=self.bandwidth,
+                                             cf=self.spectrometer_frequency[0],
+                                             nucleus=self.nucleus[0],
+                                             basis=basis,
+                                             H2O=ref_data))
                     yield out
                 else:
-                    yield MRSI(FID=data,
-                               bw=self.bandwidth,
-                               cf=self.spectrometer_frequency[0],
-                               nucleus=self.nucleus[0],
-                               basis=basis,
-                               names=names,
-                               basis_hdr=basis_hdr,
-                               H2O=ref_data)
+                    yield core.MRSI(FID=data,
+                                    bw=self.bandwidth,
+                                    cf=self.spectrometer_frequency[0],
+                                    nucleus=self.nucleus[0],
+                                    basis=basis,
+                                    H2O=ref_data)
             else:
                 if ref_data is not None:
                     ref_data = ref_data.squeeze()
@@ -425,24 +433,20 @@ class NIFTI_MRS(Image):
                 if data.ndim > 4:
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
-                        out.append(MRS(FID=dd.squeeze(),
-                                       bw=self.bandwidth,
-                                       cf=self.spectrometer_frequency[0],
-                                       nucleus=self.nucleus[0],
-                                       basis=basis,
-                                       names=names,
-                                       basis_hdr=basis_hdr,
-                                       H2O=ref_data))
+                        out.append(core.MRS(FID=dd.squeeze(),
+                                            bw=self.bandwidth,
+                                            cf=self.spectrometer_frequency[0],
+                                            nucleus=self.nucleus[0],
+                                            basis=basis,
+                                            H2O=ref_data))
                     yield out
                 else:
-                    yield MRS(FID=data.squeeze(),
-                              bw=self.bandwidth,
-                              cf=self.spectrometer_frequency[0],
-                              nucleus=self.nucleus[0],
-                              basis=basis,
-                              names=names,
-                              basis_hdr=basis_hdr,
-                              H2O=ref_data)
+                    yield core.MRS(FID=data.squeeze(),
+                                   bw=self.bandwidth,
+                                   cf=self.spectrometer_frequency[0],
+                                   nucleus=self.nucleus[0],
+                                   basis=basis,
+                                   H2O=ref_data)
 
     def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))

@@ -98,7 +98,7 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
                   nucleus='1H')
         mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
-        mrs.ignore(['Gly'])
+        mrs.ignore = ['Gly']
         mrsList.append(mrs)
 
     mrsList[0].rescaleForFitting()

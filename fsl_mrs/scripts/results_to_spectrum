@@ -47,27 +47,25 @@ def main():
 
     # Load data into mrs object
     FID = mrs_io.read_FID(orig_args['data'])
-    basis, names, basisheader = mrs_io.read_basis(orig_args['basis'])
+    basis = mrs_io.read_basis(orig_args['basis'])
 
     # Instantiate MRS object
-    mrs = FID.mrs(basis=basis,
-                  names=names,
-                  basis_hdr=basisheader[0])
+    mrs = FID.mrs(basis=basis)
     if orig_args['conjfid'] is not None:
         if orig_args['conjfid']:
-            mrs.conj_FID()
+            mrs.conj_FID = True
         else:
             mrs.check_FID(repair=True)
 
     if orig_args['conjbasis'] is not None:
         if orig_args['conjbasis']:
-            mrs.conj_Basis()
+            mrs.conj_Basis = True
         else:
             mrs.check_Basis(repair=True)
     if not orig_args['no_rescale']:
         mrs.rescaleForFitting(ind_scaling=orig_args['ind_scale'])
-    mrs.keep(orig_args['keep'])
-    mrs.ignore(orig_args['ignore'])
+    mrs.keep = orig_args['keep']
+    mrs.ignore = orig_args['ignore']
 
     if orig_args['lorentzian']:
         model = 'lorentzian'

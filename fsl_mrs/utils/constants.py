@@ -112,3 +112,10 @@ MCMC_PRIORS = {'lorentzian': {'conc_loc': 0.0, 'conc_scale': 1E0,
                          'eps_loc': 0.0, 'eps_scale': 0.005,    # ppm
                          'phi0_loc': 0.0, 'phi0_scale': 5.0,   # degrees
                          'phi1_loc': 0.0, 'phi1_scale': 1E-5}}  # seconds
+
+'''
+DEFAULT MM BASIS SET
+Shift and amplitude values for the default macromolecule basis set
+'''
+DEFAULT_MM_PPM = [0.9, 1.2, 1.4, 1.7, [2.08, 2.25, 1.95, 3.0]]
+DEFAULT_MM_AMP = [3.0, 2.0, 2.0, 2.0, [1.33, 0.33, 0.33, 0.4]]

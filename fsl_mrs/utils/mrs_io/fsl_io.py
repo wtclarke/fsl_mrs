@@ -13,7 +13,9 @@ import os
 import glob
 import re
 import scipy.signal as ss
-from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+import fsl_mrs.core.nifti_mrs as nifti_mrs
+from pathlib import Path
+from datetime import datetime
 
 
 # NIFTI I/O
@@ -46,17 +48,17 @@ def readNIFTI(datafile):
         else:
             nucleus = '1H'
 
-    return gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus=nucleus, affine=data_hdr.affine)
+    return nifti_mrs.gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus=nucleus, affine=data_hdr.affine)
 
 
 def saveNIFTI(filepath, data, header, affine=None):
     '''Provide translation layer from old interface to new NIFTI_MRS'''
 
-    gen_new_nifti_mrs(data,
-                      1 / header['bandwidth'],
-                      header['centralFrequency'],
-                      nucleus=header['ResonantNucleus'],
-                      affine=affine).save(filepath)
+    nifti_mrs.gen_new_nifti_mrs(data,
+                                1 / header['bandwidth'],
+                                header['centralFrequency'],
+                                nucleus=header['ResonantNucleus'],
+                                affine=affine).save(filepath)
 
 
 # JSON sidecar I/O
@@ -92,6 +94,7 @@ def writeJSON(fileOut, outputDict):
 # This will take longer but avoids the need for interpolation.
 # It also allows for arbitrary shifting of the readout central frequency
 def readFSLBasisFiles(basisFolder, readoutShift=4.65, bandwidth=None, points=None):
+    basisFolder = str(basisFolder)
     if not os.path.isdir(basisFolder):
         raise ValueError(' ''basisFolder'' must be a folder containing basis json files.')
     # loop through all files in folder
@@ -145,6 +148,44 @@ def readFSLBasis(filename, N=None, dofft=False):
             raise ValueError('FSL basis file must have a ''basis'' field.')
 
     return data, metabo, header
+
+
+def write_fsl_basis_file(basis, name, header, out_dir, info=''):
+    """Write a single fsl-mrs formatted basis set to file
+
+    :param basis: 1D numpy array containing basis fid
+    :type basis: numpy.ndarray
+    :param name: Name of basis fid
+    :type name: str
+    :param header: header of same type read from basis file. See readFSLBasis
+    :type header: dict
+    :param out_dir: Directory to write file to.
+    :type out_dir: pathlib.Path or str
+    :param info: Set meta.SimVersion field, defaults to ''
+    :type info: str, optional
+    """
+    # Ensure the directory exists
+    if isinstance(out_dir, str):
+        out_dir = Path(out_dir)
+
+    if out_dir.exists():
+        if out_dir.is_file():
+            raise ValueError('out_dir should be directory.')
+    else:
+        out_dir.mkdir(parents=True)
+
+    # Form dict for fsl format
+    bs_dict = {'basis': {'basis_re': basis.conj().real.tolist(),
+                         'basis_im': basis.conj().imag.tolist(),
+                         'basis_dwell': header['dwelltime'],
+                         'basis_centre': header['centralFrequency'] / 1E6,
+                         'basis_width': header['fwhm'],
+                         'basis_name': name},
+               'meta': {'time': datetime.now().strftime("%Y%m%d_%H%M%S"),
+                        'SimVersion': info}}
+
+    # 6. Write dict to json
+    writeJSON(out_dir / (name + '.json'), bs_dict)
 
 
 # Load an FSL basis file.

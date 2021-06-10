@@ -94,9 +94,9 @@ def test_nifti_mrs_gen_mrs():
         assert mrs[0].basis.shape == (4096, 20)
         break
 
-    basis, names, basishdr = mrs_io.read_basis(str(data['basis']))
+    basis = mrs_io.read_basis(str(data['basis']))
     for mrs in obj.generate_mrs(dim='DIM_DYN',
-                                basis=basis, names=names, basis_hdr=basishdr[0],
+                                basis=basis,
                                 ref_data=str(data['water'])):
         assert len(mrs) == 64
         assert mrs[0].FID.shape == (4096,)

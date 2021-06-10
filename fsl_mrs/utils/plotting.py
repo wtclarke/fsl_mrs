@@ -20,7 +20,7 @@ import nibabel as nib
 import scipy.ndimage as ndimage
 import itertools as it
 
-from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
+from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, limit_to_range
 
 
 def FID2Spec(x):
@@ -294,7 +294,17 @@ def plot_fid(mrs, tlim=None, FID=None, proj='real', c='k'):
     return plt.gcf()
 
 
-def plot_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5)):
+def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5)):
+    """Plot the formatted basis and optionally the FID from an mrs object
+
+    :param mrs: MRS object
+    :type mrs: fsl_mrs.core.mrs.MRS
+    :param plot_spec: If True plot the spectrum on same axes, defaults to False
+    :type plot_spec: bool, optional
+    :param ppmlim: Chemical shift plotting range, defaults to (0.0, 4.5)
+    :type ppmlim: tuple, optional
+    :return: Figure object
+    """
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
 
     for idx, n in enumerate(mrs.names):
@@ -306,6 +316,40 @@ def plot_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5)):
         plt.plot(mrs.getAxes(ppmlim=ppmlim),
                  np.real(mrs.get_spec(ppmlim=ppmlim)),
                  'k', label='Data')
+
+    plt.gca().invert_xaxis()
+    plt.xlabel('Chemical shift (ppm)')
+    plt.legend()
+
+    return plt.gcf()
+
+
+def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
+    """Plot the basis contained in a Basis object
+
+    :param basis: Basis object
+    :type basis: fsl_mrs.core.basis.Basis
+    :param ppmlim: Chemical shift plotting limits on x axis, defaults to (0.0, 4.5)
+    :type ppmlim: tuple, optional
+    :param shift: Apply chemical shift referencing shift, defaults to True.
+    :type shift: Bool, optional
+    :param conjugate: Apply conjugation (flips frequency direction), defaults to False.
+    :type conjugate: Bool, optional
+    :return: Figure object
+    """
+    if shift:
+        axis = basis.original_ppm_shift_axis
+    else:
+        axis = basis.original_ppm_axis
+    first, last = limit_to_range(axis, ppmlim)
+
+    for idx, n in enumerate(basis.names):
+        FID = basis.original_basis_array[:, idx]
+        if conjugate:
+            FID = FID.conj()
+        plt.plot(axis[first:last],
+                 np.real(FID2Spec(FID))[first:last],
+                 label=n)
 
     plt.gca().invert_xaxis()
     plt.xlabel('Chemical shift (ppm)')

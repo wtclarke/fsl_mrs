@@ -141,10 +141,9 @@ def vis(args):
     :param args: Argparse interpreted arguments
     :type args: Namespace
     """
-    from fsl_mrs.utils.plotting import plot_spectrum, FID2Spec, plot_spectra
+    from fsl_mrs.utils.plotting import plot_spectrum, plot_spectra
     from fsl_mrs.utils.mrs_io import read_FID, read_basis
     import matplotlib.pyplot as plt
-    from fsl_mrs.core import MRS
     import numpy as np
     from fsl_mrs.utils.preproc import nifti_mrs_proc
     import nibabel as nib
@@ -154,29 +153,17 @@ def vis(args):
     nifti_files = list(p.glob('*.nii*'))
 
     # Identify BASIS
-    if p.is_dir() and len(nifti_files) == 0 or \
-       p.suffix.upper() == '.BASIS':
+    if (p.is_dir() and len(nifti_files) == 0)\
+            or p.suffix.upper() == '.BASIS':
 
-        basis, names, basishdr = read_basis(args.file)
-        fid = np.zeros(basis.shape[0])
+        # Some heuristics
+        if p.is_dir():
+            conj = True
+        else:
+            conj = False
 
-        mrs = MRS(FID=fid,
-                  header=basishdr[0],
-                  basis=basis,
-                  names=names,
-                  basis_hdr=basishdr[0])
-
-        mrs.check_Basis(repair=True)
-        first, last = mrs.ppmlim_to_range(ppmlim=args.ppmlim)
-        plt.figure(figsize=(8, 8))
-        for idx, n in enumerate(names):
-            plt.plot(mrs.getAxes(ppmlim=args.ppmlim),
-                     np.real(FID2Spec(mrs.basis[:, idx]))[first:last],
-                     label=n)
-
-        plt.gca().invert_xaxis()
-        plt.xlabel('Chemical shift (ppm)')
-        plt.legend()
+        basis = read_basis(args.file)
+        fig = basis.plot(ppmlim=args.ppmlim, conjugate=conj)
         if args.save is not None:
             plt.savefig(args.save)
         else:

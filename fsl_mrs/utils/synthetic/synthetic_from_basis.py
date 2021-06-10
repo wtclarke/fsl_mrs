@@ -11,6 +11,7 @@ from fsl_mrs.utils.misc import SpecToFID, parse_metab_groups
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils import models
 from pathlib import Path
 
@@ -59,19 +60,19 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
     """
 
     if isinstance(basisFile, (str, Path)):
-        basis, names, header = mrs_io.read_basis(basisFile)
+        basis = mrs_io.read_basis(basisFile)
+    elif isinstance(basisFile, Basis):
+        basis = basisFile
     else:
-        basis, names, header = basisFile
+        basis = Basis(*basisFile)
 
     empty_mrs = MRS(FID=np.ones((points,)),
-                    cf=header[0]['centralFrequency'],
+                    cf=basis.cf,
                     bw=bandwidth,
                     nucleus='1H',
-                    basis=basis,
-                    names=names,
-                    basis_hdr=header[0])
+                    basis=basis)
 
-    empty_mrs.ignore(ignore)
+    empty_mrs.ignore = ignore
     empty_mrs.processForFitting(ind_scaling=ind_scaling)
 
     mg = parse_metab_groups(empty_mrs, metab_groups)
@@ -85,7 +86,7 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
     elif isinstance(concentrations, (list, np.ndarray)):
         if len(concentrations) != len(empty_mrs.names):
             raise ValueError(f'Concentrations must have the same number of elements as basis spectra.'
-                             f'{len(concentrations)} concentrations, {len(names)} basis spectra.')
+                             f'{len(concentrations)} concentrations, {len(basis.names)} basis spectra.')
     elif isinstance(concentrations, dict):
         newconcs = []
         for name in empty_mrs.names:

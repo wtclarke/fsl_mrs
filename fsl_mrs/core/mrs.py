@@ -11,56 +11,86 @@ import warnings
 
 from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
+from fsl_mrs.core.basis import Basis
 
 import numpy as np
 
 
-class BasisHasInsufficentCoverage(Exception):
-    pass
-
-
 class MRS(object):
     """
-      MRS Class - container for FID, Basis, and sequence info
+      MRS Class - The basic unit for fitting. Encapsulates a single spectrum, the basis spectra,
+      and water reference information required to carry out fitting.
     """
     def __init__(self, FID=None, header=None, basis=None, names=None,
                  basis_hdr=None, H2O=None, cf=None, bw=None, nucleus=None):
+        """Main init for the MRS class
+
+        :param FID: [description], defaults to None
+        :type FID: [type], optional
+        :param header: [description], defaults to None
+        :type header: [type], optional
+        :param basis: [description], defaults to None
+        :type basis: [type], optional
+        :param names: [description], defaults to None
+        :type names: [type], optional
+        :param basis_hdr: [description], defaults to None
+        :type basis_hdr: [type], optional
+        :param H2O: [description], defaults to None
+        :type H2O: [type], optional
+        :param cf: [description], defaults to None
+        :type cf: [type], optional
+        :param bw: [description], defaults to None
+        :type bw: [type], optional
+        :param nucleus: [description], defaults to None
+        :type nucleus: [type], optional
+        :raises ValueError: [description]
+        :raises TypeError: [description]
+        """
+        # properties that need defaults
+        self._fid_scaling = 1.0
+        self._keep = []
+        self._ignore = []
+        self._keep_ignore = []
+        self._conj_basis = False
+        self._conj_fid = False
+        self._scaling_factor = None
+        self._indept_scale = []
 
         # Read in class data input
-        # If there is no FID data then return empty class object.
-        # Data is copied.
-        if FID is not None:
-            self.set_FID(FID)
-        else:
-            return
-
-        self.set_H2O(H2O)
+        self.FID = FID
+        self.H2O = H2O
 
         # Set FID class attributes
         if header is not None:
             self.set_acquisition_params(
-                centralFrequency=header['centralFrequency'],
-                bandwidth=header['bandwidth'])
+                header['centralFrequency'],
+                header['bandwidth'])
 
             self.set_nucleus(header=header, nucleus=nucleus)
-            self.calculate_axes()
+            self._calculate_axes()
 
         elif (cf is not None) and (bw is not None):
             self.set_acquisition_params(
-                centralFrequency=cf,
-                bandwidth=bw)
+                cf,
+                bw)
             self.set_nucleus(nucleus=nucleus)
-            self.calculate_axes()
+            self._calculate_axes()
         else:
             raise ValueError('You must pass a header'
                              ' or bandwidth, nucleus, and central frequency.')
 
         # Set Basis info
-        self.set_basis(basis, names, basis_hdr)
-
-        # Other properties that need defaults
-        self.metab_groups = None
-        self.scaling = {'FID': 1.0, 'basis': 1.0}
+        # After refactor still handle the old syntax of basis, names, headers
+        # But also handle a Basis obejct
+        if basis is not None:
+            if isinstance(basis, np.ndarray):
+                self.basis = Basis(basis, names, basis_hdr)
+            elif isinstance(basis, Basis):
+                self.basis = basis
+            else:
+                raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
+        else:
+            self._basis = None
 
     def __str__(self):
         cf_MHz = self.centralFrequency / 1e6
@@ -86,7 +116,283 @@ class MRS(object):
     def __repr__(self) -> str:
         return str(self)
 
-    # Acquisition parameters
+    # Properties
+    @property
+    def FID(self):
+        """Returns the FID"""
+        if self._conj_fid:
+            return self._FID.conj()
+        else:
+            return self._FID
+
+    @FID.setter
+    def FID(self, FID):
+        """
+          Sets the FID
+        """
+        if FID.ndim > 1:
+            raise ValueError(f'MRS objects only handle one FID at a time.'
+                             f' FID shape is {FID.shape}.')
+        self._FID = FID.copy()
+
+    @property
+    def numPoints(self):
+        return self.FID.size
+
+    @property
+    def H2O(self):
+        """Returns the reference FID"""
+        if self._H2O is None:
+            return None
+
+        if self._conj_fid:
+            return self._H2O.conj()
+        else:
+            return self._H2O
+
+    @H2O.setter
+    def H2O(self, FID):
+        """
+          Sets the water reference FID
+        """
+        if FID is None:
+            self._H2O = None
+            self.numPoints_H2O = None
+            return
+
+        if FID.ndim > 1:
+            raise ValueError(f'MRS objects only handle one FID at a time.'
+                             f' H2O FID shape is {FID.shape}.')
+        self._H2O = FID.copy()
+        self.numPoints_H2O = FID.size
+
+    @property
+    def centralFrequency(self):
+        return self._cf
+
+    @centralFrequency.setter
+    def centralFrequency(self, cf):
+        # Store CF in Hz
+        self._cf = misc.checkCFUnits(cf)
+
+    @property
+    def bandwidth(self):
+        return self._bandwidth
+
+    @bandwidth.setter
+    def bandwidth(self, bw):
+        # Store bandwidth in Hz
+        self._bandwidth = bw
+
+    @property
+    def dwellTime(self):
+        return 1 / self._bandwidth
+
+    @dwellTime.setter
+    def dwellTime(self, dt):
+        # Store dwellTime as bandwidth in Hz
+        self._bandwidth = 1 / dt
+
+    @property
+    def nucleus(self):
+        return self._nucleus
+
+    @property
+    def conj_FID(self):
+        """Conjugation state of FID"""
+        return self._conj_fid
+
+    @conj_FID.setter
+    def conj_FID(self, value):
+        """Set conjugation state of FID
+
+        :param value: True or False
+        :type value: Bool
+        """
+        self._conj_fid = value
+
+    @property
+    def basis(self):
+        """Returns the currently formatted basis spectra"""
+        if self._basis is None:
+            return None
+        else:
+            if self._conj_basis:
+                return self._basis.get_formatted_basis(
+                    self.bandwidth,
+                    self.numPoints,
+                    ignore=self._keep_ignore,
+                    scale_factor=self._scaling_factor,
+                    indept_scale=self._indept_scale).conj()
+            else:
+                return self._basis.get_formatted_basis(
+                    self.bandwidth,
+                    self.numPoints,
+                    ignore=self._keep_ignore,
+                    scale_factor=self._scaling_factor,
+                    indept_scale=self._indept_scale)
+
+    @basis.setter
+    def basis(self, basis):
+        ''' Set basis in MRS class object '''
+        if isinstance(basis, Basis):
+            self._basis = basis
+        elif basis is None:
+            self._basis = None
+        else:
+            raise TypeError('Basis must be None or a fsl_mrs.core.basis.Basis object.')
+
+    @property
+    def conj_Basis(self):
+        """Conjugation state of basis spectra"""
+        return self._conj_basis
+
+    @conj_Basis.setter
+    def conj_Basis(self, value):
+        """Set conjugation state of basis spectra
+
+        :param value: True or False
+        :type value: Bool
+        """
+        self._conj_basis = value
+
+    @property
+    def names(self):
+        """Return the names of the basis spectra currently configured."""
+        if self._basis is None:
+            return None
+        else:
+            return self._basis.get_formatted_names(self._keep_ignore)
+
+    @property
+    def numBasis(self):
+        """Returns the number of currently configured basis spectra"""
+        if self._basis is None:
+            return None
+        else:
+            return len(self._basis.get_formatted_names(self._keep_ignore))
+
+    @property
+    def keep(self):
+        return self._keep
+
+    @keep.setter
+    def keep(self, metabs):
+        """Keep a subset of metabolites in the basis by ignoring all others.
+
+        :param metabs: List of metabolite names to keep.
+        :type metabs: List of str
+        """
+        if metabs is None or metabs == []:
+            self._keep = []
+            self._keep_ignore = []
+            if self._ignore != []:
+                self.ignore = self._ignore
+            return
+
+        for m in metabs:
+            if m not in self.names:
+                raise ValueError(f'{m} not in current list of metabolites'
+                                 f' ({self.names}).')
+
+        self._keep = metabs
+        self._keep_ignore += [m for m in self.names if m not in metabs]
+
+    @property
+    def ignore(self):
+        return self._ignore
+
+    @ignore.setter
+    def ignore(self, metabs):
+        """Ignore a subset of metabolites in the basis
+
+        :param metabs: List of metabolite names to remove
+        :type metabs: List of str
+        """
+        if metabs is None or metabs == []:
+            self._ignore = []
+            self._keep_ignore = []
+            if self._keep != []:
+                self.keep = self._keep
+            return
+
+        for m in metabs:
+            if m not in self.names:
+                raise ValueError(f'{m} not in current list of metabolites'
+                                 f' ({self.names}).')
+        self._ignore += metabs
+        self._keep_ignore += metabs
+
+    @property
+    def fid_scaling(self):
+        """Scaling applied to the FID"""
+        return self._fid_scaling
+
+    @property
+    def basis_scaling(self):
+        """Scaling applied to the Basis"""
+        if self._basis is not None:
+            return self._basis.get_rescale_values(
+                self.bandwidth,
+                self.numPoints,
+                ignore=self._keep_ignore,
+                scale_factor=self._scaling_factor,
+                indept_scale=self._indept_scale)
+        else:
+            return [None]
+
+    @property
+    def scaling(self):
+        """Return the scaling information as dict.
+        Mostly for backwards compatibility, use .fid_scaling
+        and .basis_scaling for new code.
+        """
+        return {'FID': self.fid_scaling,
+                'basis': self.basis_scaling[0]}
+
+    # Get methods
+    def get_spec(self, ppmlim=None, shift=True):
+        """Returns spectrum over defined ppm limits
+
+        :param ppmlim: Chemical shift range over which to retun the spectrum, defaults to None
+        :type ppmlim: 2-tuple of floats, optional
+        :param shift: Applies referenciing shift if True, defaults to True
+        :type shift: bool, optional
+        :return: Complex spectrum over requested range
+        :rtype: numpy.array
+        """
+        spectrum = misc.FIDToSpec(self.FID)
+        first, last = self.ppmlim_to_range(ppmlim, shift=shift)
+        return spectrum[first:last]
+
+    def getAxes(self, axis='ppmshift', ppmlim=None):
+        """Return x axis over defined limits
+        Options: ppmshift, ppm, freq, or time
+
+        :param axis: One of ppmshift, ppm, freq, or time, defaults to 'ppmshift'
+        :type axis: str, optional
+        :param ppmlim: Chemical shift range over which to retun the axes, defaults to None
+            No effect on 'time'
+        :type ppmlim: 2-tuple of floats, optional
+        :return: Returns the requested axis as numpy array
+        :rtype: numpy.array
+        """
+        if axis.lower() == 'ppmshift':
+            first, last = self.ppmlim_to_range(ppmlim, shift=True)
+            return np.squeeze(self.ppmAxisShift[first:last])
+        elif axis.lower() == 'ppm':
+            first, last = self.ppmlim_to_range(ppmlim, shift=False)
+            return np.squeeze(self.ppmAxis[first:last])
+        elif axis.lower() == 'freq':
+            first, last = self.ppmlim_to_range(ppmlim, shift=False)
+            return np.squeeze(self.frequencyAxis[first:last])
+        elif axis.lower() == 'time':
+            return np.squeeze(self.timeAxis)
+        else:
+            raise ValueError('axis must be one of ppmshift, '
+                             'ppm, freq or time.')
+
+    # Initilisation/setting methods
     def set_acquisition_params(self, centralFrequency, bandwidth):
         """
           Set useful params for fitting
@@ -97,41 +403,31 @@ class MRS(object):
           bandwidth : float (unit=Hz)
 
         """
-        # Store CF in Hz
-        self.centralFrequency = misc.checkCFUnits(centralFrequency)
+        self.centralFrequency = centralFrequency
         self.bandwidth = bandwidth
-        self.dwellTime = 1 / self.bandwidth
-
-    def set_acquisition_params_basis(self, dwelltime):
-        """
-           sets basis-specific timing params
-        """
-        # Basis has different dwelltime
-        self.basis_dwellTime = dwelltime
-        self.basis_bandwidth = 1 / dwelltime
-
-        axes = misc.calculateAxes(self.basis_bandwidth,
-                                  self.centralFrequency,
-                                  self.numBasisPoints,
-                                  self.default_ppm_shift)
-
-        self.basis_frequencyAxis = axes['freq']
-        self.basis_timeAxis = axes['time']
 
     def set_nucleus(self, header=None, nucleus=None):
+        """Set the nucleus of the FID. Can either pass explicitly, via a header or
+        attempt to infer from the central frequency.
+
+        :param header: Data header information, defaults to None
+        :type header: dict, optional
+        :param nucleus: Nucleus string (e.g. "1H", "31P"), defaults to None
+        :type nucleus: str, optional
+        """
         if nucleus is not None:
-            self.nucleus = nucleus
+            self._nucleus = nucleus
         elif header is not None and 'ResonantNucleus' in header:
             # Look for nucleus string in header
-            self.nucleus = header['ResonantNucleus']
+            self._nucleus = header['ResonantNucleus']
         elif header is not None \
                 and 'json' in header \
                     and 'ResonantNucleus' in header['json']:
             # Look for nucleus string in header
-            self.nucleus = header['json']['ResonantNucleus']
+            self._nucleus = header['json']['ResonantNucleus']
         else:
             # Else try to infer from central frequency range
-            self.nucleus = self.infer_nucleus(self.centralFrequency)
+            self._nucleus = self.infer_nucleus(self.centralFrequency)
 
         # Set associated parameters
         self.gyromagnetic_ratio = GYRO_MAG_RATIO[self.nucleus]
@@ -162,7 +458,7 @@ class MRS(object):
                          f' central frequency is {cf_MHz} MHz.'
                          'Pass nucleus parameter explicitly.')
 
-    def calculate_axes(self):
+    def _calculate_axes(self):
         ''' Calculate axes'''
         axes = misc.calculateAxes(self.bandwidth,
                                   self.centralFrequency,
@@ -179,37 +475,7 @@ class MRS(object):
         self.frequencyAxis = self.frequencyAxis[:, None]
         self.ppmAxisShift = self.ppmAxisShift[:, None]
 
-    def get_spec(self, ppmlim=None, shift=True):
-        '''Returns spectrum over defined ppm limits
-           Parameters:
-           -----------
-           ppmlim : tuple
-           shift: bool
-        '''
-        spectrum = misc.FIDToSpec(self.FID)
-        first, last = self.ppmlim_to_range(ppmlim, shift=shift)
-        return spectrum[first:last]
-
-    def getAxes(self, axis='ppmshift', ppmlim=None):
-        ''' Return x axis over defined limits
-            Axis must be one of ppmshift, ppm, freq,
-            or time.
-        '''
-        if axis.lower() == 'ppmshift':
-            first, last = self.ppmlim_to_range(ppmlim, shift=True)
-            return np.squeeze(self.ppmAxisShift[first:last])
-        elif axis.lower() == 'ppm':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.ppmAxis[first:last])
-        elif axis.lower() == 'freq':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.frequencyAxis[first:last])
-        elif axis.lower() == 'time':
-            return np.squeeze(self.timeAxis)
-        else:
-            raise ValueError('axis must be one of ppmshift, '
-                             'ppm, freq or time.')
-
+    # Other methods
     def ppmlim_to_range(self, ppmlim=None, shift=True):
         """
            turns ppmlim into data range
@@ -225,45 +491,10 @@ class MRS(object):
            int : first position
            int : last position
         """
-        if ppmlim is not None:
-            def ppm2range(x, shift):
-                if shift:
-                    return np.argmin(np.abs(self.ppmAxisShift - x))
-                else:
-                    return np.argmin(np.abs(self.ppmAxis - x))
-
-            first = ppm2range(ppmlim[0], shift)
-            last = ppm2range(ppmlim[1], shift)
-            if first > last:
-                first, last = last, first
+        if shift:
+            return misc.limit_to_range(self.ppmAxisShift, ppmlim)
         else:
-            first, last = 0, self.numPoints
-
-        return int(first), int(last)
-
-    def resample_basis(self):
-        """
-           Usually the basis is simulated using different
-           timings and/or number of points.
-           This interpolates the basis to match the FID
-
-           This only works if the basis has greater time-domain
-           coverage than the FID.
-        """
-        try:
-            self.basis = misc.ts_to_ts(self.basis,
-                                       self.basis_dwellTime,
-                                       self.dwellTime,
-                                       self.numPoints)
-        except misc.InsufficentTimeCoverageError:
-            raise BasisHasInsufficentCoverage('The basis spectra covers too little time. '
-                                              'Please provide a basis with time-domain coverage '
-                                              'greater than the input data. Alternatively truncate '
-                                              'your input data.')
-
-        self.basis_dwellTime = self.dwellTime
-        self.basis_bandwidth = 1 / self.dwellTime
-        self.numBasisPoints = self.numPoints
+            return misc.limit_to_range(self.ppmAxis, ppmlim)
 
     def processForFitting(self, ppmlim=(.2, 4.2), ind_scaling=None):
         """ Apply rescaling and run the conjugation checks"""
@@ -271,42 +502,26 @@ class MRS(object):
         self.check_Basis(ppmlim=ppmlim, repair=True)
         self.rescaleForFitting(ind_scaling=ind_scaling)
 
-    def rescaleForFitting(self, scale=100, ind_scaling=None):
-        """ Apply rescaling across data, basis and H20
-            If ind_scaling is specified individual basis spectra
-            can be rescaled independently (useful for MM).
+    def rescaleForFitting(self, scale=100.0, ind_scaling=[]):
+        """Apply rescaling across FID, basis, and H20
+
+        :param scale: Arbitrary scaling target, defaults to 100
+        :type scale: float, optional
+        :param ind_scaling: List of basis spectra to independently scale, defaults to []
+        :type ind_scaling: List of strings, optional
         """
 
-        scaledFID, scaling = misc.rescale_FID(self.FID, scale=scale)
-        self.set_FID(scaledFID)
+        scaledFID, scaling = misc.rescale_FID(self._FID, scale=scale)
+        self._FID = scaledFID
         # Apply the same scaling to the water FID.
         if self.H2O is not None:
             self.H2O *= scaling
 
-        # Scale basis
-        if self.basis is not None:
-            if ind_scaling is None:
-                self.basis, scaling_basis = misc.rescale_FID(self.basis,
-                                                             scale=scale)
-            else:
-                index = [self.names.index(n) for n in ind_scaling]
-                # First scale all those not selected together.
-                mask = np.zeros_like(self.names, dtype=bool)
-                mask[index] = True
-                self.basis[:, ~mask], scaling_basis = misc.rescale_FID(
-                    self.basis[:, ~mask],
-                    scale=scale)
-                scaling_basis = [scaling_basis]
-                # Then loop over basis spec to independently scale
-                for idx in index:
-                    self.basis[:, idx], tmp = misc.rescale_FID(
-                        self.basis[:, idx],
-                        scale=scale)
-                    scaling_basis.append(tmp)
-        else:
-            scaling_basis = None
+        self._fid_scaling = scaling
 
-        self.scaling = {'FID': scaling, 'basis': scaling_basis}
+        # Set scaling options that will be dynamically applied when the formatted basis is fetched.
+        self._scaling_factor = scale
+        self._indept_scale = ind_scaling
 
     def check_FID(self, ppmlim=(.2, 4.2), repair=False):
         """
@@ -333,16 +548,10 @@ class MRS(object):
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
                 return -1
             else:
-                self.conj_FID()
+                self.conj_FID = True
                 return 1
 
         return 0
-
-    def conj_FID(self):
-        """
-        Conjugate FID
-        """
-        self.FID = np.conj(self.FID)
 
     def check_Basis(self, ppmlim=(.2, 4.2), repair=False):
         """
@@ -362,7 +571,8 @@ class MRS(object):
         first, last = self.ppmlim_to_range(ppmlim)
 
         conjOrNot = []
-        for b in self.basis.T:
+        basis = self.basis
+        for b in basis.T:
             Spec1 = np.real(misc.FIDToSpec(b))[first:last]
             Spec2 = np.real(misc.FIDToSpec(np.conj(b)))[first:last]
             if np.linalg.norm(misc.detrend(Spec1, deg=4)) < \
@@ -376,94 +586,34 @@ class MRS(object):
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1
             else:
-                self.conj_Basis()
+                self.conj_Basis = True
                 return 1
 
         return 0
 
-    def conj_Basis(self):
-        """
-        Conjugate FID and recalculate spectrum
-        """
-        self.basis = np.conj(self.basis)
-
-    def ignore(self, metabs):
-        """
-          Ignore a subset of metabolites by removing them from the basis
-
-          Parameters
-          ----------
-
-          metabs: list
-        """
-        if self.basis is None:
-            raise Exception('You must first specify a basis before ignoring a'
-                            ' subset of it!')
-
-        if metabs is None:
-            return
-
-        for m in metabs:
-            if m not in self.names:
-                raise ValueError(f'{m} not in current list of metabolites'
-                                 f' ({self.names}).')
-
-            names = np.asarray(self.names)
-            index = names == m
-            self.names = names[~index].tolist()
-            self.basis = self.basis[:, ~index]
-
-        self.numBasis = len(self.names)
-
-    def keep(self, metabs):
-        """
-          Keep a subset of metabolites by removing all others from basis
-
-          Parameters
-          ----------
-
-          metabs: list
-        """
-        if self.basis is None:
-            raise Exception('You must first specify a basis before keeping a'
-                            ' subset of it!')
-
-        if metabs is None:
-            return
-
-        for m in metabs:
-            if m not in self.names:
-                raise ValueError(f'{m} not in current list of metabolites'
-                                 f' ({self.names}).')
-
-        metabs = [m for m in self.names if m not in metabs]
-        self.ignore(metabs)
-
-    def add_peak(self, ppm, amp, name, gamma=0, sigma=0):
-        """
-           Add Voigt peak to basis at specified ppm
-        """
-
-        peak = misc.create_peak(self, ppm, amp, gamma, sigma)[:, None]
-        self.basis = np.append(self.basis, peak, axis=1)
-        self.names.append(name)
-        self.numBasis += 1
-
     def add_MM_peaks(self, ppmlist=None, amplist=None, gamma=0, sigma=0):
-        """
-           Add macromolecule list
+        """Add default MM spectra to basis set
 
-        Parameters
-        ----------
+        By default will use the defined shifts and amplitudes
+        ppmlist :  [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
+        amplist : [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
+        but these can be overridden using the kwargs
 
-        ppmlist : default is [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
-        amplist : default is [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
-
-        gamma,sigma : float parameters of Voigt blurring
+        :param ppmlist: List of shifts, nested lists group into single basis, defaults to None
+        :type ppmlist: List of floats, optional
+        :param amplist: List of amplitudes, nested lists group into single basis, defaults to None
+        :type amplist: List of floats, optional
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        :return: Number of basis sets added
+        :rtype: int
         """
         if ppmlist is None:
-            ppmlist = [0.9, 1.2, 1.4, 1.7, [2.08, 2.25, 1.95, 3.0]]
-            amplist = [3.0, 2.0, 2.0, 2.0, [1.33, 0.33, 0.33, 0.4]]
+            from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
+            ppmlist = DEFAULT_MM_PPM
+            amplist = DEFAULT_MM_AMP
 
         for idx, _ in enumerate(ppmlist):
             if isinstance(ppmlist[idx], (float, int)):
@@ -474,106 +624,64 @@ class MRS(object):
         names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
 
         for name, ppm, amp in zip(names, ppmlist, amplist):
-            self.add_peak(ppm, amp, name, gamma, sigma)
+            self._basis.add_peak(ppm, amp, name, gamma, sigma)
 
         return len(ppmlist)
 
-    def add_expt_MM(self, lw=5):
-        """
-           Add experimental MM basis derived from AA residues
-
-        Parameters
-        ----------
-
-        lw : Linewidth of basis spectra
-        """
-        from fsl_mrs.mmbasis.mmbasis import getMMBasis
-        warnings.warn('This is an experimental feature!')
-
-        basisFIDs, names = getMMBasis(self, lw=lw, shift=True)
-        for basis, n in zip(basisFIDs, names):
-            self.basis = np.append(self.basis, basis[:, np.newaxis], axis=1)
-            self.names.append('MM_' + n)
-            self.numBasis += 1
-
-    def set_FID(self, FID):
-        """
-          Sets the FID
-        """
-        if FID.ndim > 1:
-            raise ValueError(f'MRS objects only handle one FID at a time.'
-                             f' FID shape is {FID.shape}.')
-        self.FID = FID.copy()
-        self.numPoints = self.FID.size
-
-    def set_H2O(self, FID):
-        """
-          Sets the water FID
-        """
-
-        if FID is None:
-            self.H2O = None
-            self.numPoints_H2O = None
-            return
-
-        if FID.ndim > 1:
-            raise ValueError(f'MRS objects only handle one FID at a time.'
-                             f' H2O FID shape is {FID.shape}.')
-        self.H2O = FID.copy()
-        self.numPoints_H2O = FID.size
-
-    def set_basis(self, basis, names, basis_hdr):
-        ''' Set basis in MRS class object '''
-        if basis is not None:
-
-            # Check for duplicate names
-            for name in names:
-                dupes = [idx for idx, n in enumerate(names) if n == name]
-                if len(dupes) > 1:
-                    for idx, ddx in enumerate(dupes[1:]):
-                        names[ddx] = names[ddx] + f'_{idx+1}'
-                        print(f'Found duplicate basis name "{name}", renaming to "{names[ddx]}".')
-
-            self.basis = basis.copy()
-            # Handle single basis spectra
-            if self.basis.ndim == 1:
-                self.basis = self.basis[:, np.newaxis]
-
-            # Assume that there will always be more
-            # timepoints than basis spectra.
-            if self.basis.shape[0] < self.basis.shape[1]:
-                self.basis = self.basis.T
-            self.numBasis = self.basis.shape[1]
-            self.numBasisPoints = self.basis.shape[0]
-
-            if (names is not None) and (basis_hdr is not None):
-                self.names = names.copy()
-                self.set_acquisition_params_basis(1 / basis_hdr['bandwidth'])
-            else:
-                raise ValueError('Pass basis names and header with basis.')
-
-            # Now interpolate the basis to the same time axis.
-            self.resample_basis()
-
-        else:
-            self.basis = None
-            self.names = None
-            self.numBasis = None
-            self.basis_dwellTime = None
-            self.basis_bandwidth = None
-
+    # Plotting functions
     def plot(self, ppmlim=(0.2, 4.2)):
+        """Plot the spectrum in the mrs object
+
+        :param ppmlim: Plot range, defaults to (0.2, 4.2)
+        :type ppmlim: tuple, optional
+        """
         from fsl_mrs.utils.plotting import plot_spectrum
         plot_spectrum(self, ppmlim=ppmlim)
 
     def plot_ref(self, ppmlim=(2.65, 6.65)):
+        """Plot the reference spectrum in the mrs object
+
+        :param ppmlim: Plot range, defaults to (2.65, 6.65)
+        :type ppmlim: tuple, optional
+        """
         from fsl_mrs.utils.plotting import plot_spectrum
         plot_spectrum(self, FID=self.H2O, ppmlim=ppmlim)
 
     def plot_fid(self, tlim=None):
+        """Plot the time-domain data (FID)
+
+        :param tlim: Plot range (in seconds), defaults to None
+        :type tlim: tuple, optional
+        """
         from fsl_mrs.utils.plotting import plot_fid
         plot_fid(self, tlim)
 
     def plot_basis(self, add_spec=False, ppmlim=(0.2, 4.2)):
-        from fsl_mrs.utils.plotting import plot_basis
-        plot_basis(self, plot_spec=add_spec, ppmlim=ppmlim)
+        """Plot the formatted basis in the mrs object. Opptionally add the spectrum.
+
+        :param add_spec: Add spectrum to the plot, defaults to False
+        :type add_spec: bool, optional
+        :param ppmlim: Plot range, defaults to (0.2, 4.2)
+        :type ppmlim: tuple, optional
+        """
+        from fsl_mrs.utils.plotting import plot_mrs_basis
+        plot_mrs_basis(self, plot_spec=add_spec, ppmlim=ppmlim)
+
+    # Unused functions
+    # def add_expt_MM(self, lw=5):
+    #     """
+    #        Add experimental MM basis derived from AA residues
+
+    #     Parameters
+    #     ----------
+
+    #     lw : Linewidth of basis spectra
+    #     """
+    #     from fsl_mrs.mmbasis.mmbasis import getMMBasis
+    #     warnings.warn('This is an experimental feature!')
+
+    #     basisFIDs, names = getMMBasis(self, lw=lw, shift=True)
+    #     for basis, n in zip(basisFIDs, names):
+    #         self.basis = np.append(self.basis, basis[:, np.newaxis], axis=1)
+    #         self.names.append('MM_' + n)
+    #         self.numBasis += 1

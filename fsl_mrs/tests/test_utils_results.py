@@ -25,16 +25,18 @@ def data():
     begintime = 0.00005
 
     basisFIDs = []
-    basisHdr = None
+    basisHdr = []
     for idx, _ in enumerate(amplitude):
-        tmp, basisHdr = syntheticFID(noisecovariance=[[0.0]],
-                                     chemicalshift=[chemshift[idx] + 0.1],
-                                     amplitude=[1.0],
-                                     linewidth=[lw[idx] / 5],
-                                     phase=[phases[idx]],
-                                     g=[g[idx]],
-                                     begintime=0)
+        tmp, hdr = syntheticFID(noisecovariance=[[0.0]],
+                                chemicalshift=[chemshift[idx] + 0.1],
+                                amplitude=[1.0],
+                                linewidth=[lw[idx] / 5],
+                                phase=[phases[idx]],
+                                g=[g[idx]],
+                                begintime=0)
+        hdr['fwhm'] = lw[idx] / 5
         basisFIDs.append(tmp[0])
+        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
 
     synFID, synHdr = syntheticFID(noisecovariance=[[noiseCov]],

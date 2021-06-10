@@ -61,15 +61,13 @@ def test_QuantificationInfo():
 
 
 def test_quantifyWater():
-    basis, names, headerb = mrsio.read_basis(basisfile)
-    crIndex = names.index('Cr')
+    basis = mrsio.read_basis(basisfile)
     data = mrsio.read_FID(metabfile)
     dataw = mrsio.read_FID(h2ofile)
 
-    mrs = data.mrs(basis=basis[:, crIndex],
-                   names=['Cr'],
-                   basis_hdr=headerb[crIndex],
+    mrs = data.mrs(basis=basis,
                    ref_data=dataw)
+    mrs.keep = ['Cr']
     mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 

@@ -256,10 +256,7 @@ def synthetic_spectra_from_model(config_file,
                               cf=empty_mrs.centralFrequency,
                               bw=bandwidth,
                               nucleus='1H',
-                              basis=empty_mrs.basis,
-                              names=empty_mrs.names,
-                              basis_hdr={'centralFrequency': empty_mrs.centralFrequency,
-                                         'bandwidth': bandwidth})
+                              basis=empty_mrs._basis)
                 coils_mrs.append(mrs_out)
             mrs_list.append(coils_mrs)
         else:
@@ -267,10 +264,7 @@ def synthetic_spectra_from_model(config_file,
                           cf=empty_mrs.centralFrequency,
                           bw=bandwidth,
                           nucleus='1H',
-                          basis=empty_mrs.basis,
-                          names=empty_mrs.names,
-                          basis_hdr={'centralFrequency': empty_mrs.centralFrequency,
-                                     'bandwidth': bandwidth})
+                          basis=empty_mrs._basis)
 
             mrs_list.append(mrs_out)
 

@@ -16,9 +16,9 @@ from .constants import H2O_PPM_TO_TMS
 def ppm2hz(cf, ppm, shift=True, shift_amount=H2O_PPM_TO_TMS):
     """Convert ppm scale to frequency scale with optional shift."""
     if shift:
-        return (ppm - shift_amount) * cf * 1E-6
+        return (ppm - shift_amount) * checkCFUnits(cf, units='MHz')
     else:
-        return (ppm) * cf * 1E-6
+        return (ppm) * checkCFUnits(cf, units='MHz')
 
 
 def hz2ppm(cf, hz, shift=True, shift_amount=H2O_PPM_TO_TMS):
@@ -84,6 +84,7 @@ def calculateAxes(bandwidth, centralFrequency, points, shift):
     Returns:
         Dict with 'time', 'freq', 'ppm', 'ppmshift' fields.
     """
+    centralFrequency = checkCFUnits(centralFrequency)
     dwellTime = 1 / bandwidth
     timeAxis = np.linspace(dwellTime,
                            dwellTime * points,
@@ -123,6 +124,30 @@ def checkCFUnits(cf, units='Hz'):
         else:
             raise ValueError('Only Hz or MHz defined')
     return cf
+
+
+def limit_to_range(axis, limit):
+    """turns limit (ppm, frequency, or time) into data range
+
+    :param axis: Index to apply limits to
+    :type axis: numpy.ndarray
+    :param limit: Limits - tuple of (low, high)
+    :type limit: tuple of floats
+    :return: First and last indicies
+    :rtype: tuple of ints
+    """
+    if limit is not None:
+        def ppm2range(x):
+            return np.argmin(np.abs(axis - x))
+
+        first = ppm2range(limit[0])
+        last = ppm2range(limit[1])
+        if first > last:
+            first, last = last, first
+    else:
+        first, last = 0, axis.size
+
+    return int(first), int(last)
 
 
 def filter(mrs, FID, ppmlim, filter_type='bandpass'):
@@ -409,21 +434,20 @@ def blur_FID(mrs, FID, gamma):
     return FID_blurred
 
 
-def blur_FID_Voigt(mrs, FID, gamma, sigma):
+def blur_FID_Voigt(time_axis, FID, gamma, sigma):
     """
        Blur FID in spectral domain
 
     Parameters:
-       mrs   : MRS object
-       FID   : array-like
-       gamma : Lorentzian line broadening
-       sigma : Gaussian line broadening
+       time_axis : time_axis
+       FID       : array-like
+       gamma     : Lorentzian line broadening
+       sigma     : Gaussian line broadening
 
     Returns:
        array-like
     """
-    t = mrs.timeAxis
-    FID_blurred = multiply(FID, np.exp(-t * (gamma + t * sigma**2 / 2)))
+    FID_blurred = multiply(FID, np.exp(-time_axis * (gamma + time_axis * sigma**2 / 2)))
     return FID_blurred
 
 
@@ -454,13 +478,14 @@ def rescale_FID(x, scale=100):
     return y, 1 / factor * scale
 
 
-def create_peak(mrs, ppm, amp, gamma=0, sigma=0):
+def create_peak(time_axis, cf, ppm, amp, gamma=0, sigma=0):
     """
         creates FID for peak at specific ppm
 
     Parameters
     ----------
-    mrs : MRS object (contains time information)
+    time_axis : time axis (in seconds)
+    cf  : Central frequency
     ppm : list of floats
     amp : list of floats
     gamma : float
@@ -478,16 +503,15 @@ def create_peak(mrs, ppm, amp, gamma=0, sigma=0):
     if isinstance(amp, (float, int)):
         amp = [float(amp), ]
 
-    t = mrs.timeAxis
-    out = np.zeros(t.shape[0], dtype=np.complex128)
+    out = np.zeros(time_axis.shape[0], dtype=np.complex128)
 
     for p, a in zip(ppm, amp):
-        freq = ppm2hz(mrs.centralFrequency, p)
+        freq = ppm2hz(cf, p)
 
-        x = a * np.exp(1j * 2 * np.pi * freq * t).flatten()
+        x = a * np.exp(1j * 2 * np.pi * freq * time_axis).flatten()
 
         if gamma > 0 or sigma > 0:
-            x = blur_FID_Voigt(mrs, x, gamma, sigma)
+            x = blur_FID_Voigt(time_axis, x, gamma, sigma)
 
         # dephase
         x = x * np.exp(-1j * np.angle(x[0]))
@@ -601,7 +625,7 @@ def parse_metab_groups(mrs, metab_groups):
         - list of strings  : each string is interpreted as metab name and has own group
        Entries in the lists above can also be lists, in which case the corresponding metabs are grouped
 
-    mrs : MRS Object
+    mrs : MRS or MRSI Object
 
     Returns
     -------

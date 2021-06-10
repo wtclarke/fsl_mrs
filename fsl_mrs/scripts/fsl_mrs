@@ -194,7 +194,7 @@ def main():
         print(f'  {args.basis}\n')
 
     FID = mrs_io.read_FID(args.data)
-    basis, names, basisheader = mrs_io.read_basis(args.basis)
+    basis = mrs_io.read_basis(args.basis)
 
     if args.h2o is not None:
         H2O = mrs_io.read_FID(args.h2o)
@@ -203,8 +203,6 @@ def main():
 
     # Instantiate MRS object
     mrs = FID.mrs(basis=basis,
-                  names=names,
-                  basis_hdr=basisheader[0],
                   ref_data=H2O)
 
     if isinstance(mrs, list):
@@ -214,7 +212,7 @@ def main():
     # Check the FID and basis / conjugate
     if args.conjfid is not None:
         if args.conjfid:
-            mrs.conj_FID()
+            mrs.conj_FID = True
     else:
         conjugated = mrs.check_FID(repair=True)
         if args.verbose:
@@ -224,7 +222,7 @@ def main():
 
     if args.conjbasis is not None:
         if args.conjbasis:
-            mrs.conj_Basis()
+            mrs.conj_Basis = True
     else:
         conjugated = mrs.check_Basis(repair=True)
         if args.verbose:
@@ -237,8 +235,8 @@ def main():
         mrs.rescaleForFitting(ind_scaling=args.ind_scale)
 
     # Keep/Ignore metabolites
-    mrs.keep(args.keep)
-    mrs.ignore(args.ignore)
+    mrs.keep = args.keep
+    mrs.ignore = args.ignore
 
     # Do the fitting here
     if args.verbose:

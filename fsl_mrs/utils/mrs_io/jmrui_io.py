@@ -46,6 +46,10 @@ def read_txtBasis_files(txtfiles):
 
         header.append(h)
 
+    # Add missing field that fsl expects.
+    for hdr in header:
+        hdr['fwhm'] = None
+
     basis = np.array(basis).conj().T
     return basis, names, header
 
@@ -91,7 +95,7 @@ def readjMRUItxt(filename, unpack_header=True):
 
     # Reshape data
     data = np.concatenate([np.array(i) for i in data])
-    data = (data[0::2] + 1j * data[1::2]).astype(np.complex)
+    data = (data[0::2] + 1j * data[1::2]).astype(complex)
 
     # Clean up header
     header = translateHeader(header)

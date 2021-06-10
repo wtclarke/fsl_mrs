@@ -80,7 +80,7 @@ def test_syntheticFromBasis_baseline():
                                                 noisecovariance=[[0.0]])
 
     mrs = MRS(FID=fid, header=header)
-    mrs.conj_FID()
+    mrs.conj_FID = True
 
     fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
                                                 baseline=[1.0, 1.0],
@@ -88,14 +88,14 @@ def test_syntheticFromBasis_baseline():
                                                 noisecovariance=[[0.0]])
 
     mrs2 = MRS(FID=fid, header=header)
-    mrs2.conj_FID()
+    mrs2.conj_FID = True
 
-    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + np.complex(1.0, -1.0))
+    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, -1.0))
 
 
 def test_synthetic_spectra_from_model():
 
-    _, names, _ = mrs_io.read_basis(str(basis_path))
+    names = mrs_io.read_basis(str(basis_path)).names
 
     time_var = np.arange(0, 10)
     period = 10.0
