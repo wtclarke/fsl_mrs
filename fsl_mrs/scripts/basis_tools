@@ -101,6 +101,23 @@ def main():
                              help='Output location, can overwrite.')
     scaleparser.set_defaults(func=rescale)
 
+    # Differenceing (add/subtract)
+    diffparser = sp.add_parser(
+        'diff',
+        help='Form difference basis sepctra from two basis spectra.')
+    diffparser.add_argument('file1', type=Path,
+                            help='Basis file one')
+    diffparser.add_argument('file2', type=Path,
+                            help='Basis file two, if subtract file 2 is subtracted from file 1.')
+    diffparser.add_argument('output', type=Path,
+                            help='Output fsl formatted folder, will be created if needed.')
+    diffparser.add_argument('--add_or_sub', type=str,
+                            default='sub',
+                            help="'add' or 'sub'")
+    diffparser.add_argument('--ignore_missing', action="store_true",
+                            help='Ignore missing basis sets in one basis.')
+    diffparser.set_defaults(func=diff)
+
     # Parse command-line arguments
     args = p.parse_args()
 
@@ -186,6 +203,27 @@ def rescale(args):
     basis = basis_tools.rescale_basis(basis, args.metabolite, args.target_scale)
 
     basis.save(args.output, overwrite=True)
+
+
+def diff(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+
+    basis1 = read_basis(args.file1)
+    basis2 = read_basis(args.file2)
+
+    if args.ignore_missing:
+        missing_action = 'ignore'
+    else:
+        missing_action = 'raise'
+
+    new = basis_tools.difference_basis_sets(
+        basis1,
+        basis2,
+        add_or_subtract=args.add_or_sub,
+        missing_metabs=missing_action)
+
+    new.save(args.output)
 
 
 if __name__ == '__main__':

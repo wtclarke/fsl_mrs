@@ -17,6 +17,8 @@ jmrui = testsPath / 'testdata/mrs_io/basisset_JMRUI'
 lcm = testsPath / 'testdata/mrs_io/basisset_LCModel.BASIS'
 fsl = testsPath / 'testdata/mrs_io/basisset_FSL'
 mac = testsPath / 'testdata/basis_tools/macSeed.json'
+diff1 = testsPath / 'testdata/basis_tools/low_res_off'
+diff2 = testsPath / 'testdata/basis_tools/low_res_on'
 
 
 def test_info():
@@ -83,6 +85,19 @@ def test_rescale(tmp_path):
                            str(fsl),
                            'NAA',
                            '--target_scale', '1.0',
+                           str(out_loc)])
+
+    assert out_loc.is_dir()
+    assert (out_loc / 'NAA.json').is_file()
+
+
+def test_diff(tmp_path):
+    out_loc = tmp_path / 'test_basis'
+
+    subprocess.check_call(['basis_tools', 'diff',
+                           '--add_or_sub', 'sub',
+                           str(diff1),
+                           str(diff2),
                            str(out_loc)])
 
     assert out_loc.is_dir()
