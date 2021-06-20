@@ -11,6 +11,7 @@ import numpy as np
 
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.qc import idPeaksCalcFWHM
 from fsl_mrs.utils.misc import ts_to_ts, InsufficentTimeCoverageError
 
@@ -153,3 +154,50 @@ def rescale_basis(basis, name, target_scale=None):
     basis.update_fid(indexed_fid, name)
 
     return basis
+
+
+def difference_basis_sets(basis_1, basis_2, add_or_subtract='add', missing_metabs='raise'):
+    """Add or subtract basis sets to form a set of difference spectra
+
+    :param basis_1: Basis set 1
+    :type basis_1: fsl_mrs.core.basis.Basis
+    :param basis_2: Basis set 2
+    :type basis_2: fsl_mrs.core.basis.Basis
+    :param add_or_subtract: Add ('add') or subtract ('sub') basis sets, defaults to 'add'
+    :type add_or_subtract: str, optional
+    :param missing_metabs: Behaviour when mismatched basis sets are found.
+        It 'raise' a IncompatibleBasisError is raised, if 'ignore' the mismatched
+        basis will be skipped. Defaults to 'raise'
+    :type missing_metabs: str, optional
+    :return: Difference basis spectra
+    :rtype: fsl_mrs.core.basis.Basis
+    """
+
+    if missing_metabs == 'raise':
+        for name in basis_1.names:
+            if name not in basis_2.names:
+                raise IncompatibleBasisError(f'{name} does not occur in basis_2.')
+
+        for name in basis_2.names:
+            if name not in basis_1.names:
+                raise IncompatibleBasisError(f'{name} does not occur in basis_1.')
+
+    difference_spec = []
+    names = []
+    headers = []
+    for b1, name in zip(basis_1.original_basis_array.T, basis_1.names):
+        if name in basis_2.names:
+            index = basis_2.names.index(name)
+            if add_or_subtract == 'add':
+                diff = b1 + basis_2.original_basis_array[:, index]
+            elif add_or_subtract == 'sub':
+                diff = b1 - basis_2.original_basis_array[:, index]
+
+            difference_spec.append(diff)
+            names.append(name)
+            headers.append({'dwelltime': basis_2.original_dwell,
+                            'bandwidth': basis_2.original_bw,
+                            'centralFrequency': basis_2.cf,
+                            'fwhm': basis_2.basis_fwhm[index]})
+
+    return Basis(np.asarray(difference_spec), names, headers)

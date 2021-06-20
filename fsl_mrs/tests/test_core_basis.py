@@ -133,6 +133,17 @@ def test_add_fid():
     assert original.n_metabs == 22
 
 
+def test_remove_fid():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+
+    original.remove_fid_from_basis('NAA')
+
+    assert len(original.names) == 20
+    assert 'NAA' not in original.names
+    assert original.n_metabs == 20
+    assert len(original.basis_fwhm) == 20
+
+
 def test_add_peak():
     original = basis_mod.Basis.from_file(fsl_basis_path)
 

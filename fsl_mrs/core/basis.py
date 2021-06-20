@@ -372,6 +372,18 @@ class Basis:
         self._names.append(name)
         self._widths.append(width)
 
+    def remove_fid_from_basis(self, name):
+        """'Permanently' remove a fid from the core basis.
+        Typically use the keep/ignore syntax for this purpose.
+
+        :param name: Name of metabolite/fid to remove
+        :type name: str
+        """
+        index = self.names.index(name)
+        self._raw_fids = np.delete(self._raw_fids, index, axis=1)
+        self._names.pop(index)
+        self._widths.pop(index)
+
     def add_peak(self, ppm, amp, name, gamma=0.0, sigma=0.0):
         """Add Voigt peak to basis at specified ppm
 

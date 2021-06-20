@@ -91,3 +91,34 @@ def test_rescale():
     indexed_fid = basis.original_basis_array[:, index]
     new_scale = np.linalg.norm(indexed_fid)
     assert np.isclose(new_scale, 1.0)
+
+
+basis_on = testsPath / 'testdata' / 'basis_tools' / 'low_res_off'
+basis_off = testsPath / 'testdata' / 'basis_tools' / 'low_res_on'
+
+
+def test_add_sub():
+    basis_1 = mrs_io.read_basis(basis_off)
+    basis_2 = mrs_io.read_basis(basis_on)
+
+    # Test addition
+    new = basis_tools.difference_basis_sets(basis_1, basis_2)
+    assert np.allclose(
+        new.original_basis_array,
+        basis_1.original_basis_array + basis_2.original_basis_array)
+
+    # Test subtraction
+    new = basis_tools.difference_basis_sets(basis_1, basis_2, add_or_subtract='sub')
+    assert np.allclose(
+        new.original_basis_array,
+        basis_1.original_basis_array - basis_2.original_basis_array)
+
+    # Test missmatched
+    basis_1.remove_fid_from_basis('NAA')
+    new = basis_tools.difference_basis_sets(basis_1, basis_2, missing_metabs='ignore')
+    assert new.n_metabs == 2
+
+    with pytest.raises(basis_tools.IncompatibleBasisError) as exc_info:
+        new = basis_tools.difference_basis_sets(basis_1, basis_2, missing_metabs='raise')
+        assert exc_info.type is basis_tools.IncompatibleBasisError
+        assert exc_info.value.args[0] == "NAA does not occur in basis_1."
