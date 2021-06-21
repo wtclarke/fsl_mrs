@@ -343,13 +343,24 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
         axis = basis.original_ppm_axis
     first, last = limit_to_range(axis, ppmlim)
 
+    n_met = basis.n_metabs
+    if n_met <= 10:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_met))
+    elif n_met <= 20:
+        colors = plt.cm.tab20(np.linspace(0, 1, n_met))
+    elif n_met > 20:
+        colors = plt.cm.nipy_spectral(np.linspace(0, 1, n_met))
+
+    ax = plt.figure().gca()
+    ax.set_prop_cycle('color', colors)
+
     for idx, n in enumerate(basis.names):
         FID = basis.original_basis_array[:, idx]
         if conjugate:
             FID = FID.conj()
-        plt.plot(axis[first:last],
-                 np.real(FID2Spec(FID))[first:last],
-                 label=n)
+        ax.plot(axis[first:last],
+                np.real(FID2Spec(FID))[first:last],
+                label=n)
 
     plt.gca().invert_xaxis()
     plt.xlabel('Chemical shift (ppm)')

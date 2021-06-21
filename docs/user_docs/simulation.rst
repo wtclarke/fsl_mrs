@@ -44,6 +44,11 @@ Optionally:
  - Automatic phasing of the spectra can be achieved by simulating a singlet peak at a specified offset from the receiver centre (:code:`-p, --autophase`, offset in ppm). 
  - Different format outputs can be specified (:code:`--jmrui, --raw, --lcmIN`). 
 
+Simulating basis spectra for j-difference editing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To simulate a basis spectrum for a j-difference edited sequence (e.g. MEGA-PRESS) simulate the basis for each condition and create the difference spectrum using the :code:`basis_tools diff` script.
+
 Choosing metabolites
 ~~~~~~~~~~~~~~~~~~~~
 The simulator is aware of the following metabolites. Spin systems are specified as in [SIMP17]_ and [GOVI00]_.  

@@ -7,7 +7,7 @@ basis_tools
 -----------
 The :code:`basis_tools` script provides the user with tools for manipulating basis spectra in the FSL-MRS JSON format.
 
-Provide one of the following subcommands with :code:`basis_tools` to convert, scale, add to or shift basis spectra.
+Provide one of the following subcommands with :code:`basis_tools` to convert, scale, add to, difference, or shift basis spectra.
 
 info
 ****
@@ -38,3 +38,8 @@ scale
 *****
 | *Example* :code:`basis_tools shift path/to/my/fslbasis NAA path/to/my/scaled_fslbasis`
 | Rescale a basis spectrum to the mean of all other basis spectra (or to specified target :code:`--target_scale`.
+
+diff
+****
+| *Example* :code:`basis_tools diff --add_or_sub sub mega_on mega_off mega_diff`
+| Form a basis set for a difference method using two other basis set. Add or subtract using :code:`--add_or_sub {'add'|'sub}`.

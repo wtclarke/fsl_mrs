@@ -3,7 +3,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 1.1.3 (TBC)
 ------------------------------
 - Added mrs_tools script. Replaces mrs_vis and mrs_info. Adds split/merge/reorder functionality.
-- Added basis_tools script. Tools for manipulating (shifting, scaling converting, and adding to) basis sets.
+- Added basis_tools script. Tools for manipulating (shifting, scaling, converting, differencing, and adding to) basis sets.
+- Improved display of basis sets using mrs_tools or basis_tools.
 - Under the hood refactor of basis, MRS and MRSI classes.
 
 1.1.2 (Friday 16th April 2021)
