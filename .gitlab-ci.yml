@@ -88,6 +88,7 @@ pytest:
   - pip install .
   script:
   - pytest fsl_mrs/tests
+  - pytest fsl_mrs/denmatsim/tests
 
 ############
 # 3. doc 
