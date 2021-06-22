@@ -48,9 +48,9 @@ def test_add_basis(tmp_path):
 
     assert exc_info.type is basis_tools.IncompatibleBasisError
     assert exc_info.value.args[0] == "The new basis FID covers too little time, try padding."
+
     fid_pad = np.pad(fid, (0, fid.size))
     basis_tools.add_basis(fid_pad, 'mac2', cf, bw, out_loc)
-
     new_basis = mrs_io.read_basis(out_loc)
     index = new_basis.names.index('mac2')
     assert 'mac2' in new_basis.names
@@ -61,6 +61,12 @@ def test_add_basis(tmp_path):
     index = new_basis.names.index('mac3')
     assert 'mac3' in new_basis.names
     assert new_basis.basis_fwhm[index] == 10
+
+    basis_tools.add_basis(fid_pad, 'mac4', cf, bw, out_loc, width=10, conj=True)
+    new_basis = mrs_io.read_basis(out_loc)
+    index = new_basis.names.index('mac4')
+    assert 'mac4' in new_basis.names
+    assert np.allclose(new_basis._raw_fids[:, index], fid_pad[0::2].conj())
 
 
 def test_shift():

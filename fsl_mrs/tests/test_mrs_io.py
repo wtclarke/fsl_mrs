@@ -59,6 +59,7 @@ def test_read_FID_SVS():
 BasisTestData = {'fsl': op.join(testsPath, 'testdata/mrs_io/basisset_FSL'),
                  'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
                  'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
+                 'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
                  'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
 
 
@@ -79,23 +80,27 @@ def test_read_Basis():
 
     basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
     basis_txt = mrsio.read_basis(BasisTestData['txt'])
+    basis_txt_single = mrsio.read_basis(BasisTestData['txt_single'])
     basis_lcm = mrsio.read_basis(BasisTestData['lcm'])
 
     # Check each returns a basis object
     assert isinstance(basis_fsl, Basis)
     assert isinstance(basis_txt, Basis)
+    assert isinstance(basis_txt_single, Basis)
     assert isinstance(basis_lcm, Basis)
 
     # lcm basis file is zeropadded by a factor of 2
     # Test that all contain the same amount of data.
     assert basis_fsl.original_points == 2048
     assert basis_txt.original_points == 2048
+    assert basis_txt_single.original_points == 2048
     assert basis_lcm.original_points == (2 * 2048)
 
     # Test that the number of names match the amount of data
     numNames = 21
     assert len(basis_fsl.names) == numNames
     assert len(basis_txt.names) == numNames
+    assert len(basis_txt_single.names) == 17
     assert len(basis_lcm.names) == numNames
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from fsl_mrs.utils.mrs_io import fsl_io as fsl
+from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
 from fsl_mrs.core import nifti_mrs  # import NIFTI_MRS, NotNIFTI_MRS
@@ -119,6 +119,8 @@ def read_basis(filename):
             # Add missing hdr field
             for hdr in header:
                 hdr['fwhm'] = None
+        elif filename.suffix.lower() == '.txt':
+            basis, names, header = jmrui_io.read_txtBasis_files([filename, ])
         else:
             raise UnknownBasisFormat(f'Cannot read data format {filename.suffix}')
 

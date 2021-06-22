@@ -351,7 +351,7 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
     elif n_met > 20:
         colors = plt.cm.nipy_spectral(np.linspace(0, 1, n_met))
 
-    ax = plt.figure().gca()
+    ax = plt.gca()
     ax.set_prop_cycle('color', colors)
 
     for idx, n in enumerate(basis.names):

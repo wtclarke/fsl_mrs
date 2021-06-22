@@ -50,6 +50,7 @@ def test_add(tmp_path):
     subprocess.check_call(['basis_tools', 'add',
                            '--info', 'some info',
                            '--scale',
+                           '--conj',
                            '--name', 'new_basis',
                            str(mac),
                            str(out_loc)])
@@ -63,6 +64,17 @@ def test_shift(tmp_path):
     subprocess.check_call(['basis_tools', 'shift',
                            str(fsl),
                            'NAA',
+                           '1.0',
+                           str(out_loc)])
+
+    assert out_loc.is_dir()
+    assert (out_loc / 'NAA.json').is_file()
+
+    out_loc = tmp_path / 'test_basis2'
+
+    subprocess.check_call(['basis_tools', 'shift',
+                           str(fsl),
+                           'all',
                            '1.0',
                            str(out_loc)])
 

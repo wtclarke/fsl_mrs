@@ -45,7 +45,7 @@ def convert_lcm_basis(path_to_basis, output_location=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def add_basis(fid, name, cf, bw, target, scale=False, width=None, sim_info='Manually added'):
+def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, sim_info='Manually added'):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 
     Optionally rescale the norm of the new FID to the mean of the existing ones.
@@ -65,6 +65,8 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, sim_info='Manu
     :type scale: bool, optional
     :param width: Width (fwhm in Hz) of added basis, defaults to None. If None it will be estimated.
     :type width: float, optional
+    :param conj: Conjugate added FID, defaults to False.
+    :type conj: bool, optional
     :param sim_info: String added to the meta.SimVersion field, defaults to 'Manually added'
     :type sim_info: str, optional
     """
@@ -98,10 +100,14 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, sim_info='Manu
         mrs.check_FID(repair=True)
         width, _, _ = idPeaksCalcFWHM(mrs)
 
-    # 5. Add to existing basis
+    # 5. Conjugate if requested
+    if conj:
+        resampled_fid = resampled_fid.conj()
+
+    # 6. Add to existing basis
     target_basis.add_fid_to_basis(resampled_fid, name, width=width)
 
-    # 6. Write to json without overwriting existing files
+    # 7. Write to json without overwriting existing files
     target_basis.save(target, info_str=sim_info)
 
 
@@ -123,6 +129,8 @@ def shift_basis(basis, name, amount):
 
     amount_in_hz = amount * basis.cf
     t = basis.original_time_axis
+    t -= t[0]  # Start from 0 so not to introduce zero-order phase
+
     shifted = original_fid * np.exp(-1j * 2 * np.pi * t * amount_in_hz)
 
     basis.update_fid(shifted, name)

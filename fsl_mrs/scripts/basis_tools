@@ -70,6 +70,8 @@ def main():
                            help='Optionally provide a different name for the basis.')
     addparser.add_argument('--scale', action="store_true",
                            help='Rescale amplitude to mean of target basis.')
+    addparser.add_argument('--conj', action="store_true",
+                           help='Conjugate added basis.')
     addparser.set_defaults(func=add)
 
     # Shift tool
@@ -79,7 +81,8 @@ def main():
     shiftparser.add_argument('file', type=Path,
                              help='Basis file to modify')
     shiftparser.add_argument('metabolite', type=str,
-                             help='Metabolite to shift')
+                             help='Metabolite to shift,'
+                             ' use "all" to shift all metabolites')
     shiftparser.add_argument('ppm_shift', type=float,
                              help='Shift to apply (in ppm).')
     shiftparser.add_argument('output', type=Path,
@@ -182,7 +185,12 @@ def add(args):
     bw = 1 / json_dict['basis_dwell']
     width = json_dict['basis_width']
 
-    basis_tools.add_basis(fid, name, cf, bw, args.target, scale=args.scale, width=width, sim_info=args.info)
+    basis_tools.add_basis(
+        fid, name, cf, bw, args.target,
+        scale=args.scale,
+        width=width,
+        conj=args.conj,
+        sim_info=args.info)
 
 
 def shift(args):
@@ -190,7 +198,11 @@ def shift(args):
     from fsl_mrs.utils.mrs_io import read_basis
 
     basis = read_basis(args.file)
-    basis = basis_tools.shift_basis(basis, args.metabolite, args.ppm_shift)
+    if args.metabolite == 'all':
+        for name in basis.names:
+            basis = basis_tools.shift_basis(basis, name, args.ppm_shift)
+    else:
+        basis = basis_tools.shift_basis(basis, args.metabolite, args.ppm_shift)
 
     basis.save(args.output, overwrite=True)
 
