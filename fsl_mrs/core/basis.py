@@ -384,7 +384,7 @@ class Basis:
         self._names.pop(index)
         self._widths.pop(index)
 
-    def add_peak(self, ppm, amp, name, gamma=0.0, sigma=0.0):
+    def add_peak(self, ppm, amp, name, gamma=0.0, sigma=0.0, conj=False):
         """Add Voigt peak to basis at specified ppm
 
         :param ppm: The ppm position of the peak
@@ -397,12 +397,17 @@ class Basis:
         :type gamma: float, optional
         :param sigma: Guassian line broadening, defaults to 0
         :type sigma: float, optional
+        :param conj: Conjugate fid, defaults to False
+        :type conj: Bool, optional
         """
         # Calculate the time axis
         time_axis = self.original_time_axis
+        time_axis -= time_axis[0]
 
         fid = misc.create_peak(time_axis, self.cf, ppm, amp, gamma, sigma)[:, None]
         width = None  # TO DO
+        if conj:
+            fid = fid.conj()
         self.add_fid_to_basis(fid, name, width=width)
 
     def update_fid(self, new_fid, name):

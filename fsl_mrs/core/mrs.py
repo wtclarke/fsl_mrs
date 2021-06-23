@@ -591,18 +591,49 @@ class MRS(object):
 
         return 0
 
-    def add_MM_peaks(self, ppmlist=None, amplist=None, gamma=0, sigma=0):
-        """Add default MM spectra to basis set
-
-        By default will use the defined shifts and amplitudes
+    def add_default_MM_peaks(self, gamma=0, sigma=0):
+        """Add the default MM peaks to the basis set
+        These use the defined shifts and amplitudes
         ppmlist :  [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
         amplist : [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
-        but these can be overridden using the kwargs
 
-        :param ppmlist: List of shifts, nested lists group into single basis, defaults to None
-        :type ppmlist: List of floats, optional
-        :param amplist: List of amplitudes, nested lists group into single basis, defaults to None
-        :type amplist: List of floats, optional
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        """
+        from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
+        return self.add_MM_peaks(
+            DEFAULT_MM_PPM,
+            DEFAULT_MM_AMP,
+            gamma=gamma,
+            sigma=sigma)
+
+    def add_default_MEGA_MM_peaks(self, gamma=0, sigma=0):
+        """Add the default MEGA-PRESS MM peaks to the basis set
+        These use the defined shifts and amplitudes
+        ppmlist : [[0.94, 3.0]]
+        amplist : [[3.0, 2.0]]
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        """
+        from fsl_mrs.utils.constants import DEFAULT_MM_MEGA_AMP, DEFAULT_MM_MEGA_PPM
+        return self.add_MM_peaks(
+            DEFAULT_MM_MEGA_PPM,
+            DEFAULT_MM_MEGA_AMP,
+            gamma=gamma,
+            sigma=sigma)
+
+    def add_MM_peaks(self, ppmlist, amplist, gamma=0, sigma=0):
+        """Add extra Gaussian peaks (normal MM spectra) to basis set
+
+        :param ppmlist: List of shifts, nested lists group into single basis.
+        :type ppmlist: List of floats
+        :param amplist: List of amplitudes, nested lists group into single basis.
+        :type amplist: List of floats
         :param gamma: Lorentzian broadening, defaults to 0
         :type gamma: int, optional
         :param sigma: Gaussian broadening, defaults to 0
@@ -610,11 +641,6 @@ class MRS(object):
         :return: Number of basis sets added
         :rtype: int
         """
-        if ppmlist is None:
-            from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
-            ppmlist = DEFAULT_MM_PPM
-            amplist = DEFAULT_MM_AMP
-
         for idx, _ in enumerate(ppmlist):
             if isinstance(ppmlist[idx], (float, int)):
                 ppmlist[idx] = [float(ppmlist[idx]), ]
@@ -624,7 +650,7 @@ class MRS(object):
         names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
 
         for name, ppm, amp in zip(names, ppmlist, amplist):
-            self._basis.add_peak(ppm, amp, name, gamma, sigma)
+            self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=self.conj_Basis)
 
         return len(ppmlist)
 

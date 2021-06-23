@@ -74,6 +74,8 @@ def main():
                                    ' or list of names for indept groups.')
     fitting_args.add_argument('--add_MM', action="store_true",
                               help="include default macromolecule peaks")
+    fitting_args.add_argument('--add_MM_MEGA', action="store_true",
+                              help="include default MEGA-PRESS macromolecule peaks")
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
@@ -255,7 +257,13 @@ def main():
     if args.add_MM:
         if args.verbose:
             print('Adding macromolecules')
-        nMM = mrs.add_MM_peaks(gamma=10, sigma=20)
+        nMM = mrs.add_default_MM_peaks(gamma=10, sigma=20)
+        G = [i + max(metab_groups) + 1 for i in range(nMM)]
+        metab_groups += G
+    if args.add_MM_MEGA:
+        if args.verbose:
+            print('Adding MEGA-PRESS macromolecules')
+        nMM = mrs.add_default_MEGA_MM_peaks(gamma=10, sigma=0)
         G = [i + max(metab_groups) + 1 for i in range(nMM)]
         metab_groups += G
 

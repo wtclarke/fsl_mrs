@@ -119,3 +119,6 @@ Shift and amplitude values for the default macromolecule basis set
 '''
 DEFAULT_MM_PPM = [0.9, 1.2, 1.4, 1.7, [2.08, 2.25, 1.95, 3.0]]
 DEFAULT_MM_AMP = [3.0, 2.0, 2.0, 2.0, [1.33, 0.33, 0.33, 0.4]]
+
+DEFAULT_MM_MEGA_PPM = [[0.915, 3.000], ]
+DEFAULT_MM_MEGA_AMP = [[3.75, 2.0], ]
