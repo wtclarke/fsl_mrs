@@ -115,7 +115,7 @@ Details
 Modelling
 ~~~~~~~~~
 
-At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR20]_. 
+At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR21]_. 
 
 The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear combination of (shifted and broadened) metabolite basis spectra :math:`\mathrm{M}_{l,g}` (metab = :math:`l`, metab group = :math:`g`) plus a complex polynomial baseline :math:`\mathrm{B}(v)`. The signal model is as follows:
 
@@ -205,4 +205,4 @@ The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
 References
 ----------
 
-.. [CLAR20] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020.
+.. [CLAR21] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: 10.1002/mrm.28630.
