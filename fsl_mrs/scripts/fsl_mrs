@@ -75,7 +75,7 @@ def main():
     fitting_args.add_argument('--add_MM', action="store_true",
                               help="include default macromolecule peaks")
     fitting_args.add_argument('--add_MM_MEGA', action="store_true",
-                              help="include default MEGA-PRESS macromolecule peaks")
+                              help="include default MEGA-PRESS macromolecule peaks. This option is experimental!")
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
