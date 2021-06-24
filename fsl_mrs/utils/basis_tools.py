@@ -45,7 +45,7 @@ def convert_lcm_basis(path_to_basis, output_location=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, sim_info='Manually added'):
+def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False, sim_info='Manually added'):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 
     Optionally rescale the norm of the new FID to the mean of the existing ones.
@@ -67,6 +67,8 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, si
     :type width: float, optional
     :param conj: Conjugate added FID, defaults to False.
     :type conj: bool, optional
+    :param pad: Pad input FID to target length if required, defaults to False.
+    :type pad: bool, optional
     :param sim_info: String added to the meta.SimVersion field, defaults to 'Manually added'
     :type sim_info: str, optional
     """
@@ -85,7 +87,19 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, si
                                  target_dt,
                                  target_basis.original_points)
     except InsufficentTimeCoverageError:
-        raise IncompatibleBasisError('The new basis FID covers too little time, try padding.')
+        if not pad:
+            raise IncompatibleBasisError('The new basis FID covers too little time, try padding.')
+        else:
+            # Pad fid to sufficent length
+            required_time = target_basis.original_points * target_dt
+            fid_dt = 1 / bw
+            required_points = int(np.ceil(required_time / fid_dt))
+            fid = np.pad(fid, (0, required_points - fid.size), constant_values=complex(0.0))
+
+            resampled_fid = ts_to_ts(fid,
+                                     1 / bw,
+                                     target_dt,
+                                     target_basis.original_points)
 
     # 3. Scale if requested
     if scale:
@@ -161,6 +175,27 @@ def rescale_basis(basis, name, target_scale=None):
 
     basis.update_fid(indexed_fid, name)
 
+    return basis
+
+
+def conjugate_basis(basis: Basis, name=None):
+    """Conjugate all FIDs or just a selected FID in a basis set.
+    This reverses the frequency axis.
+
+    :param basis: Basis object containing FID(s) to conjugate
+    :type basis: fsl_mrs.core.basis.Basis
+    :param name: Metabolite name to conjugate, defaults to None which will conjugate all.
+    :type name: str, optional
+    :return: Modified basis object
+    :rtype: fsl_mrs.core.basis.Basis
+    """
+    if name is not None\
+            and name in basis.names:
+        b = basis.original_basis_array[:, basis.names.index(name)]
+        basis.update_fid(b.conj(), name)
+    else:
+        for b, name in zip(basis.original_basis_array.T, basis.names):
+            basis.update_fid(b.conj(), name)
     return basis
 
 

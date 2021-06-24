@@ -3,8 +3,9 @@ This document contains the FSL-MRS release history in reverse chronological orde
 1.1.3 (TBC)
 ------------------------------
 - Added mrs_tools script. Replaces mrs_vis and mrs_info. Adds split/merge/reorder functionality.
-- Added basis_tools script. Tools for manipulating (shifting, scaling, converting, differencing, and adding to) basis sets.
+- Added basis_tools script. Tools for manipulating (shifting, scaling, converting, differencing, conjugating, and adding to) basis sets.
 - Improved display of basis sets using mrs_tools or basis_tools.
+- Added 'default' MEGA-PRESS MM option to fsl_mrs and mrs class.
 - Under the hood refactor of basis, MRS, and MRSI classes.
 - Updated density matrix simulator. Added some automatic testing.
 

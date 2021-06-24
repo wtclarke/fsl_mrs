@@ -114,3 +114,15 @@ def test_diff(tmp_path):
 
     assert out_loc.is_dir()
     assert (out_loc / 'NAA.json').is_file()
+
+
+def test_conj(tmp_path):
+    out_loc = tmp_path / 'test_basis'
+
+    subprocess.check_call(['basis_tools', 'conj',
+                           '--metabolite', 'NAA',
+                           str(fsl),
+                           str(out_loc)])
+
+    assert out_loc.is_dir()
+    assert (out_loc / 'NAA.json').is_file()

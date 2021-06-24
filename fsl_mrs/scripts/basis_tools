@@ -72,6 +72,8 @@ def main():
                            help='Rescale amplitude to mean of target basis.')
     addparser.add_argument('--conj', action="store_true",
                            help='Conjugate added basis.')
+    addparser.add_argument('--pad', action="store_true",
+                           help='Pad added FID if required.')
     addparser.set_defaults(func=add)
 
     # Shift tool
@@ -107,7 +109,7 @@ def main():
     # Differenceing (add/subtract)
     diffparser = sp.add_parser(
         'diff',
-        help='Form difference basis sepctra from two basis spectra.')
+        help='Form difference basis spectra from two basis spectra.')
     diffparser.add_argument('file1', type=Path,
                             help='Basis file one')
     diffparser.add_argument('file2', type=Path,
@@ -120,6 +122,18 @@ def main():
     diffparser.add_argument('--ignore_missing', action="store_true",
                             help='Ignore missing basis sets in one basis.')
     diffparser.set_defaults(func=diff)
+
+    # Conjugate
+    conjparser = sp.add_parser(
+        'conj',
+        help='Conjugate (reverse frequency axis) all or single basis.')
+    conjparser.add_argument('file', type=Path,
+                            help='Basis file')
+    conjparser.add_argument('output', type=Path,
+                            help='Output location, can overwrite.')
+    conjparser.add_argument('--metabolite', type=str, default=None,
+                            help='Specify metabolite to conjugate')
+    conjparser.set_defaults(func=conj)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -190,6 +204,7 @@ def add(args):
         scale=args.scale,
         width=width,
         conj=args.conj,
+        pad=args.pad,
         sim_info=args.info)
 
 
@@ -236,6 +251,15 @@ def diff(args):
         missing_metabs=missing_action)
 
     new.save(args.output)
+
+
+def conj(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+    basis_tools.conjugate_basis(
+        read_basis(args.file),
+        name=args.metabolite
+    ).save(args.output, overwrite=True)
 
 
 if __name__ == '__main__':

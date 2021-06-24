@@ -49,6 +49,11 @@ def test_add_basis(tmp_path):
     assert exc_info.type is basis_tools.IncompatibleBasisError
     assert exc_info.value.args[0] == "The new basis FID covers too little time, try padding."
 
+    basis_tools.add_basis(fid, 'mac1', cf, bw, out_loc, pad=True)
+    new_basis = mrs_io.read_basis(out_loc)
+    index = new_basis.names.index('mac1')
+    assert 'mac1' in new_basis.names
+
     fid_pad = np.pad(fid, (0, fid.size))
     basis_tools.add_basis(fid_pad, 'mac2', cf, bw, out_loc)
     new_basis = mrs_io.read_basis(out_loc)
@@ -128,3 +133,13 @@ def test_add_sub():
         new = basis_tools.difference_basis_sets(basis_1, basis_2, missing_metabs='raise')
         assert exc_info.type is basis_tools.IncompatibleBasisError
         assert exc_info.value.args[0] == "NAA does not occur in basis_1."
+
+
+def test_conj():
+    basis = mrs_io.read_basis(basis_off)
+    basis_conj = basis_tools.conjugate_basis(mrs_io.read_basis(basis_off))
+    assert np.allclose(basis_conj.original_basis_array, basis.original_basis_array.conj())
+
+    basis_conj = basis_tools.conjugate_basis(mrs_io.read_basis(basis_off), name='NAA')
+    index = basis_conj.names.index('NAA')
+    assert np.allclose(basis_conj.original_basis_array[:, index], basis.original_basis_array[:, index].conj())
