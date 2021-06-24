@@ -6,9 +6,13 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
-from fsl_mrs.utils import preproc
+from datetime import datetime
+
 import numpy as np
+
+from fsl_mrs.utils import preproc
 from fsl_mrs.core import NIFTI_MRS
+from fsl_mrs import __version__
 
 
 class DimensionsDoNotMatch(Exception):
@@ -17,6 +21,35 @@ class DimensionsDoNotMatch(Exception):
 
 class OnlySVS(Exception):
     pass
+
+
+def update_processing_prov(nmrs_obj: NIFTI_MRS, method, details):
+    """Insert appropriate processing provenance information into the
+    NIfTI-MRS header extension.
+
+    :param nmrs_obj: NIFTI-MRS object which has been modified
+    :type nmrs_obj: fsl_mrs.core.NIFTI_MRS
+    :param method: [description]
+    :type method: str
+    :param details: [description]
+    :type details: str
+    """
+    # 1. Check for ProcessingApplied key and create if not present
+    if 'ProcessingApplied' not in nmrs_obj.hdr_ext:
+        nmrs_obj.add_hdr_field('ProcessingApplied', [])
+
+    # 2. Form object to append.
+    prov_dict = {
+        'Time': datetime.now().isoformat(sep='T', timespec='milliseconds'),
+        'Program': 'FSL-MRS',
+        'Version': __version__,
+        'Method': method,
+        'Details': details}
+
+    # 3. Append
+    current_processing = nmrs_obj.hdr_ext['ProcessingApplied']
+    current_processing.append(prov_dict)
+    nmrs_obj.add_hdr_field('ProcessingApplied', current_processing)
 
 
 def first_index(idx):
@@ -71,6 +104,20 @@ def coilcombine(data, reference=None, no_prewhiten=False, figure=False, report=N
                                       html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = 'Coil combination, '
+    if reference is None:
+        processing_info += 'no reference data, '
+    else:
+        processing_info += f'reference data used ({reference.filename}), '
+    if no_prewhiten:
+        processing_info += 'no prewhitening.'
+    else:
+        processing_info += 'prewhitening applied.'
+
+    update_processing_prov(combinedc_obj, 'RF coil combination', processing_info)
+
     return combinedc_obj
 
 
@@ -183,7 +230,7 @@ def aligndiff(data,
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
 
-    :return: Combined data in NIFTI_MRS format.
+    :return: Aligned data in NIFTI_MRS format.
     '''
     if data.shape[data.dim_position(dim_diff)] != 2:
         raise DimensionsDoNotMatch('Diff dimension must be of length 2')

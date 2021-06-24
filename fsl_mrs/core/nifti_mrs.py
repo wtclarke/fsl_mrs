@@ -76,11 +76,19 @@ class NIFTI_MRS(Image):
         if isinstance(args[0], np.ndarray):
             args = list(args)
             args[0] = args[0].conj()
+            filename = None
         elif isinstance(args[0], Path):
             args = list(args)
+            filename = args[0].name
             args[0] = str(args[0])
+        elif isinstance(args[0], str):
+            args = list(args)
+            filename = Path(args[0]).name
 
         super().__init__(*args, **kwargs)
+
+        # Store original filename for reports etc
+        self._filename = filename
 
         # Check that file meets minimum requirements
         try:
@@ -172,6 +180,15 @@ class NIFTI_MRS(Image):
         self.header.extensions.clear()
         self.header.extensions.append(extension)
         self._set_dim_tags()
+
+    @property
+    def filename(self):
+        '''Name of file object was generated from.
+        Returns empty string if N/A.'''
+        if self._filename:
+            return self._filename
+        else:
+            return ''
 
     def dim_position(self, dim_tag):
         '''Return position of dim if it exists.'''
@@ -273,6 +290,7 @@ class NIFTI_MRS(Image):
             dim = self._dim_tag_to_index(remove_dim)
             reduced_data = self.data.take(0, axis=dim)
             new_obj = NIFTI_MRS(reduced_data, header=self.header)
+            new_obj._filename = self.filename
 
             # Modify the dim information in
             hdr_ext = new_obj.hdr_ext

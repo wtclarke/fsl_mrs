@@ -43,6 +43,14 @@ def test_nifti_mrs():
     assert obj.copy(remove_dim='DIM_DYN').shape == (1, 1, 1, 4096, 32)
 
 
+def test_nifti_mrs_filename():
+    obj = NIFTI_MRS(data['unprocessed'])
+    assert obj.filename == 'metab_raw.nii.gz'
+
+    obj = gen_new_nifti_mrs(np.zeros((1, 1, 1, 2), dtype=complex), 0.0005, 120.0)
+    assert obj.filename == ''
+
+
 def test_nifti_mrs_save(tmp_path):
     obj = NIFTI_MRS(data['metab'])
     obj.save(tmp_path / 'out')
