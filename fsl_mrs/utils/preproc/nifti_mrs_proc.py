@@ -106,15 +106,12 @@ def coilcombine(data, reference=None, no_prewhiten=False, figure=False, report=N
                 fig.show()
 
     # Update processing prov
-    processing_info = 'Coil combination, '
+    processing_info = f'{__name__}.coilcombine, '
     if reference is None:
-        processing_info += 'no reference data, '
+        processing_info += 'reference=None, '
     else:
-        processing_info += f'reference data used ({reference.filename}), '
-    if no_prewhiten:
-        processing_info += 'no prewhitening.'
-    else:
-        processing_info += 'prewhitening applied.'
+        processing_info += f'reference={reference.filename}, '
+    processing_info += f'no_prewhiten={no_prewhiten}.'
 
     update_processing_prov(combinedc_obj, 'RF coil combination', processing_info)
 
@@ -153,6 +150,13 @@ def average(data, dim, figure=False, report=None, report_all=False):
                                       html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.average, '
+    processing_info += f'dim={dim}.'
+
+    update_processing_prov(combined_obj, 'Signal averaging', processing_info)
+
     return combined_obj
 
 
@@ -205,6 +209,20 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
             if figure:
                 for ff in fig:
                     ff.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.align, '
+    processing_info += f'dim={dim}, '
+    if target is not None:
+        processing_info += 'target used, '
+    else:
+        processing_info += 'target=None, '
+    processing_info += f'ppmlim={ppmlim}, '
+    processing_info += f'niter={niter}, '
+    processing_info += f'apodize={apodize}.'
+
+    update_processing_prov(aligned_obj, 'Frequency and phase correction', processing_info)
+
     return aligned_obj
 
 
@@ -279,6 +297,19 @@ def aligndiff(data,
             if figure:
                 for ff in fig:
                     ff.show()
+    # Update processing prov
+    processing_info = f'{__name__}.aligndiff, '
+    processing_info += f'dim_align={dim_align}, '
+    processing_info += f'dim_diff={dim_diff}, '
+    processing_info += f'diff_type={diff_type}, '
+    if target is not None:
+        processing_info += 'target used, '
+    else:
+        processing_info += 'target=None, '
+    processing_info += f'ppmlim={ppmlim}.'
+
+    update_processing_prov(aligned_obj, 'Alignment of subtraction sub-spectra', processing_info)
+
     return aligned_obj
 
 

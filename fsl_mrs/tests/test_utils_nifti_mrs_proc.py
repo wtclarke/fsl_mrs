@@ -44,4 +44,35 @@ def test_coilcombine():
 
     assert combined.hdr_ext['ProcessingApplied'][0]['Method'] == 'RF coil combination'
     assert combined.hdr_ext['ProcessingApplied'][0]['Details']\
-        == 'Coil combination, reference data used (wref_raw.nii.gz), prewhitening applied.'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.coilcombine, reference=wref_raw.nii.gz, no_prewhiten=False.'
+
+
+def test_average():
+    nmrs_ref_obj = read_FID(wrefc)
+    combined = nproc.average(nmrs_ref_obj, 'DIM_DYN')
+
+    assert combined.hdr_ext['ProcessingApplied'][0]['Method'] == 'Signal averaging'
+    assert combined.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.average, dim=DIM_DYN.'
+
+
+def test_align():
+    nmrs_obj = read_FID(metab)
+    combined = nproc.coilcombine(nmrs_obj)
+    aligned = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+
+    assert aligned.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+
+
+def test_aligndiff():
+    # For want of data this is a bizzare way of using this function.
+    nmrs_obj = read_FID(wrefc)
+    aligned = nproc.aligndiff(nmrs_obj, 'DIM_COIL', 'DIM_DYN', 'add', ppmlim=(1.0, 4.0))
+
+    assert aligned.hdr_ext['ProcessingApplied'][0]['Method'] == 'Alignment of subtraction sub-spectra'
+    assert aligned.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.aligndiff, dim_align=DIM_COIL, '\
+           'dim_diff=DIM_DYN, diff_type=add, target=None, ppmlim=(1.0, 4.0).'
