@@ -76,3 +76,143 @@ def test_aligndiff():
     assert aligned.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.aligndiff, dim_align=DIM_COIL, '\
            'dim_diff=DIM_DYN, diff_type=add, target=None, ppmlim=(1.0, 4.0).'
+
+
+def test_ecc():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    ref_obj = read_FID(ecc)
+
+    corrected = nproc.ecc(nmrs_obj, reference=ref_obj)
+
+    assert corrected.hdr_ext['ProcessingApplied'][1]['Method'] == 'Eddy current correction'
+    assert corrected.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.ecc, reference=ecc.nii.gz.'
+
+
+def test_remove():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    corrected = nproc.remove_peaks(nmrs_obj, (4, 5.30))
+
+    assert corrected.hdr_ext['ProcessingApplied'][1]['Method'] == 'Nuisance peak removal'
+    assert corrected.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_peaks, limits=(4, 5.3), limit_units=ppm+shift.'
+
+
+def test_tshift():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    shifted = nproc.tshift(nmrs_obj, tshiftStart=0.001, tshiftEnd=0.001, samples=1024)
+
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Temporal resample'
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.tshift, tshiftStart=0.001, tshiftEnd=0.001, samples=1024.'
+
+
+def test_truncate_or_pad():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    shifted = nproc.truncate_or_pad(nmrs_obj, -2, 'last')
+
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Zero-filling'
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.truncate_or_pad, npoints=-2, position=last.'
+
+
+def test_apodize():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    apodized = nproc.apodize(nmrs_obj, (10.0,))
+
+    assert apodized.hdr_ext['ProcessingApplied'][1]['Method'] == 'Apodization'
+    assert apodized.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.apodize, amount=(10.0,), filter=exp.'
+
+
+def test_fshift():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    shifted = nproc.fshift(nmrs_obj, 10.0)
+
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.fshift, amount=10.0.'
+
+
+def test_shift_to_reference():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    shifted = nproc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0))
+
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.shift_to_reference, ppm_ref=4.65, peak_search=(4.0, 5.0).'
+
+
+def test_remove_unlike():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.coilcombine(nmrs_obj)
+    processed, _ = nproc.remove_unlike(nmrs_obj)
+
+    assert processed.hdr_ext['ProcessingApplied'][1]['Method'] == 'Outlier removal'
+    assert processed.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_unlike, ppmlim=None, sdlimit=1.96, niter=2.'
+
+
+def test_phase_correct():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    phased = nproc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False)
+
+    assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
+    assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.phase_correct, ppmlim=(4.0, 5.0), hlsvd=False.'
+
+
+def test_apply_fixed_phase():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    phased = nproc.apply_fixed_phase(nmrs_obj, 180.0, p1=0.001)
+
+    assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
+    assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.apply_fixed_phase, p0=180.0, p1=0.001.'
+
+
+def test_subtract():
+    nmrs_obj = read_FID(wrefc)
+
+    subtracted = nproc.subtract(nmrs_obj, dim='DIM_DYN')
+
+    assert subtracted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Subtraction of sub-spectra'
+    assert subtracted.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.subtract, data1=None, dim=DIM_DYN.'
+
+
+def test_add():
+    nmrs_obj = read_FID(wrefc)
+
+    added = nproc.add(nmrs_obj, dim='DIM_DYN')
+
+    assert added.hdr_ext['ProcessingApplied'][0]['Method'] == 'Addition of sub-spectra'
+    assert added.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.add, data1=None, dim=DIM_DYN.'
+
+
+def test_conjugate():
+    nmrs_obj = read_FID(wrefc)
+
+    conjugated = nproc.conjugate(nmrs_obj)
+
+    assert conjugated.hdr_ext['ProcessingApplied'][0]['Method'] == 'Conjugation'
+    assert conjugated.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.conjugate.'
