@@ -143,7 +143,7 @@ def test_basis_manipulations(synth_data):
     assert mrs.basis.shape == (2048, 1)
     assert mrs.numBasis == 1
 
-    mrs.add_MM_peaks(gamma=10, sigma=10)
+    mrs.add_default_MM_peaks(gamma=10, sigma=10)
     assert mrs.basis.shape == (2048, 6)
     assert mrs.numBasis == 6
     assert mrs.names == ['ppm_2', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21']

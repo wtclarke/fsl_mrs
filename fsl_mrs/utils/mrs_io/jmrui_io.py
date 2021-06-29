@@ -18,6 +18,13 @@ def readjMRUItxt_fid(txtfile):
     '''
 
     data, header = readjMRUItxt(txtfile)
+    # Nsig, Npoints to Npoints, Nsig
+    data = data.T
+
+    if data.shape[1] > 1:
+        dim_tags = ['DIM_USER_0', None, None]
+    else:
+        dim_tags = [None, None, None]
 
     if 'TypeOfNucleus' in header['jmrui']:
         nucleus = header['jmrui']['TypeOfNucleus']
@@ -29,7 +36,7 @@ def readjMRUItxt_fid(txtfile):
 
     data = data.reshape((1, 1, 1) + data.shape)
 
-    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus)
+    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus, dim_tags=dim_tags)
 
 
 # Read jMRUI .txt files containing basis

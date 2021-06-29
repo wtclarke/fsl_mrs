@@ -82,6 +82,7 @@ def test_shift():
     index = basis.names.index('NAA')
     amount_in_hz = 1.0 * basis.cf
     t = basis.original_time_axis
+    t -= t[0]
     shifted_fid = basis.original_basis_array[:, index] * np.exp(-1j * 2 * np.pi * t * amount_in_hz)
     assert np.allclose(shifted.original_basis_array[:, index], shifted_fid)
 
