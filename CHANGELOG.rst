@@ -1,13 +1,15 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.3 (TBC)
+1.1.3 (Tuesday 29th June 2021)
 ------------------------------
 - Added mrs_tools script. Replaces mrs_vis and mrs_info. Adds split/merge/reorder functionality.
 - Added basis_tools script. Tools for manipulating (shifting, scaling, converting, differencing, conjugating, and adding to) basis sets.
 - Improved display of basis sets using mrs_tools or basis_tools.
 - Added 'default' MEGA-PRESS MM option to fsl_mrs and mrs class.
+- Preprocessing tools now add processing provenance information to NIfTI-MRS files.
 - Under the hood refactor of basis, MRS, and MRSI classes.
 - Updated density matrix simulator. Added some automatic testing.
+- Added documentation about the results_to_spectrum script.
 
 1.1.2 (Friday 16th April 2021)
 ------------------------------

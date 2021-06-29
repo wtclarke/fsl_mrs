@@ -10,7 +10,7 @@ There are 4 ways of visualising/interacting with MRS data in FSL-MRS:
 1. Quick glance (human-readable, non-interactive) 
 2. CSV files (human- and machine-readable) 
 3. HTML reports (fairly interactive) 
-#. FSLeyes (highly interactive)
+4. FSLeyes (highly interactive)
 
 1. Quick glance
 ---------------

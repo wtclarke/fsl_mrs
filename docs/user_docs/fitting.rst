@@ -41,7 +41,9 @@ Results from :code:`fsl_mrs` are stored in a single folder that contains the fol
 - CSV files summarising the metabolite concentrations (and uncertainties), fitted parameters, and some QC measures.
 - PNG files with summary of the fitting and (optionally) voxel location.
 
+A nifti file of the fitted spectrum, baseline, and individual metabolites can be generated using the :code:`results_to_spectrum` script. For example::
 
+    results_to_spectrum --export_baseline example_fit
 
 MRSI
 ----
