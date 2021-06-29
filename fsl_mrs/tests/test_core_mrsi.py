@@ -24,21 +24,20 @@ def test_manual_load():
 
     fid = mrs_io.read_FID(str(data['metab']))
     fid_w = mrs_io.read_FID(str(data['water']))
-    basis, names, bhdr = mrs_io.read_basis(str(data['basis']))
+    basis = mrs_io.read_basis(str(data['basis']))
 
     mrsi = MRSI(fid,
                 cf=fid.spectrometer_frequency[0],
                 bw=fid.bandwidth,
                 nucleus=fid.nucleus[0],
-                basis=basis, names=names,
-                basis_hdr=bhdr[0], H2O=fid_w)
+                basis=basis, H2O=fid_w)
 
     assert mrsi.spatial_shape == (48, 48, 1)
     assert mrsi.num_voxels == 2304
     assert mrsi.FID_points == 1024
     assert mrsi.data.shape == (48, 48, 1, 1024)
     assert mrsi.H2O.shape == (48, 48, 1, 1024)
-    assert mrsi.num_basis == 22
+    assert mrsi.numBasis == 22
 
     def loadNii(f):
         nii = np.asanyarray(nib.load(f).dataobj)
@@ -75,7 +74,7 @@ def test_load_from_file():
     assert mrsi.spatial_shape == (48, 48, 1)
     assert mrsi.data.shape == (48, 48, 1, 1024)
     assert mrsi.H2O.shape == (48, 48, 1, 1024)
-    assert mrsi.num_basis == 22
+    assert mrsi.numBasis == 22
 
     assert mrsi.tissue_seg_loaded
     assert mrsi.csf.shape == (48, 48, 1)

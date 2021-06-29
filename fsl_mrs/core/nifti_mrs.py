@@ -8,13 +8,14 @@
 
 import json
 from pathlib import Path
+import re
 
 import numpy as np
 from nibabel.nifti1 import Nifti1Extension
 from nibabel.nifti2 import Nifti2Header
 
 from fsl.data.image import Image
-from fsl_mrs.core import MRS, MRSI
+import fsl_mrs.core as core
 from fsl_mrs.utils.misc import checkCFUnits
 
 
@@ -75,11 +76,19 @@ class NIFTI_MRS(Image):
         if isinstance(args[0], np.ndarray):
             args = list(args)
             args[0] = args[0].conj()
+            filename = None
         elif isinstance(args[0], Path):
             args = list(args)
+            filename = args[0].name
             args[0] = str(args[0])
+        elif isinstance(args[0], str):
+            args = list(args)
+            filename = Path(args[0]).name
 
         super().__init__(*args, **kwargs)
+
+        # Store original filename for reports etc
+        self._filename = filename
 
         # Check that file meets minimum requirements
         try:
@@ -106,12 +115,11 @@ class NIFTI_MRS(Image):
         std_tags = ['DIM_COIL', 'DIM_DYN', 'DIM_INDIRECT_0']
         for idx in range(3):
             curr_dim = idx + 5
-            if self.ndim >= curr_dim:
-                curr_tag = f'dim_{curr_dim}'
-                if curr_tag in self.hdr_ext:
-                    self.dim_tags[idx] = self.hdr_ext[curr_tag]
-                else:
-                    self.dim_tags[idx] = std_tags[idx]
+            curr_tag = f'dim_{curr_dim}'
+            if curr_tag in self.hdr_ext:
+                self.dim_tags[idx] = self.hdr_ext[curr_tag]
+            elif curr_dim < self.ndim:
+                self.dim_tags[idx] = std_tags[idx]
 
     def __getitem__(self, sliceobj):
         '''Apply conjugation at use. This swaps from the
@@ -171,6 +179,16 @@ class NIFTI_MRS(Image):
         extension = Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
+        self._set_dim_tags()
+
+    @property
+    def filename(self):
+        '''Name of file object was generated from.
+        Returns empty string if N/A.'''
+        if self._filename:
+            return self._filename
+        else:
+            return ''
 
     def dim_position(self, dim_tag):
         '''Return position of dim if it exists.'''
@@ -187,6 +205,83 @@ class NIFTI_MRS(Image):
                 dim += 4
         return dim
 
+    def add_hdr_field(self, key, value):
+        """Add a field to the header extension
+        To do: validate type (standard or user)
+
+        :param key: Field key
+        :type key: str
+        :param value: Value of field to add
+        """
+        dim_n = re.compile(r'dim_[567].*')
+        if dim_n.match(key):
+            raise ValueError('Modify dimension headers through dedicated methods.')
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext.update({key: value})
+        self.hdr_ext = current_hdr_ext
+
+    def remove_hdr_field(self, key):
+        """Remove a field from the header extension
+
+        :param key: Key to remove
+        :type key: str
+        """
+        if key == 'SpectrometerFrequency' or key == 'ResonantNucleus':
+            raise ValueError('You cannot remove the required metadata.')
+
+        dim_n = re.compile(r'dim_[567].*')
+        if dim_n.match(key):
+            raise ValueError('Modify dimension headers through dedicated methods.')
+
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext.pop(key, None)
+        self.hdr_ext = current_hdr_ext
+
+    def set_dim_info(self, dim, info_str):
+        """Set or update the 'dim_N_info' field
+
+        :param dim: The dim tag or python dimension index (i.e. N-1)
+        :type dim: str or int
+        :param info_str: New info string
+        :type info_str: str
+        """
+        dim = self._dim_tag_to_index(dim)
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext[f'dim_{dim + 1}_info'] = info_str
+        self.hdr_ext = current_hdr_ext
+
+    def set_dim_header(self, dim, hdr_obj):
+        """Set or update the 'dim_N_header' field
+        hdr_obj replaces the current value.
+
+        :param dim: The dim tag or python dimension index (i.e. N-1)
+        :type dim: str or int
+        :param hdr_obj: dict containing the dimension headers
+        :type hdr_obj: dict
+        """
+        dim = self._dim_tag_to_index(dim)
+
+        # Check size
+        def size_chk(obj):
+            # Allow for expansion along the next dimension
+            if dim == self.ndim:
+                dim_len = 1
+            else:
+                dim_len = self.shape[dim]
+            if len(obj) != dim_len:
+                raise ValueError(f'New dim header length must be {self.shape[dim]}')
+
+        for key in hdr_obj:
+            if isinstance(hdr_obj[key], list):
+                size_chk(hdr_obj[key])
+            elif isinstance(hdr_obj[key], dict)\
+                    and 'Value' in hdr_obj[key]:
+                size_chk(hdr_obj[key]['Value'])
+
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext[f'dim_{dim + 1}_header'] = hdr_obj
+        self.hdr_ext = current_hdr_ext
+
     def copy(self, remove_dim=None):
         '''Return a copy of this image, optionally with a dimension removed.
         Args:
@@ -195,6 +290,7 @@ class NIFTI_MRS(Image):
             dim = self._dim_tag_to_index(remove_dim)
             reduced_data = self.data.take(0, axis=dim)
             new_obj = NIFTI_MRS(reduced_data, header=self.header)
+            new_obj._filename = self.filename
 
             # Modify the dim information in
             hdr_ext = new_obj.hdr_ext
@@ -204,10 +300,13 @@ class NIFTI_MRS(Image):
                 if dd > new_obj.ndim:
                     hdr_ext.pop(f'dim_{dd}', None)
                     hdr_ext.pop(f'dim_{dd}_header', None)
+                    hdr_ext.pop(f'dim_{dd}_info', None)
                 elif dd >= dim:
                     hdr_ext[f'dim_{dd}'] = hdr_ext[f'dim_{dd + 1}']
                     if f'dim_{dd + 1}_header' in hdr_ext:
                         hdr_ext[f'dim_{dd}_header'] = hdr_ext[f'dim_{dd + 1}_header']
+                    if f'dim_{dd + 1}_info' in hdr_ext:
+                        hdr_ext[f'dim_{dd}_info'] = hdr_ext[f'dim_{dd + 1}_info']
             new_obj.hdr_ext = hdr_ext
 
             new_obj._set_dim_tags()
@@ -292,13 +391,25 @@ class NIFTI_MRS(Image):
         else:
             raise TypeError('dim should be int or a string matching one of the dim tags.')
 
-    def generate_mrs(self, dim=None, basis_file=None, basis=None, names=None, basis_hdr=None, ref_data=None):
-        """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list."""
+    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None):
+        """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
+
+        :param dim: Dimension to generate over, dimension index (4, 5, 6) or tag. None iterates over all indices,
+            defaults to None
+        :type dim: Int or str, optional
+        :param basis_file: Path to basis file, defaults to None
+        :type basis_file: Str, optional
+        :param basis: Basis object, defaults to None
+        :type basis: fsl_mrs.core.basis.Basis, optional
+        :param ref_data: Reference data as a path string, NIfTI-MRS object or ndarray, defaults to None
+        :type ref_data: Str or fsl_mrs.core.NIFTI_MRS or numpy.ndarray, optional
+        :yield: MRS or MRSI object
+        :rtype: fsl_mrs.core.MRS or fsl_mrs.core.MRSI
+        """
 
         if basis_file is not None:
             import fsl_mrs.utils.mrs_io as mrs_io
-            basis, names, basis_hdr = mrs_io.read_basis(basis_file)
-            basis_hdr = basis_hdr[0]
+            basis = mrs_io.read_basis(basis_file)
 
         if ref_data is not None:
             if isinstance(ref_data, str):
@@ -318,24 +429,20 @@ class NIFTI_MRS(Image):
                     pass
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
-                        out.append(MRSI(FID=dd,
-                                        bw=self.bandwidth,
-                                        cf=self.spectrometer_frequency[0],
-                                        nucleus=self.nucleus[0],
-                                        basis=basis,
-                                        names=names,
-                                        basis_hdr=basis_hdr,
-                                        H2O=ref_data))
+                        out.append(core.MRSI(FID=dd,
+                                             bw=self.bandwidth,
+                                             cf=self.spectrometer_frequency[0],
+                                             nucleus=self.nucleus[0],
+                                             basis=basis,
+                                             H2O=ref_data))
                     yield out
                 else:
-                    yield MRSI(FID=data,
-                               bw=self.bandwidth,
-                               cf=self.spectrometer_frequency[0],
-                               nucleus=self.nucleus[0],
-                               basis=basis,
-                               names=names,
-                               basis_hdr=basis_hdr,
-                               H2O=ref_data)
+                    yield core.MRSI(FID=data,
+                                    bw=self.bandwidth,
+                                    cf=self.spectrometer_frequency[0],
+                                    nucleus=self.nucleus[0],
+                                    basis=basis,
+                                    H2O=ref_data)
             else:
                 if ref_data is not None:
                     ref_data = ref_data.squeeze()
@@ -344,24 +451,20 @@ class NIFTI_MRS(Image):
                 if data.ndim > 4:
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
-                        out.append(MRS(FID=dd.squeeze(),
-                                       bw=self.bandwidth,
-                                       cf=self.spectrometer_frequency[0],
-                                       nucleus=self.nucleus[0],
-                                       basis=basis,
-                                       names=names,
-                                       basis_hdr=basis_hdr,
-                                       H2O=ref_data))
+                        out.append(core.MRS(FID=dd.squeeze(),
+                                            bw=self.bandwidth,
+                                            cf=self.spectrometer_frequency[0],
+                                            nucleus=self.nucleus[0],
+                                            basis=basis,
+                                            H2O=ref_data))
                     yield out
                 else:
-                    yield MRS(FID=data.squeeze(),
-                              bw=self.bandwidth,
-                              cf=self.spectrometer_frequency[0],
-                              nucleus=self.nucleus[0],
-                              basis=basis,
-                              names=names,
-                              basis_hdr=basis_hdr,
-                              H2O=ref_data)
+                    yield core.MRS(FID=data.squeeze(),
+                                   bw=self.bandwidth,
+                                   cf=self.spectrometer_frequency[0],
+                                   nucleus=self.nucleus[0],
+                                   basis=basis,
+                                   H2O=ref_data)
 
     def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))

@@ -80,11 +80,11 @@ def FSLModel_transform_basis(x, nu, t, m, G, g):
 
     con, gamma, eps, phi0, phi1, b = FSLModel_x2param(x, n, g)
 
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
 
-    tmp = np.zeros(m.shape, dtype=np.complex)
+    tmp = np.zeros(m.shape, dtype=complex)
     for i, gg in enumerate(G):
         tmp[:, i] = m[:, i] * E[:, gg]
 
@@ -113,12 +113,12 @@ def FSLModel_forward(x, nu, t, m, B, G, g):
 
     con, gamma, eps, phi0, phi1, b = FSLModel_x2param(x, n, g)
 
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
     # E = np.exp(-(1j*eps+gamma)*t) # THis is actually slower! But maybe more optimisable longterm with numexpr or numba
 
-    # tmp = np.zeros(m.shape,dtype=np.complex)
+    # tmp = np.zeros(m.shape,dtype=complex)
     # for i,gg in enumerate(G):
     #    tmp[:,i] = m[:,i]*E[:,gg]
     tmp = m * E[:, G]
@@ -175,11 +175,11 @@ def FSLModel_forward_jac(x, nu, t, m, B, G, g, first, last):
     con, gamma, eps, phi0, phi1, b = FSLModel_x2param(x, n, g)
 
     # Start
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
 
-    e_term = np.zeros(m.shape, dtype=np.complex)
+    e_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         e_term[:, i] = E[:, gg]
@@ -235,11 +235,11 @@ def FSLModel_forward_and_jac(x, nu, t, m, B, G, g, data, first, last):
     con, gamma, eps, phi0, phi1, b = FSLModel_x2param(x, n, g)
 
     # Start
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
 
-    e_term = np.zeros(m.shape, dtype=np.complex)
+    e_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         e_term[:, i] = E[:, gg]
@@ -359,11 +359,11 @@ def FSLModel_forward_Voigt(x, nu, t, m, B, G, g):
 
     con, gamma, sigma, eps, phi0, phi1, b = FSLModel_x2param_Voigt(x, n, g)
 
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg] + t * sigma[gg]**2) * t).flatten()
 
-    tmp = np.zeros(m.shape, dtype=np.complex)
+    tmp = np.zeros(m.shape, dtype=complex)
     for i, gg in enumerate(G):
         tmp[:, i] = m[:, i] * E[:, gg]
 
@@ -419,14 +419,14 @@ def FSLModel_grad_Voigt(x, nu, t, m, B, G, g, data, first, last):
     con, gamma, sigma, eps, phi0, phi1, b = FSLModel_x2param_Voigt(x, n, g)
 
     # Start
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
-    SIG = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
+    SIG = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg] + t * sigma[gg]**2) * t).flatten()
         SIG[:, gg] = sigma[gg]
 
-    e_term = np.zeros(m.shape, dtype=np.complex)
-    sig_term = np.zeros(m.shape, dtype=np.complex)
+    e_term = np.zeros(m.shape, dtype=complex)
+    sig_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         e_term[:, i] = E[:, gg]
@@ -495,14 +495,14 @@ def FSLModel_jac_Voigt(x, nu, t, m, B, G, g, first, last):
     con, gamma, sigma, eps, phi0, phi1, b = FSLModel_x2param_Voigt(x, n, g)
 
     # Start
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
-    SIG = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
+    SIG = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg] + t * sigma[gg] ** 2) * t).flatten()
         SIG[:, gg] = sigma[gg]
 
-    e_term = np.zeros(m.shape, dtype=np.complex)
-    sig_term = np.zeros(m.shape, dtype=np.complex)
+    e_term = np.zeros(m.shape, dtype=complex)
+    sig_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         e_term[:, i] = E[:, gg]
@@ -658,11 +658,11 @@ def FSLModel_forward_vb(x, nu, t, m, B, G, g, first, last):
     con = np.exp(logcon)
     gamma = np.exp(loggamma)
 
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
 
-    tmp = np.zeros(m.shape, dtype=np.complex)
+    tmp = np.zeros(m.shape, dtype=complex)
     for i, gg in enumerate(G):
         tmp[:, i] = m[:, i] * E[:, gg]
 
@@ -690,11 +690,11 @@ def FSLModel_grad_vb(x, nu, t, m, B, G, g, first, last):
     gamma = np.exp(loggamma)
 
     # Start
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
 
-    e_term = np.zeros(m.shape, dtype=np.complex)
+    e_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         e_term[:, i] = E[:, gg]
@@ -749,11 +749,11 @@ def FSLModel_forward_vb_voigt(x, nu, t, m, B, G, g, first, last):
     gamma = np.exp(loggamma)
     sigma = np.exp(logsigma)
 
-    E = np.zeros((m.shape[0], g), dtype=np.complex)
+    E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
         E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg] + t * sigma[gg]**2) * t).flatten()
 
-    tmp = np.zeros(m.shape, dtype=np.complex)
+    tmp = np.zeros(m.shape, dtype=complex)
     for i, gg in enumerate(G):
         tmp[:, i] = m[:, i] * E[:, gg]
 

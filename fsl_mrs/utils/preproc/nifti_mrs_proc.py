@@ -6,9 +6,13 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
-from fsl_mrs.utils import preproc
+from datetime import datetime
+
 import numpy as np
+
+from fsl_mrs.utils import preproc
 from fsl_mrs.core import NIFTI_MRS
+from fsl_mrs import __version__
 
 
 class DimensionsDoNotMatch(Exception):
@@ -17,6 +21,35 @@ class DimensionsDoNotMatch(Exception):
 
 class OnlySVS(Exception):
     pass
+
+
+def update_processing_prov(nmrs_obj: NIFTI_MRS, method, details):
+    """Insert appropriate processing provenance information into the
+    NIfTI-MRS header extension.
+
+    :param nmrs_obj: NIFTI-MRS object which has been modified
+    :type nmrs_obj: fsl_mrs.core.NIFTI_MRS
+    :param method: [description]
+    :type method: str
+    :param details: [description]
+    :type details: str
+    """
+    # 1. Check for ProcessingApplied key and create if not present
+    if 'ProcessingApplied' not in nmrs_obj.hdr_ext:
+        nmrs_obj.add_hdr_field('ProcessingApplied', [])
+
+    # 2. Form object to append.
+    prov_dict = {
+        'Time': datetime.now().isoformat(sep='T', timespec='milliseconds'),
+        'Program': 'FSL-MRS',
+        'Version': __version__,
+        'Method': method,
+        'Details': details}
+
+    # 3. Append
+    current_processing = nmrs_obj.hdr_ext['ProcessingApplied']
+    current_processing.append(prov_dict)
+    nmrs_obj.add_hdr_field('ProcessingApplied', current_processing)
 
 
 def first_index(idx):
@@ -71,6 +104,17 @@ def coilcombine(data, reference=None, no_prewhiten=False, figure=False, report=N
                                       html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.coilcombine, '
+    if reference is None:
+        processing_info += 'reference=None, '
+    else:
+        processing_info += f'reference={reference.filename}, '
+    processing_info += f'no_prewhiten={no_prewhiten}.'
+
+    update_processing_prov(combinedc_obj, 'RF coil combination', processing_info)
+
     return combinedc_obj
 
 
@@ -106,6 +150,13 @@ def average(data, dim, figure=False, report=None, report_all=False):
                                       html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.average, '
+    processing_info += f'dim={dim}.'
+
+    update_processing_prov(combined_obj, 'Signal averaging', processing_info)
+
     return combined_obj
 
 
@@ -158,6 +209,20 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
             if figure:
                 for ff in fig:
                     ff.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.align, '
+    processing_info += f'dim={dim}, '
+    if target is not None:
+        processing_info += 'target used, '
+    else:
+        processing_info += 'target=None, '
+    processing_info += f'ppmlim={ppmlim}, '
+    processing_info += f'niter={niter}, '
+    processing_info += f'apodize={apodize}.'
+
+    update_processing_prov(aligned_obj, 'Frequency and phase correction', processing_info)
+
     return aligned_obj
 
 
@@ -183,7 +248,7 @@ def aligndiff(data,
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
 
-    :return: Combined data in NIFTI_MRS format.
+    :return: Aligned data in NIFTI_MRS format.
     '''
     if data.shape[data.dim_position(dim_diff)] != 2:
         raise DimensionsDoNotMatch('Diff dimension must be of length 2')
@@ -232,6 +297,20 @@ def aligndiff(data,
             if figure:
                 for ff in fig:
                     ff.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.aligndiff, '
+    processing_info += f'dim_align={dim_align}, '
+    processing_info += f'dim_diff={dim_diff}, '
+    processing_info += f'diff_type={diff_type}, '
+    if target is not None:
+        processing_info += 'target used, '
+    else:
+        processing_info += 'target=None, '
+    processing_info += f'ppmlim={ppmlim}.'
+
+    update_processing_prov(aligned_obj, 'Alignment of subtraction sub-spectra', processing_info)
+
     return aligned_obj
 
 
@@ -273,6 +352,12 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
                 for ff in fig:
                     ff.show()
 
+    # Update processing prov
+    processing_info = f'{__name__}.ecc, '
+    processing_info += f'reference={reference.filename}.'
+
+    update_processing_prov(corrected_obj, 'Eddy current correction', processing_info)
+
     return corrected_obj
 
 
@@ -308,6 +393,13 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
                                html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.remove_peaks, '
+    processing_info += f'limits={limits}, '
+    processing_info += f'limit_units={limit_units}.'
+
+    update_processing_prov(corrected_obj, 'Nuisance peak removal', processing_info)
 
     return corrected_obj
 
@@ -361,6 +453,14 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
 
     shifted_obj.dwelltime = newDT
 
+    # Update processing prov
+    processing_info = f'{__name__}.tshift, '
+    processing_info += f'tshiftStart={tshiftStart}, '
+    processing_info += f'tshiftEnd={tshiftEnd}, '
+    processing_info += f'samples={samples}.'
+
+    update_processing_prov(shifted_obj, 'Temporal resample', processing_info)
+
     return shifted_obj
 
 
@@ -411,6 +511,14 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
                                function=rep_func)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.truncate_or_pad, '
+    processing_info += f'npoints={npoints}, '
+    processing_info += f'position={position}.'
+
+    update_processing_prov(trunc_obj, 'Zero-filling', processing_info)
+
     return trunc_obj
 
 
@@ -444,6 +552,13 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
                                  html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.apodize, '
+    processing_info += f'amount={amount}, '
+    processing_info += f'filter={filter}.'
+
+    update_processing_prov(apod_obj, 'Apodization', processing_info)
 
     return apod_obj
 
@@ -479,6 +594,12 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
                                function='freqshift')
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.fshift, '
+    processing_info += f'amount={amount}.'
+
+    update_processing_prov(shift_obj, 'Frequency and phase correction', processing_info)
 
     return shift_obj
 
@@ -517,6 +638,13 @@ def shift_to_reference(data, ppm_ref, peak_search, figure=False, report=None, re
                                function='shiftToRef')
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.shift_to_reference, '
+    processing_info += f'ppm_ref={ppm_ref}, '
+    processing_info += f'peak_search={peak_search}.'
+
+    update_processing_prov(shift_obj, 'Frequency and phase correction', processing_info)
 
     return shift_obj
 
@@ -581,6 +709,17 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     else:
         bad_out = None
 
+    # Update processing prov
+    processing_info = f'{__name__}.remove_unlike, '
+    if ppmlim is None:
+        processing_info += 'ppmlim=None, '
+    else:
+        processing_info += f'ppmlim={ppmlim}, '
+    processing_info += f'sdlimit={sdlimit}, '
+    processing_info += f'niter={niter}.'
+
+    update_processing_prov(good_out, 'Outlier removal', processing_info)
+
     return good_out, bad_out
 
 
@@ -619,6 +758,13 @@ def phase_correct(data, ppmlim, hlsvd=True, figure=False, report=None, report_al
                                       html=report)
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.phase_correct, '
+    processing_info += f'ppmlim={ppmlim}, '
+    processing_info += f'hlsvd={hlsvd}.'
+
+    update_processing_prov(phs_obj, 'Phasing', processing_info)
 
     return phs_obj
 
@@ -662,6 +808,13 @@ def apply_fixed_phase(data, p0, p1=0.0, figure=False, report=None, report_all=Fa
                                  function='fixed phase')
             if figure:
                 fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.apply_fixed_phase, '
+    processing_info += f'p0={p0}, '
+    processing_info += f'p1={p1}.'
+
+    update_processing_prov(phs_obj, 'Phasing', processing_info)
 
     return phs_obj
 
@@ -714,6 +867,19 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
     else:
         raise ValueError('One of data1 or dim arguments must not be None.')
 
+    # Update processing prov
+    processing_info = f'{__name__}.subtract, '
+    if data1 is None:
+        processing_info += 'data1=None, '
+    else:
+        processing_info += f'data1={data1.filename}, '
+    if dim is None:
+        processing_info += 'dim=None.'
+    else:
+        processing_info += f'dim={dim}.'
+
+    update_processing_prov(sub_ob, 'Subtraction of sub-spectra', processing_info)
+
     return sub_ob
 
 
@@ -765,6 +931,19 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
     else:
         raise ValueError('One of data1 or dim arguments must not be None.')
 
+    # Update processing prov
+    processing_info = f'{__name__}.add, '
+    if data1 is None:
+        processing_info += 'data1=None, '
+    else:
+        processing_info += f'data1={data1.filename}, '
+    if dim is None:
+        processing_info += 'dim=None.'
+    else:
+        processing_info += f'dim={dim}.'
+
+    update_processing_prov(add_ob, 'Addition of sub-spectra', processing_info)
+
     return add_ob
 
 
@@ -798,5 +977,9 @@ def conjugate(data, figure=False, report=None, report_all=False):
                                      function='conjugate')
                 if figure:
                     fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.conjugate.'
+    update_processing_prov(conj_data, 'Conjugation', processing_info)
 
     return conj_data

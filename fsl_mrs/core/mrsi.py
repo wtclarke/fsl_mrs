@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils import misc
 
 
@@ -47,9 +48,15 @@ class MRSI(object):
             raise ValueError('Either header or cf and bw must not be None.')
 
         # Basis
-        self.basis      = basis
-        self.names      = names
-        self.basis_hdr  = basis_hdr
+        if basis is not None:
+            if isinstance(basis, np.ndarray):
+                self._basis = Basis(basis, names, basis_hdr)
+            elif isinstance(basis, Basis):
+                self._basis = basis
+            else:
+                raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
+        else:
+            self._basis = None
 
         # tissue segmentation
         self.csf    = None
@@ -62,8 +69,6 @@ class MRSI(object):
         self.FID_points = self.data.shape[3]
         self.num_voxels = np.prod(self.spatial_shape)
         self.num_masked_voxels = np.sum(self.mask)
-        if self.names is not None:
-            self.num_basis = len(names)
 
         # MRS output options
         self.conj_basis     = False
@@ -71,11 +76,79 @@ class MRSI(object):
         self.conj_FID       = False
         self.no_conj_FID    = False
         self.rescale        = False
-        self.keep           = None
-        self.ignore         = None
+        self._keep          = []
+        self._ignore        = []
+        self._keep_ignore   = []
         self.ind_scaling    = None
 
         self._store_scalings = None
+
+    @property
+    def names(self):
+        """Return the names of the basis spectra currently configured."""
+        if self._basis is None:
+            return None
+        else:
+            return self._basis.get_formatted_names(self._keep_ignore)
+
+    @property
+    def numBasis(self):
+        """Returns the number of currently configured basis spectra"""
+        if self._basis is None:
+            return None
+        else:
+            return len(self._basis.get_formatted_names(self._keep_ignore))
+
+    @property
+    def keep(self):
+        return self._keep
+
+    @keep.setter
+    def keep(self, metabs):
+        """Keep a subset of metabolites in the basis by ignoring all others.
+
+        :param metabs: List of metabolite names to keep.
+        :type metabs: List of str
+        """
+        if metabs is None or metabs == []:
+            self._keep = []
+            self._keep_ignore = []
+            if self._ignore != []:
+                self.ignore = self._ignore
+            return
+
+        for m in metabs:
+            if m not in self.names:
+                raise ValueError(f'{m} not in current list of metabolites'
+                                 f' ({self.names}).')
+
+        self._keep = metabs
+        self._keep_ignore += [m for m in self.names if m not in metabs]
+
+    @property
+    def ignore(self):
+        return self._ignore
+
+    @ignore.setter
+    def ignore(self, metabs):
+        """Ignore a subset of metabolites in the basis
+
+        :param metabs: List of metabolite names to remove
+        :type metabs: List of str
+        """
+        if metabs is None or metabs == []:
+            self._ignore = []
+            self._keep_ignore = []
+            if self._keep != []:
+                self.keep = self._keep
+            return
+
+        for m in metabs:
+            if m not in self.names:
+                raise ValueError(f'{m} not in current list of metabolites'
+                                 f' ({self.names}).')
+        self._ignore += metabs
+        self._keep_ignore += metabs
 
     def __iter__(self):
         shape = self.data.shape
@@ -84,9 +157,7 @@ class MRSI(object):
             if self.mask[idx]:
                 mrs_out = MRS(FID=self.data[idx],
                               header=self.header,
-                              basis=self.basis,
-                              names=self.names,
-                              basis_hdr=self.basis_hdr,
+                              basis=self._basis,
                               H2O=self.H2O[idx])
 
                 self._process_mrs(mrs_out)
@@ -124,9 +195,7 @@ class MRSI(object):
         ''' Return MRS object by index (tuple - x,y,z).'''
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
-                      basis=self.basis,
-                      names=self.names,
-                      basis_hdr=self.basis_hdr,
+                      basis=self._basis,
                       H2O=self.H2O[index[0], index[1], index[2], :])
         self._process_mrs(mrs_out)
         return mrs_out
@@ -143,9 +212,7 @@ class MRSI(object):
 
         mrs_out = MRS(FID=FID,
                       header=self.header,
-                      basis=self.basis,
-                      names=self.names,
-                      basis_hdr=self.basis_hdr,
+                      basis=self._basis,
                       H2O=H2O)
         self._process_mrs(mrs_out)
         return mrs_out
@@ -164,19 +231,19 @@ class MRSI(object):
             basis and FID and apply basis operations
             to all voxels.
         '''
-        if self.basis is not None:
+        if self._basis is not None:
             if self.conj_basis:
-                mrs.conj_Basis()
+                mrs.conj_Basis = True
             elif self.no_conj_basis:
                 pass
             else:
                 mrs.check_Basis(repair=True)
 
-            mrs.keep(self.keep)
-            mrs.ignore(self.ignore)
+            mrs.keep = self._keep
+            mrs.ignore = self._ignore
 
         if self.conj_FID:
-            mrs.conj_FID()
+            mrs.conj_FID = True
         elif self.no_conj_FID:
             pass
         else:
@@ -279,3 +346,40 @@ class MRSI(object):
             data[data > 1e10]    = 0
 
         return data
+
+    def add_MM_peaks(self, ppmlist=None, amplist=None, gamma=0, sigma=0):
+        """Add default MM spectra to basis set
+
+        By default will use the defined shifts and amplitudes
+        ppmlist :  [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
+        amplist : [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
+        but these can be overridden using the kwargs
+
+        :param ppmlist: List of shifts, nested lists group into single basis, defaults to None
+        :type ppmlist: List of floats, optional
+        :param amplist: List of amplitudes, nested lists group into single basis, defaults to None
+        :type amplist: List of floats, optional
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        :return: Number of basis sets added
+        :rtype: int
+        """
+        if ppmlist is None:
+            from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
+            ppmlist = DEFAULT_MM_PPM
+            amplist = DEFAULT_MM_AMP
+
+        for idx, _ in enumerate(ppmlist):
+            if isinstance(ppmlist[idx], (float, int)):
+                ppmlist[idx] = [float(ppmlist[idx]), ]
+            if isinstance(amplist[idx], (float, int)):
+                amplist[idx] = [float(amplist[idx]), ]
+
+        names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
+
+        for name, ppm, amp in zip(names, ppmlist, amplist):
+            self._basis.add_peak(ppm, amp, name, gamma, sigma)
+
+        return len(ppmlist)

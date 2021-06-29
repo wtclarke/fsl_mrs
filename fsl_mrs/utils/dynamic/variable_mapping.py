@@ -308,7 +308,7 @@ class VariableMapping(object):
         for index, name in enumerate(self.mapped_names):
             psize = self.mapped_sizes[index]
             if (self.Parameters[name] == 'fixed'):
-                free_params[counter:counter + psize] = p[0, index]
+                free_params[counter:counter + psize] = np.median(np.stack(p[:, index]), axis=0)
                 counter += psize
             elif (self.Parameters[name] == 'variable'):
                 for t in range(self.ntimes):

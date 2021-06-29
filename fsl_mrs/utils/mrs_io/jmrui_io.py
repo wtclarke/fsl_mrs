@@ -17,7 +17,14 @@ def readjMRUItxt_fid(txtfile):
     :return: NIFTI_MRS
     '''
 
-    data, header = readjMRUItxt(txtfile, unpack_header=True)
+    data, header = readjMRUItxt(txtfile)
+    # Nsig, Npoints to Npoints, Nsig
+    data = data.T
+
+    if data.shape[1] > 1:
+        dim_tags = ['DIM_USER_0', None, None]
+    else:
+        dim_tags = [None, None, None]
 
     if 'TypeOfNucleus' in header['jmrui']:
         nucleus = header['jmrui']['TypeOfNucleus']
@@ -29,11 +36,18 @@ def readjMRUItxt_fid(txtfile):
 
     data = data.reshape((1, 1, 1) + data.shape)
 
-    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus)
+    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus, dim_tags=dim_tags)
 
 
 # Read jMRUI .txt files containing basis
 def read_txtBasis_files(txtfiles):
+    """Read a list of files containing a jMRUI basis set
+
+    :param txtfiles: List of files to read basis from. Can be a single file/element.
+    :type txtfiles: List
+    :return: Tuple of basis, names, headers
+    :rtype: tuple
+    """
     basis = []
     names = []
     header = []
@@ -41,17 +55,24 @@ def read_txtBasis_files(txtfiles):
         b, h = readjMRUItxt(file)
         basis.append(b)
 
-        prefix, _ = op.splitext(op.basename(file))
-        names.append(prefix)
+        split_str = h['jmrui']['SignalNames'].split(';')
+        if split_str[-1] == '':
+            split_str.pop()
+        names += split_str
 
-        header.append(h)
+        header += [h, ] * b.shape[0]
+    basis = np.concatenate(basis, axis=0)
+    basis = basis.conj().T
 
-    basis = np.array(basis).conj().T
+    # Add missing field that fsl expects.
+    for hdr in header:
+        hdr['fwhm'] = None
+
     return basis, names, header
 
 
 # generically read jMRUI style text files
-def readjMRUItxt(filename, unpack_header=True):
+def readjMRUItxt(filename):
     """
     Read .txt format file
     Parameters
@@ -63,14 +84,13 @@ def readjMRUItxt(filename, unpack_header=True):
     -------
     array-like
         Complex data
-    list (or dict if unpack_header==True)
-        Header information
     """
     signalRe = re.compile(r'Signal (\d{1,}) out of (\d{1,}) in file')
     headerRe = re.compile(r'(\w*):(.*)')
     header = {}
     data   = []
     recordData = False
+    nsig = 0
     with open(filename, 'r') as txtfile:
         for line in txtfile:
             headerComp = headerRe.match(line)
@@ -80,6 +100,7 @@ def readjMRUItxt(filename, unpack_header=True):
 
             signalIndices = signalRe.match(line)
             if signalIndices:
+                nsig += 1
                 recordData = True
                 continue
 
@@ -91,7 +112,8 @@ def readjMRUItxt(filename, unpack_header=True):
 
     # Reshape data
     data = np.concatenate([np.array(i) for i in data])
-    data = (data[0::2] + 1j * data[1::2]).astype(np.complex)
+    data = (data[0::2] + 1j * data[1::2]).astype(complex)
+    data = data.reshape(nsig, -1)
 
     # Clean up header
     header = translateHeader(header)

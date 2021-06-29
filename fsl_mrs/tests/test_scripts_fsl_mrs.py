@@ -49,6 +49,19 @@ def test_fsl_mrs(tmp_path):
     assert op.exists(op.join(tmp_path, 'options.txt'))
 
 
+def test_no_ref(tmp_path):
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report'])
+
+    assert op.exists(op.join(tmp_path, 'report.html'))
+
+
 def test_alt_ref(tmp_path):
 
     subprocess.check_call(['fsl_mrs',

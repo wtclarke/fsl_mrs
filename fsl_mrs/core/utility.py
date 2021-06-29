@@ -26,13 +26,13 @@ def mrs_from_files(FID_file, Basis_file, H2O_file=None):
     '''
 
     FID = mrs_io.read_FID(FID_file)
-    basis, names, Bheader = mrs_io.read_basis(Basis_file)
+    basis = mrs_io.read_basis(Basis_file)
     if H2O_file is not None:
         H2O = mrs_io.read_FID(H2O_file).data
     else:
         H2O = None
 
-    return FID.mrs(basis=basis, names=names, basis_hdr=Bheader[0], ref_data=H2O)
+    return FID.mrs(basis=basis, ref_data=H2O)
 
 
 def mrsi_from_files(data_file,
@@ -63,15 +63,15 @@ def mrsi_from_files(data_file,
         mask = None
 
     if basis_file is not None:
-        basis, names, basisHdr = mrs_io.read_basis(basis_file)
+        basis = mrs_io.read_basis(basis_file)
     else:
-        basis, names, basisHdr = None, None, [None, ]
+        basis = None
     if H2O_file is not None:
         data_w = mrs_io.read_FID(H2O_file)
     else:
         data_w = None
 
-    out = data.mrs(basis=basis, names=names, basis_hdr=basisHdr[0], ref_data=data_w)
+    out = data.mrs(basis=basis, ref_data=data_w)
 
     out.set_mask(mask)
 

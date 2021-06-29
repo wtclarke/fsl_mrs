@@ -31,7 +31,7 @@ def prepare_baseline_regressor(mrs, baseline_order, ppmlim):
     first, last = mrs.ppmlim_to_range(ppmlim)
 
     B = []
-    x = np.zeros(mrs.numPoints, np.complex)
+    x = np.zeros(mrs.numPoints, complex)
     x[first:last] = np.linspace(-1, 1, last - first)
 
     for i in range(baseline_order + 1):

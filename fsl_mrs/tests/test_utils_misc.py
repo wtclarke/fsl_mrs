@@ -53,6 +53,24 @@ def test_FIDToSpec_SpecToFID():
     assert np.allclose(misc.SpecToFID(misc.FIDToSpec(testFID[0])), testFID)
 
 
+def test_checkCFUnits():
+    assert misc.checkCFUnits(10, units='Hz') == 10E6
+    assert misc.checkCFUnits(10E6, units='Hz') == 10E6
+
+    assert misc.checkCFUnits(10, units='MHz') == 10
+    assert misc.checkCFUnits(10E6, units='MHz') == 10
+
+
+def test_limit_to_range():
+    axis = np.arange(0, 10)
+    assert misc.limit_to_range(axis, (1, 5)) == (1, 5)
+    assert misc.limit_to_range(axis, None) == (0, 10)
+
+    axis = np.arange(-10.5, 10.5)
+    assert misc.limit_to_range(axis, (1, 5)) == (11, 15)
+    assert misc.limit_to_range(axis, None) == (0, 21)
+
+
 def test_parse_metab_groups():
 
     mrs = read_FID(str(data_path)).mrs(basis_file=str(basis_path))

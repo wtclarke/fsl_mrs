@@ -374,13 +374,14 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
             """
         template += section
 
-    # Real/imag section
-    section = f"""
-    <h2><a name="refs">Water referencing</a></h2>
-    {divs['refs']}
-    <hr>
-    """
-    template += section
+    if res.concScalings['molality'] is not None:
+        # Water referencing section
+        section = f"""
+        <h2><a name="refs">Water referencing</a></h2>
+        {divs['refs']}
+        <hr>
+        """
+        template += section
 
     # Details of the methods
     # methodsfile="/path/to/file"
@@ -393,7 +394,7 @@ def create_report(mrs, res, filename, fidfile, basisfile, h2ofile, date, locatio
     else:
         algo = ""
 
-    methods = f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex-valued spectrum in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). {algo} <p><h3>References</h3><p>[1] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package (2020)."
+    methods = f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). Briefly, basis spectra are fitted to the complex-valued spectrum in the frequency domain. The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. A complex polynomial baseline is also concurrrently fitted (order={res.baseline_order}). {algo} <p><h3>References</h3><p>[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: 10.1002/mrm.28630."
     section = f"""
     <h1><a name="methods">Analysis methods</a></h1>
     <div>{methods}</div>

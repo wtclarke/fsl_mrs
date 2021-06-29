@@ -4,13 +4,15 @@ Test io functions
 
 Copyright Will Clarke, University of Oxford, 2021'''
 
+import numpy as np
+import os.path as op
+import pytest
 
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
-from fsl_mrs.utils.mrs_io.main import _check_datatype
-from fsl_mrs.utils import plotting
-import numpy as np
-import os.path as op
+from fsl_mrs.utils.mrs_io.main import _check_datatype, IncompatibleBasisFormat
+from fsl_mrs.core.basis import Basis
+
 
 testsPath = op.dirname(__file__)
 SVSTestData = {'nifti': op.join(testsPath, 'testdata/mrs_io/metab.nii'),
@@ -57,6 +59,7 @@ def test_read_FID_SVS():
 BasisTestData = {'fsl': op.join(testsPath, 'testdata/mrs_io/basisset_FSL'),
                  'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
                  'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
+                 'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
                  'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
 
 
@@ -67,90 +70,52 @@ def test_read_Basis():
     # lcmodel - folder of .raw
     # jmrui - folder of .txt
 
-    basis_fsl, names_fsl, headers_fsl = mrsio.read_basis(BasisTestData['fsl'])
-    basis_raw, names_raw, headers_raw = mrsio.read_basis(BasisTestData['raw'])
-    basis_txt, names_txt, headers_txt = mrsio.read_basis(BasisTestData['txt'])
-    basis_lcm, names_lcm, headers_lcm = mrsio.read_basis(BasisTestData['lcm'])
+    with pytest.raises(IncompatibleBasisFormat) as exc_info:
+        _ = mrsio.read_basis(BasisTestData['raw'])
 
-    # lcm basis file is zeropadded by a factor of 2, remove
-    basis_lcm = basis_lcm[:2048, :]
+    assert exc_info.type is IncompatibleBasisFormat
+    assert exc_info.value.args[0] == "LCModel raw files don't contain enough information"\
+                                     " to generate a Basis object. Please use fsl_mrs.utils.mrs_io"\
+                                     ".lcm_io.read_basis_files to load the partial information."
 
+    basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
+    basis_txt = mrsio.read_basis(BasisTestData['txt'])
+    basis_txt_single = mrsio.read_basis(BasisTestData['txt_single'])
+    basis_lcm = mrsio.read_basis(BasisTestData['lcm'])
+
+    # Check each returns a basis object
+    assert isinstance(basis_fsl, Basis)
+    assert isinstance(basis_txt, Basis)
+    assert isinstance(basis_txt_single, Basis)
+    assert isinstance(basis_lcm, Basis)
+
+    # lcm basis file is zeropadded by a factor of 2
     # Test that all contain the same amount of data.
-    expectedDataSize = (2048, 21)
-    assert basis_fsl.shape == expectedDataSize
-    assert basis_raw.shape == expectedDataSize
-    assert basis_txt.shape == expectedDataSize
-    assert basis_lcm.shape == expectedDataSize
+    assert basis_fsl.original_points == 2048
+    assert basis_txt.original_points == 2048
+    assert basis_txt_single.original_points == 2048
+    assert basis_lcm.original_points == (2 * 2048)
 
     # Test that the number of names match the amount of data
     numNames = 21
-    assert len(names_fsl) == numNames
-    assert len(names_raw) == numNames
-    assert len(names_txt) == numNames
-    assert len(names_lcm) == numNames
-
-    # Check that the headers each contain the required fields
-    # Exclude raw, we know it doesn't contain everything
-    for r in headerReqFields:
-        assert r in headers_fsl[0]
-        assert r in headers_txt[0]
-        assert r in headers_lcm[0]
-
-        headerMean = np.mean([headers_fsl[0][r],
-                              headers_txt[0][r],
-                              headers_lcm[0][r]])
-        if r == 'centralFrequency':
-            assert np.isclose(headers_fsl[0][r], headerMean, rtol=2e-01, atol=1e05)
-            assert np.isclose(headers_txt[0][r], headerMean, rtol=2e-01, atol=1e05)
-            assert np.isclose(headers_lcm[0][r], headerMean, rtol=2e-01, atol=1e05)
-        else:
-            assert np.isclose(headers_fsl[0][r], headerMean)
-            assert np.isclose(headers_txt[0][r], headerMean)
-            assert np.isclose(headers_lcm[0][r], headerMean)
-
-    # Conjugate fsl and jMRUI
-    basis_fsl = basis_fsl.conj()
-    basis_txt = basis_txt.conj()
-
-    # Test that all contain roughly the same data when scaled.
-    metabToCheck = 'Cr'
-    checkIdx = names_raw.index(metabToCheck)
-
-    def normAbsSpec(spec):
-        return np.abs(spec) / np.max(np.abs(spec))
-
-    def convertToLimitedSpec(fid):
-        return normAbsSpec(plotting.FID2Spec(fid)[900:1000])
-
-    meanSpec = np.mean([convertToLimitedSpec(basis_fsl[:, checkIdx]),
-                       convertToLimitedSpec(basis_raw[:, checkIdx]),
-                       convertToLimitedSpec(basis_txt[:, checkIdx]),
-                       convertToLimitedSpec(basis_lcm[:, checkIdx])], axis=0)
-    # breakpoint()
-    # import matplotlib.pyplot as plt
-    # plt.plot(convertToLimitedSpec(basis_fsl[:,checkIdx]))
-    # plt.plot(convertToLimitedSpec(basis_raw[:,checkIdx]),'--')
-    # plt.plot(convertToLimitedSpec(basis_txt[:,checkIdx]),'-.')
-    # plt.plot(convertToLimitedSpec(basis_lcm[:,checkIdx]),':')
-    # plt.show()
-    assert np.allclose(convertToLimitedSpec(basis_fsl[:, checkIdx]), meanSpec, rtol=2e-01, atol=1e-03)
-    assert np.allclose(convertToLimitedSpec(basis_raw[:, checkIdx]), meanSpec, rtol=2e-01, atol=1e-03)
-    assert np.allclose(convertToLimitedSpec(basis_txt[:, checkIdx]), meanSpec, rtol=2e-01, atol=1e-03)
-    assert np.allclose(convertToLimitedSpec(basis_lcm[:, checkIdx]), meanSpec, rtol=2e-01, atol=1e-03)
+    assert len(basis_fsl.names) == numNames
+    assert len(basis_txt.names) == numNames
+    assert len(basis_txt_single.names) == 17
+    assert len(basis_lcm.names) == numNames
 
 
 def test_fslBasisRegen():
-    pointsToGen = 10
-    basis_fsl, names_fsl, headers_fsl = mrsio.read_basis(BasisTestData['fsl'])
+    pointsToGen = 100
+    basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
     basis_fsl2, names_fsl2, headers_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
                                                                    readoutShift=4.65,
                                                                    bandwidth=4000,
                                                                    points=pointsToGen)
+    basis_fsl2 = Basis(basis_fsl2, names_fsl2, headers_fsl2)
 
-    assert np.allclose(basis_fsl2, basis_fsl[:10, :])
-    assert names_fsl2 == names_fsl
-    for r in headerReqFields:
-        assert headers_fsl[0][r] == headers_fsl2[0][r]
+    assert basis_fsl2.names == basis_fsl.names
+    assert basis_fsl2.original_bw == basis_fsl.original_bw
+    assert np.allclose(basis_fsl2.original_basis_array, basis_fsl.original_basis_array[:pointsToGen, :])
 
 
 def test_check_datatype():
@@ -165,3 +130,24 @@ def test_check_datatype():
     assert _check_datatype('fake/path/test.nii.gz') == 'NIFTI'
     assert _check_datatype('fake/path/test.blah.nii.gz') == 'NIFTI'
     assert _check_datatype('fake/path/test.blah.nii') == 'NIFTI'
+
+
+def test_fsl_io_save_load_basis(tmp_path):
+    """Test the read and write basis functions for the fsl io module."""
+
+    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl'])
+    assert basis.shape == (2048, 21)
+    assert np.iscomplexobj(basis)
+    assert len(names) == basis.shape[1]
+    assert hdrs[0]['centralFrequency'] == 123218995.6
+    assert hdrs[0]['bandwidth'] == 4000
+    assert hdrs[0]['dwelltime'] == 0.00025
+    assert hdrs[0]['fwhm'] == 2
+
+    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
+    assert (tmp_path / (names[0] + '.json')).exists()
+
+    nbasis, nnames, nhdr = fslio.readFSLBasisFiles(tmp_path)
+    assert np.allclose(nbasis[:, 0], basis[:, 0])
+    assert nnames[0] == names[0]
+    assert nhdr[0] == hdrs[0]

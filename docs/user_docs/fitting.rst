@@ -41,7 +41,9 @@ Results from :code:`fsl_mrs` are stored in a single folder that contains the fol
 - CSV files summarising the metabolite concentrations (and uncertainties), fitted parameters, and some QC measures.
 - PNG files with summary of the fitting and (optionally) voxel location.
 
+A nifti file of the fitted spectrum, baseline, and individual metabolites can be generated using the :code:`results_to_spectrum` script. For example::
 
+    results_to_spectrum --export_baseline example_fit
 
 MRSI
 ----
@@ -115,7 +117,7 @@ Details
 Modelling
 ~~~~~~~~~
 
-At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR20]_. 
+At the core of FSL-MRS is a linear combination model. For more details on the modelling refer to [CLAR21]_. 
 
 The signal in the spectral domain :math:`\mathrm{Y}(v)` is modelled as a linear combination of (shifted and broadened) metabolite basis spectra :math:`\mathrm{M}_{l,g}` (metab = :math:`l`, metab group = :math:`g`) plus a complex polynomial baseline :math:`\mathrm{B}(v)`. The signal model is as follows:
 
@@ -162,6 +164,8 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Group metaboites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
 :code:`--add_MM`            
     Add macromolecule peaks at the following frequencies: 0.9, 1.2, 1.4, 1.7 ppm and a doublet at 2.08 & 3.0 ppm
+:code:`--add_MM_MEGA`            
+    Add linked macromolecule peaks at 0.915 & 3.0 ppm (ratio of 3.75:2.0). This option is experimental!
 :code:`--lorentzian`        
     By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
 :code:`--ind_scale`        
@@ -203,4 +207,4 @@ The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
 References
 ----------
 
-.. [CLAR20] Clarke WT, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Biorxiv 2020.
+.. [CLAR21] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: 10.1002/mrm.28630.

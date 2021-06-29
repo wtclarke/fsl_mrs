@@ -32,7 +32,7 @@ def prewhiten(FIDlist, prop=.1, C=None):
     pre-whitening matrix
     noise covariance matrix
     """
-    FIDs = np.asarray(FIDlist, dtype=np.complex)
+    FIDs = np.asarray(FIDlist, dtype=complex)
     if C is None:
         # Estimate noise covariance
         start = int((1 - prop) * FIDs.shape[0])

@@ -19,10 +19,11 @@ def test_calcQC():
                                             amplitude=[0], linewidth=[10])
     basisFID, basisHdr = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[0],
                                       amplitude=[0.1], linewidth=[2])
+    basisHdr['fwhm'] = 1.0
 
     synMRSNoise = MRS(FID=synFIDNoise[0], header=synHdrNoise)
     synMRSNoNoise = MRS(FID=synHdr['noiseless'], header=synHdr)
-    synMRS_basis = MRS(FID=synFID[0], header=synHdr, basis=basisFID[0], basis_hdr=basisHdr, names=['Peak1'])
+    synMRS_basis = MRS(FID=synFID[0], header=synHdr, basis=basisFID[0], basis_hdr=[basisHdr, ], names=['Peak1'])
 
     truenoiseSD = np.sqrt(synHdrNoise['cov'][0, 0])
     pureNoiseMeasured = np.std(synMRSNoise.get_spec())

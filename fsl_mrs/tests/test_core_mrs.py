@@ -11,7 +11,7 @@ import pytest
 import numpy as np
 
 from fsl_mrs.core import MRS, mrs_from_files
-from fsl_mrs.core.mrs import BasisHasInsufficentCoverage
+from fsl_mrs.core.basis import BasisHasInsufficentCoverage
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec, hz2ppm
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO
@@ -39,7 +39,9 @@ def synth_data():
                                        amplitude=[0.1, ],
                                        damping=[5, ])
 
-    basis = np.concatenate((basis_1, basis_2))
+    bhdr_1['fwhm'] = 1.0
+    bhdr_2['fwhm'] = 1.0
+    basis = np.concatenate((basis_1, basis_2)).T
     bheader = [bhdr_1, bhdr_2]
     names = ['ppm_2', 'ppm3']
 
@@ -83,7 +85,7 @@ def test_load(synth_data):
               header=hdr,
               basis=basis,
               names=names,
-              basis_hdr=bheader[0])
+              basis_hdr=bheader)
 
     assert mrs.FID.shape == (2048,)
     assert mrs.basis.shape == (2048, 2)
@@ -101,11 +103,11 @@ def test_access(synth_data):
               header=hdr,
               basis=basis,
               names=names,
-              basis_hdr=bheader[0])
+              basis_hdr=bheader)
 
     assert np.allclose(mrs.FID, fid)
     assert np.allclose(mrs.get_spec(), FIDToSpec(fid))
-    assert np.allclose(mrs.basis.T, basis)
+    assert np.allclose(mrs.basis, basis)
 
     assert np.allclose(mrs.getAxes(axis='ppmshift'), axes['ppm_shift'])
     assert np.allclose(mrs.getAxes(axis='ppm'), axes['ppm'])
@@ -114,13 +116,13 @@ def test_access(synth_data):
 
     mrs.rescaleForFitting()
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'], FIDToSpec(fid))
-    assert np.allclose(mrs.basis.T / mrs.scaling['basis'], basis)
+    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis)
 
-    mrs.conj_Basis()
-    mrs.conj_FID()
+    mrs.conj_Basis = True
+    mrs.conj_FID = True
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'],
                        FIDToSpec(fid.conj()))
-    assert np.allclose(mrs.basis.T / mrs.scaling['basis'], basis.conj())
+    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.conj())
 
 
 def test_basis_manipulations(synth_data):
@@ -131,30 +133,37 @@ def test_basis_manipulations(synth_data):
               header=hdr,
               basis=basis,
               names=names,
-              basis_hdr=bheader[0])
+              basis_hdr=bheader)
 
     assert mrs.basis.shape == (2048, 2)
     assert mrs.numBasis == 2
 
-    mrs.keep(['ppm_2'])
+    mrs.keep = ['ppm_2']
 
     assert mrs.basis.shape == (2048, 1)
     assert mrs.numBasis == 1
 
-    mrs.add_peak(0, 1, 'test', gamma=10, sigma=10)
-
-    assert mrs.basis.shape == (2048, 2)
-    assert mrs.numBasis == 2
-    assert mrs.names == ['ppm_2', 'test']
-
-    mrs.ignore(['test'])
-
-    assert mrs.basis.shape == (2048, 1)
-    assert mrs.numBasis == 1
-
-    mrs.add_MM_peaks(gamma=10, sigma=10)
+    mrs.add_default_MM_peaks(gamma=10, sigma=10)
     assert mrs.basis.shape == (2048, 6)
     assert mrs.numBasis == 6
+    assert mrs.names == ['ppm_2', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21']
+
+    mrs.ignore = ['MM09']
+
+    assert mrs.basis.shape == (2048, 5)
+    assert mrs.numBasis == 5
+
+    mrs.ignore = []
+    assert mrs.basis.shape == (2048, 1)
+    assert mrs.numBasis == 1
+    mrs.keep = []
+    assert mrs.basis.shape == (2048, 7)
+    assert mrs.numBasis == 7
+
+    mrs.keep = None
+    mrs.ignore = None
+    assert mrs.basis.shape == (2048, 7)
+    assert mrs.numBasis == 7
 
 
 def test_nucleus_identification():
@@ -204,10 +213,42 @@ def test_basis_size(synth_data):
     fid, hdr, basis, names, bheader, axes = synth_data
 
     # Truncate basis to test error reporting
-    basis = basis[:, :512]
+    mrs = MRS(FID=fid,
+              header=hdr,
+              basis=basis[:512, :],
+              names=names,
+              basis_hdr=bheader)
+
     with pytest.raises(BasisHasInsufficentCoverage):
-        MRS(FID=fid,
-            header=hdr,
-            basis=basis,
-            names=names,
-            basis_hdr=bheader[0])
+        mrs.basis
+
+
+def test_rescale(synth_data):
+
+    fid, hdr, basis, names, bheader, axes = synth_data
+
+    mrs = MRS(FID=fid,
+              header=hdr,
+              basis=basis,
+              names=names,
+              basis_hdr=bheader)
+
+    mrs.rescaleForFitting()
+
+    assert mrs.fid_scaling != 1.0
+    assert mrs.fid_scaling == mrs.scaling['FID']
+
+
+def test_process_for_fitting(synth_data):
+
+    fid, hdr, basis, names, bheader, axes = synth_data
+
+    mrs = MRS(FID=fid,
+              header=hdr,
+              basis=basis,
+              names=names,
+              basis_hdr=bheader)
+
+    mrs.check_FID(repair=True)
+    mrs.check_Basis(repair=True)
+    mrs.processForFitting()

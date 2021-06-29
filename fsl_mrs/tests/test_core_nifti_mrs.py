@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 # Imports
 from pathlib import Path
 
+import pytest
 import numpy as np
 
 from fsl_mrs.core import NIFTI_MRS
@@ -40,6 +41,14 @@ def test_nifti_mrs():
     assert obj.dim_position('DIM_DYN') == 5
 
     assert obj.copy(remove_dim='DIM_DYN').shape == (1, 1, 1, 4096, 32)
+
+
+def test_nifti_mrs_filename():
+    obj = NIFTI_MRS(data['unprocessed'])
+    assert obj.filename == 'metab_raw.nii.gz'
+
+    obj = gen_new_nifti_mrs(np.zeros((1, 1, 1, 2), dtype=complex), 0.0005, 120.0)
+    assert obj.filename == ''
 
 
 def test_nifti_mrs_save(tmp_path):
@@ -93,9 +102,9 @@ def test_nifti_mrs_gen_mrs():
         assert mrs[0].basis.shape == (4096, 20)
         break
 
-    basis, names, basishdr = mrs_io.read_basis(str(data['basis']))
+    basis = mrs_io.read_basis(str(data['basis']))
     for mrs in obj.generate_mrs(dim='DIM_DYN',
-                                basis=basis, names=names, basis_hdr=basishdr[0],
+                                basis=basis,
                                 ref_data=str(data['water'])):
         assert len(mrs) == 64
         assert mrs[0].FID.shape == (4096,)
@@ -130,3 +139,56 @@ def test_gen_new_nifti_mrs(tmp_path):
     nmrs.save(tmp_path / 'out')
 
     assert (tmp_path / 'out.nii.gz').exists()
+
+
+def test_add_remove_field():
+
+    nmrs = NIFTI_MRS(data['unprocessed'])
+
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.remove_hdr_field('SpectrometerFrequency')
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == 'You cannot remove the required metadata.'
+
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.remove_hdr_field('ResonantNucleus')
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == 'You cannot remove the required metadata.'
+
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.remove_hdr_field('dim_5')
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == 'Modify dimension headers through dedicated methods.'
+
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.add_hdr_field('dim_5_header', {'p1': [1, 2, 3]})
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == 'Modify dimension headers through dedicated methods.'
+
+    nmrs.add_hdr_field('RepetitionTime', 5.0)
+    assert 'RepetitionTime' in nmrs.hdr_ext
+    assert nmrs.hdr_ext['RepetitionTime'] == 5.0
+
+    nmrs.remove_hdr_field('RepetitionTime')
+    assert 'RepetitionTime' not in nmrs.hdr_ext
+
+
+def test_set_dim_info():
+    nmrs = NIFTI_MRS(data['unprocessed'])
+    nmrs.set_dim_info('DIM_DYN', 'my info')
+    assert nmrs.hdr_ext['dim_6_info'] == 'my info'
+
+
+def test_set_dim_header():
+    nmrs = NIFTI_MRS(data['unprocessed'])
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.set_dim_header('DIM_DYN', {'my_hdr': np.arange(10).tolist()})
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == 'New dim header length must be 64'
+
+    nmrs.set_dim_header('DIM_DYN', {'my_hdr': np.arange(64).tolist()})
+    assert nmrs.hdr_ext['dim_6_header'] == {'my_hdr': np.arange(64).tolist()}

@@ -18,4 +18,4 @@ Citing FSL-MRS
 --------------
 If you use FSL-MRS please cite: 
 
-    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. MRM https://doi.org/10.1002/mrm.28630
+    Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: 10.1002/mrm.28630.

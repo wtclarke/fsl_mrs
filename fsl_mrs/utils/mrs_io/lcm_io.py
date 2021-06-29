@@ -42,7 +42,7 @@ def readLCModelRaw(filename, unpack_header=True, conjugate=True):
 
     # Reshape data
     data = np.concatenate([np.array(i) for i in data])
-    data = (data[0::2] + 1j * data[1::2]).astype(np.complex)
+    data = (data[0::2] + 1j * data[1::2]).astype(complex)
 
     # LCModel-specific conjugation
     if conjugate:
@@ -84,7 +84,7 @@ def read_basis_files(basisfiles, ignore=[]):
         if name not in ignore:
             names.append(name)
             basis.append(data)
-    basis = np.asarray(basis).astype(np.complex).T
+    basis = np.asarray(basis).astype(complex).T
     return basis, names
 
 
