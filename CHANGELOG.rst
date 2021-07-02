@@ -3,6 +3,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 1.1.4 (WIP)
 ------------------------------
 - Fixed bug in mrs_tools split
+- fsl_mrsi now outputs fitting nuisance parameters: phases, and shifts & linewidths for each metabolite group.
 
 1.1.3 (Tuesday 29th June 2021)
 ------------------------------
