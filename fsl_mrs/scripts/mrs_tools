@@ -78,7 +78,7 @@ def main():
     group.add_argument('--indices', type=int, nargs='+',
                        help='List of indices to extract into second file.'
                             'All indices are zero-indexed.')
-    group.add_argument('--index', type=int, nargs='+',
+    group.add_argument('--index', type=int,
                        help='Index to split at (split after index, zero-indexed).')
     splitparser.add_argument('--output',
                              required=True, type=Path, default=Path('.'),

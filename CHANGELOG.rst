@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.4 (WIP)
+------------------------------
+- Fixed bug in mrs_tools split
+
 1.1.3 (Tuesday 29th June 2021)
 ------------------------------
 - Added mrs_tools script. Replaces mrs_vis and mrs_info. Adds split/merge/reorder functionality.
