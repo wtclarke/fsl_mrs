@@ -377,7 +377,7 @@ def main():
                     mrsi.list_to_matched_array(
                         p0_list,
                         indicies=indicies,
-                        cleanup=True,
+                        cleanup=False,
                         dtype=float))
 
     p1_list = [res[0].getPhaseParams()[1] for res in results]
@@ -386,7 +386,7 @@ def main():
                     mrsi.list_to_matched_array(
                         p1_list,
                         indicies=indicies,
-                        cleanup=True,
+                        cleanup=False,
                         dtype=float))
 
     # Grouped - shifts, widths (gamma, sigma, combined)
@@ -397,7 +397,7 @@ def main():
                         mrsi.list_to_matched_array(
                             shiftn_list,
                             indicies=indicies,
-                            cleanup=True,
+                            cleanup=False,
                             dtype=float))
 
         comb_n_list = [res[0].getLineShapeParams()[0][group] for res in results]
@@ -406,7 +406,7 @@ def main():
                         mrsi.list_to_matched_array(
                             comb_n_list,
                             indicies=indicies,
-                            cleanup=True,
+                            cleanup=False,
                             dtype=float))
 
         gamma_n_list = [res[0].getLineShapeParams()[1][group] for res in results]
@@ -415,7 +415,7 @@ def main():
                         mrsi.list_to_matched_array(
                             gamma_n_list,
                             indicies=indicies,
-                            cleanup=True,
+                            cleanup=False,
                             dtype=float))
 
         if results[0][0].model == 'voigt':
@@ -425,7 +425,7 @@ def main():
                             mrsi.list_to_matched_array(
                                 sigma_n_list,
                                 indicies=indicies,
-                                cleanup=True,
+                                cleanup=False,
                                 dtype=float))
 
     # qc - SNR & FWHM
