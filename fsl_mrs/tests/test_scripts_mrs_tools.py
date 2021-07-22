@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 # Imports
 import subprocess
 from pathlib import Path
+import nibabel as nib
 
 # Files
 testsPath = Path(__file__).parent
@@ -99,6 +100,10 @@ def test_split(tmp_path):
 
     assert (tmp_path / 'split_file_1.nii.gz').exists()
     assert (tmp_path / 'split_file_2.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'split_file_1.nii.gz')
+    f2 = nib.load(tmp_path / 'split_file_2.nii.gz')
+    assert f1.shape[5] == 32
+    assert f2.shape[5] == 32
 
     subprocess.check_call(['mrs_tools', 'split',
                            '--dim', 'DIM_DYN',
@@ -108,15 +113,24 @@ def test_split(tmp_path):
 
     assert (tmp_path / 'metab_raw_1.nii.gz').exists()
     assert (tmp_path / 'metab_raw_2.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'metab_raw_1.nii.gz')
+    f2 = nib.load(tmp_path / 'metab_raw_2.nii.gz')
+    assert f1.shape[5] == 32
+    assert f2.shape[5] == 32
 
     subprocess.check_call(['mrs_tools', 'split',
                            '--dim', 'DIM_DYN',
                            '--indices', '31', '34', '40',
+                           '--filename', 'indicies_select',
                            '--output', str(tmp_path),
                            '--file', str(test_data_split)])
 
-    assert (tmp_path / 'metab_raw_1.nii.gz').exists()
-    assert (tmp_path / 'metab_raw_2.nii.gz').exists()
+    assert (tmp_path / 'indicies_select_1.nii.gz').exists()
+    assert (tmp_path / 'indicies_select_2.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'indicies_select_1.nii.gz')
+    f2 = nib.load(tmp_path / 'indicies_select_2.nii.gz')
+    assert f1.shape[5] == 61
+    assert f2.shape[5] == 3
 
 
 # Test reorder option
