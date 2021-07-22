@@ -177,6 +177,25 @@ def test_add_remove_field():
     assert 'RepetitionTime' not in nmrs.hdr_ext
 
 
+def test_set_dim_tag():
+    nmrs = NIFTI_MRS(data['unprocessed'])
+
+    with pytest.raises(ValueError) as exc_info:
+        nmrs.set_dim_tag('DIM_DYN', 'DIM_FOO')
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == \
+        'Tag must be one of: DIM_COIL, DIM_DYN, DIM_INDIRECT_0, DIM_INDIRECT_1, DIM_INDIRECT_2,'\
+        ' DIM_PHASE_CYCLE, DIM_EDIT, DIM_MEAS, DIM_USER_0, DIM_USER_1, DIM_USER_2.'
+
+    nmrs.set_dim_tag('DIM_DYN', 'DIM_USER_0')
+    assert nmrs.hdr_ext['dim_6'] == 'DIM_USER_0'
+    assert nmrs.dim_tags == ['DIM_COIL', 'DIM_USER_0', None]
+
+    nmrs.set_dim_tag(4, 'DIM_USER_1')
+    assert nmrs.hdr_ext['dim_5'] == 'DIM_USER_1'
+    assert nmrs.dim_tags == ['DIM_USER_1', 'DIM_USER_0', None]
+
+
 def test_set_dim_info():
     nmrs = NIFTI_MRS(data['unprocessed'])
     nmrs.set_dim_info('DIM_DYN', 'my info')

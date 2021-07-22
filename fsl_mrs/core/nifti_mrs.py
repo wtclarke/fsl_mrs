@@ -19,6 +19,24 @@ import fsl_mrs.core as core
 from fsl_mrs.utils.misc import checkCFUnits
 
 
+dimension_tags = {"DIM_COIL": "For storage of data from each individual receiver coil element.",
+                  "DIM_DYN": "For storage of each individual acquisition transient."
+                             " E.g. for post-acquisition B0 drift correction.",
+                  "DIM_INDIRECT_0": "The indirect detection dimension - necessary for 2D"
+                                    " (and greater) MRS acquisitions.",
+                  "DIM_INDIRECT_1": "The indirect detection dimension - necessary for 2D"
+                                    " (and greater) MRS acquisitions.",
+                  "DIM_INDIRECT_2": "The indirect detection dimension - necessary for 2D"
+                                    " (and greater) MRS acquisitions.",
+                  "DIM_PHASE_CYCLE": "Used for the time-proportional phase incrementation method.",
+                  "DIM_EDIT": "Used for edited MRS techniques such as MEGA or HERMES.",
+                  "DIM_MEAS": "Used to indicate multiple repeats of the full sequence"
+                              " contained within the same original data file.",
+                  "DIM_USER_0": "User defined dimension.",
+                  "DIM_USER_1": "User defined dimension.",
+                  "DIM_USER_2": "User defined dimension."}
+
+
 def gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus='1H', affine=None, dim_tags=[None, None, None]):
     '''Generate a NIFTI_MRS object from a np array and header info.
 
@@ -107,20 +125,6 @@ class NIFTI_MRS(Image):
         except KeyError:
             raise NotNIFTI_MRS('NIFTI-MRS header extension must have nucleus and spectrometerFrequency keys.')
 
-        # Extract key parameters from the header extension
-        self._set_dim_tags()
-
-    def _set_dim_tags(self):
-        self.dim_tags = [None, None, None]
-        std_tags = ['DIM_COIL', 'DIM_DYN', 'DIM_INDIRECT_0']
-        for idx in range(3):
-            curr_dim = idx + 5
-            curr_tag = f'dim_{curr_dim}'
-            if curr_tag in self.hdr_ext:
-                self.dim_tags[idx] = self.hdr_ext[curr_tag]
-            elif curr_dim < self.ndim:
-                self.dim_tags[idx] = std_tags[idx]
-
     def __getitem__(self, sliceobj):
         '''Apply conjugation at use. This swaps from the
         NIFTI-MRS and Levvit inspired right-handed reference frame
@@ -179,7 +183,6 @@ class NIFTI_MRS(Image):
         extension = Nifti1Extension(44, json_s.encode('UTF-8'))
         self.header.extensions.clear()
         self.header.extensions.append(extension)
-        self._set_dim_tags()
 
     @property
     def filename(self):
@@ -189,6 +192,24 @@ class NIFTI_MRS(Image):
             return self._filename
         else:
             return ''
+
+    @property
+    def dim_tags(self):
+        """Return the three higher dimension tags"""
+        return self._read_dim_tags()
+
+    def _read_dim_tags(self):
+        """Read dim tags from current header extension"""
+        dim_tags = [None, None, None]
+        std_tags = ['DIM_COIL', 'DIM_DYN', 'DIM_INDIRECT_0']
+        for idx in range(3):
+            curr_dim = idx + 5
+            curr_tag = f'dim_{curr_dim}'
+            if curr_tag in self.hdr_ext:
+                dim_tags[idx] = self.hdr_ext[curr_tag]
+            elif curr_dim < self.ndim:
+                dim_tags[idx] = std_tags[idx]
+        return dim_tags
 
     def dim_position(self, dim_tag):
         '''Return position of dim if it exists.'''
@@ -235,6 +256,24 @@ class NIFTI_MRS(Image):
 
         current_hdr_ext = self.hdr_ext
         current_hdr_ext.pop(key, None)
+        self.hdr_ext = current_hdr_ext
+
+    def set_dim_tag(self, dim, tag):
+        """Set or update the 'dim_N' fields
+
+        Tag must be one of the standard-defined tags (e.g. DIM_DYN)
+
+        :param dim: The existing dim tag or python dimension index (i.e. N-1)
+        :type dim: str or int
+        :param tag: New tag
+        :type tag: str
+        """
+        if tag not in dimension_tags.keys():
+            raise ValueError(f'Tag must be one of: {", ".join(list(dimension_tags.keys()))}.')
+
+        dim = self._dim_tag_to_index(dim)
+        current_hdr_ext = self.hdr_ext
+        current_hdr_ext[f'dim_{dim + 1}'] = tag
         self.hdr_ext = current_hdr_ext
 
     def set_dim_info(self, dim, info_str):
@@ -308,8 +347,6 @@ class NIFTI_MRS(Image):
                     if f'dim_{dd + 1}_info' in hdr_ext:
                         hdr_ext[f'dim_{dd}_info'] = hdr_ext[f'dim_{dd + 1}_info']
             new_obj.hdr_ext = hdr_ext
-
-            new_obj._set_dim_tags()
 
             return new_obj
         else:
