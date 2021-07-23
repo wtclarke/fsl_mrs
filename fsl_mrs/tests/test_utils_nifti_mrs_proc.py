@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
 from fsl_mrs.utils.mrs_io import read_FID
+from fsl_mrs.utils.nifti_mrs_tools import split
 from fsl_mrs import __version__
 
 
@@ -58,11 +59,19 @@ def test_average():
 
 def test_align():
     nmrs_obj = read_FID(metab)
-    combined = nproc.coilcombine(nmrs_obj)
-    aligned = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+    with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
+    aligned1 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
 
-    assert aligned.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
-    assert aligned.hdr_ext['ProcessingApplied'][1]['Details']\
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+
+    combined = nproc.coilcombine(nmrs_obj)
+    aligned2 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+
+    assert aligned2.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned2.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
            'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
 

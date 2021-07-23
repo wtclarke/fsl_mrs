@@ -180,7 +180,7 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
     aligned_obj = data.copy()
     for dd, idx in data.iterate_over_dims(dim=dim,
                                           iterate_over_space=True,
-                                          reduce_dim_index=True):
+                                          reduce_dim_index=False):
 
         out = preproc.phase_freq_align(
             dd.T,
