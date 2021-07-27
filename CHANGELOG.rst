@@ -6,6 +6,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fixed bug in alignment of multi-dimensional data.
 - fsl_mrsi now outputs fitting nuisance parameters: phases, and shifts & linewidths for each metabolite group.
 - Add NIfTI-MRS reshape command
+- Add basis_tools remove_peak option to run HLSVD, typical usage for removing TMS peak.
 
 1.1.3 (Tuesday 29th June 2021)
 ------------------------------

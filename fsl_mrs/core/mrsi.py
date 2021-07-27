@@ -8,6 +8,8 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
+from copy import deepcopy
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -52,7 +54,7 @@ class MRSI(object):
             if isinstance(basis, np.ndarray):
                 self._basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self._basis = basis
+                self._basis = deepcopy(basis)
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:

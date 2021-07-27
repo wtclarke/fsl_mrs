@@ -9,6 +9,8 @@
 
 import warnings
 
+from copy import deepcopy
+
 from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 from fsl_mrs.core.basis import Basis
@@ -86,7 +88,7 @@ class MRS(object):
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self.basis = basis
+                self.basis = deepcopy(basis)
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
