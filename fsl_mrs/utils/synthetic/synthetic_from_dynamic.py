@@ -95,13 +95,13 @@ def synthetic_spectra_from_model(config_file,
                 'conc': concentrations}
 
     def_vals_int = {}
-    for key in defined_vals:
-        if isinstance(defined_vals[key], str) \
-                and defined_vals[key] in std_vals:
-            def_vals_int[key] = std_vals[defined_vals[key]]
-        else:
-            def_vals_int[key] = defined_vals[key]
-
+    if defined_vals is not None:
+        for key in defined_vals:
+            if isinstance(defined_vals[key], str) \
+                    and defined_vals[key] in std_vals:
+                def_vals_int[key] = std_vals[defined_vals[key]]
+            else:
+                def_vals_int[key] = defined_vals[key]
     rng = np.random.default_rng()
 
     syn_free_params = []
@@ -257,6 +257,10 @@ def synthetic_spectra_from_model(config_file,
                               bw=bandwidth,
                               nucleus='1H',
                               basis=empty_mrs._basis)
+                # Sort out basis scaling
+                mrs_out._indept_scale = empty_mrs._indept_scale
+                mrs_out._scaling_factor = empty_mrs._scaling_factor
+                mrs_out.ignore = empty_mrs.ignore
                 coils_mrs.append(mrs_out)
             mrs_list.append(coils_mrs)
         else:
@@ -265,7 +269,10 @@ def synthetic_spectra_from_model(config_file,
                           bw=bandwidth,
                           nucleus='1H',
                           basis=empty_mrs._basis)
-
+            # Sort out basis scaling
+            mrs_out._indept_scale = empty_mrs._indept_scale
+            mrs_out._scaling_factor = empty_mrs._scaling_factor
+            mrs_out.ignore = empty_mrs.ignore
             mrs_list.append(mrs_out)
 
     return mrs_list, vm, syn_free_params

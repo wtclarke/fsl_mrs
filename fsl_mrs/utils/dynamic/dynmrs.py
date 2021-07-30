@@ -101,13 +101,14 @@ class dynMRS(object):
             x_out = np.mean(x, axis=0)
             x_all = x
             x_cov = np.cov(x.T)
+            sol = None
         else:
             raise (Exception(f'Unrecognised method {method}'))
         res_list = self.collect_results(x, model, method, ppmlim, baseline_order)
 
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
-        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list}
+        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list, 'OptimizeResult': sol}
 
     def get_constants(self, model, ppmlim, baseline_order, metab_groups):
         """collect constants for forward model"""
