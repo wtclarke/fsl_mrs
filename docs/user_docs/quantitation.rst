@@ -22,6 +22,8 @@ Referencing to water is carried out by comparing the integrated water resonance 
 
 The integrated areas are shown in the final plot of the html report if a reference dataset is provided.
 
+**Please note that molality concentrations were calculated incorrectly in versions prior to 1.1.4.**
+
 References
 ----------
 
