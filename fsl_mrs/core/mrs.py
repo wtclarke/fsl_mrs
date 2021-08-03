@@ -656,6 +656,25 @@ class MRS(object):
 
         return len(ppmlist)
 
+    def add_water_peak(self, gamma=0.0, sigma=0.0, ppm=4.65, amp=1.0, name='H2O'):
+        """Add a peak at 4.65 ppm to capture (residual) water.
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: float, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: float, optional
+        :param ppm: Peak position, defaults to 4.65
+        :type ppm: float, optional
+        :param amp: Peak amplitude, defaults to 1.0
+        :type amp: float, optional
+        :param name: Basis name, defaults to 'H2O'
+        :type name: str, optional
+        :return: Number of basis spectra added (1).
+        :rtype: int
+        """
+        self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=self.conj_Basis)
+        return 1
+
     # Plotting functions
     def plot(self, ppmlim=(0.2, 4.2)):
         """Plot the spectrum in the mrs object
