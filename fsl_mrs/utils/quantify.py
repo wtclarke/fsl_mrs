@@ -321,7 +321,7 @@ class QuantificationInfo(object):
     def d_CSF(self):
         return self._densitites['CSF']
 
-    # tissue fractions f_GM, f_WM, f_CSF
+    # tissue volume fractions f_GM, f_WM, f_CSF
     @property
     def f_GM(self):
         if self._fractions:
@@ -340,6 +340,54 @@ class QuantificationInfo(object):
     def f_CSF(self):
         if self._fractions:
             return self._fractions['CSF']
+        else:
+            return None
+
+    # tissue mole fractions f_GM_H2O, f_WM_H2O, f_CSF_H2O
+    # Implementing equation 5 in https://doi.org/10.1002/nbm.4257
+    # f_X_H2O = f_X*d_X / (f_GM*d_GM + f_WM*d_WM f_CSF*d_CSF)
+    @property
+    def f_GM_H2O(self):
+        """Grey matter (GM) mole fraction
+
+        :return: GM mole fraction
+        :rtype: float
+        """
+        if self._fractions:
+            return self.f_GM * self.d_GM\
+                / (self.f_GM * self.d_GM
+                   + self.f_WM * self.d_WM
+                   + self.f_CSF * self.d_CSF)
+        else:
+            return None
+
+    @property
+    def f_WM_H2O(self):
+        """White matter (WM) mole fraction
+
+        :return: WM mole fraction
+        :rtype: float
+        """
+        if self._fractions:
+            return self.f_WM * self.d_WM\
+                / (self.f_GM * self.d_GM
+                   + self.f_WM * self.d_WM
+                   + self.f_CSF * self.d_CSF)
+        else:
+            return None
+
+    @property
+    def f_CSF_H2O(self):
+        """Cerebral spinal fluid (CSF) mole fraction
+
+        :return: CSF mole fraction
+        :rtype: float
+        """
+        if self._fractions:
+            return self.f_CSF * self.d_CSF\
+                / (self.f_GM * self.d_GM
+                   + self.f_WM * self.d_WM
+                   + self.f_CSF * self.d_CSF)
         else:
             return None
 
@@ -365,6 +413,7 @@ class QuantificationInfo(object):
         return self._calc_relax(self.t1['H2O_CSF'], self.t2['H2O_CSF'])
 
     # A 50/50 average between WM/GM
+    # Used in the absence of fractions
     @property
     def R_H2O(self):
         t1 = (self.t1['H2O_WM'] + self.t1['H2O_GM']) / 2.0
@@ -377,17 +426,33 @@ class QuantificationInfo(object):
 
     # Water concentrations
     # relax_corr_water_molal, relax_corr_water_molar
+    # relax_corr_water_molal uses mole fractions
+    # relax_corr_water_molar uses volume fractions * densitites
     @property
     def relax_corr_water_molal(self):
+        """Relaxation (T1, T2) corrected water molality (mmol/kg).
+        If volume fractions aren't availible then relaxation correction will be based on
+        a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
+
+        :return: concentration
+        :rtype: float
+        """
         if self._fractions is None:
             return self.R_H2O * H2O_MOLALITY
         else:
-            return H2O_MOLALITY * (self.f_GM * self.R_H2O_GM
-                                   + self.f_WM * self.R_H2O_WM
-                                   + self.f_CSF * self.R_H2O_CSF)
+            return H2O_MOLALITY * (self.f_GM_H2O * self.R_H2O_GM
+                                   + self.f_WM_H2O * self.R_H2O_WM
+                                   + self.f_CSF_H2O * self.R_H2O_CSF)
 
     @property
     def relax_corr_water_molar(self):
+        """Relaxation (T1, T2) corrected water molariyt (mmol/dm^3 = mM).
+        If volume fractions aren't availible then relaxation correction will be based on
+        a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
+
+        :return: concentration
+        :rtype: float
+        """
         if self._fractions is None:
             return self.R_H2O * H2O_MOLALITY
         else:
@@ -477,8 +542,8 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
 
     # Calculate concentration scalings
     # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
-    # conc_molal =  (SMObs *(Q.f_GM*Q.R_H2O_GM + Q.f_WM*Q.R_H2O_WM + Q.f_CSF*Q.R_H2O_CSF)\
-    #                       / (SH2OObs*(1-Q.f_CSF)*Q.R_M)) \
+    # conc_molal =  (SMObs *(Q.f_GM_H20*Q.R_H2O_GM + Q.f_WM_H20*Q.R_H2O_WM + Q.f_CSF_H20*Q.R_H2O_CSF)\
+    #                       / (SH2OObs*(1-Q.f_CSF_H20)*Q.R_M)) \
     #                 * (H2O_PROTONS/refProtons)\
     #                 * H2O_MOLALITY
 
@@ -486,6 +551,9 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     #                       / (SH2OObs*(1-Q.f_CSF)*Q.R_M))\
     #                 * (H2O_PROTONS/refProtons)\
     #                 * H2O_MOLALITY
+
+    # Note the difference between Q.f_X and Q.f_X_H2O. Equation 5 of reference. With thanks to Alex Craig-Craven
+    # for pointing this out.
 
     conc_molal = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * \
         quant_info.relax_corr_water_molal * quant_info.csf_corr * quant_info.add_corr * quant_info.relax_corr_metab
@@ -497,7 +565,8 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
         metabRelaxCorr = quant_info.relax_corr_metab
         print(f'Metabolite area = {SMObs:0.2e}')
         print(f'Water area = {SH2OObs:0.2e}')
-        print(f'Relaxation corrected water concentration = {rcorwaterconc:0.2e}')
+        print(f'Relaxation corrected water concentration (molal) = {quant_info.relax_corr_water_molal:0.2e} mmol/kg')
+        print(f'Relaxation corrected water concentration (molar) = {rcorwaterconc:0.2e} mM')
         print(f'metabolite relaxation correction  = {metabRelaxCorr:0.2e}')
         print(f'H2O to ref molality scaling = {conc_molal:0.2e}')
         print(f'H2O to ref molarity scaling = {conc_molar:0.2e}')

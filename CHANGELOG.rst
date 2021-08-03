@@ -2,6 +2,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 1.1.4 (WIP)
 ------------------------------
+- Fixed bug in calculation of molality concentration. Tissue mole fractions had been swapped for tissue volume fractions. Molar concentrations unaffected.
 - Fixed bug in mrs_tools split
 - Fixed bug in alignment of multi-dimensional data.
 - fsl_mrsi now outputs fitting nuisance parameters: phases, and shifts & linewidths for each metabolite group.
