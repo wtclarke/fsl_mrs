@@ -1,10 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.4 (WIP)
-------------------------------
+1.1.4 (Tuesday 3rd August 2021)
+-------------------------------
 - Fixed bug in calculation of molality concentration. Tissue mole fractions had been swapped for tissue volume fractions. Molar concentrations unaffected.
 - Fixed bug in mrs_tools split
 - Fixed bug in alignment of multi-dimensional data.
+- Fixed bug in fsl_mrsi: data without a water reference now works.
 - fsl_mrsi now outputs fitting nuisance parameters: phases, and shifts & linewidths for each metabolite group.
 - Add NIfTI-MRS reshape command
 - Add basis_tools remove_peak option to run HLSVD, typical usage for removing TMS peak.

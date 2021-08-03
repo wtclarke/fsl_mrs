@@ -497,11 +497,11 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
 
     # Internal and Water quantification if requested
     if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
-        if echotime is None:
+        if mrs.H2O is not None and echotime is None:
             warnings.warn('H2O file provided but could not determine TE:'
                           ' no absolute quantification will be performed.',
                           UserWarning)
-        if repetition_time is None:
+        if mrs.H2O is not None and repetition_time is None:
             warnings.warn('H2O file provided but could not determine TR:'
                           ' no absolute quantification will be performed.',
                           UserWarning)

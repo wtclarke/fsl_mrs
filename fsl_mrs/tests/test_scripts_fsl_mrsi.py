@@ -55,3 +55,34 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/nuisance/combined_lw_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/gamma_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/sigma_group0.nii.gz').exists()
+
+
+def test_fsl_mrsi_noh2o(tmp_path):
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_out'),
+                           '--add_MM',
+                           '--mask', data['mask'],
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr'])
+
+    assert (tmp_path / 'fit_out/fit').exists()
+    assert (tmp_path / 'fit_out/qc').exists()
+    assert (tmp_path / 'fit_out/uncertainties').exists()
+    assert (tmp_path / 'fit_out/concs').exists()
+    assert (tmp_path / 'fit_out/nuisance').exists()
+
+    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out/concs/internal/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
+    assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
+    assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
+
+    assert (tmp_path / 'fit_out/nuisance/p0.nii.gz').exists()
+    assert (tmp_path / 'fit_out/nuisance/p1.nii.gz').exists()
+    assert (tmp_path / 'fit_out/nuisance/shift_group0.nii.gz').exists()
+    assert (tmp_path / 'fit_out/nuisance/combined_lw_group0.nii.gz').exists()
+    assert (tmp_path / 'fit_out/nuisance/gamma_group0.nii.gz').exists()
+    assert (tmp_path / 'fit_out/nuisance/sigma_group0.nii.gz').exists()
