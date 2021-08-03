@@ -315,11 +315,13 @@ def main():
     # Generate the folders
     concs_folder = os.path.join(args.output, 'concs')
     uncer_folder = os.path.join(args.output, 'uncertainties')
+    nuisance_folder = os.path.join(args.output, 'nuisance')
     qc_folder = os.path.join(args.output, 'qc')
     fit_folder = os.path.join(args.output, 'fit')
 
     os.mkdir(concs_folder)
     os.mkdir(uncer_folder)
+    os.mkdir(nuisance_folder)
     os.mkdir(qc_folder)
     os.mkdir(fit_folder)
 
@@ -366,6 +368,65 @@ def main():
                             indicies=indicies,
                             cleanup=True,
                             dtype=float))
+
+    # Fitting nuisance parameters
+    # Phases - p0, p1
+    p0_list = [res[0].getPhaseParams()[0] for res in results]
+    file_p0 = os.path.join(nuisance_folder, 'p0.nii.gz')
+    save_img_output(file_p0,
+                    mrsi.list_to_matched_array(
+                        p0_list,
+                        indicies=indicies,
+                        cleanup=False,
+                        dtype=float))
+
+    p1_list = [res[0].getPhaseParams()[1] for res in results]
+    file_p1 = os.path.join(nuisance_folder, 'p1.nii.gz')
+    save_img_output(file_p1,
+                    mrsi.list_to_matched_array(
+                        p1_list,
+                        indicies=indicies,
+                        cleanup=False,
+                        dtype=float))
+
+    # Grouped - shifts, widths (gamma, sigma, combined)
+    for group in range(results[0][0].g):
+        shiftn_list = [res[0].getShiftParams()[group] for res in results]
+        file_sn = os.path.join(nuisance_folder, f'shift_group{group}.nii.gz')
+        save_img_output(file_sn,
+                        mrsi.list_to_matched_array(
+                            shiftn_list,
+                            indicies=indicies,
+                            cleanup=False,
+                            dtype=float))
+
+        comb_n_list = [res[0].getLineShapeParams()[0][group] for res in results]
+        file_comb = os.path.join(nuisance_folder, f'combined_lw_group{group}.nii.gz')
+        save_img_output(file_comb,
+                        mrsi.list_to_matched_array(
+                            comb_n_list,
+                            indicies=indicies,
+                            cleanup=False,
+                            dtype=float))
+
+        gamma_n_list = [res[0].getLineShapeParams()[1][group] for res in results]
+        file_gam = os.path.join(nuisance_folder, f'gamma_group{group}.nii.gz')
+        save_img_output(file_gam,
+                        mrsi.list_to_matched_array(
+                            gamma_n_list,
+                            indicies=indicies,
+                            cleanup=False,
+                            dtype=float))
+
+        if results[0][0].model == 'voigt':
+            sigma_n_list = [res[0].getLineShapeParams()[2][group] for res in results]
+            file_sig = os.path.join(nuisance_folder, f'sigma_group{group}.nii.gz')
+            save_img_output(file_sig,
+                            mrsi.list_to_matched_array(
+                                sigma_n_list,
+                                indicies=indicies,
+                                cleanup=False,
+                                dtype=float))
 
     # qc - SNR & FWHM
     for metab in results[0][0].original_metabs:
@@ -436,11 +497,11 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
 
     # Internal and Water quantification if requested
     if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
-        if echotime is None:
+        if mrs.H2O is not None and echotime is None:
             warnings.warn('H2O file provided but could not determine TE:'
                           ' no absolute quantification will be performed.',
                           UserWarning)
-        if repetition_time is None:
+        if mrs.H2O is not None and repetition_time is None:
             warnings.warn('H2O file provided but could not determine TR:'
                           ' no absolute quantification will be performed.',
                           UserWarning)

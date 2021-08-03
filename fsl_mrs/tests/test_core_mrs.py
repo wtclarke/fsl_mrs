@@ -148,22 +148,29 @@ def test_basis_manipulations(synth_data):
     assert mrs.numBasis == 6
     assert mrs.names == ['ppm_2', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21']
 
-    mrs.ignore = ['MM09']
-
-    assert mrs.basis.shape == (2048, 5)
-    assert mrs.numBasis == 5
-
-    mrs.ignore = []
-    assert mrs.basis.shape == (2048, 1)
-    assert mrs.numBasis == 1
-    mrs.keep = []
+    mrs.add_water_peak(gamma=10, sigma=10, name='myh2o')
     assert mrs.basis.shape == (2048, 7)
     assert mrs.numBasis == 7
+    assert mrs.names == ['ppm_2', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21', 'myh2o']
+
+    mrs.ignore = ['MM09']
+
+    assert mrs.basis.shape == (2048, 6)
+    assert mrs.numBasis == 6
+
+    mrs.ignore = []
+    # This suprising result is because mrs.keep is still populated.
+    assert mrs.basis.shape == (2048, 1)
+    assert mrs.numBasis == 1
+
+    mrs.keep = []
+    assert mrs.basis.shape == (2048, 8)
+    assert mrs.numBasis == 8
 
     mrs.keep = None
     mrs.ignore = None
-    assert mrs.basis.shape == (2048, 7)
-    assert mrs.numBasis == 7
+    assert mrs.basis.shape == (2048, 8)
+    assert mrs.numBasis == 8
 
 
 def test_nucleus_identification():

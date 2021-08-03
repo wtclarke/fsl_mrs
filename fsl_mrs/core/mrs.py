@@ -9,6 +9,8 @@
 
 import warnings
 
+from copy import deepcopy
+
 from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
 from fsl_mrs.core.basis import Basis
@@ -86,7 +88,7 @@ class MRS(object):
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self.basis = basis
+                self.basis = deepcopy(basis)
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
@@ -653,6 +655,25 @@ class MRS(object):
             self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=self.conj_Basis)
 
         return len(ppmlist)
+
+    def add_water_peak(self, gamma=0.0, sigma=0.0, ppm=4.65, amp=1.0, name='H2O'):
+        """Add a peak at 4.65 ppm to capture (residual) water.
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: float, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: float, optional
+        :param ppm: Peak position, defaults to 4.65
+        :type ppm: float, optional
+        :param amp: Peak amplitude, defaults to 1.0
+        :type amp: float, optional
+        :param name: Basis name, defaults to 'H2O'
+        :type name: str, optional
+        :return: Number of basis spectra added (1).
+        :rtype: int
+        """
+        self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=self.conj_Basis)
+        return 1
 
     # Plotting functions
     def plot(self, ppmlim=(0.2, 4.2)):

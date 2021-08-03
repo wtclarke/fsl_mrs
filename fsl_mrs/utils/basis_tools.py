@@ -14,6 +14,7 @@ from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.qc import idPeaksCalcFWHM
 from fsl_mrs.utils.misc import ts_to_ts, InsufficentTimeCoverageError
+from fsl_mrs.utils.preproc import hlsvd
 
 
 class IncompatibleBasisError(Exception):
@@ -244,3 +245,26 @@ def difference_basis_sets(basis_1, basis_2, add_or_subtract='add', missing_metab
                             'fwhm': basis_2.basis_fwhm[index]})
 
     return Basis(np.asarray(difference_spec), names, headers)
+
+
+def remove_peak(basis, limits, name=None, all=False):
+
+    if all:
+        for b, n in zip(basis.original_basis_array.T, basis.names):
+            corrected_obj = hlsvd(b,
+                                  basis.original_dwell,
+                                  basis.cf * 1E6,
+                                  limits,
+                                  limitUnits='ppm+shift')
+            basis.update_fid(corrected_obj, n)
+    else:
+        index = basis.names.index(name)
+        indexed_fid = basis.original_basis_array[:, index]
+        corrected_obj = hlsvd(indexed_fid,
+                              basis.original_dwell,
+                              basis.cf * 1E6,
+                              limits,
+                              limitUnits='ppm+shift')
+        basis.update_fid(corrected_obj, name)
+
+    return basis

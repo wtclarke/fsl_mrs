@@ -101,13 +101,14 @@ class dynMRS(object):
             x_out = np.mean(x, axis=0)
             x_all = x
             x_cov = np.cov(x.T)
+            sol = None
         else:
             raise (Exception(f'Unrecognised method {method}'))
         res_list = self.collect_results(x, model, method, ppmlim, baseline_order)
 
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
-        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list}
+        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list, 'OptimizeResult': sol}
 
     def get_constants(self, model, ppmlim, baseline_order, metab_groups):
         """collect constants for forward model"""
@@ -119,8 +120,22 @@ class dynMRS(object):
         g = max(metab_groups) + 1
         return (freq, time, basis, base_poly, metab_groups, g, first, last)
 
-    def initialise(self, model, metab_groups, ppmlim, baseline_order, verbose=False):
-        """initialise fitting"""
+    def initialise(self, model='voigt', metab_groups=None, ppmlim=(.2, 4.2), baseline_order=2, verbose=False):
+        """Initialise the dynamic fitting using seperate fits of each spectrum.
+
+        :param model: Spectral model 'lorentzian' or 'voigt', defaults to 'voigt'
+        :type model: str, optional
+        :param metab_groups: List of metabolite groupings, defaults to None
+        :type metab_groups: List of ints, optional
+        :param ppmlim: Ppm range over which to fit, defaults to (.2, 4.2)
+        :type ppmlim: tuple, optional
+        :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
+        :type baseline_order: int, optional
+        :param verbose: Print information during fitting, defaults to False
+        :type verbose: bool, optional
+        :return: Dict containing free parameters and individual FitRes objects
+        :rtype: dict
+        """
         if verbose:
             start_time = time.time()
         FitArgs = {'model': model,

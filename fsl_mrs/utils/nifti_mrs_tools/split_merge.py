@@ -53,7 +53,7 @@ def split(nmrs, dimension, index_or_indicies):
     # Construct indexing
     if isinstance(index_or_indicies, int):
         if index_or_indicies < 0\
-                or index_or_indicies >= nmrs.shape[dim_index]:
+                or (index_or_indicies + 1) >= nmrs.shape[dim_index]:
             raise ValueError('index_or_indicies must be between 0 and N-1,'
                              f' where N is the size of the specified dimension ({nmrs.shape[dim_index]}).')
         index = np.arange(index_or_indicies + 1, nmrs.shape[dim_index])

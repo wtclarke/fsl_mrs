@@ -8,6 +8,8 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
+from copy import deepcopy
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -25,7 +27,7 @@ class MRSI(object):
 
         # process H2O
         if H2O is None:
-            H2O = np.full(FID.shape, None)
+            H2O = np.full(FID.shape[:3], None)
         elif H2O.shape != FID.shape:
             raise ValueError('H2O must be None or numpy array '
                              'of the same shape as FID.')
@@ -52,7 +54,7 @@ class MRSI(object):
             if isinstance(basis, np.ndarray):
                 self._basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self._basis = basis
+                self._basis = deepcopy(basis)
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
@@ -206,9 +208,12 @@ class MRSI(object):
         as a single MRS object.
         '''
         FID = misc.volume_to_list(self.data, self.mask)
-        H2O = misc.volume_to_list(self.H2O, self.mask)
         FID = sum(FID) / len(FID)
-        H2O = sum(H2O) / len(H2O)
+        if not np.array_equal(self.H2O, np.full(self.data.shape[:3], None)):
+            H2O = misc.volume_to_list(self.H2O, self.mask)
+            H2O = sum(H2O) / len(H2O)
+        else:
+            H2O = None
 
         mrs_out = MRS(FID=FID,
                       header=self.header,

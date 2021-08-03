@@ -78,7 +78,7 @@ def main():
     group.add_argument('--indices', type=int, nargs='+',
                        help='List of indices to extract into second file.'
                             'All indices are zero-indexed.')
-    group.add_argument('--index', type=int, nargs='+',
+    group.add_argument('--index', type=int,
                        help='Index to split at (split after index, zero-indexed).')
     splitparser.add_argument('--output',
                              required=True, type=Path, default=Path('.'),
@@ -256,7 +256,7 @@ def split(args):
     split_name = args.file.with_suffix('').with_suffix('').name
 
     # 2. Merge the files
-    if args.index:
+    if args.index is not None:
         split_1, split_2 = nmrs_tools.split(to_split, args.dim, args.index)
     elif args.indices:
         split_1, split_2 = nmrs_tools.split(to_split, args.dim, args.indices)
