@@ -232,8 +232,8 @@ def get_fitting_mask(num_basis, num_metab_groups, baseline_order, model,
 
 def fit_FSLModel(mrs,
                  method='Newton',
-                 ppmlim=None,
-                 baseline_order=5,
+                 ppmlim=(.2, 4.2),
+                 baseline_order=2,
                  metab_groups=None,
                  model='voigt',
                  x0=None,
@@ -241,8 +241,35 @@ def fit_FSLModel(mrs,
                  disable_mh_priors=False,
                  fit_baseline_mh=False,
                  vb_iter=50):
-    """
-        A simplified version of LCModel
+    """Run linear combination fitting on the passed mrs object.
+
+    Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
+
+    :param mrs: MRS object containing the data, the basis set and optionally the water reference
+    :type mrs: fsl_mrs.core.MRS
+    :param method: 'Newton' or 'MH', defaults to 'Newton'
+    :type method: str, optional
+    :param ppmlim: Ppm range over which to fit, defaults to (.2, 4.2)
+    :type ppmlim: tuple, optional
+    :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
+    :type baseline_order: int, optional
+    :param metab_groups: List of metabolite groupings, defaults to None
+    :type metab_groups: List, optional
+    :param model: 'lorentzian' or 'voigt', defaults to 'voigt'
+    :type model: str, optional
+    :param x0: Initilisation values, defaults to None
+    :type x0: [List, optional
+    :param MHSamples: Number of MH samples to run, defaults to 500
+    :type MHSamples: int, optional
+    :param disable_mh_priors: If True all priors are disabled for MH fitting, defaults to False
+    :type disable_mh_priors: bool, optional
+    :param fit_baseline_mh: If true baseline parameters are also fit using MH, defaults to False
+    :type fit_baseline_mh: bool, optional
+    :param vb_iter: Not currently in use, sets Variational Bayes iterations, defaults to 50
+    :type vb_iter: int, optional
+
+    :return: Fit results object
+    :rtype: fsl_mrs.utils.FitRes
     """
     err_func, grad_func, forward, x2p, p2x = models.getModelFunctions(model)
     if model.lower() == 'lorentzian':

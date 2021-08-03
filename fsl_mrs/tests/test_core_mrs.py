@@ -157,7 +157,7 @@ def test_basis_manipulations(synth_data):
 
     assert mrs.basis.shape == (2048, 6)
     assert mrs.numBasis == 6
-    
+
     mrs.ignore = []
     # This suprising result is because mrs.keep is still populated.
     assert mrs.basis.shape == (2048, 1)
