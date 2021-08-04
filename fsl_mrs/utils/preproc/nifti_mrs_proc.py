@@ -179,7 +179,7 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
 
     aligned_obj = data.copy()
 
-    if dim == 'all':
+    if dim.lower() == 'all':
         generator = data.iterate_over_spatial()
     else:
         generator = data.iterate_over_dims(dim=dim,
