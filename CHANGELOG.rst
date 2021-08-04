@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.5 (WIP)
+-------------------------------
+- fsl_mrs_proc align can now align across all higher dimension FIDs. Pass 'all' as dimension tag.
+
 1.1.4 (Tuesday 3rd August 2021)
 -------------------------------
 - Fixed bug in calculation of molality concentration. Tissue mole fractions had been swapped for tissue volume fractions. Molar concentrations unaffected.

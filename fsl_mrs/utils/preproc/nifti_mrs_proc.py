@@ -161,11 +161,11 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
 
 def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False, report=None, report_all=False):
-    '''Align frequencies of spectra across a dimension
-    specified by a tag.
+    '''Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
+    stored in higher dimensions.
 
     :param NIFTI_MRS data: Data to align
-    :param str dim: NIFTI-MRS dimension tag
+    :param str dim: NIFTI-MRS dimension tag, or 'all'
     :param target: Optional target FID
     :param ppmlim: ppm search limits.
     :param int niter: Number of total iterations
@@ -178,9 +178,19 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
     '''
 
     aligned_obj = data.copy()
-    for dd, idx in data.iterate_over_dims(dim=dim,
-                                          iterate_over_space=True,
-                                          reduce_dim_index=False):
+
+    if dim.lower() == 'all':
+        generator = data.iterate_over_spatial()
+    else:
+        generator = data.iterate_over_dims(dim=dim,
+                                           iterate_over_space=True,
+                                           reduce_dim_index=False)
+    for dd, idx in generator:
+
+        if dim == 'all':
+            # flatten
+            original_shape = dd.shape
+            dd = dd.reshape(original_shape[0], -1)
 
         out = preproc.phase_freq_align(
             dd.T,
@@ -193,12 +203,15 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
             verbose=False,
             target=target)
 
-        aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
+        if dim == 'all':
+            aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
+        else:
+            aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
             fig = phase_freq_align_report(dd.T,
-                                          aligned_obj[idx].T,
+                                          out[0],
                                           phi,
                                           eps,
                                           data.bandwidth,
@@ -333,8 +346,10 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         if data.shape == reference.shape:
+            # Reference is the same shape as data, voxel-wise and spectrum-wise iteration
             ref = reference[idx]
         else:
+            # Only one reference FID, only iterate over spatial voxels.
             ref = reference[idx[0], idx[1], idx[2], :]
 
         corrected_obj[idx] = preproc.eddy_correct(dd, ref)

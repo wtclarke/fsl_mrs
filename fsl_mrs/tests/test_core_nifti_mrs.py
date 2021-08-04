@@ -91,6 +91,18 @@ def test_nifti_mrs_generator():
         break
 
 
+def test_nifti_mrs_spatial_generator():
+    obj = NIFTI_MRS(data['unprocessed'])
+
+    for gen_data, slice_idx in obj.iterate_over_spatial():
+        assert gen_data.shape == (4096, 32, 64)
+        assert slice_idx == (0, 0, 0,
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None))
+        break
+
+
 def test_nifti_mrs_gen_mrs():
     obj = NIFTI_MRS(data['unprocessed'])
 

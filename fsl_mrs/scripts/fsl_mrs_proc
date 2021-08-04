@@ -85,6 +85,7 @@ def main():
                              help='List of files to align')
     align_group.add_argument('--dim', type=str, default='DIM_DYN',
                              help='NIFTI-MRS dimension tag to align across.'
+                                  'Or "all" to align over all spectra in higer dimensions.'
                                   'Default = DIM_DYN')
     align_group.add_argument('--ppm', type=float, nargs=2,
                              metavar='<lower-limit upper-limit>',
@@ -473,7 +474,9 @@ def average(dataobj, args):
 
 
 def align(dataobj, args):
-    if args['dim'] not in dataobj.data.dim_tags:
+    if args['dim'].lower() == 'all':
+        pass
+    elif args['dim'] not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no {args["dim"]} dimension.'
                                      f' Dimensions are is {dataobj.data.dim_tags}.')
 

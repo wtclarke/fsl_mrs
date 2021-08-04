@@ -428,6 +428,21 @@ class NIFTI_MRS(Image):
         else:
             raise TypeError('dim should be int or a string matching one of the dim tags.')
 
+    def iterate_over_spatial(self):
+        """Iterate over spatial voxels yeilding a data array the shape of the FID and any higher dimensions + index.
+
+        :yield: Complex FID data with any higher dimensions. Index to data.
+        :rtype: tuple
+        """
+        data = self.data
+
+        def calc_slice_idx(idx):
+            slice_obj = list(idx[:3]) + [slice(None), ] * (self.data.ndim - 3)
+            return tuple(slice_obj)
+
+        for idx in np.ndindex(data.shape[:3]):
+            yield self.data[idx], calc_slice_idx(idx)
+
     def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None):
         """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
 
