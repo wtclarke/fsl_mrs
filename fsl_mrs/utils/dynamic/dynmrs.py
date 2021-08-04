@@ -144,6 +144,10 @@ class dynMRS(object):
         """
         if verbose:
             start_time = time.time()
+
+        if metab_groups is None:
+            metab_groups = [0] * len(self.mrs_list[0].names)
+
         FitArgs = {'model': model,
                    'metab_groups': metab_groups,
                    'ppmlim': ppmlim,
