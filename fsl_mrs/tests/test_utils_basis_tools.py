@@ -6,7 +6,6 @@ Test basis tools.
 Copyright Will Clarke, University of Oxford, 2021
 '''
 from pathlib import Path
-from shutil import copytree
 
 import pytest
 import numpy as np
@@ -34,9 +33,8 @@ def test_convert_lcmodel(tmp_path):
     assert np.isclose(basis.cf, new_basis.cf)
 
 
-def test_add_basis(tmp_path):
-    out_loc = tmp_path / 'test_basis'
-    copytree(fsl_basis_path, out_loc)
+def test_add_basis():
+    basis = mrs_io.read_basis(fsl_basis_path)
 
     mac_in = fsl_io.readJSON(extra_basis)
     fid = np.asarray(mac_in['basis_re']) + 1j * np.asarray(mac_in['basis_im'])
@@ -44,31 +42,27 @@ def test_add_basis(tmp_path):
     bw = 1 / mac_in['basis_dwell']
 
     with pytest.raises(basis_tools.IncompatibleBasisError) as exc_info:
-        basis_tools.add_basis(fid, 'mac2', cf, bw, out_loc)
+        basis_tools.add_basis(fid, 'mac2', cf, bw, basis)
 
     assert exc_info.type is basis_tools.IncompatibleBasisError
     assert exc_info.value.args[0] == "The new basis FID covers too little time, try padding."
 
-    basis_tools.add_basis(fid, 'mac1', cf, bw, out_loc, pad=True)
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = basis_tools.add_basis(fid, 'mac1', cf, bw, basis, pad=True)
     index = new_basis.names.index('mac1')
     assert 'mac1' in new_basis.names
 
     fid_pad = np.pad(fid, (0, fid.size))
-    basis_tools.add_basis(fid_pad, 'mac2', cf, bw, out_loc)
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = basis_tools.add_basis(fid_pad, 'mac2', cf, bw, basis)
     index = new_basis.names.index('mac2')
     assert 'mac2' in new_basis.names
     assert np.allclose(new_basis._raw_fids[:, index], fid_pad[0::2])
 
-    basis_tools.add_basis(fid_pad, 'mac3', cf, bw, out_loc, scale=True, width=10)
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = basis_tools.add_basis(fid_pad, 'mac3', cf, bw, basis, scale=True, width=10)
     index = new_basis.names.index('mac3')
     assert 'mac3' in new_basis.names
     assert new_basis.basis_fwhm[index] == 10
 
-    basis_tools.add_basis(fid_pad, 'mac4', cf, bw, out_loc, width=10, conj=True)
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = basis_tools.add_basis(fid_pad, 'mac4', cf, bw, basis, width=10, conj=True)
     index = new_basis.names.index('mac4')
     assert 'mac4' in new_basis.names
     assert np.allclose(new_basis._raw_fids[:, index], fid_pad[0::2].conj())

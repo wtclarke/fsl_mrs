@@ -46,7 +46,7 @@ def convert_lcm_basis(path_to_basis, output_location=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False, sim_info='Manually added'):
+def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 
     Optionally rescale the norm of the new FID to the mean of the existing ones.
@@ -60,7 +60,7 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
     :param bw: Bandwidth in Hz
     :type bw: float
     :param target: Target basis set
-    :type target: str or pathlib.Path
+    :type target: fsl_mrs.core.basis.Basis
     :param scale: Rescale the fid so its norm is the mean of the norms of the
      other basis spectra, defaults to False
     :type scale: bool, optional
@@ -70,60 +70,56 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
     :type conj: bool, optional
     :param pad: Pad input FID to target length if required, defaults to False.
     :type pad: bool, optional
-    :param sim_info: String added to the meta.SimVersion field, defaults to 'Manually added'
-    :type sim_info: str, optional
-    """
-    # 1. Check that target exists
-    target = Path(target)
-    if not target.is_dir():
-        raise NotADirectoryError('Target must be a directory of FSL-MRS basis (json) files')
 
-    # 2. Resample new basis to the same raster as the target
+    :return: Modified target basis
+    :rtype: fsl_mrs.core.basis.Basis
+    """
+
+    # 1. Resample new basis to the same raster as the target
     # Can't use the central frequency as a way to align as the absolute frequency is effectively arbitrary
-    target_basis = mrs_io.read_basis(target)
-    target_dt = target_basis.original_dwell
+    target_dt = target.original_dwell
     try:
         resampled_fid = ts_to_ts(fid,
                                  1 / bw,
                                  target_dt,
-                                 target_basis.original_points)
+                                 target.original_points)
     except InsufficentTimeCoverageError:
         if not pad:
             raise IncompatibleBasisError('The new basis FID covers too little time, try padding.')
         else:
             # Pad fid to sufficent length
-            required_time = target_basis.original_points * target_dt
+            required_time = (target.original_points - 1) * target_dt
             fid_dt = 1 / bw
-            required_points = int(np.ceil(required_time / fid_dt))
+            required_points = int(np.ceil(required_time / fid_dt)) + 1
             fid = np.pad(fid, (0, required_points - fid.size), constant_values=complex(0.0))
 
             resampled_fid = ts_to_ts(fid,
                                      1 / bw,
                                      target_dt,
-                                     target_basis.original_points)
+                                     target.original_points)
 
-    # 3. Scale if requested
+    # 2. Scale if requested
     if scale:
         norms = []
-        for b in target_basis.original_basis_array.T:
+        for b in target.original_basis_array.T:
             norms.append(np.linalg.norm(b))
         resampled_fid *= np.mean(norms) / np.linalg.norm(resampled_fid)
 
-    # 4. Width calculation if needed.
+    # 3. Width calculation if needed.
     if width is None:
         mrs = MRS(FID=resampled_fid, cf=cf, bw=bw)
         mrs.check_FID(repair=True)
         width, _, _ = idPeaksCalcFWHM(mrs)
 
-    # 5. Conjugate if requested
+    # 4. Conjugate if requested
     if conj:
         resampled_fid = resampled_fid.conj()
 
-    # 6. Add to existing basis
-    target_basis.add_fid_to_basis(resampled_fid, name, width=width)
+    # 5. Add to existing basis
+    target.add_fid_to_basis(resampled_fid, name, width=width)
 
-    # 7. Write to json without overwriting existing files
-    target_basis.save(target, info_str=sim_info)
+    # 6. Return modified basis
+    return target
 
 
 def shift_basis(basis, name, amount):
