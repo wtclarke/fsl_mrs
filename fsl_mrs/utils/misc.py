@@ -202,6 +202,9 @@ def ts_to_ts(old_ts, old_dt, new_dt, new_n):
     old_n = old_ts.shape[0]
     old_t = np.linspace(old_dt, old_dt * old_n, old_n) - old_dt
     new_t = np.linspace(new_dt, new_dt * new_n, new_n) - new_dt
+    # Round to nanoseconds
+    old_t = np.round(old_t, 9)
+    new_t = np.round(new_t, 9)
 
     if new_t[-1] > old_t[-1]:
         raise InsufficentTimeCoverageError('Input data covers less time than is requested by interpolation.'
