@@ -118,6 +118,18 @@ def test_remove():
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_peaks, limits=(4, 5.3), limit_units=ppm+shift.'
 
 
+def test_hlsvd_model():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    modeled = nproc.hlsvd_model_peaks(nmrs_obj, (4, 5.30), components=3)
+
+    assert modeled.hdr_ext['ProcessingApplied'][1]['Method'] == 'HLSVD modeling'
+    assert modeled.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.hlsvd_model_peaks,'\
+           ' limits=(4, 5.3), limit_units=ppm+shift, components=3.'
+
+
 def test_tshift():
     nmrs_obj = read_FID(wrefc)
     nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')

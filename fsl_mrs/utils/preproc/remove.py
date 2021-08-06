@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # remove.py - HLSVD-based correction
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -12,6 +10,36 @@ import numpy as np
 import hlsvdpropy
 from fsl_mrs.utils.misc import checkCFUnits
 from fsl_mrs.utils.constants import H2O_PPM_TO_TMS
+
+
+def model_fid_hlsvd(FID, dwelltime, centralFrequency, limits=None,
+                    limitUnits='ppm', numSingularValues=20):
+    """Model a section of the FID using HLSVD. Optionally retain components
+    only within the frequenccy/ppm limits.
+
+    :param FID: Time domain data
+    :type FID: numpy.array
+    :param dwelltime: dwell time in seconds
+    :type dwelltime: float
+    :param centralFrequency: Central frequency in Hz
+    :type centralFrequency: float
+    :param limits: Frequency/ppm limits, defaults to None
+    :type limits: tuple, optional
+    :param limitUnits: Axis that limits are given in. By Default
+        in ppm, relative to receiver frequency (no shift). Can be 'Hz', 'ppm'
+        or 'ppm+shift'. Defaults to 'ppm'
+    :type limitUnits: str, optional
+    :param numSingularValues: Max number of singular values, defaults to 20
+    :type numSingularValues: int, optional
+    """
+
+    return _hlsvd(
+        FID,
+        dwelltime,
+        centralFrequency,
+        limits,
+        limitUnits=limitUnits,
+        numSingularValues=numSingularValues)
 
 
 def hlsvd(FID, dwelltime, centralFrequency, limits,
@@ -31,9 +59,38 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
     Returns:
         FID (ndarray): Modified FID
     """
-    # nsv_found, singular_values, frequencies, damping_factors, amplitudes, \
-    #     phases = hlsvdpropy.hlsvd(FID, numSingularValues, dwelltime)
+    sumFID = _hlsvd(
+        FID,
+        dwelltime,
+        centralFrequency,
+        limits,
+        limitUnits=limitUnits,
+        numSingularValues=numSingularValues)
 
+    return FID - sumFID
+
+
+def _hlsvd(FID, dwelltime, centralFrequency, limits,
+           limitUnits='ppm', numSingularValues=20):
+    """Run hlsvdpro on FID and return spectrum modeled by HLSVD.
+
+    :param FID: Time domain data
+    :type FID: numpy.array
+    :param dwelltime: dwell time in seconds
+    :type dwelltime: float
+    :param centralFrequency: Central frequency in Hz
+    :type centralFrequency: float
+    :param limits: Frequency/ppm limits, defaults to None
+    :type limits: tuple, optional
+    :param limitUnits: Axis that limits are given in. By Default
+        in ppm, relative to receiver frequency (no shift). Can be 'Hz', 'ppm'
+        or 'ppm+shift'. Defaults to 'ppm'
+    :type limitUnits: str, optional
+    :param numSingularValues: Max number of singular values, defaults to 20
+    :type numSingularValues: int, optional
+
+    :return: HLSVD modeled FID
+    """
     m = FID.size // 2
     r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=True)
     r = hlsvdpropy.convert_hlsvd_result(r, dwelltime)
@@ -72,8 +129,7 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
             sumFID += a * np.exp((timeAxis / d)
                                  + 1j * 2 * np.pi
                                  * (f * timeAxis + p / 360.0))
-
-    return FID - sumFID
+    return sumFID
 
 
 def hlsvd_report(inFID,

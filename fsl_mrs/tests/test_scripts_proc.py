@@ -459,6 +459,44 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     assert np.allclose(data.data, directRun.data)
 
 
+def test_model(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run model on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'model',
+                           '--file', svsfile,
+                           '--ppm', '-10', '10',
+                           '--components', '5',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.hlsvd_model_peaks(svsdata, (-10, 10), components=5)
+
+    assert np.allclose(data.data, directRun.data)
+
+    # Run model on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'model',
+                           '--file', mrsifile,
+                           '--ppm', '-10', '10',
+                           '--components', '5',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.hlsvd_model_peaks(mrsidata, (-10, 10), components=5)
+
+    assert np.allclose(data.data, directRun.data)
+
+
 def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
     svsfile, svsdata = svs_data_diff[0], svs_data_diff[1]
 

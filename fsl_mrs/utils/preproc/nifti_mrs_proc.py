@@ -419,6 +419,54 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
     return corrected_obj
 
 
+def hlsvd_model_peaks(data, limits,
+                      limit_units='ppm+shift', components=5, figure=False, report=None, report_all=False):
+    '''Apply HLSVD to model spectum
+    :param NIFTI_MRS data: Data to model
+    :param limits: ppm limits between which spectrum will be modeled
+    :param str limit_units: Can be 'Hz', 'ppm' or 'ppm+shift'.
+    :param int components: Number of lorentzian components to model
+    :param figure: True to show figure.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Corrected data in NIFTI_MRS format.
+    '''
+    corrected_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+
+        corrected_obj[idx] = preproc.model_fid_hlsvd(
+            dd,
+            data.dwelltime,
+            data.spectrometer_frequency[0],
+            limits,
+            limitUnits=limit_units,
+            numSingularValues=components)
+
+        if (figure or report) and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.remove import hlsvd_report
+            fig = hlsvd_report(dd,
+                               corrected_obj[idx],
+                               limits,
+                               data.bandwidth,
+                               data.spectrometer_frequency[0],
+                               nucleus=data.nucleus[0],
+                               limitUnits=limit_units,
+                               html=report)
+            if figure:
+                fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.hlsvd_model_peaks, '
+    processing_info += f'limits={limits}, '
+    processing_info += f'limit_units={limit_units}, '
+    processing_info += f'components={components}.'
+
+    update_processing_prov(corrected_obj, 'HLSVD modeling', processing_info)
+
+    return corrected_obj
+
+
 def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, report=None, report_all=False):
     '''Apply time shift or resampling to each FID
     :param NIFTI_MRS data: Data to shift

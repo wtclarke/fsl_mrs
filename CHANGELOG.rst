@@ -3,6 +3,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 1.1.5 (WIP)
 -------------------------------
 - fsl_mrs_proc align can now align across all higher dimension FIDs. Pass 'all' as dimension tag.
+- New command "fsl_mrs_proc model". HSLVD modelling of peaks in defined region. Number of components settable. 
 
 1.1.4 (Tuesday 3rd August 2021)
 -------------------------------
