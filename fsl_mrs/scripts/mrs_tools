@@ -90,7 +90,7 @@ def main():
     # Reorder tool
     reorderparser = sp.add_parser(
         'reorder',
-        help='Reorider higher dimensions of NIfTI-MRS.')
+        help='Reorder higher dimensions of NIfTI-MRS.')
     reorderparser.add_argument('--file', type=Path, required=True,
                                help='File to reorder')
     reorderparser.add_argument('--dim_order', type=str, nargs='+', required=True,
@@ -103,6 +103,19 @@ def main():
     reorderparser.add_argument('--filename', type=str,
                                help='Override output file names.')
     reorderparser.set_defaults(func=reorder)
+
+    # conjugate tool
+    conjparser = sp.add_parser(
+        'conjugate',
+        help='Conjugate data to correct phase/frequency convention in a NIfTI-MRS file.')
+    conjparser.add_argument('--file', type=Path, required=True,
+                            help='File to conjugate')
+    conjparser.add_argument('--output',
+                            required=True, type=Path, default=Path('.'),
+                            help='output folder (defaults to current directory)')
+    conjparser.add_argument('--filename', type=str,
+                            help='Override output file names.')
+    conjparser.set_defaults(func=conj)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -295,6 +308,29 @@ def reorder(args):
     else:
         file_out = args.output / (reorder_name + '_reordered')
     reordered.save(file_out)
+
+
+def conj(args):
+    """Conjugate the data in a nifti-mrs file
+
+    :param args: Argparse interpreted arguments
+    :type args: Namespace
+    """
+    from fsl_mrs.utils import nifti_mrs_tools as nmrs_tools
+    from fsl_mrs.utils import mrs_io
+    # 1. Load the file
+    infile = mrs_io.read_FID(str(args.file))
+    name = args.file.with_suffix('').with_suffix('').name
+
+    # 2. conjugate the file
+    outfile = nmrs_tools.conjugate(infile)
+
+    # 3. Save the output file
+    if args.filename:
+        file_out = args.output / args.filename
+    else:
+        file_out = args.output / name
+    outfile.save(file_out)
 
 
 if __name__ == '__main__':

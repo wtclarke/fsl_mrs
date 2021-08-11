@@ -88,6 +88,7 @@ class dynMRS(object):
             # breakpoint()
             # calculate covariance
             data = np.asarray(self.data).flatten()
+            # TODO: replace the below with something that uses the hessian from scipy.optimize
             x_cov = calculate_lap_cov(sol.x, self.full_fwd, data)
             x = sol.x
             x_out = x
@@ -108,7 +109,12 @@ class dynMRS(object):
 
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
-        return {'x': x_out, 'cov': x_cov, 'samples': x_all, 'resList': res_list, 'OptimizeResult': sol}
+        return {'x': x_out,
+                'cov': x_cov,
+                'samples': x_all,
+                'resList': res_list,
+                'OptimizeResult': sol,
+                'vm': self.vm}
 
     def get_constants(self, model, ppmlim, baseline_order, metab_groups):
         """collect constants for forward model"""
@@ -138,6 +144,10 @@ class dynMRS(object):
         """
         if verbose:
             start_time = time.time()
+
+        if metab_groups is None:
+            metab_groups = [0] * len(self.mrs_list[0].names)
+
         FitArgs = {'model': model,
                    'metab_groups': metab_groups,
                    'ppmlim': ppmlim,
@@ -295,3 +305,73 @@ class dynMRS(object):
             results.loadResults(mrs, mapped[t])
             dynresList.append(results)
         return dynresList
+
+
+def collect_dyn_results(dynres, to_file=None):
+    """Collect the results of dynamic MRS fitting
+
+    Each mapped parameter group gets its own dict
+
+    :param dynres:  output of dynmrs.fit()
+    :type dynres: dict
+    :param to_file: Output path, defaults to None
+    :type to_file: str, optional
+    :return: Formatted results
+    :rtype: dict of dict
+    """
+
+    vm      = dynres['vm']   # variable mapping object
+    results = {}             # collect results here
+    values  = dynres['x']    # get the optimisation results here
+    counter = 0
+    # ############################################################
+    # HACK ALERT! to get metab names: fetch them from the resList
+    metab_names = dynres['resList'][0].original_metabs
+    # ############################################################
+
+    # Loop over parameter groups (e.g. conc, Phi_0,  Phi_1, ... )
+    # Each will have a number of dynamic params associated
+    # Store the values and names of these params in dict
+    for index, param in enumerate(vm.mapped_names):
+        isconc = param == 'conc'  # special case for concentration params
+        results[param] = {}
+        nmapped = vm.mapped_sizes[index]  # how many mapped params?
+        beh     = vm.Parameters[param]    # what kind of dynamic model?
+        if (beh == 'fixed'):  # if fixed, just a single value per mapped param
+            if not isconc:
+                results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
+            else:
+                results[param]['metab'] = metab_names
+            results[param]['Values'] = values[counter:counter + nmapped]
+            counter += nmapped
+        elif (beh == 'variable'):
+            if not isconc:
+                results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
+            else:
+                results[param]['metab'] = metab_names
+            for t in range(vm.ntimes):
+                results[param][f't{t}'] = values[counter:counter + nmapped]
+                counter += nmapped
+        else:
+            if 'dynamic' in beh:
+                dyn_name = vm.Parameters[param]['params']
+                nfree    = len(dyn_name)
+                if not isconc:
+                    results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
+                else:
+                    results[param]['metab'] = metab_names
+                tmp = []
+                for t in range(nmapped):
+                    tmp.append(values[counter:counter + nfree])
+                    counter += nfree
+                tmp = np.asarray(tmp)
+                for i, t in enumerate(dyn_name):
+                    results[param][t] = tmp[:, i]
+
+    if to_file is not None:
+        import pandas as pd
+        for param in vm.mapped_names:
+            df = pd.DataFrame(results[param])
+            df.to_csv(to_file + f'_{param}.csv', index=False)
+
+    return results

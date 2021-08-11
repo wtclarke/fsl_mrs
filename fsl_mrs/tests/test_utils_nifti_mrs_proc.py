@@ -75,6 +75,14 @@ def test_align():
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
            'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
 
+    # Align across all spectra
+    aligned3 = nproc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+
+    assert aligned3.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned3.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
+           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+
 
 def test_aligndiff():
     # For want of data this is a bizzare way of using this function.
@@ -108,6 +116,18 @@ def test_remove():
     assert corrected.hdr_ext['ProcessingApplied'][1]['Method'] == 'Nuisance peak removal'
     assert corrected.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_peaks, limits=(4, 5.3), limit_units=ppm+shift.'
+
+
+def test_hlsvd_model():
+    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+
+    modeled = nproc.hlsvd_model_peaks(nmrs_obj, (4, 5.30), components=3)
+
+    assert modeled.hdr_ext['ProcessingApplied'][1]['Method'] == 'HLSVD modeling'
+    assert modeled.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.hlsvd_model_peaks,'\
+           ' limits=(4, 5.3), limit_units=ppm+shift, components=3.'
 
 
 def test_tshift():

@@ -161,11 +161,11 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
 
 def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False, report=None, report_all=False):
-    '''Align frequencies of spectra across a dimension
-    specified by a tag.
+    '''Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
+    stored in higher dimensions.
 
     :param NIFTI_MRS data: Data to align
-    :param str dim: NIFTI-MRS dimension tag
+    :param str dim: NIFTI-MRS dimension tag, or 'all'
     :param target: Optional target FID
     :param ppmlim: ppm search limits.
     :param int niter: Number of total iterations
@@ -178,9 +178,19 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
     '''
 
     aligned_obj = data.copy()
-    for dd, idx in data.iterate_over_dims(dim=dim,
-                                          iterate_over_space=True,
-                                          reduce_dim_index=False):
+
+    if dim.lower() == 'all':
+        generator = data.iterate_over_spatial()
+    else:
+        generator = data.iterate_over_dims(dim=dim,
+                                           iterate_over_space=True,
+                                           reduce_dim_index=False)
+    for dd, idx in generator:
+
+        if dim == 'all':
+            # flatten
+            original_shape = dd.shape
+            dd = dd.reshape(original_shape[0], -1)
 
         out = preproc.phase_freq_align(
             dd.T,
@@ -193,12 +203,15 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
             verbose=False,
             target=target)
 
-        aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
+        if dim == 'all':
+            aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
+        else:
+            aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
             fig = phase_freq_align_report(dd.T,
-                                          aligned_obj[idx].T,
+                                          out[0],
                                           phi,
                                           eps,
                                           data.bandwidth,
@@ -333,8 +346,10 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         if data.shape == reference.shape:
+            # Reference is the same shape as data, voxel-wise and spectrum-wise iteration
             ref = reference[idx]
         else:
+            # Only one reference FID, only iterate over spatial voxels.
             ref = reference[idx[0], idx[1], idx[2], :]
 
         corrected_obj[idx] = preproc.eddy_correct(dd, ref)
@@ -400,6 +415,54 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
     processing_info += f'limit_units={limit_units}.'
 
     update_processing_prov(corrected_obj, 'Nuisance peak removal', processing_info)
+
+    return corrected_obj
+
+
+def hlsvd_model_peaks(data, limits,
+                      limit_units='ppm+shift', components=5, figure=False, report=None, report_all=False):
+    '''Apply HLSVD to model spectum
+    :param NIFTI_MRS data: Data to model
+    :param limits: ppm limits between which spectrum will be modeled
+    :param str limit_units: Can be 'Hz', 'ppm' or 'ppm+shift'.
+    :param int components: Number of lorentzian components to model
+    :param figure: True to show figure.
+    :param report: Provide output location as path to generate report
+    :param report_all: True to output all indicies
+
+    :return: Corrected data in NIFTI_MRS format.
+    '''
+    corrected_obj = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+
+        corrected_obj[idx] = preproc.model_fid_hlsvd(
+            dd,
+            data.dwelltime,
+            data.spectrometer_frequency[0],
+            limits,
+            limitUnits=limit_units,
+            numSingularValues=components)
+
+        if (figure or report) and (report_all or first_index(idx)):
+            from fsl_mrs.utils.preproc.remove import hlsvd_report
+            fig = hlsvd_report(dd,
+                               corrected_obj[idx],
+                               limits,
+                               data.bandwidth,
+                               data.spectrometer_frequency[0],
+                               nucleus=data.nucleus[0],
+                               limitUnits=limit_units,
+                               html=report)
+            if figure:
+                fig.show()
+
+    # Update processing prov
+    processing_info = f'{__name__}.hlsvd_model_peaks, '
+    processing_info += f'limits={limits}, '
+    processing_info += f'limit_units={limit_units}, '
+    processing_info += f'components={components}.'
+
+    update_processing_prov(corrected_obj, 'HLSVD modeling', processing_info)
 
     return corrected_obj
 

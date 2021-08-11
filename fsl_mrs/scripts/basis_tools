@@ -198,6 +198,7 @@ def convert(args):
 
 
 def add(args):
+    from fsl_mrs.utils.mrs_io import read_basis
     from fsl_mrs.utils import basis_tools
     import json
     import numpy as np
@@ -217,13 +218,23 @@ def add(args):
     bw = 1 / json_dict['basis_dwell']
     width = json_dict['basis_width']
 
-    basis_tools.add_basis(
-        fid, name, cf, bw, args.target,
+    # Check that target exists
+    target = Path(args.target)
+    if not target.is_dir():
+        raise NotADirectoryError('Target must be a directory of FSL-MRS basis (json) files')
+
+    # Load target
+    target_basis = read_basis(target)
+
+    target_basis = basis_tools.add_basis(
+        fid, name, cf, bw, target_basis,
         scale=args.scale,
         width=width,
         conj=args.conj,
-        pad=args.pad,
-        sim_info=args.info)
+        pad=args.pad)
+
+    # Write to json without overwriting existing files
+    target_basis.save(target, info_str=args.info)
 
 
 def shift(args):

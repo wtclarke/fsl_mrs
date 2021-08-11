@@ -9,7 +9,7 @@ import json
 import numpy as np
 from nibabel.nifti1 import Nifti1Extension
 from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NIFTIMRS_DimDoesntExist
-from fsl_mrs.utils.nifti_mrs_tools import misc
+from fsl_mrs.utils.nifti_mrs_tools import utils
 
 
 class NIfTI_MRSIncompatible(Exception):
@@ -73,8 +73,8 @@ def split(nmrs, dimension, index_or_indicies):
                                                          dim_index + 1,
                                                          nmrs.shape[dim_index],
                                                          index_or_indicies)
-    out_hdr_1 = misc.modify_hdr_ext(split_hdr_ext_1, nmrs.header)
-    out_hdr_2 = misc.modify_hdr_ext(split_hdr_ext_2, nmrs.header)
+    out_hdr_1 = utils.modify_hdr_ext(split_hdr_ext_1, nmrs.header)
+    out_hdr_2 = utils.modify_hdr_ext(split_hdr_ext_2, nmrs.header)
 
     nmrs_1 = NIFTI_MRS(np.delete(nmrs.data, index, axis=dim_index), header=out_hdr_1)
     nmrs_2 = NIFTI_MRS(np.take(nmrs.data, index, axis=dim_index), header=out_hdr_2)
@@ -121,13 +121,13 @@ def _split_dim_header(hdr, dimension, dim_length, index):
             return split_list(hdr_val)
 
     def split_single(hdr_val):
-        hdr_type = misc.check_type(hdr_val)
-        long_fmt = misc.dim_n_header_short_to_long(hdr_val, dim_length)
+        hdr_type = utils.check_type(hdr_val)
+        long_fmt = utils.dim_n_header_short_to_long(hdr_val, dim_length)
         long_fmt_1, long_fmt_2 = split_user_or_std(long_fmt)
         if hdr_type == 'long':
             return long_fmt_1, long_fmt_2
         else:
-            return misc.dim_n_header_long_to_short(long_fmt_1), misc.dim_n_header_long_to_short(long_fmt_2)
+            return utils.dim_n_header_long_to_short(long_fmt_1), utils.dim_n_header_long_to_short(long_fmt_2)
 
     key_str = f'dim_{dimension}_header'
     if key_str in hdr:
@@ -214,7 +214,7 @@ def merge(array_of_nmrs, dimension):
                                                to_concat[-1].shape[dim_index])
             merged_length += to_concat[-1].shape[dim_index]
 
-    out_hdr = misc.modify_hdr_ext(merged_hdr_ext, array_of_nmrs[0].header)
+    out_hdr = utils.modify_hdr_ext(merged_hdr_ext, array_of_nmrs[0].header)
 
     return NIFTI_MRS(np.concatenate(to_concat, axis=dim_index), header=out_hdr)
 
@@ -252,14 +252,14 @@ def _merge_dim_header(hdr1, hdr2, dimension, dim_length1, dim_length2):
             return merge_list(hdr_val1, hdr_val2)
 
     def merge_single(hdr_val1, hdr_val2):
-        hdr_type = misc.check_type(hdr_val1)
-        long_fmt_1 = misc.dim_n_header_short_to_long(hdr_val1, dim_length1)
-        long_fmt_2 = misc.dim_n_header_short_to_long(hdr_val2, dim_length1)
+        hdr_type = utils.check_type(hdr_val1)
+        long_fmt_1 = utils.dim_n_header_short_to_long(hdr_val1, dim_length1)
+        long_fmt_2 = utils.dim_n_header_short_to_long(hdr_val2, dim_length1)
         long_fmt = merge_user_or_std(long_fmt_1, long_fmt_2)
         if hdr_type == 'long':
             return long_fmt
         else:
-            return misc.dim_n_header_long_to_short(long_fmt)
+            return utils.dim_n_header_long_to_short(long_fmt)
 
     key_str = f'dim_{dimension}_header'
 

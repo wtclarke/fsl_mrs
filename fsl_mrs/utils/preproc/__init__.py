@@ -5,6 +5,6 @@ from fsl_mrs.utils.preproc.phasing import phaseCorrect, applyPhase
 from fsl_mrs.utils.preproc.eddycorrect import eddy_correct
 from fsl_mrs.utils.preproc.shifting import truncate, pad, timeshift, freqshift, shiftToRef
 from fsl_mrs.utils.preproc.filtering import apodize
-from fsl_mrs.utils.preproc.remove import hlsvd
+from fsl_mrs.utils.preproc.remove import hlsvd, model_fid_hlsvd
 from fsl_mrs.utils.preproc.general import add, subtract
 from fsl_mrs.utils.preproc.unlike import identifyUnlikeFIDs

@@ -195,11 +195,42 @@ def mrsi_data_diff(tmp_path):
     return testfile, nmrs
 
 
+@pytest.fixture
+def svs_data_uncomb_reps(tmp_path):
+    coils = 2
+    noiseconv = 0.1 * np.eye(coils)
+    coilamps = np.random.randn(coils)
+    coilphs = np.random.random(coils) * 2 * np.pi
+    FID, hdr = syntheticFID(noisecovariance=noiseconv,
+                            coilamps=coilamps,
+                            coilphase=coilphs,
+                            points=512)
+
+    FID2, hdr = syntheticFID(noisecovariance=noiseconv,
+                             coilamps=coilamps,
+                             coilphase=coilphs,
+                             points=512)
+
+    FID = np.stack((np.asarray(FID).T, np.asarray(FID2).T), axis=2)
+    FID = FID.reshape((1, 1, 1) + FID.shape)
+
+    nmrs = gen_new_nifti_mrs(FID,
+                             hdr['dwelltime'],
+                             hdr['centralFrequency'],
+                             dim_tags=['DIM_COIL', 'DIM_DYN', None])
+
+    testname = 'svsdata_uncomb_reps.nii'
+    testfile = op.join(tmp_path, testname)
+    nmrs.save(testfile)
+
+    return testfile, nmrs
+
+
 def splitdata(svs, mrsi):
     return svs[0], mrsi[0], svs[1], mrsi[1]
 
 
-def test_filecreation(svs_data, mrsi_data, svs_data_uncomb, mrsi_data_uncomb):
+def test_filecreation(svs_data, mrsi_data, svs_data_uncomb, mrsi_data_uncomb, svs_data_uncomb_reps):
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
 
     data = read_FID(svsfile)
@@ -220,6 +251,11 @@ def test_filecreation(svs_data, mrsi_data, svs_data_uncomb, mrsi_data_uncomb):
     data = read_FID(mrsifile)
     assert data.shape == (2, 2, 2, 512, 4)
     assert np.allclose(data.data, mrsidata.data)
+
+    # Uncombined and reps
+    data = read_FID(svs_data_uncomb_reps[0])
+    assert data.shape == (1, 1, 1, 512, 2, 2)
+    assert np.allclose(data.data, svs_data_uncomb_reps[1].data)
 
 
 def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
@@ -313,7 +349,6 @@ def test_align(svs_data, mrsi_data, tmp_path):
 
     assert np.allclose(data.data, directRun.data)
 
-    # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
                            '--dim', 'DIM_DYN',
@@ -329,6 +364,27 @@ def test_align(svs_data, mrsi_data, tmp_path):
     directRun = preproc.align(mrsidata, 'DIM_DYN', ppmlim=(-10, 10))
 
     assert np.allclose(data.data, directRun.data, atol=1E-1, rtol=1E-1)
+
+
+def test_align_all(svs_data_uncomb_reps, tmp_path):
+    svsfile, svsdata = svs_data_uncomb_reps[0], svs_data_uncomb_reps[1]
+
+    # Run align on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'align',
+                           '--dim', 'all',
+                           '--file', svsfile,
+                           '--ppm', '-10', '10',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.align(svsdata, 'all', ppmlim=(-10, 10))
+
+    assert np.allclose(data.data, directRun.data)
 
 
 def test_ecc(svs_data, mrsi_data, tmp_path):
@@ -399,6 +455,44 @@ def test_remove(svs_data, mrsi_data, tmp_path):
 
     # Run directly
     directRun = preproc.remove_peaks(mrsidata, (-10, 10))
+
+    assert np.allclose(data.data, directRun.data)
+
+
+def test_model(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run model on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'model',
+                           '--file', svsfile,
+                           '--ppm', '-10', '10',
+                           '--components', '5',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.hlsvd_model_peaks(svsdata, (-10, 10), components=5)
+
+    assert np.allclose(data.data, directRun.data)
+
+    # Run model on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'model',
+                           '--file', mrsifile,
+                           '--ppm', '-10', '10',
+                           '--components', '5',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.hlsvd_model_peaks(mrsidata, (-10, 10), components=5)
 
     assert np.allclose(data.data, directRun.data)
 

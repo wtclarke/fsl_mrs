@@ -179,6 +179,24 @@ def test_hlsvd():
     assert np.allclose(np.real(removedFID), np.real(onResFID), atol=1E-2, rtol=1E-2)
 
 
+# Test hlsvd modelling by 'denoising'
+def test_model_fid_hlsvd():
+    # low noise
+    testFIDs, testHdrs = syn.syntheticFID(noisecovariance=[[1E-4]], amplitude=[1.0], chemicalshift=[0])
+    noislessFIDs, _ = syn.syntheticFID(noisecovariance=[[0]], amplitude=[1.0], chemicalshift=[0])
+
+    limits = [-1.5, 1.5]
+
+    modelledFID = preproc.model_fid_hlsvd(testFIDs[0],
+                                          testHdrs['dwelltime'],
+                                          testHdrs['centralFrequency'],
+                                          limits,
+                                          limitUnits='ppm',
+                                          numSingularValues=5)
+
+    assert np.allclose(np.real(modelledFID), np.real(noislessFIDs), atol=1E-2, rtol=1E-2)
+
+
 def test_pad_truncate():
     mockFID = np.full((1024), 1.0)
     testFID = preproc.pad(mockFID, 1, first_or_last='last')

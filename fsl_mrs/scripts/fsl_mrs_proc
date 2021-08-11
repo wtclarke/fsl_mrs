@@ -85,6 +85,7 @@ def main():
                              help='List of files to align')
     align_group.add_argument('--dim', type=str, default='DIM_DYN',
                              help='NIFTI-MRS dimension tag to align across.'
+                                  'Or "all" to align over all spectra in higer dimensions.'
                                   'Default = DIM_DYN')
     align_group.add_argument('--ppm', type=float, nargs=2,
                              metavar='<lower-limit upper-limit>',
@@ -142,6 +143,22 @@ def main():
                              help='ppm limits of removal window')
     hlsvdparser.set_defaults(func=remove)
     add_common_args(hlsvdparser)
+
+    # model subcommand - model peaks using HLSVD
+    modelparser = sp.add_parser('model', add_help=False,
+                                help='Model peaks with HLSVD.')
+    model_group = modelparser.add_argument_group('HLSVD modelling arguments')
+    model_group.add_argument('--file', type=str, required=True,
+                             help='Data file(s)')
+    model_group.add_argument('--ppm', type=float, nargs=2,
+                             metavar='<lower-limit upper-limit>',
+                             default=[4.5, 4.8],
+                             help='ppm limits of removal window')
+    model_group.add_argument('--components', type=int,
+                             default=5,
+                             help='Number of components to model.')
+    modelparser.set_defaults(func=model)
+    add_common_args(modelparser)
 
     # tshift subcommand - shift/resample in timedomain
     tshiftparser = sp.add_parser('tshift', add_help=False,
@@ -473,7 +490,9 @@ def average(dataobj, args):
 
 
 def align(dataobj, args):
-    if args['dim'] not in dataobj.data.dim_tags:
+    if args['dim'].lower() == 'all':
+        pass
+    elif args['dim'] not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no {args["dim"]} dimension.'
                                      f' Dimensions are is {dataobj.data.dim_tags}.')
 
@@ -519,6 +538,16 @@ def remove(dataobj, args):
                                      report_all=args['allreports'])
 
     return datacontainer(corrected, dataobj.datafilename)
+
+
+def model(dataobj, args):
+    modelled = preproc.hlsvd_model_peaks(dataobj.data,
+                                         limits=args['ppm'],
+                                         components=args['components'],
+                                         report=args['generateReports'],
+                                         report_all=args['allreports'])
+
+    return datacontainer(modelled, dataobj.datafilename)
 
 
 def tshift(dataobj, args):
