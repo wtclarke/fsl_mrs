@@ -277,7 +277,7 @@ class QuantificationInfo(object):
             else:
                 sum_value = np.sum([fractions['WM'], fractions['GM'], fractions['CSF']])
                 raise ValueError("fractions must be a dict containing 'WM', 'GM', 'CSF' keys"
-                                 f", and must sum to 1. Currently they are: {fractions} (sum={sum_value}).")
+                                 f", and must sum to 1. Currently they are: {fractions} (sum={sum_value:0.4f}).")
         else:
             raise TypeError(f'fractions must be a dict, not {type(fractions)}.')
 

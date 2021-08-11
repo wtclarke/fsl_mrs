@@ -8,6 +8,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import os.path as op
 import numpy as np
+import pytest
 
 import fsl_mrs.utils.mrs_io as mrsio
 from fsl_mrs.utils.fitting import fit_FSLModel
@@ -66,6 +67,14 @@ def test_volumefraction_calc():
     assert qci.f_GM == 0.45
     assert qci.f_WM == 0.40
     assert qci.f_CSF == 0.15
+
+    with pytest.raises(ValueError) as exc_info:
+        qci.set_fractions({'GM': 0.44, 'WM': 0.40, 'CSF': 0.15})
+
+    assert exc_info.type is ValueError
+    assert exc_info.value.args[0] == "fractions must be a dict containing 'WM', 'GM', 'CSF' keys"\
+                                     ", and must sum to 1. Currently they are:"\
+                                     " {'GM': 0.44, 'WM': 0.4, 'CSF': 0.15} (sum=0.9900)."
 
 
 def test_molefraction_calc():

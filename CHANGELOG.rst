@@ -1,9 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.5 (WIP)
--------------------------------
+1.1.5 (Wednesday 11th August 2021)
+----------------------------------
 - Updated example MRSI data to conform to NIfTI-MRS standard.
-- Quantification will not fail if volume fractions do not sum exactly to 1.0.
+- Quantification will not fail if volume fractions do not sum exactly to 1.0 (to within 1E-3).
 - fixed bug in fsl_mrsi looking for TE in wrong header structure.
 - New mrs_tools command 'conjugate' to help fix NIfTI-MRS data with the wrong phase/frequency convention.
 - basis_tools remove has number of HLSVD components reduced to stop odd broad resonance behaviour.
