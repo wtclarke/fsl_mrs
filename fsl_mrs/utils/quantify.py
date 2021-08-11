@@ -272,11 +272,12 @@ class QuantificationInfo(object):
         required = ['WM', 'GM', 'CSF']
         if isinstance(fractions, dict):
             if all(item in fractions.keys() for item in required)\
-                    and np.sum([fractions['WM'], fractions['GM'], fractions['CSF']]) == 1.0:
+                    and np.isclose(np.sum([fractions['WM'], fractions['GM'], fractions['CSF']]), 1.0, atol=1E-3):
                 self._fractions = fractions
             else:
+                sum_value = np.sum([fractions['WM'], fractions['GM'], fractions['CSF']])
                 raise ValueError("fractions must be a dict containing 'WM', 'GM', 'CSF' keys"
-                                 ", and must sum to 1.")
+                                 f", and must sum to 1. Currently they are: {fractions} (sum={sum_value}).")
         else:
             raise TypeError(f'fractions must be a dict, not {type(fractions)}.')
 

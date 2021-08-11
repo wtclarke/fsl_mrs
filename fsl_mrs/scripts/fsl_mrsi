@@ -234,8 +234,8 @@ def main():
     # Echo time
     if args.TE is not None:
         echotime = args.TE * 1E-3
-    elif 'TE' in mrsi.header:
-        echotime = mrsi.header['TE']
+    elif 'EchoTime' in mrsi_data.hdr_ext:
+        echotime = mrsi_data.hdr_ext['EchoTime']
     else:
         echotime = None
     # Repetition time

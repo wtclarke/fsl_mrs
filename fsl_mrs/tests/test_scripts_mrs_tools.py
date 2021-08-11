@@ -157,3 +157,19 @@ def test_reorder(tmp_path):
                            '--file', str(test_data_split)])
 
     assert (tmp_path / 'reordered_file.nii.gz').exists()
+
+
+# Test conjugate option
+def test_conjugate(tmp_path):
+    subprocess.check_call(['mrs_tools', 'conjugate',
+                           '--output', str(tmp_path),
+                           '--filename', 'conj_file',
+                           '--file', str(svs)])
+
+    assert (tmp_path / 'conj_file.nii.gz').exists()
+
+    subprocess.check_call(['mrs_tools', 'conjugate',
+                           '--output', str(tmp_path),
+                           '--file', str(svs)])
+
+    assert (tmp_path / 'metab.nii.gz').exists()

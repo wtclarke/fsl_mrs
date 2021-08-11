@@ -251,7 +251,8 @@ def remove_peak(basis, limits, name=None, all=False):
                                   basis.original_dwell,
                                   basis.cf * 1E6,
                                   limits,
-                                  limitUnits='ppm+shift')
+                                  limitUnits='ppm+shift',
+                                  numSingularValues=5)
             basis.update_fid(corrected_obj, n)
     else:
         index = basis.names.index(name)
@@ -260,7 +261,8 @@ def remove_peak(basis, limits, name=None, all=False):
                               basis.original_dwell,
                               basis.cf * 1E6,
                               limits,
-                              limitUnits='ppm+shift')
+                              limitUnits='ppm+shift',
+                              numSingularValues=5)
         basis.update_fid(corrected_obj, name)
 
     return basis
