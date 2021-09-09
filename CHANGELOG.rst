@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.6 (WIP)
+-----------
+- Updates to dynamic MRS fitting in prep for dwMRS workshop.
+
 1.1.5 (Wednesday 11th August 2021)
 ----------------------------------
 - Updated example MRSI data to conform to NIfTI-MRS standard.
