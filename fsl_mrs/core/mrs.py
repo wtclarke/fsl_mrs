@@ -123,19 +123,20 @@ class MRS(object):
     def FID(self):
         """Returns the FID"""
         if self._conj_fid:
-            return self._FID.conj()
+            return self._FID.conj() * self._fid_scaling
         else:
-            return self._FID
+            return self._FID * self._fid_scaling
 
     @FID.setter
     def FID(self, FID):
         """
-          Sets the FID
+          Sets the FID and resets the FID scaling
         """
         if FID.ndim > 1:
             raise ValueError(f'MRS objects only handle one FID at a time.'
                              f' FID shape is {FID.shape}.')
         self._FID = FID.copy()
+        self._fid_scaling = 1.0
 
     @property
     def numPoints(self):
@@ -148,9 +149,9 @@ class MRS(object):
             return None
 
         if self._conj_fid:
-            return self._H2O.conj()
+            return self._H2O.conj() * self._fid_scaling
         else:
-            return self._H2O
+            return self._H2O * self._fid_scaling
 
     @H2O.setter
     def H2O(self, FID):
@@ -329,6 +330,21 @@ class MRS(object):
     def fid_scaling(self):
         """Scaling applied to the FID"""
         return self._fid_scaling
+
+    @fid_scaling.setter
+    def fid_scaling(self, scale):
+        """Set scaling applied to the FID"""
+        self._fid_scaling = scale
+
+    @property
+    def basis_scaling_target(self):
+        """Scaling target for basis"""
+        return self._scaling_factor
+
+    @basis_scaling_target.setter
+    def basis_scaling_target(self, scale):
+        """Set ccaling target for basis"""
+        self._scaling_factor = scale
 
     @property
     def basis_scaling(self):
@@ -513,12 +529,8 @@ class MRS(object):
         :type ind_scaling: List of strings, optional
         """
 
-        scaledFID, scaling = misc.rescale_FID(self._FID, scale=scale)
-        self._FID = scaledFID
-        # Apply the same scaling to the water FID.
-        if self.H2O is not None:
-            self.H2O *= scaling
-
+        _, scaling = misc.rescale_FID(self._FID, scale=scale)
+        # Set scaling that will be dynamically applied when the FID is fetched.
         self._fid_scaling = scaling
 
         # Set scaling options that will be dynamically applied when the formatted basis is fetched.
