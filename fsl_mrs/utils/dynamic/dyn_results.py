@@ -95,6 +95,15 @@ class dynRes:
         return self._dyn.vm.mapped_to_free(self._init_x)
 
     @property
+    def init_dataframe(self):
+        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
+
+        :return: Free parameters estimated from initilisation
+        :rtype: np.array
+        """
+        return pd.DataFrame(data=self.free_parameters_init, index=self._dyn.free_names).T
+
+    @property
     def mapped_parameters_fitted_init(self):
         """Mapped parameters resulting from inversion of model using initilised parameters.
         Shape is timepoints x parameters.
@@ -176,7 +185,7 @@ class dynRes:
         return results
 
     # Plotting
-    def plot_mapped(self, fit_to_init=False):
+    def plot_mapped(self, tvals=None, fit_to_init=False):
         """Plot each mapped parameter across time points
 
         :param fit_to_init: Plot the mapped parameters as per initilisation, defaults to False
@@ -188,7 +197,8 @@ class dynRes:
         dyn_params = self.mapped_parameters.mean(axis=0)
         dyn_params_sd = self.mapped_parameters.std(axis=0)
         names = self.mapped_names
-        tvals = self._dyn.time_var
+        if tvals is None:
+            tvals = self._dyn.time_var
 
         # Plot the lot
         row, col = subplot_shape(len(names))

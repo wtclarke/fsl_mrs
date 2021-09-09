@@ -524,6 +524,60 @@ class NIFTI_MRS(Image):
             out = out[0]
         return out
 
+    def dynamic_hdr_vals(self):
+        """Return representations fo the dynamic header values
+
+        :return: List of dicts contianing labeled header parameters
+        :return: List of tuples contianing header values
+        """
+        def list_of_dict_from_dim(dim_hdr, size):
+            """Form a list of dicts where each index of the list corresponds to one element"""
+            out = []
+            for idx in range(size):
+                tmp_dict = {}
+                for key in dim_hdr:
+                    tmp_dict.update({key: dim_hdr[key][idx]})
+                out.append(tmp_dict)
+            return out
+
+        def sort_output(hdr_list):
+            if len(hdr_list) == 1:
+                X = np.meshgrid(hdr_list[0])
+                tvar = [x for x in X[0]]
+            elif len(hdr_list) == 2:
+                X, Y = np.meshgrid(hdr_list[0], hdr_list[1], indexing='ij')
+                tvar = [dict(x, **y) for x, y in zip(X.ravel(), Y.ravel())]
+            elif len(hdr_list) == 3:
+                X, Y, Z = np.meshgrid(hdr_list[0], hdr_list[1], hdr_list[2], indexing='ij')
+                tvar = [dict(x, **y, **z) for x, y, z in zip(X.ravel(), Y.ravel(), Z.ravel())]
+            return tvar
+
+        def convert_to_tuples(dict_list):
+            out_list = []
+            for dl in dict_list:
+                tl = []
+                for key in dl:
+                    tl.append(dl[key])
+                out_list.append(tuple(tl))
+            return out_list
+
+        all_dim_hdrs_dict = []
+        for dim in range(5, 8):
+            if f'dim_{dim}_header' in self.hdr_ext:
+                all_dim_hdrs_dict.append(
+                    list_of_dict_from_dim(self.hdr_ext[f'dim_{dim}_header'], self.shape[dim - 1]))
+
+        tvar_dict = sort_output(all_dim_hdrs_dict)
+        tvar_tuple = convert_to_tuples(tvar_dict)
+
+        tvar_dict2 = np.asarray(tvar_dict, dtype=object).reshape(self.shape[4:])
+        tvar_tuple2 = np.empty_like(tvar_dict2).flatten()
+        for idx, elm in enumerate(tvar_tuple):
+            tvar_tuple2[idx] = elm
+        tvar_array = np.asarray(tvar_tuple, dtype=object).reshape(np.prod(self.shape[4:]), len(tvar_tuple[0]))
+
+        return tvar_dict2, tvar_tuple2.reshape(self.shape[4:]), tvar_array
+
     # If save called do some hairy temporary conjugation
     # The save method of fsl.data.image.Image makes a call
     # to __getitem__ resulting in a final undesired conjugation.

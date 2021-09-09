@@ -17,6 +17,7 @@ from . import variable_mapping as varmap
 from . import dyn_results
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.stats import mh, dist
+from fsl_mrs.utils.misc import rescale_FID
 
 conc_index_re = re.compile(r'^(conc_.*?_)(\d+)$')
 
@@ -50,8 +51,10 @@ class dynMRS(object):
         :param metab_groups: Metabolite group list, defaults to None
         :type metab_groups: list, optional
         """
-        self.mrs_list = mrs_list
+
         self.time_var = time_var
+        self.mrs_list = mrs_list
+        self._process_mrs_list()
 
         if metab_groups is None:
             metab_groups = [0] * len(self.metabolite_names)
@@ -69,6 +72,17 @@ class dynMRS(object):
         numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
         varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
         self.vm = self._create_vm(model, config_file, varNames, varSizes)
+
+    def _process_mrs_list(self):
+        """Apply single scaling
+        """
+        scales = []
+        for mrs in self.mrs_list:
+            scales.append(rescale_FID(mrs.FID, scale=100.0)[1])
+
+        for mrs in self.mrs_list:
+            mrs.fid_scaling = np.mean(scales)
+            mrs.basis_scaling_target = 100.0
 
     @property
     def metabolite_names(self):
@@ -267,7 +281,7 @@ class dynMRS(object):
         mapped = self.vm.free_to_mapped(x)
         LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
-        for time_index, time_var in enumerate(self.vm.time_variable):
+        for time_index, _ in enumerate(self.vm.time_variable):
             # dfdmapped
             p = np.hstack(mapped[time_index, :])
             dfdp = self.loss_grad(p, time_index)
@@ -280,7 +294,10 @@ class dynMRS(object):
 
                 for ip in range(nparams):
                     gg = np.zeros(self.vm.nfree)
-                    gg[xindex[ip]] = grad_fcn(x[xindex[ip]], time_var)
+                    if isinstance(xindex[ip], (int, np.int64)):
+                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)
+                    else:
+                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)[:, time_index]
                     dpdx.append(gg)
 
             dpdx = np.asarray(dpdx)
