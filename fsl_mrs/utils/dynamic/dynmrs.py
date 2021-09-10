@@ -173,7 +173,7 @@ class dynMRS(object):
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
 
-        return results, res_list, sol
+        return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
 
     def initialise(self, verbose=False):
         """Initialise the dynamic fitting using seperate fits of each spectrum.
