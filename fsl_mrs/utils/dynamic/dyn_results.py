@@ -118,6 +118,11 @@ class dynRes:
         """Mapped names from stored dynamic object"""
         return self._dyn.mapped_names
 
+    @property
+    def free_names(self):
+        """Free names from stored dynamic object"""
+        return self._dyn.free_names
+
     def collected_results(self, to_file=None):
         """Collect the results of dynamic MRS fitting
 
@@ -356,12 +361,12 @@ class dynRes_newton(dynRes):
 
     @property
     def cov(self):
-        return self._cov
+        return pd.DataFrame(self._cov, self.free_names, self.free_names)
 
     @property
     def corr(self):
-        return self._corr
+        return pd.DataFrame(self._corr, self.free_names, self.free_names)
 
     @property
     def std(self):
-        return self._std
+        return pd.Series(self._std, self.free_names)
