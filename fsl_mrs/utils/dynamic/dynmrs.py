@@ -10,123 +10,172 @@
 import numpy as np
 from scipy.optimize import minimize
 import time
+import re
 
 from fsl_mrs.utils import models, fitting
 from . import variable_mapping as varmap
+from . import dyn_results
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.stats import mh, dist
-from fsl_mrs.utils.misc import calculate_lap_cov
+from fsl_mrs.utils.misc import rescale_FID
+
+conc_index_re = re.compile(r'^(conc_.*?_)(\d+)$')
 
 
 class dynMRS(object):
     """Dynamic MRS class"""
 
-    def __init__(self, mrs_list, time_var):
-        """
-        mrs_list : list of MRS objects
-        time_var : array-like
-        """
-        self.mrs_list = mrs_list
-        self.time_var = time_var
-        self.data = None
-        self.constants = None
-        self.forward = None
-        self.gradient = None
-        self.vm = None
-
-    def fit(self,
+    def __init__(
+            self,
+            mrs_list,
+            time_var,
             config_file,
-            method='Newton',
-            mh_jumps=600,
             model='voigt',
             ppmlim=(.2, 4.2),
             baseline_order=2,
-            metab_groups=None,
+            metab_groups=None):
+        """Create a dynMRS class object
+
+        :param mrs_list: List of MRS objects, one per time_var
+        :type mrs_list: List
+        :param time_var: List containing the dynamic variable
+        :type time_var: List
+        :param config_file: Path to the python model configuration file
+        :type config_file: str
+        :param model: 'voigt' or 'lorentzian', defaults to 'voigt'
+        :type model: str, optional
+        :param ppmlim: Chemical shift fitting limits, defaults to (.2, 4.2)
+        :type ppmlim: tuple, optional
+        :param baseline_order: Plynomial baseline fitting order, defaults to 2
+        :type baseline_order: int, optional
+        :param metab_groups: Metabolite group list, defaults to None
+        :type metab_groups: list, optional
+        """
+
+        self.time_var = time_var
+        self.mrs_list = mrs_list
+        self._process_mrs_list()
+
+        if metab_groups is None:
+            metab_groups = [0] * len(self.metabolite_names)
+        self.data = self._prepare_data(ppmlim)
+        self.constants = self._get_constants(model, ppmlim, baseline_order, metab_groups)
+        self.forward = self._get_forward(model)
+        self.gradient = self._get_gradient(model)
+
+        self._fit_args = {'model': model,
+                          'baseline_order': baseline_order,
+                          'metab_groups': metab_groups,
+                          'baseline_order': baseline_order,
+                          'ppmlim': ppmlim}
+
+        numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
+        varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
+        self.vm = self._create_vm(model, config_file, varNames, varSizes)
+
+    def _process_mrs_list(self):
+        """Apply single scaling
+        """
+        scales = []
+        for mrs in self.mrs_list:
+            scales.append(rescale_FID(mrs.FID, scale=100.0)[1])
+
+        for mrs in self.mrs_list:
+            mrs.fid_scaling = np.mean(scales)
+            mrs.basis_scaling_target = 100.0
+
+    @property
+    def metabolite_names(self):
+        return self.mrs_list[0].names
+
+    @property
+    def free_names(self):
+        freenames = self.vm.create_free_names()
+        metabolites = self.metabolite_names
+
+        metab_fn = []
+        for fn in freenames:
+            match = conc_index_re.match(fn)
+            if match:
+                mod_str = match[1] + metabolites[int(match[2])]
+                metab_fn.append(mod_str)
+            else:
+                metab_fn.append(fn)
+
+        return metab_fn
+
+    @property
+    def mapped_names(self):
+        full_mapped_names = []
+        for nn, ns in zip(self.vm.mapped_names, self.vm.mapped_sizes):
+            if nn == 'conc':
+                full_mapped_names.extend([f'{nn}_{nbasis}' for nbasis in self.metabolite_names])
+            else:
+                full_mapped_names.extend([f'{nn}_{idx:02.0f}' for idx in range(ns)])
+        return full_mapped_names
+
+    def fit(self,
+            method='Newton',
+            mh_jumps=600,
             init=None,
             verbose=False):
-        """
-        Fit dynamic MRS model
+        """Fit the dynamic model
 
-        Parameters
-        ----------
-        config_file    : string
-        method         : string  ('Newton' or 'MH')
-        model          : string  ('voigt' or 'lorentzian')
-        mh_jumps       : int
-        ppmlim         : tuple
-        baseline_order : int
-        metab_groups   : array-like
-        init           : dynMRSres object
-        verbose        : bool
-
-        Returns
-        -------
-        dynMRSres object
+        :param method: 'Newton' or 'MH', defaults to 'Newton'
+        :type method: str, optional
+        :param mh_jumps: Number of MH jumps, defaults to 600
+        :type mh_jumps: int, optional
+        :param init: Initilisation (x0), defaults to None
+        :type init: dict, optional
+        :param verbose: Verbosity flag, defaults to False
+        :type verbose: bool, optional
+        :return: Tuple containing dedicated results object, list of fitRes objects, optimisation output (Newton only)
+        :rtype: tuple
         """
         if verbose:
             print('Start fitting')
             start_time = time.time()
-        if metab_groups is None:
-            metab_groups = [0] * len(self.mrs_list[0].names)
-        self.data = self.prepare_data(ppmlim)
-        self.constants = self.get_constants(model, ppmlim, baseline_order, metab_groups)
-        self.forward = self.get_forward(model)
-        self.gradient = self.get_gradient(model)
 
-        numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
-        varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
-        self.vm = self.create_vm(model, config_file, varNames, varSizes)
-
-        bounds = self.vm.Bounds
         if init is None:
-            init = self.initialise(model, metab_groups, ppmlim, baseline_order, verbose)
+            init = self.initialise(**self._fit_args, verbose=verbose)
         x0 = self.vm.mapped_to_free(init['x'])
 
         # MCMC or Newton
         if method.lower() == 'newton':
-            sol = minimize(fun=self.dyn_loss, x0=x0, jac=self.dyn_loss_grad, method='TNC', bounds=bounds)
-            # breakpoint()
-            # calculate covariance
-            data = np.asarray(self.data).flatten()
-            # TODO: replace the below with something that uses the hessian from scipy.optimize
-            x_cov = calculate_lap_cov(sol.x, self.full_fwd, data)
+            sol = minimize(fun=self.dyn_loss, x0=x0, jac=self.dyn_loss_grad, method='TNC', bounds=self.vm.Bounds)
             x = sol.x
-            x_out = x
-            x_all = x
         elif method.lower() == 'mh':
             self.prior_means = np.zeros_like(self.vm.nfree)
             self.prior_stds = np.ones_like(self.vm.nfree) * 1E3
             mcmc = mh.MH(self.dyn_loglik, self.dyn_logpr, burnin=100, njumps=mh_jumps, sampleevery=5)
             LB, UB = mcmc.bounds_from_list(self.vm.nfree, self.vm.Bounds)
             x = mcmc.fit(x0, LB=LB, UB=UB, verbose=verbose)
-            x_out = np.mean(x, axis=0)
-            x_all = x
-            x_cov = np.cov(x.T)
             sol = None
         else:
             raise (Exception(f'Unrecognised method {method}'))
-        res_list = self.collect_results(x, model, method, ppmlim, baseline_order)
+
+        # Results
+        # 1. Create dedicated dynamic fit results
+        if method.lower() == 'newton':
+            results = dyn_results.dynRes_newton(sol.x, self, init)
+        elif method.lower() == 'mh':
+            results = dyn_results.dynRes_mcmc(x, self, init)
+        else:
+            raise (Exception(f'Unrecognised method {method}'))
+        # 2. Create a list of fitRes objects for each timepoint for fsl_mrs like capabilities
+        res_list = self._form_FitRes(
+            x,
+            self._fit_args['model'],
+            method,
+            self._fit_args['ppmlim'],
+            self._fit_args['baseline_order'])
 
         if verbose:
             print(f"Fitting completed in {time.time()-start_time} seconds.")
-        return {'x': x_out,
-                'cov': x_cov,
-                'samples': x_all,
-                'resList': res_list,
-                'OptimizeResult': sol,
-                'vm': self.vm}
 
-    def get_constants(self, model, ppmlim, baseline_order, metab_groups):
-        """collect constants for forward model"""
-        mrs = self.mrs_list[0]
-        first, last = mrs.ppmlim_to_range(ppmlim)  # data range
-        freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
-        base_poly = fitting.prepare_baseline_regressor(mrs, baseline_order, ppmlim)
-        freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
-        g = max(metab_groups) + 1
-        return (freq, time, basis, base_poly, metab_groups, g, first, last)
+        return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
 
-    def initialise(self, model='voigt', metab_groups=None, ppmlim=(.2, 4.2), baseline_order=2, verbose=False):
+    def initialise(self, verbose=False):
         """Initialise the dynamic fitting using seperate fits of each spectrum.
 
         :param model: Spectral model 'lorentzian' or 'voigt', defaults to 'voigt'
@@ -145,18 +194,10 @@ class dynMRS(object):
         if verbose:
             start_time = time.time()
 
-        if metab_groups is None:
-            metab_groups = [0] * len(self.mrs_list[0].names)
-
-        FitArgs = {'model': model,
-                   'metab_groups': metab_groups,
-                   'ppmlim': ppmlim,
-                   'method': 'Newton',
-                   'baseline_order': baseline_order}
-        varNames = models.FSLModel_vars(model)
+        varNames = models.FSLModel_vars(self._fit_args['model'])
         numMetabs = self.mrs_list[0].numBasis
-        numGroups = max(metab_groups) + 1
-        if FitArgs['model'] == 'lorentzian':
+        numGroups = max(self._fit_args['metab_groups']) + 1
+        if self._fit_args['model'] == 'lorentzian':
             x2p = models.FSLModel_x2param
         else:
             x2p = models.FSLModel_x2param_Voigt
@@ -166,7 +207,7 @@ class dynMRS(object):
         for t, mrs in enumerate(self.mrs_list):
             if verbose:
                 print(f'Initialising {t + 1}/{len(self.mrs_list)}', end='\r')
-            res = fitting.fit_FSLModel(mrs, **FitArgs)
+            res = fitting.fit_FSLModel(mrs, method='Newton', **self._fit_args)
             resList.append(res)
             params = x2p(res.params, numMetabs, numGroups)
             for i, p in enumerate(params):
@@ -175,7 +216,18 @@ class dynMRS(object):
             print(f'Init done in {time.time()-start_time} seconds.')
         return {'x': init, 'resList': resList}
 
-    def create_vm(self, model, config_file, varNames, varSizes):
+    # Utility methods
+    def _get_constants(self, model, ppmlim, baseline_order, metab_groups):
+        """collect constants for forward model"""
+        mrs = self.mrs_list[0]
+        first, last = mrs.ppmlim_to_range(ppmlim)  # data range
+        freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
+        base_poly = fitting.prepare_baseline_regressor(mrs, baseline_order, ppmlim)
+        freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
+        g = max(metab_groups) + 1
+        return (freq, time, basis, base_poly, metab_groups, g, first, last)
+
+    def _create_vm(self, model, config_file, varNames, varSizes):
         """Create Variable Mapping object"""
         vm = varmap.VariableMapping(param_names=varNames,
                                     param_sizes=varSizes,
@@ -183,23 +235,24 @@ class dynMRS(object):
                                     config_file=config_file)
         return vm
 
-    def prepare_data(self, ppmlim):
+    def _prepare_data(self, ppmlim):
         """FID to Spec and slice for fitting"""
         first, last = self.mrs_list[0].ppmlim_to_range(ppmlim)
         data = [mrs.get_spec().copy()[first:last] for mrs in self.mrs_list]
         return data
 
-    def get_forward(self, model):
+    def _get_forward(self, model):
         """Get forward model"""
         forward = models.getModelForward(model)
         first, last = self.constants[-2:]
         return lambda x: forward(x, *self.constants[:-2])[first:last]
 
-    def get_gradient(self, model):
+    def _get_gradient(self, model):
         """Get gradient"""
         gradient = models.getModelJac(model)
         return lambda x: gradient(x, *self.constants)
 
+    # Loss functions
     def loss(self, x, i):
         """Calc loss function"""
         loss_real = .5 * np.mean(np.real(self.forward(x) - self.data[i]) ** 2)
@@ -213,15 +266,6 @@ class dynMRS(object):
         grad_real = np.mean(np.real(g) * np.real(e[:, None]), axis=0)
         grad_imag = np.mean(np.imag(g) * np.imag(e[:, None]), axis=0)
         return grad_real + grad_imag
-
-    def full_fwd(self, x):
-        '''Return flattened vector of the full estimated model'''
-        fwd = np.zeros((self.vm.ntimes, self.data[0].shape[0]), dtype=np.complex64)
-        mapped = self.vm.free_to_mapped(x)
-        for time_index in range(self.vm.ntimes):
-            p = np.hstack(mapped[time_index, :])
-            fwd[time_index, :] = self.forward(p)
-        return fwd.flatten()
 
     def dyn_loss(self, x):
         """Add loss functions across data list"""
@@ -237,7 +281,7 @@ class dynMRS(object):
         mapped = self.vm.free_to_mapped(x)
         LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
-        for time_index, time_var in enumerate(self.vm.time_variable):
+        for time_index, _ in enumerate(self.vm.time_variable):
             # dfdmapped
             p = np.hstack(mapped[time_index, :])
             dfdp = self.loss_grad(p, time_index)
@@ -250,7 +294,10 @@ class dynMRS(object):
 
                 for ip in range(nparams):
                     gg = np.zeros(self.vm.nfree)
-                    gg[xindex[ip]] = grad_fcn(x[xindex[ip]], time_var)
+                    if isinstance(xindex[ip], (int, np.int64)):
+                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)
+                    else:
+                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)[:, time_index]
                     dpdx.append(gg)
 
             dpdx = np.asarray(dpdx)
@@ -272,8 +319,17 @@ class dynMRS(object):
         """neg log prior for MCMC"""
         return np.sum(dist.gauss_logpdf(p, loc=self.prior_means, scale=self.prior_stds))
 
-    # collect results
-    def collect_results(self, x, model, method, ppmlim, baseline_order):
+    # Results functions
+    def full_fwd(self, x):
+        '''Return flattened vector of the full estimated model'''
+        fwd = np.zeros((self.vm.ntimes, self.data[0].shape[0]), dtype=np.complex64)
+        mapped = self.vm.free_to_mapped(x)
+        for time_index in range(self.vm.ntimes):
+            p = np.hstack(mapped[time_index, :])
+            fwd[time_index, :] = self.forward(p)
+        return fwd.flatten()
+
+    def _form_FitRes(self, x, model, method, ppmlim, baseline_order):
         """Create list of FitRes object"""
         _, _, _, base_poly, metab_groups, _, _, _ = self.constants
         if method.lower() == 'mh':
@@ -305,73 +361,3 @@ class dynMRS(object):
             results.loadResults(mrs, mapped[t])
             dynresList.append(results)
         return dynresList
-
-
-def collect_dyn_results(dynres, to_file=None):
-    """Collect the results of dynamic MRS fitting
-
-    Each mapped parameter group gets its own dict
-
-    :param dynres:  output of dynmrs.fit()
-    :type dynres: dict
-    :param to_file: Output path, defaults to None
-    :type to_file: str, optional
-    :return: Formatted results
-    :rtype: dict of dict
-    """
-
-    vm      = dynres['vm']   # variable mapping object
-    results = {}             # collect results here
-    values  = dynres['x']    # get the optimisation results here
-    counter = 0
-    # ############################################################
-    # HACK ALERT! to get metab names: fetch them from the resList
-    metab_names = dynres['resList'][0].original_metabs
-    # ############################################################
-
-    # Loop over parameter groups (e.g. conc, Phi_0,  Phi_1, ... )
-    # Each will have a number of dynamic params associated
-    # Store the values and names of these params in dict
-    for index, param in enumerate(vm.mapped_names):
-        isconc = param == 'conc'  # special case for concentration params
-        results[param] = {}
-        nmapped = vm.mapped_sizes[index]  # how many mapped params?
-        beh     = vm.Parameters[param]    # what kind of dynamic model?
-        if (beh == 'fixed'):  # if fixed, just a single value per mapped param
-            if not isconc:
-                results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
-            else:
-                results[param]['metab'] = metab_names
-            results[param]['Values'] = values[counter:counter + nmapped]
-            counter += nmapped
-        elif (beh == 'variable'):
-            if not isconc:
-                results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
-            else:
-                results[param]['metab'] = metab_names
-            for t in range(vm.ntimes):
-                results[param][f't{t}'] = values[counter:counter + nmapped]
-                counter += nmapped
-        else:
-            if 'dynamic' in beh:
-                dyn_name = vm.Parameters[param]['params']
-                nfree    = len(dyn_name)
-                if not isconc:
-                    results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
-                else:
-                    results[param]['metab'] = metab_names
-                tmp = []
-                for t in range(nmapped):
-                    tmp.append(values[counter:counter + nfree])
-                    counter += nfree
-                tmp = np.asarray(tmp)
-                for i, t in enumerate(dyn_name):
-                    results[param][t] = tmp[:, i]
-
-    if to_file is not None:
-        import pandas as pd
-        for param in vm.mapped_names:
-            df = pd.DataFrame(results[param])
-            df.to_csv(to_file + f'_{param}.csv', index=False)
-
-    return results

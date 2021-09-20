@@ -7,6 +7,11 @@ from fsl_mrs.core import NIFTI_MRS
 
 import numpy as np
 
+# TO DO:
+# def _reshape_hdr(dynamic_hdr, target):
+
+#     return reshaped_hdr
+
 
 def reshape(nmrs, reshape, d5=None, d6=None, d7=None):
     """Reshape the higher dimensions (5-7) of an nifti-mrs file.
@@ -31,6 +36,8 @@ def reshape(nmrs, reshape, d5=None, d6=None, d7=None):
     shape = nmrs.data.shape[0:4]
     shape += reshape
     nmrs_reshaped = NIFTI_MRS(np.reshape(nmrs.data, shape), header=nmrs.header)
+
+    # reshpaed_hrd = _reshape_hdr(nmrs_reshaped.dynamic_hdr_vals[2],)
 
     # Note numerical index is N-1
     if d5:

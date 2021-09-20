@@ -347,7 +347,7 @@ class VariableMapping(object):
                         counter += nfree
 
                 else:
-                    raise(Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
+                    raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
 
         return free_params
 
