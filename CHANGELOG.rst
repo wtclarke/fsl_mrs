@@ -1,8 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.6 (WIP)
+1.1.6 (Monday 20th September 2021)
 -----------
-- Updates to dynamic MRS fitting in prep for dwMRS workshop.
+- Updates to dynamic MRS fitting in prep for 2021 dwMRS workshop.
+- Dynamic MRS fitting beta: pending tests, documentation, and final features.
 
 1.1.5 (Wednesday 11th August 2021)
 ----------------------------------
