@@ -54,7 +54,8 @@ def plotAxesStyle(fig, ppmlim, title=None):
                                 range=[ppmlim[1], ppmlim[0]])
     else:
         fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
-                                tick0=2, dtick=.5)
+                                tick0=2, dtick=.5,
+                                autorange="reversed")
     fig.layout.yaxis.update(zeroline=True,
                             zerolinewidth=1,
                             zerolinecolor='Gray',

@@ -312,12 +312,16 @@ class FitRes(object):
             if self.concScalings['internal'] is not None:
                 concstr = f'/{self.concScalings["internalRef"]}'
                 df[concstr] = self.getConc(scaling='internal')
+                df[concstr + ' CRLB'] = self.getUncertainties(type='internal')
             else:
                 df['Raw conc'] = self.getConc()
+                df['Raw CRLB'] = self.getUncertainties(type='raw')
             if self.concScalings['molality'] is not None:
                 df['mMol/kg'] = self.getConc(scaling='molality')
+                df['mMol/kg CRLB'] = self.getUncertainties(type='molality')
             if self.concScalings['molarity'] is not None:
                 df['mM'] = self.getConc(scaling='molarity')
+                df['mM CRLB'] = self.getUncertainties(type='molarity')
             df['%CRLB'] = self.getUncertainties()
 
             SNR = self.getQCParams()[0]

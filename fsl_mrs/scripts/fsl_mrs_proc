@@ -88,7 +88,7 @@ def main():
                                   'Or "all" to align over all spectra in higer dimensions.'
                                   'Default = DIM_DYN')
     align_group.add_argument('--ppm', type=float, nargs=2,
-                             metavar='<lower-limit upper-limit>',
+                             metavar=('<lower-limit>', '<upper-limit>'),
                              default=(0.2, 4.2),
                              help='ppm limits of alignment window'
                                   ' (default=0.2->4.2)')

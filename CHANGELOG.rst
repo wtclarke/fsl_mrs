@@ -1,7 +1,16 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.7 (Monday 4th October 2021)
+-------------------------------
+- Fixed commandline arguments for mrs_tools.
+- mrs_tools now handles files with passed without extension.
+- Fixed plotting orientation for preprocessing reports.
+- CRLB are now reported in scaled absolute and percentage units.
+- mrs_tools vis now handles DIM_COIL dimension appropriately with --display_dim command.
+- Added a --no_mean command to mrs_tools vis to remove the average signal in multi dimensional data.
+
 1.1.6 (Monday 20th September 2021)
------------
+----------------------------------
 - Updates to dynamic MRS fitting in prep for 2021 dwMRS workshop.
 - Dynamic MRS fitting beta: pending tests, documentation, and final features.
 

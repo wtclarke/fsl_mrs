@@ -49,18 +49,20 @@ def main():
     visparser.add_argument('--save', default=None, type=str, help='Save fig to path')
     visparser.add_argument('--display_dim', default=None, type=str,
                            help='NIFTI-MRS tag. Do not average across this dimension.')
+    visparser.add_argument('--no_mean', action="store_false",
+                           help='Do not plot the mean signal line in the case of multiple spectra.')
     visparser.set_defaults(func=vis)
 
     # Merge tool - Merge NIfTI MRS along higher dimensions
     mergeparser = sp.add_parser(
         'merge',
         help='Merge NIfTI-MRS along higher dimensions.')
-    mergeparser.add_argument('--files', type=Path, required=True, nargs='+',
-                             help='List of files to merge')
-    mergeparser.add_argument('--dim', type=str, required=True,
-                             help='NIFTI-MRS dimension tag to merge across.')
-    mergeparser.add_argument('--output',
-                             required=True, type=Path, default=Path('.'),
+    merge_req = mergeparser.add_argument_group('required arguments')
+    merge_req.add_argument('--files', type=Path, nargs='+', required=True,
+                           help='List of files to merge')
+    merge_req.add_argument('--dim', type=str, required=True,
+                           help='NIFTI-MRS dimension tag to merge across.')
+    mergeparser.add_argument('--output', type=Path, default=Path('.'),
                              help='output folder (defaults to current directory)')
     mergeparser.add_argument('--filename', type=str,
                              help='Override output file name.')
@@ -70,18 +72,19 @@ def main():
     splitparser = sp.add_parser(
         'split',
         help='Split NIfTI-MRS along higher dimensions.')
-    splitparser.add_argument('--file', type=Path, required=True,
-                             help='File to split')
-    splitparser.add_argument('--dim', type=str, required=True,
-                             help='NIFTI-MRS dimension tag to split across.')
+    split_req = splitparser.add_argument_group('required arguments')
+    split_req.add_argument('--file', type=Path, required=True,
+                           help='File to split')
+    split_req.add_argument('--dim', type=str, required=True,
+                           help='NIFTI-MRS dimension tag to split across.')
     group = splitparser.add_mutually_exclusive_group(required=True)
     group.add_argument('--indices', type=int, nargs='+',
                        help='List of indices to extract into second file.'
-                            'All indices are zero-indexed.')
+                            ' All indices are zero-indexed.')
     group.add_argument('--index', type=int,
                        help='Index to split at (split after index, zero-indexed).')
     splitparser.add_argument('--output',
-                             required=True, type=Path, default=Path('.'),
+                             required=False, type=Path, default=Path('.'),
                              help='output folder (defaults to current directory)')
     splitparser.add_argument('--filename', type=str,
                              help='Override output file names.')
@@ -91,14 +94,15 @@ def main():
     reorderparser = sp.add_parser(
         'reorder',
         help='Reorder higher dimensions of NIfTI-MRS.')
-    reorderparser.add_argument('--file', type=Path, required=True,
-                               help='File to reorder')
-    reorderparser.add_argument('--dim_order', type=str, nargs='+', required=True,
-                               help='NIFTI-MRS dimension tags in desired order. '
-                                    'Enter as strings (min:1, max:3). '
-                                    'Can create singleton dimension at end.')
+    reord_req = reorderparser.add_argument_group('required arguments')
+    reord_req.add_argument('--file', type=Path, required=True,
+                           help='File to reorder')
+    reord_req.add_argument('--dim_order', type=str, nargs='+', required=True,
+                           help='NIFTI-MRS dimension tags in desired order. '
+                                'Enter as strings (min:1, max:3). '
+                                'Can create singleton dimension at end.')
     reorderparser.add_argument('--output',
-                               required=True, type=Path, default=Path('.'),
+                               required=False, type=Path, default=Path('.'),
                                help='output folder (defaults to current directory)')
     reorderparser.add_argument('--filename', type=str,
                                help='Override output file names.')
@@ -108,10 +112,11 @@ def main():
     conjparser = sp.add_parser(
         'conjugate',
         help='Conjugate data to correct phase/frequency convention in a NIfTI-MRS file.')
-    conjparser.add_argument('--file', type=Path, required=True,
-                            help='File to conjugate')
+    conj_req = conjparser.add_argument_group('required arguments')
+    conj_req.add_argument('--file', type=Path, required=True,
+                          help='File to conjugate')
     conjparser.add_argument('--output',
-                            required=True, type=Path, default=Path('.'),
+                            required=False, type=Path, default=Path('.'),
                             help='output folder (defaults to current directory)')
     conjparser.add_argument('--filename', type=str,
                             help='Override output file names.')
@@ -156,42 +161,18 @@ def vis(args):
     """
     from fsl_mrs.utils.plotting import plot_spectrum, plot_spectra
     from fsl_mrs.utils.mrs_io import read_FID, read_basis
+    from fsl_mrs.utils.mrs_io.main import FileNotRecognisedError
     import matplotlib.pyplot as plt
     import numpy as np
     from fsl_mrs.utils.preproc import nifti_mrs_proc
     import nibabel as nib
 
-    # Some logic to figure out what we are dealing with
-    p = args.file
-    nifti_files = list(p.glob('*.nii*'))
-
-    # Identify BASIS
-    if (p.is_dir() and len(nifti_files) == 0)\
-            or p.suffix.upper() == '.BASIS':
-
-        # Some heuristics
-        if p.is_dir():
-            conj = True
-        else:
-            conj = False
-
-        basis = read_basis(args.file)
-        fig = basis.plot(ppmlim=args.ppmlim, conjugate=conj)
-        if args.save is not None:
-            plt.savefig(args.save)
-        else:
-            plt.show()
-
-    # Identify directory of nifti files
-    elif p.is_dir() and len(nifti_files) > 0:
-        raise ValueError('mrs_tools vis should be called on a single'
-                         ' NIFTI-MRS file, not a directory (unless'
-                         ' it contains basis files).')
-
     # Single nifti file
-    elif p.is_file():
-        data = read_FID(args.file)
-        if data.ndim > 4 and 'DIM_COIL' in data.dim_tags:
+    def vis_nifti_mrs(file):
+        data = read_FID(file)
+        if data.ndim > 4 \
+                and 'DIM_COIL' in data.dim_tags\
+                and args.display_dim != 'DIM_COIL':
             print('Performing coil combination')
             data = nifti_mrs_proc.coilcombine(data)
 
@@ -203,7 +184,7 @@ def vis(args):
                         print(f'Averaging {data.dim_tags[idx]}')
                         data = nifti_mrs_proc.average(data, data.dim_tags[idx])
 
-                fig = plot_spectra(data.mrs(), ppmlim=args.ppmlim)
+                fig = plot_spectra(data.mrs(), ppmlim=args.ppmlim, plot_avg=args.no_mean)
             else:
                 while data.ndim > 4:
                     print(f'Averaging {data.dim_tags[0]}')
@@ -227,6 +208,45 @@ def vis(args):
                     mask = np.expand_dims(mask, 2)
                 mrsi.set_mask(mask)
             mrsi.plot()
+
+    # Some logic to figure out what we are dealing with
+    p = args.file
+    nifti_files = list(p.glob('*.nii*'))
+
+    # Identify BASIS
+    if (p.is_dir() and len(nifti_files) == 0)\
+            or p.suffix.upper() == '.BASIS':
+
+        # Some heuristics
+        if p.is_dir():
+            conj = True
+        else:
+            conj = False
+
+        basis = read_basis(args.file)
+        _ = basis.plot(ppmlim=args.ppmlim, conjugate=conj)
+        if args.save is not None:
+            plt.savefig(args.save)
+        else:
+            plt.show()
+
+    # Identify directory of nifti files
+    elif p.is_dir() and len(nifti_files) > 0:
+        raise ValueError('mrs_tools vis should be called on a single'
+                         ' NIFTI-MRS file, not a directory (unless'
+                         ' it contains basis files).')
+
+    elif p.is_file():
+        vis_nifti_mrs(p)
+
+    else:
+        try:
+            vis_nifti_mrs(p)
+        except FileNotRecognisedError as exc:
+            raise FileNotFoundError(
+                f"No file or directory '{p}' found."
+                " Please specify correct file extension (e.g. nii.gz) if there is one.")\
+                from exc
 
 
 def merge(args):
