@@ -44,7 +44,7 @@ def _check_datatype(filename):
     identify the file type (.nii(.gz),.RAW/.H2O,.txt)
     Returns one of: 'NIFTI', 'RAW', 'TXT', 'Unknown'
     """
-    _, ext = filename.split(os.extsep, 1)
+    ext = filename.split(os.extsep, 1)[-1]
     if 'nii' in ext.lower() or 'nii.gz' in ext.lower():
         return 'NIFTI'
     elif ext.lower() == 'raw' or ext.lower() == 'h2o':

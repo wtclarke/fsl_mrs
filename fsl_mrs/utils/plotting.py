@@ -553,8 +553,10 @@ def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0))
     df['Metab'] = res.metabs
     if res.concScalings['molality'] is not None:
         df['mMol/kg'] = np.round(res.getConc(scaling='molality'), decimals=2)
+        df['CRLB'] = np.round(res.getUncertainties(type='molality'), decimals=2)
     else:
         df['unscaled'] = np.round(res.getConc(), decimals=2)
+        df['CRLB'] = np.round(res.getUncertainties(type='raw'), decimals=3)
     df['%CRLB'] = np.round(res.getUncertainties(), decimals=1)
     if res.concScalings['internal'] is not None:
         concstr = f'/{res.concScalings["internalRef"]}'

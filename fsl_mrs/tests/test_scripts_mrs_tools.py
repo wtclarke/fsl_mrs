@@ -14,6 +14,7 @@ testsPath = Path(__file__).parent
 
 # Testing vis option
 svs = testsPath / 'testdata/fsl_mrs/metab.nii.gz'
+svs_raw = testsPath / 'testdata/fsl_mrs_preproc/metab_raw.nii.gz'
 basis = testsPath / 'testdata/fsl_mrs/steam_basis'
 
 
@@ -24,6 +25,30 @@ def test_vis_svs(tmp_path):
                            svs])
 
     assert (tmp_path / 'svs.png').exists()
+
+    subprocess.check_call(['mrs_tools', 'vis',
+                           '--ppmlim', '0.2', '4.2',
+                           '--save', str(tmp_path / 'svs2.png'),
+                           svs.with_suffix('').with_suffix('')])
+
+    assert (tmp_path / 'svs2.png').exists()
+
+    subprocess.check_call(['mrs_tools', 'vis',
+                           '--ppmlim', '0.2', '4.2',
+                           '--display_dim', 'DIM_DYN',
+                           '--save', str(tmp_path / 'svs3.png'),
+                           svs_raw])
+
+    assert (tmp_path / 'svs3.png').exists()
+
+    subprocess.check_call(['mrs_tools', 'vis',
+                           '--ppmlim', '0.2', '4.2',
+                           '--display_dim', 'DIM_COIL',
+                           '--no_mean',
+                           '--save', str(tmp_path / 'svs4.png'),
+                           svs_raw])
+
+    assert (tmp_path / 'svs4.png').exists()
 
 
 def test_vis_basis(tmp_path):
