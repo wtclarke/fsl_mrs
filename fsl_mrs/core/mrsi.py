@@ -73,8 +73,7 @@ class MRSI(object):
         self.num_masked_voxels = np.sum(self.mask)
 
         # MRS output options
-        self.conj_basis     = False
-        self.no_conj_basis  = False
+        self.conj_basis     = None
         self.conj_FID       = False
         self.no_conj_FID    = False
         self.rescale        = False
@@ -195,10 +194,14 @@ class MRSI(object):
 
     def mrs_by_index(self, index):
         ''' Return MRS object by index (tuple - x,y,z).'''
+        if not np.array_equal(self.H2O, np.full(self.data.shape[:3], None)):
+            H2O = self.H2O[index[0], index[1], index[2], :]
+        else:
+            H2O = None
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
                       basis=self._basis,
-                      H2O=self.H2O[index[0], index[1], index[2], :])
+                      H2O=H2O)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -237,10 +240,10 @@ class MRSI(object):
             to all voxels.
         '''
         if self._basis is not None:
-            if self.conj_basis:
+            if self.conj_basis is True:
                 mrs.conj_Basis = True
-            elif self.no_conj_basis:
-                pass
+            elif self.conj_basis is False:
+                mrs.conj_Basis = False
             else:
                 mrs.check_Basis(repair=True)
 
@@ -352,6 +355,19 @@ class MRSI(object):
 
         return data
 
+    def check_basis(self, ppmlim=(.2, 4.2)):
+        """Check orientation of basis using a single generated mrs object.
+
+        :param ppmlim: Region of expected signal, defaults to (.2, 4.2)
+        :type ppmlim: tuple, optional
+        """
+        if self._basis is not None:
+            mrs = self.mrs_by_index((0, 0, 0))
+            mrs.check_Basis(ppmlim=ppmlim, repair=True)
+            self.conj_basis = mrs.conj_Basis
+        else:
+            raise AttributeError('MRSI._basis not populated, add basis.')
+
     def add_MM_peaks(self, ppmlist=None, amplist=None, gamma=0, sigma=0):
         """Add default MM spectra to basis set
 
@@ -384,7 +400,12 @@ class MRSI(object):
 
         names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
 
+        if self.conj_basis is True:
+            conj = True
+        else:
+            conj = False
+
         for name, ppm, amp in zip(names, ppmlist, amplist):
-            self._basis.add_peak(ppm, amp, name, gamma, sigma)
+            self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=conj)
 
         return len(ppmlist)

@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.8 (Tuesday 5th October 2021)
+-------------------------------
+- Fix bug in fsl_mrsi when default MM are added to a incorrectly conjugated basis set.
+- Fix MRM reference in HTML report.
+
 1.1.7 (Monday 4th October 2021)
 -------------------------------
 - Fixed commandline arguments for mrs_tools.
