@@ -199,13 +199,19 @@ def main():
         mrsi.set_tissue_seg(csf, wm, gm)
 
     # Set mrs output options from MRSI class object
-    mrsi.conj_basis = args.conj_basis
-    mrsi.no_conj_basis = args.no_conj_basis
     mrsi.conj_FID = args.conj_fid
     mrsi.no_conj_FID = args.no_conj_fid
     mrsi.rescale = not args.no_rescale
     mrsi.keep = args.keep
     mrsi.ignore = args.ignore
+
+    # Basis orientation
+    if args.conj_basis:
+        mrsi.conj_basis = True
+    elif args.no_conj_basis:
+        mrsi.conj_basis = False
+    else:
+        mrsi.check_basis(ppmlim=args.ppmlim)
 
     # Parse metabolite groups
     metab_groups = misc.parse_metab_groups(mrsi, args.metab_groups)
