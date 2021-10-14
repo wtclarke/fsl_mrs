@@ -32,7 +32,7 @@
 #
 ###########################################################################
 include:
- - project: fsl/fsl-ci-rules
+ - project: fsl/conda/fsl-ci-rules
    file:    .gitlab-ci.yml
 
 stages:
