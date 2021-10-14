@@ -390,8 +390,7 @@ def add_common_args(p):
     #                            ' Defaults to first (0).'
     #                            ' Specify as indices counting from 0.')
     optional.add_argument('--allreports', action="store_true",
-                          help='Generate reports for all inputs.'
-                               ' Overrides arguments to reportIndicies.')
+                          help='Generate reports for all inputs.')
     # optional.add_argument('--conjugate', action="store_true",
     #                       help='apply conjugate to FID')
     optional.add_argument('--filename', type=str, metavar='<str>',
