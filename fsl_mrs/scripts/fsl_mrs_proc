@@ -190,7 +190,7 @@ def main():
     truncate_group.add_argument('--points', type=int, default=0,
                                 help='Points to add/remove (+/-)')
     truncate_group.add_argument('--pos', type=str, default='last',
-                                help=" first' or 'last' (default)")
+                                help="'first' or 'last' (default)")
     truncateparser.set_defaults(func=truncate)
     add_common_args(truncateparser)
 
