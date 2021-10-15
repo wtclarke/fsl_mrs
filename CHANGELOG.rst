@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.9 (WIP)
+-------------------------------
+- Fixed typos in fsl_mrs_proc help.
+- Fixed simulator bug for edited sequence coherence filters.
+
 1.1.8 (Tuesday 5th October 2021)
 -------------------------------
 - Fix bug in fsl_mrsi when default MM are added to a incorrectly conjugated basis set.

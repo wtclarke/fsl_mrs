@@ -28,11 +28,11 @@
 # Test is run in all cases.
 # Doc is only run on master branches.
 # Build stages are run according to the rules associated 
-#   with https://git.fmrib.ox.ac.uk/fsl/fsl-ci-rules
+#   with https://git.fmrib.ox.ac.uk/fsl/conda/fsl-ci-rules
 #
 ###########################################################################
 include:
- - project: fsl/fsl-ci-rules
+ - project: fsl/conda/fsl-ci-rules
    file:    .gitlab-ci.yml
 
 stages:

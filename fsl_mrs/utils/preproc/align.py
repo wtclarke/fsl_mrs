@@ -276,7 +276,7 @@ def phase_freq_align_report(inFIDs,
                         line=lines['out'])
     fig.add_trace(trace1, row=1, col=1)
     fig.layout.xaxis.update(title_text='Transient #')
-    fig.layout.yaxis.update(title_text=r'$\phi$ (degrees)')
+    fig.layout.yaxis.update(title_text='First-order phase (degrees)')
 
     trace2 = go.Scatter(x=np.arange(1, len(eps) + 1),
                         y=eps,
@@ -405,7 +405,7 @@ def phase_freq_align_diff_report(inFIDs0,
                         line=lines['out'])
     fig.add_trace(trace1, row=1, col=1)
     fig.layout.xaxis.update(title_text='Transient #')
-    fig.layout.yaxis.update(title_text=r'$\phi$ (degrees)')
+    fig.layout.yaxis.update(title_text='First-order phase (degrees)')
 
     trace2 = go.Scatter(x=np.arange(1, len(eps) + 1),
                         y=eps,
