@@ -33,7 +33,8 @@ class dynMRS(object):
             model='voigt',
             ppmlim=(.2, 4.2),
             baseline_order=2,
-            metab_groups=None):
+            metab_groups=None,
+            rescale=True):
         """Create a dynMRS class object
 
         :param mrs_list: List of MRS objects, one per time_var
@@ -50,24 +51,26 @@ class dynMRS(object):
         :type baseline_order: int, optional
         :param metab_groups: Metabolite group list, defaults to None
         :type metab_groups: list, optional
+        :param rescale: Apply basis and FID rescaling, defaults to True
+        :type rescale: bool, optional
         """
 
         self.time_var = time_var
         self.mrs_list = mrs_list
-        self._process_mrs_list()
+        if rescale:
+            self._process_mrs_list()
 
         if metab_groups is None:
             metab_groups = [0] * len(self.metabolite_names)
-        self.data = self._prepare_data(ppmlim)
-        self.constants = self._get_constants(model, ppmlim, baseline_order, metab_groups)
-        self.forward = self._get_forward(model)
-        self.gradient = self._get_gradient(model)
 
         self._fit_args = {'model': model,
-                          'baseline_order': baseline_order,
                           'metab_groups': metab_groups,
                           'baseline_order': baseline_order,
                           'ppmlim': ppmlim}
+
+        self.data = self._prepare_data(ppmlim)
+        self.forward = self._get_forward()
+        self.gradient = self._get_gradient()
 
         numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
         varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
@@ -217,9 +220,8 @@ class dynMRS(object):
         return {'x': init, 'resList': resList}
 
     # Utility methods
-    def _get_constants(self, model, ppmlim, baseline_order, metab_groups):
+    def _get_constants(self, mrs, ppmlim, baseline_order, metab_groups):
         """collect constants for forward model"""
-        mrs = self.mrs_list[0]
         first, last = mrs.ppmlim_to_range(ppmlim)  # data range
         freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
         base_poly = fitting.prepare_baseline_regressor(mrs, baseline_order, ppmlim)
@@ -241,28 +243,54 @@ class dynMRS(object):
         data = [mrs.get_spec().copy()[first:last] for mrs in self.mrs_list]
         return data
 
-    def _get_forward(self, model):
+    def _get_forward(self):
         """Get forward model"""
-        forward = models.getModelForward(model)
-        first, last = self.constants[-2:]
-        return lambda x: forward(x, *self.constants[:-2])[first:last]
+        fwd_lambdas = []
+        for mrs in self.mrs_list:
+            forward = models.getModelForward(self._fit_args['model'])
 
-    def _get_gradient(self, model):
+            constants = self._get_constants(
+                mrs,
+                self._fit_args['ppmlim'],
+                self._fit_args['baseline_order'],
+                self._fit_args['metab_groups'])
+
+            def raiser(const):
+                first, last = const[-2:]
+                return lambda x: forward(x, *const[:-2])[first:last]
+            fwd_lambdas.append(raiser(constants))
+
+        return fwd_lambdas
+
+    def _get_gradient(self):
         """Get gradient"""
-        gradient = models.getModelJac(model)
-        return lambda x: gradient(x, *self.constants)
+        gradient = models.getModelJac(self._fit_args['model'])
+        fwd_grads = []
+        for mrs in self.mrs_list:
+            constants = self._get_constants(
+                mrs,
+                self._fit_args['ppmlim'],
+                self._fit_args['baseline_order'],
+                self._fit_args['metab_groups'])
+
+            def raiser(const):
+                return lambda x: gradient(x, *const)
+
+            fwd_grads.append(raiser(constants))
+
+        return fwd_grads
 
     # Loss functions
     def loss(self, x, i):
         """Calc loss function"""
-        loss_real = .5 * np.mean(np.real(self.forward(x) - self.data[i]) ** 2)
-        loss_imag = .5 * np.mean(np.imag(self.forward(x) - self.data[i]) ** 2)
+        loss_real = .5 * np.mean(np.real(self.forward[i](x) - self.data[i]) ** 2)
+        loss_imag = .5 * np.mean(np.imag(self.forward[i](x) - self.data[i]) ** 2)
         return loss_real + loss_imag
 
     def loss_grad(self, x, i):
         """Calc gradient of loss function"""
-        g = self.gradient(x)
-        e = self.forward(x) - self.data[i]
+        g = self.gradient[i](x)
+        e = self.forward[i](x) - self.data[i]
         grad_real = np.mean(np.real(g) * np.real(e[:, None]), axis=0)
         grad_imag = np.mean(np.imag(g) * np.imag(e[:, None]), axis=0)
         return grad_real + grad_imag
@@ -326,12 +354,16 @@ class dynMRS(object):
         mapped = self.vm.free_to_mapped(x)
         for time_index in range(self.vm.ntimes):
             p = np.hstack(mapped[time_index, :])
-            fwd[time_index, :] = self.forward(p)
+            fwd[time_index, :] = self.forward[time_index](p)
         return fwd.flatten()
 
     def _form_FitRes(self, x, model, method, ppmlim, baseline_order):
         """Create list of FitRes object"""
-        _, _, _, base_poly, metab_groups, _, _, _ = self.constants
+        _, _, _, base_poly, metab_groups, _, _, _ = self._get_constants(
+            self.mrs_list[0],
+            self._fit_args['ppmlim'],
+            self._fit_args['baseline_order'],
+            self._fit_args['metab_groups'])
         if method.lower() == 'mh':
             mapped = []
             for xx in x:

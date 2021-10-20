@@ -8,7 +8,6 @@ from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.fitting import fit_FSLModel
-from fsl_mrs.utils import mrs_io
 from pytest import fixture
 import numpy as np
 
@@ -142,14 +141,12 @@ def test_fit_FSLModel_lorentzian_MH(data):
 
 def test_fit_FSLModel_on_invivo_sim():
 
-    FIDs, hdr, trueconcs = syntheticFromBasisFile(basis_path,
+    FIDs, mrs, trueconcs = syntheticFromBasisFile(basis_path,
                                                   noisecovariance=[[1E-3]],
                                                   broadening=(9.0, 9.0),
                                                   concentrations={'Mac': 2.0})
 
-    basis = mrs_io.read_basis(basis_path)
-
-    mrs = MRS(FID=FIDs, header=hdr, basis=basis)
+    mrs.FID = FIDs
     mrs.processForFitting()
 
     metab_groups = [0] * mrs.numBasis
@@ -164,6 +161,6 @@ def test_fit_FSLModel_on_invivo_sim():
     fittedRelconcs = res.getConc(scaling='internal', metab=mrs.names)
 
     answers = np.asarray(trueconcs)
-    answers /= (answers[basis.names.index('Cr')] + trueconcs[basis.names.index('PCr')])
+    answers /= (answers[mrs.names.index('Cr')] + trueconcs[mrs.names.index('PCr')])
 
     assert np.allclose(fittedRelconcs, answers, atol=5E-2)

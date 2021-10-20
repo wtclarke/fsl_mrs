@@ -235,8 +235,8 @@ class dynRes:
 
         def calc_fit_from_flatmapped(mapped):
             fwd = []
-            for mp in mapped:
-                fwd.append(self._dyn.forward(mp))
+            for idx, mp in enumerate(mapped):
+                fwd.append(self._dyn.forward[idx](mp))
             return np.asarray(fwd)
 
         init_fit = calc_fit_from_flatmapped(self.mapped_parameters_init)

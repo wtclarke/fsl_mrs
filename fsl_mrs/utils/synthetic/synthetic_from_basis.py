@@ -218,7 +218,7 @@ def syntheticFromBasisFile(basisFile,
                                     ppmlim=baseline_ppm)
 
     return FIDs, \
-        {'bandwidth': bandwidth, 'centralFrequency': empty_mrs.centralFrequency}, \
+        empty_mrs, \
         concentrations
 
 

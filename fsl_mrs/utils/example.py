@@ -176,7 +176,6 @@ def FMRS(smooth=False, path='/Users/saad/Desktop/Spectroscopy/'):
     basis, names, basisheader = mrs_io.read_basis(str(basisfile))
 
     # # Resample basis
-    from fsl_mrs.utils import misc
     basis = misc.ts_to_ts(basis,
                           basisheader[0]['dwelltime'],
                           FIDheader['dwelltime'],
@@ -214,33 +213,20 @@ def MPRESS(noise=1, path='/Users/saad/Desktop/Spectroscopy/'):
         mrs Object list
         list (time variable)
     """
-    from fsl_mrs.utils import mrs_io
     from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 
     path = Path(path)
     mpress_on = path / 'mpress_basis/ON'
     mpress_off = path / 'mpress_basis/OFF'
 
-    basis, names, basis_hdr = mrs_io.read_basis(mpress_on)
-    FIDs, header, conc = syntheticFromBasisFile(mpress_on, noisecovariance=[[noise]])
-    mrs1 = MRS(FID=FIDs,
-               header=header,
-               basis=basis,
-               basis_hdr=basis_hdr[0],
-               names=names)
+    FIDs, mrs1, conc = syntheticFromBasisFile(mpress_on, noisecovariance=[[noise]])
+    mrs1.FID = FIDs
     mrs1.check_FID(repair=True)
-    mrs1.Spec = misc.FIDToSpec(mrs1.FID)
     mrs1.check_Basis(repair=True)
 
-    basis, names, basis_hdr = mrs_io.read_basis(mpress_off)
-    FIDs, header, conc = syntheticFromBasisFile(mpress_off, noisecovariance=[[noise]])
-    mrs2 = MRS(FID=FIDs,
-               header=header,
-               basis=basis,
-               basis_hdr=basis_hdr[0],
-               names=names)
+    FIDs, mrs2, conc = syntheticFromBasisFile(mpress_off, noisecovariance=[[noise]])
+    mrs2.FID = FIDs
     mrs2.check_FID(repair=True)
-    mrs2.Spec = misc.FIDToSpec(mrs2.FID)
     mrs2.check_Basis(repair=True)
 
     return [mrs1, mrs2], [0, 1]

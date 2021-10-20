@@ -7,7 +7,6 @@ Copyright Will Clarke, University of Oxford, 2021'''
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.utils import mrs_io
-from fsl_mrs.core import MRS
 import numpy as np
 from pathlib import Path
 
@@ -61,33 +60,33 @@ def test_syntheticFID():
 
 
 def test_syntheticFromBasis():
-    fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
-                                                ignore=['Scyllo'],
-                                                baseline=[0.0, 0.0],
-                                                concentrations={'Mac': 2.0},
-                                                coilamps=[1.0, 1.0],
-                                                coilphase=[0.0, np.pi],
-                                                noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
+    fid, _, _ = syn.syntheticFromBasisFile(str(basis_path),
+                                           ignore=['Scyllo'],
+                                           baseline=[0.0, 0.0],
+                                           concentrations={'Mac': 2.0},
+                                           coilamps=[1.0, 1.0],
+                                           coilphase=[0.0, np.pi],
+                                           noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
 
     assert fid.shape == (2048, 2)
 
 
 def test_syntheticFromBasis_baseline():
 
-    fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
-                                                baseline=[0.0, 0.0],
-                                                concentrations={'Mac': 2.0},
-                                                noisecovariance=[[0.0]])
+    fid, mrs, _ = syn.syntheticFromBasisFile(str(basis_path),
+                                             baseline=[0.0, 0.0],
+                                             concentrations={'Mac': 2.0},
+                                             noisecovariance=[[0.0]])
 
-    mrs = MRS(FID=fid, header=header)
+    mrs.FID = fid
     mrs.conj_FID = True
 
-    fid, header, _ = syn.syntheticFromBasisFile(str(basis_path),
-                                                baseline=[1.0, 1.0],
-                                                concentrations={'Mac': 2.0},
-                                                noisecovariance=[[0.0]])
+    fid, mrs2, _ = syn.syntheticFromBasisFile(str(basis_path),
+                                              baseline=[1.0, 1.0],
+                                              concentrations={'Mac': 2.0},
+                                              noisecovariance=[[0.0]])
 
-    mrs2 = MRS(FID=fid, header=header)
+    mrs2.FID = fid
     mrs2.conj_FID = True
 
     assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, -1.0))
