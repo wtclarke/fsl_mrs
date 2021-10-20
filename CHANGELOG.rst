@@ -4,6 +4,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 -------------------------------
 - Fixed typos in fsl_mrs_proc help.
 - Fixed simulator bug for edited sequence coherence filters.
+- Modified API of syntheticFromBasis function.
+- Dynamic fitting now handles multiple different basis sets.
 
 1.1.8 (Tuesday 5th October 2021)
 -------------------------------
