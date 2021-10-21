@@ -156,8 +156,12 @@ class dynMRS(object):
             sol = None
         else:
             raise (Exception(f'Unrecognised method {method}'))
-
+        end_fit_time = time.time()
+        if verbose:
+            print(f"...completed in {end_fit_time-start_time} seconds.")
         # Results
+        if verbose:
+            print('Collect results')
         # 1. Create dedicated dynamic fit results
         if method.lower() == 'newton':
             results = dyn_results.dynRes_newton(sol.x, self, init)
@@ -174,7 +178,7 @@ class dynMRS(object):
             self._fit_args['baseline_order'])
 
         if verbose:
-            print(f"Fitting completed in {time.time()-start_time} seconds.")
+            print(f"...completed in {time.time()-end_fit_time} seconds.")
 
         return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
 
@@ -215,9 +219,12 @@ class dynMRS(object):
             params = x2p(res.params, numMetabs, numGroups)
             for i, p in enumerate(params):
                 init[t, i] = p
+        # Conveniently store mapped params
+        mapped_params = self.vm.mapped_to_dict(init)
+
         if verbose:
             print(f'Init done in {time.time()-start_time} seconds.')
-        return {'x': init, 'resList': resList}
+        return {'x': init, 'mapped_params': mapped_params, 'resList': resList}
 
     # Utility methods
     def _get_constants(self, mrs, ppmlim, baseline_order, metab_groups):

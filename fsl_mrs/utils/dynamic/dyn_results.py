@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from fsl_mrs.utils.misc import calculate_lap_cov
+from fsl_mrs.utils.misc import calculate_lap_cov, gradient
 
 
 # Plotting functions:
@@ -327,7 +327,7 @@ class dynRes:
 
 
 class dynRes_mcmc(dynRes):
-
+    # TODO: Separate cov for dyn params and mapped params (like the Newton method)
     def __init__(self, samples, dyn, init):
         super().__init__(samples, dyn, init)
 
@@ -351,22 +351,48 @@ class dynRes_newton(dynRes):
 
         # Calculate covariance, correlation and uncertainty
         data = np.asarray(dyn.data).flatten()
-        # TODO: replace the below with something that uses the hessian from scipy.optimize
-        self._cov = calculate_lap_cov(samples, dyn.full_fwd, data)
-        crlb = np.diagonal(self._cov)
+
+        # Dynamic (free) parameters
+        self._cov_dyn = calculate_lap_cov(samples, dyn.full_fwd, data)
+        crlb_dyn = np.diagonal(self._cov_dyn)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
-            self._std = np.sqrt(crlb)
-        self._corr = self._cov / (self._std[:, np.newaxis] * self._std[np.newaxis, :])
+            self._std_dyn = np.sqrt(crlb_dyn)
+        self._corr_dyn = self._cov_dyn / (self._std_dyn[:, np.newaxis] * self._std_dyn[np.newaxis, :])
+
+        # Mapped parameters
+        p = dyn.vm.free_to_mapped(samples)
+        self._mapped_params = dyn.vm.mapped_to_dict(p)
+        # Mapped parameters covariance etc.
+        grad_all = np.transpose(gradient(samples, dyn.vm.free_to_mapped), (2, 0, 1))
+        N = dyn.vm.ntimes
+        M = len(samples)
+        std = {}
+        for i, name in enumerate(dyn.vm.mapped_names):
+            s = []
+            for j in range(self._mapped_params[name].shape[1]):
+                grad = np.reshape(np.array([grad_all[i][l, k][j] for l in range(M) for k in range(N)]), (M, N)).T
+                s.append(np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T)))
+            std[name] = np.array(s).T
+        self._std = std
+
 
     @property
-    def cov(self):
-        return pd.DataFrame(self._cov, self.free_names, self.free_names)
+    def cov_dyn(self):
+        return pd.DataFrame(self._cov_dyn, self.free_names, self.free_names)
 
     @property
-    def corr(self):
-        return pd.DataFrame(self._corr, self.free_names, self.free_names)
+    def corr_dyn(self):
+        return pd.DataFrame(self._corr_dyn, self.free_names, self.free_names)
+
+    @property
+    def std_dyn(self):
+        return pd.Series(self._std_dyn, self.free_names)
 
     @property
     def std(self):
-        return pd.Series(self._std, self.free_names)
+        return pd.Series(self._std, self._dyn.vm.mapped_names)
+
+    @property
+    def mapped_params(self):
+        return pd.Series(self._mapped_params, self._dyn.vm.mapped_names)
