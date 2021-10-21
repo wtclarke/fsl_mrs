@@ -18,3 +18,5 @@ Instructions for releasing a new version of FSL-MRS
     ```git push origin --tags```
 11. Trigger manual package build using the [fsl/conda/fsl-mrs:pre-conda](https://git.fmrib.ox.ac.uk/fsl/conda/fsl-mrs:pre-conda) branch. Do this by updating the version number [here](https://git.fmrib.ox.ac.uk/fsl/conda/fsl-mrs/-/blob/mnt/pre-conda/meta.yaml#L6). This will trigger a pipeline from which the conda package can be downloaded (*Download build-noarch-conda-package:archive artifact*).
 12. Send to MW for manual upload to the FSL conda channel.
+
+For local development installation run: ```pip install --no-deps -e .```

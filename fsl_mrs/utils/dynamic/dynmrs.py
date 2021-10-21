@@ -74,10 +74,14 @@ class dynMRS(object):
 
         numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
         varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
-        self.vm = self._create_vm(model, config_file, varNames, varSizes)
+        self._vm = varmap.VariableMapping(
+            param_names=varNames,
+            param_sizes=varSizes,
+            time_variable=self.time_var,
+            config_file=config_file)
 
     def _process_mrs_list(self):
-        """Apply single scaling
+        """Apply single scaling to the mrs_list
         """
         scales = []
         for mrs in self.mrs_list:
@@ -117,6 +121,10 @@ class dynMRS(object):
                 full_mapped_names.extend([f'{nn}_{idx:02.0f}' for idx in range(ns)])
         return full_mapped_names
 
+    @property
+    def vm(self):
+        return self._vm
+
     def fit(self,
             method='Newton',
             mh_jumps=600,
@@ -140,7 +148,7 @@ class dynMRS(object):
             start_time = time.time()
 
         if init is None:
-            init = self.initialise(**self._fit_args, verbose=verbose)
+            init = self.initialise(verbose=verbose)
         x0 = self.vm.mapped_to_free(init['x'])
 
         # MCMC or Newton
@@ -235,14 +243,6 @@ class dynMRS(object):
         freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
         g = max(metab_groups) + 1
         return (freq, time, basis, base_poly, metab_groups, g, first, last)
-
-    def _create_vm(self, model, config_file, varNames, varSizes):
-        """Create Variable Mapping object"""
-        vm = varmap.VariableMapping(param_names=varNames,
-                                    param_sizes=varSizes,
-                                    time_variable=self.time_var,
-                                    config_file=config_file)
-        return vm
 
     def _prepare_data(self, ppmlim):
         """FID to Spec and slice for fitting"""
@@ -346,7 +346,7 @@ class dynMRS(object):
         n_over_2 = len(self.data[0]) / 2
         for time_index in range(len(self.vm.time_variable)):
             p = np.hstack(mapped[time_index, :])
-            pred = self.forward(p)
+            pred = self.forward[time_index](p)
             ll += np.log(np.linalg.norm(pred - self.data[time_index])) * n_over_2
         return ll
 
