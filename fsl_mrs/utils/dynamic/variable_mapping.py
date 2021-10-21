@@ -383,6 +383,6 @@ class VariableMapping(object):
         for i, name in enumerate(self.mapped_names):
             values = np.array([x for x in params[:, i]])
             if values.ndim == 1:
-                values = values[:,np.newaxis]
+                values = values[:, np.newaxis]
             mapped_params[name] = values
         return mapped_params
