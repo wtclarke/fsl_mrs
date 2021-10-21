@@ -368,3 +368,21 @@ class VariableMapping(object):
                 return self.fcns[grad_name]
             else:
                 raise (Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
+
+    def mapped_to_dict(self, params):
+        """
+        Conveniently store mapped params into a dict
+        This makes it easier to access individuals parameters
+
+        Parameters:
+            params (array)
+        Returns:
+            dict
+        """
+        mapped_params = {}
+        for i, name in enumerate(self.mapped_names):
+            values = np.array([x for x in params[:, i]])
+            if values.ndim == 1:
+                values = values[:, np.newaxis]
+            mapped_params[name] = values
+        return mapped_params

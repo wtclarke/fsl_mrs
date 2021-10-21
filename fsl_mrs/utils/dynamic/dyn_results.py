@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from fsl_mrs.utils.misc import calculate_lap_cov
+from fsl_mrs.utils.misc import calculate_lap_cov, gradient
 
 
 # Plotting functions:
@@ -350,6 +350,7 @@ class dynRes:
 
 
 class dynRes_mcmc(dynRes):
+    # TODO: Separate cov for dyn params and mapped params (like the Newton method)
     """Results class for MCMC optimised dynamic fitting.
 
     Derived from parent dynRes class.
@@ -414,37 +415,68 @@ class dynRes_newton(dynRes):
 
         # Calculate covariance, correlation and uncertainty
         data = np.asarray(dyn.data).flatten()
-        # TODO: replace the below with something that uses the hessian from scipy.optimize
-        self._cov = calculate_lap_cov(samples, dyn.full_fwd, data)
-        crlb = np.diagonal(self._cov)
+
+        # Dynamic (free) parameters
+        self._cov_dyn = calculate_lap_cov(samples, dyn.full_fwd, data)
+        crlb_dyn = np.diagonal(self._cov_dyn)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
-            self._std = np.sqrt(crlb)
-        self._corr = self._cov / (self._std[:, np.newaxis] * self._std[np.newaxis, :])
+            self._std_dyn = np.sqrt(crlb_dyn)
+        self._corr_dyn = self._cov_dyn / (self._std_dyn[:, np.newaxis] * self._std_dyn[np.newaxis, :])
+
+        # Mapped parameters
+        p = dyn.vm.free_to_mapped(samples)
+        self._mapped_params = dyn.vm.mapped_to_dict(p)
+        # Mapped parameters covariance etc.
+        grad_all = np.transpose(gradient(samples, dyn.vm.free_to_mapped), (2, 0, 1))
+        N = dyn.vm.ntimes
+        M = len(samples)
+        std = {}
+        for i, name in enumerate(dyn.vm.mapped_names):
+            s = []
+            for j in range(self._mapped_params[name].shape[1]):
+                grad = np.reshape(np.array([grad_all[i][ll, kk][j] for ll in range(M) for kk in range(N)]), (M, N)).T
+                s.append(np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T)))
+            std[name] = np.array(s).T
+        self._std = std
 
     @property
-    def cov(self):
+    def cov_dyn(self):
         """Returns the covariance matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return pd.DataFrame(self._cov, self.free_names, self.free_names)
+        return pd.DataFrame(self._cov_dyn, self.free_names, self.free_names)
 
     @property
-    def corr(self):
+    def corr_dyn(self):
         """Returns the correlation matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return pd.DataFrame(self._corr, self.free_names, self.free_names)
+        return pd.DataFrame(self._corr_dyn, self.free_names, self.free_names)
 
     @property
-    def std(self):
+    def std_dyn(self):
         """Returns the standard deviations of the free parameters
 
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.Series(self._std, self.free_names)
+        return pd.Series(self._std_dyn, self.free_names)
+
+    @property
+    def std(self):
+        """Returns the standard deviations of the mapped parameters
+
+        :return: Std as data Series
+        :rtype: pandas.Series
+        """
+        return pd.Series(self._std, self._dyn.vm.mapped_names)
+
+    # TODO: Do we want to keep this and the similar method in the parent class?
+    @property
+    def mapped_params(self):
+        return pd.Series(self._mapped_params, self._dyn.vm.mapped_names)
