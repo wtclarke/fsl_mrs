@@ -100,16 +100,16 @@ def test_dynRes_newton(fixed_ratio_mrs):
     res = dyn_obj.fit()
 
     res_obj = res['result']
-    assert isinstance(res_obj.cov, pd.DataFrame)
-    assert res_obj.cov.shape == (10, 10)
+    assert isinstance(res_obj.cov_dyn, pd.DataFrame)
+    assert res_obj.cov_dyn.shape == (10, 10)
 
-    assert isinstance(res_obj.corr, pd.DataFrame)
-    assert res_obj.corr.shape == (10, 10)
+    assert isinstance(res_obj.corr_dyn, pd.DataFrame)
+    assert res_obj.corr_dyn.shape == (10, 10)
 
-    assert isinstance(res_obj.std, pd.Series)
-    assert res_obj.std.shape == (10,)
+    assert isinstance(res_obj.std_dyn, pd.Series)
+    assert res_obj.std_dyn.shape == (10,)
 
-    assert np.allclose(res_obj.std, np.sqrt(np.diagonal(res_obj.cov)))
+    assert np.allclose(res_obj.std_dyn, np.sqrt(np.diagonal(res_obj.cov_dyn)))
 
 
 def test_dynRes_mcmc(fixed_ratio_mrs):

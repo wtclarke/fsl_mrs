@@ -169,5 +169,5 @@ def test_dynMRS_fit_mcmc(fixed_ratio_mrs):
         rescale=False)
     res = dyn_obj.fit(method='MH', mh_jumps=50)
 
-    concs = res['result'].data_frame.filter(like='conc').to_numpy()
+    concs = res['result'].data_frame.filter(like='conc').mean(axis=0).to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
