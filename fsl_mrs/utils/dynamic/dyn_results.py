@@ -16,6 +16,14 @@ from fsl_mrs.utils.misc import calculate_lap_cov
 
 # Plotting functions:
 def subplot_shape(plots_needed):
+    """Calculates the number and shape of subplots needed for
+    given number of plots.
+
+    :param plots_needed: Number of plots needed
+    :type plots_needed: int
+    :return: Number of columns and number of rows
+    :rtype: tuple
+    """
     col = int(np.floor(np.sqrt(plots_needed)))
     row = int(np.floor(np.sqrt(plots_needed)))
     counter = 0
@@ -29,8 +37,21 @@ def subplot_shape(plots_needed):
 
 
 class dynRes:
+    """Base dynamic results class. Not intended to be created directly, but via child classes
+    dynRes_newton and dynRes_mcmc."""
 
     def __init__(self, samples, dyn, init):
+        """Initilisation of dynRes class object.
+
+        Typically called from __init__ of dynRes_newton and dynRes_mcmc
+
+        :param samples: Array of free parameters returned by optimiser, can be 2D in mcmc case.
+        :type samples: numpy.ndarray
+        :param dyn: Copy of dynMRS class object.
+        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :type init: dict
+        """
         self._data = pd.DataFrame(data=samples, columns=dyn.free_names)
         self._data.index.name = 'samples'
 
@@ -41,10 +62,12 @@ class dynRes:
 
     @property
     def data_frame(self):
+        """Return the pandas dataframe view of the results."""
         return self._data
 
     @property
     def x(self):
+        """Return the (mcmc: mean) results as a numpy array."""
         return self.data_frame.mean().to_numpy()
 
     @staticmethod
@@ -218,7 +241,7 @@ class dynRes:
             ax.set_title(paramname)
             handles, labels = ax.get_legend_handles_labels()
         fig.legend(handles, labels, loc='right')
-        plt.show()
+        return fig
 
     def plot_spectra(self, init=False, fit_to_init=False):
         """Plot individual spectra as fitted using the dynamic model
@@ -327,26 +350,66 @@ class dynRes:
 
 
 class dynRes_mcmc(dynRes):
+    """Results class for MCMC optimised dynamic fitting.
 
+    Derived from parent dynRes class.
+    """
     def __init__(self, samples, dyn, init):
+        """Initilise MCMC dynamic fitting results object.
+
+        Simply calls parent class init.
+
+        :param samples: Array of free parameters returned by optimiser, can be 2D in mcmc case.
+        :type samples: numpy.ndarray
+        :param dyn: Copy of dynMRS class object.
+        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :type init: dict
+        """
         super().__init__(samples, dyn, init)
 
     @property
     def cov(self):
+        """Returns the covariance matrix of free parameters
+
+        :return: Covariance matrix as a DataFrame
+        :rtype: pandas.DataFrame
+        """
         return self.data_frame.cov()
 
     @property
     def corr(self):
+        """Returns the correlation matrix of free parameters
+
+        :return: Covariance matrix as a DataFrame
+        :rtype: pandas.DataFrame
+        """
         return self.data_frame.corr()
 
     @property
     def std(self):
+        """Returns the standard deviations of the free parameters
+
+        :return: Std as data Series
+        :rtype: pandas.Series
+        """
         return self.data_frame.std()
 
 
 class dynRes_newton(dynRes):
 
     def __init__(self, samples, dyn, init):
+        """Initilise TNC optimised dynamic fitting results object.
+
+        Calculates the covariance, correlation and standard deviations using the Fisher information matrix.
+
+        :param samples: Array of free parameters returned by optimiser, can be 2D in mcmc case.
+        :type samples: numpy.ndarray
+        :param dyn: Copy of dynMRS class object.
+        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :type init: dict
+        """
         super().__init__(samples[np.newaxis, :], dyn, init)
 
         # Calculate covariance, correlation and uncertainty
@@ -361,12 +424,27 @@ class dynRes_newton(dynRes):
 
     @property
     def cov(self):
+        """Returns the covariance matrix of free parameters
+
+        :return: Covariance matrix as a DataFrame
+        :rtype: pandas.DataFrame
+        """
         return pd.DataFrame(self._cov, self.free_names, self.free_names)
 
     @property
     def corr(self):
+        """Returns the correlation matrix of free parameters
+
+        :return: Covariance matrix as a DataFrame
+        :rtype: pandas.DataFrame
+        """
         return pd.DataFrame(self._corr, self.free_names, self.free_names)
 
     @property
     def std(self):
+        """Returns the standard deviations of the free parameters
+
+        :return: Std as data Series
+        :rtype: pandas.Series
+        """
         return pd.Series(self._std, self.free_names)
