@@ -190,17 +190,21 @@ class dynMRS(object):
 
         return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
 
-    def initialise(self, verbose=False):
+    def fit_mean_spectrum(self):
+        from fsl_mrs.utils.preproc.combine import combine_FIDs
+        from copy import deepcopy
+
+        mean_fid = combine_FIDs([mrs.FID for mrs in self.mrs_list], 'mean')
+        mean_mrs = deepcopy(self.mrs_list[0])
+        mean_mrs.FID = mean_fid
+        return fitting.fit_FSLModel(mean_mrs, method='Newton', **self._fit_args).params
+
+    def initialise(self, indiv_init=None, verbose=False):
         """Initialise the dynamic fitting using seperate fits of each spectrum.
 
-        :param model: Spectral model 'lorentzian' or 'voigt', defaults to 'voigt'
-        :type model: str, optional
-        :param metab_groups: List of metabolite groupings, defaults to None
-        :type metab_groups: List of ints, optional
-        :param ppmlim: Ppm range over which to fit, defaults to (.2, 4.2)
-        :type ppmlim: tuple, optional
-        :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
-        :type baseline_order: int, optional
+        :param indiv_init: Optional initilisation of individual fits.
+            Can be a numpy array of mapped parameters, 'mean' (fits the mean spectrum), or None (independent).
+            Defaults to None
         :param verbose: Print information during fitting, defaults to False
         :type verbose: bool, optional
         :return: Dict containing free parameters and individual FitRes objects
@@ -208,6 +212,9 @@ class dynMRS(object):
         """
         if verbose:
             start_time = time.time()
+
+        if isinstance(indiv_init, str) and indiv_init == 'mean':
+            indiv_init = self.fit_mean_spectrum()
 
         varNames = models.FSLModel_vars(self._fit_args['model'])
         numMetabs = self.mrs_list[0].numBasis
@@ -222,7 +229,7 @@ class dynMRS(object):
         for t, mrs in enumerate(self.mrs_list):
             if verbose:
                 print(f'Initialising {t + 1}/{len(self.mrs_list)}', end='\r')
-            res = fitting.fit_FSLModel(mrs, method='Newton', **self._fit_args)
+            res = fitting.fit_FSLModel(mrs, method='Newton', x0=indiv_init, **self._fit_args)
             resList.append(res)
             params = x2p(res.params, numMetabs, numGroups)
             for i, p in enumerate(params):

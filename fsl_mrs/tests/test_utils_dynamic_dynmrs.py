@@ -171,3 +171,32 @@ def test_dynMRS_fit_mcmc(fixed_ratio_mrs):
 
     concs = res['result'].data_frame.filter(like='conc').mean(axis=0).to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
+
+
+def test_dynMRS_mean_fit_init(fixed_ratio_mrs):
+    mrs_list = fixed_ratio_mrs
+
+    dyn_obj = dyn.dynMRS(
+        mrs_list,
+        [0, 1],
+        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        model='lorentzian',
+        baseline_order=0,
+        metab_groups=[0, 0],
+        rescale=False)
+
+    # check mean fit gives same results as fit of the mean mrs lsit
+    from fsl_mrs.utils.preproc.combine import combine_FIDs
+    from fsl_mrs.utils import fitting
+    from copy import deepcopy
+    mean_fid = combine_FIDs([mrs.FID for mrs in dyn_obj.mrs_list], 'mean')
+    mean_mrs = deepcopy(dyn_obj.mrs_list[0])
+    mean_mrs.FID = mean_fid
+
+    meanres = fitting.fit_FSLModel(mean_mrs, method='Newton', **dyn_obj._fit_args)
+    assert np.allclose(meanres.params, dyn_obj.fit_mean_spectrum())
+
+    # Check the init produces the same results via both interfaces
+    init1 = dyn_obj.initialise(indiv_init=meanres.params)
+    init2 = dyn_obj.initialise(indiv_init='mean')
+    assert np.allclose(np.hstack(np.hstack(init1['x'])), np.hstack(np.hstack(init2['x'])))
