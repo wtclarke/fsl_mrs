@@ -122,7 +122,8 @@ def noiseSD(spectrum, noisemask):
 
 def idNoiseRegion(mrs, spectrum, startingNoiseThreshold=0.001):
     """ Identify noise region in given spectrum"""
-    normspec = np.real(spectrum) / np.max(np.real(spectrum))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        normspec = np.real(spectrum) / np.max(np.real(spectrum))
     noiseThreshold = startingNoiseThreshold
     noiseRegion = np.abs(normspec) < noiseThreshold
     # print(np.sum(noiseRegion))
