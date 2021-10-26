@@ -166,7 +166,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     assert_frame_equal(res._data, res_loaded._data)
     assert_frame_equal(res._init_x, res_loaded._init_x)
 
-    res.save(tmp_path / 'res_save_test2', pickle_dyn=True)
+    res.save(tmp_path / 'res_save_test2', save_dyn_obj=True)
     res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
 
     assert_frame_equal(res._data, res_loaded2._data)

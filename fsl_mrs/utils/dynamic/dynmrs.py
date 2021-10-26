@@ -6,11 +6,15 @@
 # Copyright (C) 2019 University of Oxford
 
 # SHBASECOPYRIGHT
+import time
+import re
+from shutil import copyfile
 
 import numpy as np
 from scipy.optimize import minimize
-import time
-import re
+from pathlib import Path
+import pickle
+import json
 
 from fsl_mrs.utils import models, fitting
 from . import variable_mapping as varmap
@@ -20,6 +24,10 @@ from fsl_mrs.utils.stats import mh, dist
 from fsl_mrs.utils.misc import rescale_FID
 
 conc_index_re = re.compile(r'^(conc_.*?_)(\d+)$')
+
+
+class dynMRSLoadError(Exception):
+    pass
 
 
 class dynMRS(object):
@@ -55,7 +63,7 @@ class dynMRS(object):
         :type rescale: bool, optional
         """
 
-        self.time_var = time_var
+        self.time_var = np.asarray(time_var)
         self.mrs_list = mrs_list
         if rescale:
             self._process_mrs_list()
@@ -79,6 +87,71 @@ class dynMRS(object):
             param_sizes=varSizes,
             time_variable=self.time_var,
             config_file=config_file)
+
+        # For save function
+        self._config_file = Path(config_file)
+        self._kwargs = {
+            'model': model,
+            'ppmlim': ppmlim,
+            'baseline_order': baseline_order,
+            'metab_groups': metab_groups,
+            'rescale': rescale}
+
+    def save(self, save_dir, save_mrs_list=False):
+
+        if not isinstance(save_dir, Path):
+            save_dir = Path(save_dir)
+        save_dir.mkdir(exist_ok=True, parents=True)
+
+        # Save out the components needed to reconstruct this object
+        # 1 - mrs_list as a pickle file
+        if save_mrs_list:
+            with open(save_dir / 'mrs_list.pkl', 'wb') as fp:
+                pickle.dump(self.mrs_list, fp)
+
+        # 2 - Save time_var and kw_args in json file
+        with open(save_dir / 'args.json', 'w') as fp:
+            json_dict = {
+                'time_var': self.time_var.tolist(),
+                'config_file': self._config_file.name,
+                'kwargs': self._kwargs}
+            json.dump(json_dict, fp)
+
+        # 3 - Save a copy of the config file
+        copyfile(self._config_file, save_dir / self._config_file.name)
+
+    @classmethod
+    def load(cls, load_dir, mrs_list=None):
+        if not isinstance(load_dir, Path):
+            load_dir = Path(load_dir)
+
+        # 1) mrs_list
+        if mrs_list:
+            mrs_list_from_pkl = False
+        elif mrs_list is None\
+                and (load_dir / 'mrs_list.pkl').is_file():
+            with open(load_dir / 'mrs_list.pkl', 'rb') as pickle_file:
+                mrs_list = pickle.load(pickle_file)
+            mrs_list_from_pkl = True
+        else:
+            raise dynMRSLoadError(f'mrs_list must be supplied as argument no mrs_list.pkl found in {str(load_dir)}.')
+
+        # 2) Other arguments
+        with open(load_dir / 'args.json', 'r') as json_file:
+            args = json.load(json_file)
+
+        time_var = args['time_var']
+        config_file = args['config_file']
+        if not (load_dir / config_file).is_file():
+            raise dynMRSLoadError(f'config_file {str(load_dir / config_file)} not found!')
+
+        kwargs = args['kwargs']
+
+        if mrs_list_from_pkl and kwargs['rescale']:
+            # Don't rescale twice!
+            kwargs['rescale'] = False
+
+        return cls(mrs_list, time_var, load_dir / config_file, **kwargs)
 
     def _process_mrs_list(self):
         """Apply single scaling to the mrs_list

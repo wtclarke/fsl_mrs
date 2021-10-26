@@ -6,7 +6,6 @@
 # Copyright (C) 2021 University of Oxford
 import copy
 import warnings
-import dill as pickle
 
 import pandas as pd
 import numpy as np
@@ -30,7 +29,8 @@ def load_dyn_result(load_dir, dyn_obj=None):
 
     :param load_dir: Directory to load. Creaed using dynMRS.save method
     :type load_dir: str or pathlib.Path
-    :param dyn_obj: Associated dynMRS object or if None will attempt to load a dyn.pkl file, defaults to None
+    :param dyn_obj: Associated dynMRS object or if None will attempt to load a
+     nested dynmrs_obj directory, defaults to None
     :type dyn_obj: fsl_mrs.utils.dynamic.dynMRS, optional
     :return: Dynamic results object
     :rtype: dynRes_newton or dynRes_mcmc
@@ -48,9 +48,9 @@ def load_dyn_result(load_dir, dyn_obj=None):
 
     if dyn_obj:
         return cls(sample_df, dyn_obj, init_df)
-    elif (load_dir / 'dyn.pkl').is_file():
-        with open(load_dir / 'dyn.pkl', 'rb') as pickle_file:
-            dyn_obj = pickle.load(pickle_file)
+    elif (load_dir / 'dynmrs_obj').is_dir():
+        from .dynmrs import dynMRS
+        dyn_obj = dynMRS.load(load_dir / 'dynmrs_obj')
         return cls(sample_df, dyn_obj, init_df)
     else:
         raise ResultLoadError('Dynamic object required. Pass directly or ensure dyn.pkl is availible')
@@ -110,7 +110,7 @@ class dynRes:
         else:
             self._init_x = pd.DataFrame(self.flatten_mapped(init['x']), columns=self._dyn.mapped_names)
 
-    def save(self, save_dir, pickle_dyn=False):
+    def save(self, save_dir, save_dyn_obj=False):
         """Save the results to a directory
 
         Saves the two dataframes to csv format. If pickle_dyn=True then the ._dyn object
@@ -118,8 +118,8 @@ class dynRes:
 
         :param save_dir: Location to save to, created if neccesary.
         :type save_dir: str or pathlib.Path
-        :param pickle_dyn: Save _dyn dynMRS object to pickle file, defaults to False
-        :type pickle_dyn: bool, optional
+        :param save_dyn_obj: Save _dyn dynMRS object nested directory, defaults to False
+        :type save_dyn_obj: bool, optional
         """
         if not isinstance(save_dir, Path):
             save_dir = Path(save_dir)
@@ -129,10 +129,9 @@ class dynRes:
         self._data.to_csv(save_dir / 'dyn_results.csv')
         self._init_x.to_csv(save_dir / 'init_results.csv')
 
-        # If selected save the dynamic object a pickle file
-        if pickle_dyn:
-            with open(save_dir / 'dyn.pkl', 'wb') as fp:
-                pickle.dump(self._dyn, fp)
+        # If selected save the dynamic object to a nested directory
+        if save_dyn_obj:
+            self._dyn.save(save_dir / 'dynmrs_obj', save_mrs_list=True)
 
     @property
     def data_frame(self):
