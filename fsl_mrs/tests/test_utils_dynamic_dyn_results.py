@@ -52,6 +52,8 @@ def test_dynRes(fixed_ratio_mrs):
         rescale=False)
     res = dyn_obj.fit()
 
+    resinit = dyn_obj.initialise()
+
     res_obj = res['result']
 
     import plotly
@@ -65,6 +67,9 @@ def test_dynRes(fixed_ratio_mrs):
     assert isinstance(res_obj.data_frame, pd.DataFrame)
     assert isinstance(res_obj.x, np.ndarray)
     assert res_obj.x.shape[0] == res_obj.data_frame.shape[1]
+
+    assert isinstance(res_obj._init_x, pd.DataFrame)
+    assert np.allclose(dyn_obj.vm.mapped_to_free(resinit['x']), res_obj.free_parameters_init)
 
     assert isinstance(res_obj.mapped_parameters, np.ndarray)
     assert res_obj.mapped_parameters.shape == (1, len(mrs_list), len(dyn_obj.mapped_names))
@@ -138,3 +143,31 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
     assert res_obj.std.shape == (10,)
 
     assert np.allclose(res_obj.std, np.sqrt(np.diagonal(res_obj.cov)))
+
+
+def test_load_save(fixed_ratio_mrs, tmp_path):
+    mrs_list = fixed_ratio_mrs
+
+    dyn_obj = dyn.dynMRS(
+        mrs_list,
+        [0, 1],
+        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        model='lorentzian',
+        baseline_order=0,
+        metab_groups=[0, 0],
+        rescale=False)
+
+    res = dyn_obj.fit()['result']
+
+    res.save(tmp_path / 'res_save_test')
+    res_loaded = dyn.load_dyn_result(tmp_path / 'res_save_test', dyn_obj)
+
+    from pandas._testing import assert_frame_equal
+    assert_frame_equal(res._data, res_loaded._data)
+    assert_frame_equal(res._init_x, res_loaded._init_x)
+
+    res.save(tmp_path / 'res_save_test2', save_dyn_obj=True)
+    res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
+
+    assert_frame_equal(res._data, res_loaded2._data)
+    assert_frame_equal(res._init_x, res_loaded2._init_x)

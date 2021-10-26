@@ -200,3 +200,34 @@ def test_dynMRS_mean_fit_init(fixed_ratio_mrs):
     init1 = dyn_obj.initialise(indiv_init=meanres.params)
     init2 = dyn_obj.initialise(indiv_init='mean')
     assert np.allclose(np.hstack(np.hstack(init1['x'])), np.hstack(np.hstack(init2['x'])))
+
+
+def test_save_load(tmp_path, fixed_ratio_mrs):
+    mrs_list = fixed_ratio_mrs
+
+    dyn_obj = dyn.dynMRS(
+        mrs_list,
+        [0, 1],
+        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        model='lorentzian',
+        baseline_order=0,
+        metab_groups=[0, 0],
+        rescale=False)
+
+    dyn_obj.save(tmp_path / 'test_save')
+    dyn_obj_load = dyn.dynMRS.load(tmp_path / 'test_save', mrs_list=mrs_list)
+
+    assert dyn_obj.metabolite_names == dyn_obj_load.metabolite_names
+    assert dyn_obj.free_names == dyn_obj_load.free_names
+    assert dyn_obj.mapped_names == dyn_obj_load.mapped_names
+    assert dyn_obj.vm.fcns.keys() == dyn_obj_load.vm.fcns.keys()
+    assert np.allclose(dyn_obj.time_var, dyn_obj_load.time_var)
+
+    dyn_obj.save(tmp_path / 'test_save2', save_mrs_list=True)
+    dyn_obj_load2 = dyn.dynMRS.load(tmp_path / 'test_save2')
+
+    assert dyn_obj.metabolite_names == dyn_obj_load2.metabolite_names
+    assert dyn_obj.free_names == dyn_obj_load2.free_names
+    assert dyn_obj.mapped_names == dyn_obj_load2.mapped_names
+    assert dyn_obj.vm.fcns.keys() == dyn_obj_load2.vm.fcns.keys()
+    assert np.allclose(dyn_obj.time_var, dyn_obj_load2.time_var)
