@@ -10,3 +10,4 @@ hlsvdpropy
 fslpy>=3.0
 pillow
 spec2nii>=0.3.0
+dill

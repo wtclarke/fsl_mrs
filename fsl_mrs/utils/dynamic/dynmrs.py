@@ -191,6 +191,7 @@ class dynMRS(object):
         return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
 
     def fit_mean_spectrum(self):
+        """Return the parameters from the fit of the mean spectra stored in mrs_list."""
         from fsl_mrs.utils.preproc.combine import combine_FIDs
         from copy import deepcopy
 
