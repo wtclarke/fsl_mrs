@@ -186,4 +186,4 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
 
     assert_frame_equal(res._data, res_loaded2._data)
-    assert_frame_equal(res._init_x, res_loaded2._init_x) 
+    assert_frame_equal(res._init_x, res_loaded2._init_x)
