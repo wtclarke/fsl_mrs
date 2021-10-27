@@ -129,6 +129,11 @@ class dynRes:
         self._data.to_csv(save_dir / 'dyn_results.csv')
         self._init_x.to_csv(save_dir / 'init_results.csv')
 
+        # Save the uncertainties and mapped parameters as well - for ease of results writing
+        self.std_dyn.to_csv(save_dir / 'dyn_std.csv')
+        self.mapped_params.to_csv(save_dir / 'mapped_mean.csv')
+        self.std.to_csv(save_dir / 'mapped_std.csv')
+
         # If selected save the dynamic object to a nested directory
         if save_dyn_obj:
             self._dyn.save(save_dir / 'dynmrs_obj', save_mrs_list=True)
@@ -236,6 +241,48 @@ class dynRes:
     def free_names(self):
         """Free names from stored dynamic object"""
         return self._dyn.free_names
+
+    # Methods implemented in child classes
+    @property
+    def cov_dyn(self):
+        """Implemented in child class
+
+        Returns the covariance matrix of free parameters
+        """
+        pass
+
+    @property
+    def corr_dyn(self):
+        """Implemented in child class
+
+        Returns the correlation matrix of free parameters
+        """
+        pass
+
+    @property
+    def std_dyn(self):
+        """Implemented in child class
+
+        Returns the standard deviations of the free parameters
+        """
+        pass
+
+    @property
+    def std(self):
+        """Implemented in child class
+
+        Returns the standard deviations of the mapped parameters
+        """
+        pass
+
+    # TODO: Do we want to keep this and the similar method in the parent class?
+    @property
+    def mapped_params(self):
+        """Implemented in child class
+
+        Returns mapped parameters as pandas data series
+        """
+        pass
 
     def collected_results(self, to_file=None):
         """Collect the results of dynamic MRS fitting
@@ -461,7 +508,7 @@ class dynRes_mcmc(dynRes):
         super().__init__(samples, dyn, init)
 
     @property
-    def cov(self):
+    def cov_dyn(self):
         """Returns the covariance matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
@@ -470,7 +517,7 @@ class dynRes_mcmc(dynRes):
         return self.data_frame.cov()
 
     @property
-    def corr(self):
+    def corr_dyn(self):
         """Returns the correlation matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
@@ -479,13 +526,27 @@ class dynRes_mcmc(dynRes):
         return self.data_frame.corr()
 
     @property
-    def std(self):
+    def std_dyn(self):
         """Returns the standard deviations of the free parameters
 
         :return: Std as data Series
         :rtype: pandas.Series
         """
         return self.data_frame.std()
+
+    @property
+    def std(self):
+        """Returns the standard deviations of the mapped parameters
+
+        :return: Std as data Series
+        :rtype: pandas.Series
+        """
+        return pd.DataFrame(self.mapped_parameters.std(axis=0), columns=self.mapped_names)
+
+    # TODO: Do we want to keep this and the similar method in the parent class?
+    @property
+    def mapped_params(self):
+        return pd.DataFrame(self.mapped_parameters.mean(axis=0), columns=self.mapped_names)
 
 
 class dynRes_newton(dynRes):
@@ -568,9 +629,9 @@ class dynRes_newton(dynRes):
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.Series(self._std, self._dyn.vm.mapped_names)
+        return pd.DataFrame(np.hstack(list(self._std.values())), columns=self.mapped_names)
 
     # TODO: Do we want to keep this and the similar method in the parent class?
     @property
     def mapped_params(self):
-        return pd.Series(self._mapped_params, self._dyn.vm.mapped_names)
+        return pd.DataFrame(self.mapped_parameters.mean(axis=0), columns=self.mapped_names)

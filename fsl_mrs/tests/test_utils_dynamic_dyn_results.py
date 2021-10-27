@@ -116,6 +116,12 @@ def test_dynRes_newton(fixed_ratio_mrs):
 
     assert np.allclose(res_obj.std_dyn, np.sqrt(np.diagonal(res_obj.cov_dyn)))
 
+    assert isinstance(res_obj.std, pd.DataFrame)
+    assert res_obj.std.shape == (2, 8)
+
+    assert isinstance(res_obj.mapped_params, pd.DataFrame)
+    assert res_obj.mapped_params.shape == (2, 8)
+
 
 def test_dynRes_mcmc(fixed_ratio_mrs):
     """Test mcmc optimiser specific components"""
@@ -133,16 +139,22 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
     res = dyn_obj.fit(method='MH', mh_jumps=20)
 
     res_obj = res['result']
-    assert isinstance(res_obj.cov, pd.DataFrame)
-    assert res_obj.cov.shape == (10, 10)
+    assert isinstance(res_obj.cov_dyn, pd.DataFrame)
+    assert res_obj.cov_dyn.shape == (10, 10)
 
-    assert isinstance(res_obj.corr, pd.DataFrame)
-    assert res_obj.corr.shape == (10, 10)
+    assert isinstance(res_obj.corr_dyn, pd.DataFrame)
+    assert res_obj.corr_dyn.shape == (10, 10)
 
-    assert isinstance(res_obj.std, pd.Series)
-    assert res_obj.std.shape == (10,)
+    assert isinstance(res_obj.std_dyn, pd.Series)
+    assert res_obj.std_dyn.shape == (10,)
 
-    assert np.allclose(res_obj.std, np.sqrt(np.diagonal(res_obj.cov)))
+    assert np.allclose(res_obj.std_dyn, np.sqrt(np.diagonal(res_obj.cov_dyn)))
+
+    assert isinstance(res_obj.std, pd.DataFrame)
+    assert res_obj.std.shape == (2, 8)
+
+    assert isinstance(res_obj.mapped_params, pd.DataFrame)
+    assert res_obj.mapped_params.shape == (2, 8)
 
 
 def test_load_save(fixed_ratio_mrs, tmp_path):
@@ -165,6 +177,10 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     from pandas._testing import assert_frame_equal
     assert_frame_equal(res._data, res_loaded._data)
     assert_frame_equal(res._init_x, res_loaded._init_x)
+
+    assert (tmp_path / 'res_save_test' / 'dyn_std.csv').is_file()
+    assert (tmp_path / 'res_save_test' / 'mapped_mean.csv').is_file()
+    assert (tmp_path / 'res_save_test' / 'mapped_std.csv').is_file()
 
     res.save(tmp_path / 'res_save_test2', save_dyn_obj=True)
     res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
