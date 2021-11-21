@@ -47,8 +47,8 @@ class dynMRS(object):
 
         :param mrs_list: List of MRS objects, one per time_var
         :type mrs_list: List
-        :param time_var: List containing the dynamic variable
-        :type time_var: List
+        :param time_var: List containing the dynamic variable, or dict for multiple lists
+        :type time_var: List or dict
         :param config_file: Path to the python model configuration file
         :type config_file: str
         :param model: 'voigt' or 'lorentzian', defaults to 'voigt'
@@ -63,7 +63,22 @@ class dynMRS(object):
         :type rescale: bool, optional
         """
 
-        self.time_var = np.asarray(time_var)
+        if isinstance(time_var, dict):
+            self.time_var = {}
+            t_size = []
+            for key in time_var:
+                t_element = np.asarray(time_var[key])
+                t_size.append(t_element.shape[0])
+                self.time_var.update({key: t_element})
+            t_size = np.asarray(t_size)
+            if np.all(np.isclose(t_size, t_size[0])):
+                self._t_steps = t_size[0]
+            else:
+                raise ValueError('All values in time_var dict must hav ethe same first diemension shape.')
+        else:
+            self.time_var = np.asarray(time_var)
+            self._t_steps = self.time_var.shape[0]
+
         self.mrs_list = mrs_list
         if rescale:
             self._process_mrs_list()
@@ -298,7 +313,7 @@ class dynMRS(object):
         else:
             x2p = models.FSLModel_x2param_Voigt
         # Get init from fitting to individual time points
-        init = np.empty((len(self.time_var), len(varNames)), dtype=object)
+        init = np.empty((self._t_steps, len(varNames)), dtype=object)
         resList = []
         for t, mrs in enumerate(self.mrs_list):
             if verbose:
@@ -387,7 +402,7 @@ class dynMRS(object):
         """Add loss functions across data list"""
         ret = 0
         mapped = self.vm.free_to_mapped(x)
-        for time_index in range(len(self.vm.time_variable)):
+        for time_index in range(self.vm.ntimes):
             p = np.hstack(mapped[time_index, :])
             ret += self.loss(p, time_index)
         return ret
@@ -397,7 +412,7 @@ class dynMRS(object):
         mapped = self.vm.free_to_mapped(x)
         LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
-        for time_index, _ in enumerate(self.vm.time_variable):
+        for time_index in range(self.vm.ntimes):
             # dfdmapped
             p = np.hstack(mapped[time_index, :])
             dfdp = self.loss_grad(p, time_index)
@@ -425,7 +440,7 @@ class dynMRS(object):
         ll = 0.0
         mapped = self.vm.free_to_mapped(x)
         n_over_2 = len(self.data[0]) / 2
-        for time_index in range(len(self.vm.time_variable)):
+        for time_index in range(self.vm.ntimes):
             p = np.hstack(mapped[time_index, :])
             pred = self.forward[time_index](p)
             ll += np.log(np.linalg.norm(pred - self.data[time_index])) * n_over_2

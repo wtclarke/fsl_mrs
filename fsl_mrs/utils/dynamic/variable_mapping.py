@@ -30,12 +30,25 @@ class VariableMapping(object):
         ----------
         param_names  : list
         param_sizes  : list
-        time_variale : array-like
+        time_variable : array-like or dict
         config_file  : string
         """
 
-        self.time_variable  = np.asarray(time_variable)
-        self.ntimes         = self.time_variable.shape[0]
+        if isinstance(time_variable, dict):
+            self.time_variable = {}
+            t_size = []
+            for key in time_variable:
+                t_element = np.asarray(time_variable[key])
+                t_size.append(t_element.shape[0])
+                self.time_variable.update({key: t_element})
+            t_size = np.asarray(t_size)
+            if np.all(np.isclose(t_size, t_size[0])):
+                self.ntimes = t_size[0]
+            else:
+                raise ValueError('All values in time_variable dict must hav ethe same first diemension shape.')
+        else:
+            self.time_variable = np.asarray(time_variable)
+            self.ntimes = self.time_variable.shape[0]
 
         self.mapped_names   = param_names
         self.mapped_nparams = len(self.mapped_names)
