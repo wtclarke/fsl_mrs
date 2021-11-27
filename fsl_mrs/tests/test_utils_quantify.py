@@ -68,13 +68,20 @@ def test_volumefraction_calc():
     assert qci.f_WM == 0.40
     assert qci.f_CSF == 0.15
 
+    with pytest.warns(UserWarning):
+        qci.set_fractions({'GM': 0.49, 'WM': 0.49, 'CSF': 0.0})
+
+    assert qci.f_GM == 0.5
+    assert qci.f_WM == 0.5
+    assert qci.f_CSF == 0.0
+
     with pytest.raises(ValueError) as exc_info:
-        qci.set_fractions({'GM': 0.44, 'WM': 0.40, 'CSF': 0.15})
+        qci.set_fractions({'GM': 0.44, 'WM': 0.40, 'CSF': 0.05})
 
     assert exc_info.type is ValueError
     assert exc_info.value.args[0] == "fractions must be a dict containing 'WM', 'GM', 'CSF' keys"\
                                      ", and must sum to 1. Currently they are:"\
-                                     " {'GM': 0.44, 'WM': 0.4, 'CSF': 0.15} (sum=0.9900)."
+                                     " {'GM': 0.44, 'WM': 0.4, 'CSF': 0.05} (sum=0.8900)."
 
 
 def test_molefraction_calc():

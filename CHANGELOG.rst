@@ -10,6 +10,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Dynamic fitting results can now be saved to and loaded from a directory.
 - Added MH sample option to fsl_mrs, matches interactive python interface.
 - Changes to the dynamic fitting results API.
+- Allow tissue fractions with larger errors, but normalise. Error thrown if sum < 0.9.
 
 1.1.8 (Tuesday 5th October 2021)
 --------------------------------

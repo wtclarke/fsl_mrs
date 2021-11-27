@@ -5,6 +5,7 @@
 #
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -267,13 +268,23 @@ class QuantificationInfo(object):
         :param fractions: Tissue volume fractions, must contain 'WM', 'GM', 'CSF' fields.
         :type fractions: dict
         :raises ValueError: [description]
-        :raises TypeError: [description]
+        :raises TypeError: Raised if fractions are not a dictionary
         """
         required = ['WM', 'GM', 'CSF']
         if isinstance(fractions, dict):
             if all(item in fractions.keys() for item in required)\
-                    and np.isclose(np.sum([fractions['WM'], fractions['GM'], fractions['CSF']]), 1.0, atol=1E-3):
+                    and np.isclose(np.sum([fractions['WM'], fractions['GM'], fractions['CSF']]), 1.0, atol=1E-2):
                 self._fractions = fractions
+            elif all(item in fractions.keys() for item in required)\
+                    and np.isclose(np.sum([fractions['WM'], fractions['GM'], fractions['CSF']]), 1.0, atol=1E-1):
+                original_frac = np.asarray([fractions['WM'], fractions['GM'], fractions['CSF']])
+                sum_value = np.sum(original_frac)
+                norm_vec = original_frac / sum_value
+                norm_fractions = {'WM': norm_vec[0], 'GM': norm_vec[1], 'CSF': norm_vec[2]}
+                self._fractions = norm_fractions
+                warnings.warn("fractions should be a dict containing 'WM', 'GM', 'CSF' keys"
+                              f", and must sum to 1. Currently they are: {fractions} (sum={sum_value:0.4f})."
+                              f"This fraction is off by <10% and has been normalised to: {norm_fractions}.")
             else:
                 sum_value = np.sum([fractions['WM'], fractions['GM'], fractions['CSF']])
                 raise ValueError("fractions must be a dict containing 'WM', 'GM', 'CSF' keys"
