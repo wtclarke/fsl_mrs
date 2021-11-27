@@ -85,6 +85,10 @@ def main():
                                    ' independently of other basis spectra.')
     fitting_args.add_argument('--disable_MH_priors', action="store_true",
                               help="Disable MH priors.")
+    fitting_args.add_argument('--mh_samples', type=int, default=500,
+                              help="Number of Metropolis Hastings samples,"
+                                   " every tenth sample is kept."
+                                   " Default = 500")
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
@@ -274,14 +278,16 @@ def main():
                    'baseline_order': args.baseline_order,
                    'metab_groups': metab_groups,
                    'model': 'lorentzian',
-                   'disable_mh_priors': args.disable_MH_priors}
+                   'disable_mh_priors': args.disable_MH_priors,
+                   'MHSamples': args.mh_samples}
     else:
         Fitargs = {'ppmlim': ppmlim,
                    'method': args.algo,
                    'baseline_order': args.baseline_order,
                    'metab_groups': metab_groups,
                    'model': 'voigt',
-                   'disable_mh_priors': args.disable_MH_priors}
+                   'disable_mh_priors': args.disable_MH_priors,
+                   'MHSamples': args.mh_samples}
 
     if args.verbose:
         print(mrs)
