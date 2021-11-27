@@ -71,11 +71,11 @@ def test_dynRes(fixed_ratio_mrs):
     assert isinstance(res_obj._init_x, pd.DataFrame)
     assert np.allclose(dyn_obj.vm.mapped_to_free(resinit['x']), res_obj.free_parameters_init)
 
-    assert isinstance(res_obj.mapped_parameters, np.ndarray)
-    assert res_obj.mapped_parameters.shape == (1, len(mrs_list), len(dyn_obj.mapped_names))
+    assert isinstance(res_obj.mapped_parameters_array, np.ndarray)
+    assert res_obj.mapped_parameters_array.shape == (1, len(mrs_list), len(dyn_obj.mapped_names))
 
-    assert isinstance(res_obj.mapped_parameters_init, np.ndarray)
-    assert res_obj.mapped_parameters_init.shape == (len(mrs_list), len(dyn_obj.mapped_names))
+    assert isinstance(res_obj.mapped_parameters_init_array, np.ndarray)
+    assert res_obj.mapped_parameters_init_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
 
     assert isinstance(res_obj.free_parameters_init, np.ndarray)
     assert res_obj.free_parameters_init.shape == (len(dyn_obj.free_names),)
@@ -83,8 +83,8 @@ def test_dynRes(fixed_ratio_mrs):
     assert isinstance(res_obj.init_dataframe, pd.DataFrame)
     assert res_obj.init_dataframe.shape == (1, len(dyn_obj.free_names),)
 
-    assert isinstance(res_obj.mapped_parameters_fitted_init, np.ndarray)
-    assert res_obj.mapped_parameters_fitted_init.shape == (len(mrs_list), len(dyn_obj.mapped_names))
+    assert isinstance(res_obj.mapped_parameters_fitted_init_array, np.ndarray)
+    assert res_obj.mapped_parameters_fitted_init_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
 
     assert res_obj.mapped_names == dyn_obj.mapped_names
     assert res_obj.free_names == dyn_obj.free_names

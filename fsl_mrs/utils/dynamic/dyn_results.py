@@ -181,11 +181,11 @@ class dynRes:
         return np.asarray(nested, dtype=object)
 
     @property
-    def mapped_parameters(self):
+    def mapped_parameters_array(self):
         """Flattened mapped parameters. Shape is samples x timepoints x parameters.
         Number of samples will be 1 for newton, and >1 for MCMC.
 
-        :return: array of mappes samples
+        :return: array of mapped samples
         :rtype: np.array
         """
         mapped_samples = []
@@ -194,7 +194,16 @@ class dynRes:
         return np.asarray(mapped_samples)
 
     @property
-    def mapped_parameters_init(self):
+    def mapped_params(self):
+        """Mapped parameters arising from dynamic fit.
+
+        :return: Pandas dataframe containing the mean mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return pd.DataFrame(self.mapped_parameters_array.mean(axis=0), columns=self.mapped_names)
+
+    @property
+    def mapped_parameters_init_array(self):
         """Flattened mapped parameters from initilisation
         Shape is timepoints x parameters.
 
@@ -204,13 +213,22 @@ class dynRes:
         return self._init_x.to_numpy()
 
     @property
+    def mapped_params_init(self):
+        """Mapped parameters arising from dynamic fit.
+
+        :return: Pandas dataframe containing the mean mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return self._init_x
+
+    @property
     def free_parameters_init(self):
         """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
 
         :return: Free parameters estimated from initilisation
         :rtype: np.array
         """
-        nested_init = self.nest_mapped(self.mapped_parameters_init, self._dyn.vm)
+        nested_init = self.nest_mapped(self.mapped_parameters_init_array, self._dyn.vm)
         return self._dyn.vm.mapped_to_free(nested_init)
 
     @property
@@ -223,7 +241,7 @@ class dynRes:
         return pd.DataFrame(data=self.free_parameters_init, index=self._dyn.free_names).T
 
     @property
-    def mapped_parameters_fitted_init(self):
+    def mapped_parameters_fitted_init_array(self):
         """Mapped parameters resulting from inversion of model using initilised parameters.
         Shape is timepoints x parameters.
 
@@ -231,6 +249,15 @@ class dynRes:
         :rtype: np.array
         """
         return self.flatten_mapped(self._dyn.vm.free_to_mapped(self.free_parameters_init))
+
+    @property
+    def mapped_params_fitted_init(self):
+        """Mapped parameters arising from fitting the initilisation parameters to the model.
+
+        :return: Pandas dataframe containing the mean mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return pd.DataFrame(self.mapped_parameters_fitted_init_array, columns=self.mapped_names)
 
     @property
     def mapped_names(self):
@@ -272,15 +299,6 @@ class dynRes:
         """Implemented in child class
 
         Returns the standard deviations of the mapped parameters
-        """
-        pass
-
-    # TODO: Do we want to keep this and the similar method in the parent class?
-    @property
-    def mapped_params(self):
-        """Implemented in child class
-
-        Returns mapped parameters as pandas data series
         """
         pass
 
@@ -358,10 +376,10 @@ class dynRes:
         :type fit_to_init: bool, optional
         """
 
-        init_params = self.mapped_parameters_init
-        fitted_init_params = self.mapped_parameters_fitted_init
-        dyn_params = self.mapped_parameters.mean(axis=0)
-        dyn_params_sd = self.mapped_parameters.std(axis=0)
+        init_params = self.mapped_parameters_init_array
+        fitted_init_params = self.mapped_parameters_fitted_init_array
+        dyn_params = self.mapped_parameters_array.mean(axis=0)
+        dyn_params_sd = self.mapped_parameters_array.std(axis=0)
         names = self.mapped_names
         if tvals is None:
             tvals = self._dyn.time_var
@@ -400,11 +418,11 @@ class dynRes:
                 fwd.append(self._dyn.forward[idx](mp))
             return np.asarray(fwd)
 
-        init_fit = calc_fit_from_flatmapped(self.mapped_parameters_init)
-        init_fitted_fit = calc_fit_from_flatmapped(self.mapped_parameters_fitted_init)
+        init_fit = calc_fit_from_flatmapped(self.mapped_parameters_init_array)
+        init_fitted_fit = calc_fit_from_flatmapped(self.mapped_parameters_fitted_init_array)
 
         dyn_fit = []
-        for mp in self.mapped_parameters:
+        for mp in self.mapped_parameters_array:
             dyn_fit.append(calc_fit_from_flatmapped(mp))
         dyn_fit = np.asarray(dyn_fit)
         dyn_fit_mean = np.mean(dyn_fit, axis=0)
@@ -421,7 +439,10 @@ class dynRes:
                          init_fit=0.5,
                          dyn=1)
 
-        sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
+        if isinstance(self._dyn.time_var, dict):
+            sp_titles = [f'#{idx}' for idx in range(self._dyn._t_steps)]
+        else:
+            sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
 
         row, col = subplot_shape(len(sp_titles))
 
@@ -541,12 +562,7 @@ class dynRes_mcmc(dynRes):
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.DataFrame(self.mapped_parameters.std(axis=0), columns=self.mapped_names)
-
-    # TODO: Do we want to keep this and the similar method in the parent class?
-    @property
-    def mapped_params(self):
-        return pd.DataFrame(self.mapped_parameters.mean(axis=0), columns=self.mapped_names)
+        return pd.DataFrame(self.mapped_parameters_array.std(axis=0), columns=self.mapped_names)
 
 
 class dynRes_newton(dynRes):
@@ -630,8 +646,3 @@ class dynRes_newton(dynRes):
         :rtype: pandas.Series
         """
         return pd.DataFrame(np.hstack(list(self._std.values())), columns=self.mapped_names)
-
-    # TODO: Do we want to keep this and the similar method in the parent class?
-    @property
-    def mapped_params(self):
-        return pd.DataFrame(self.mapped_parameters.mean(axis=0), columns=self.mapped_names)

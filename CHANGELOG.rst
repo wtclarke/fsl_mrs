@@ -8,9 +8,10 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Dynamic fitting now handles multiple different basis sets.
 - Fix mapped parameter uncertainties in dynamic MRS results.
 - Dynamic fitting results can now be saved to and loaded from a directory.
+- Changes to the dynamic fitting results API.
 
 1.1.8 (Tuesday 5th October 2021)
--------------------------------
+--------------------------------
 - Fix bug in fsl_mrsi when default MM are added to a incorrectly conjugated basis set.
 - Fix MRM reference in HTML report.
 
