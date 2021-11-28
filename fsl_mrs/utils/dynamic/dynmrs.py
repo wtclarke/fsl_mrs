@@ -228,7 +228,7 @@ class dynMRS(object):
         :type init: dict, optional
         :param verbose: Verbosity flag, defaults to False
         :type verbose: bool, optional
-        :return: Tuple containing dedicated results object, list of fitRes objects, optimisation output (Newton only)
+        :return: Tuple containing dedicated results object, and optimisation output (Newton only)
         :rtype: tuple
         """
         if verbose:
@@ -258,25 +258,18 @@ class dynMRS(object):
         # Results
         if verbose:
             print('Collect results')
-        # 1. Create dedicated dynamic fit results
+        # Create dedicated dynamic fit results
         if method.lower() == 'newton':
             results = dyn_results.dynRes_newton(sol.x, self, init)
         elif method.lower() == 'mh':
             results = dyn_results.dynRes_mcmc(x, self, init)
         else:
             raise (Exception(f'Unrecognised method {method}'))
-        # 2. Create a list of fitRes objects for each timepoint for fsl_mrs like capabilities
-        res_list = self._form_FitRes(
-            x,
-            self._fit_args['model'],
-            method,
-            self._fit_args['ppmlim'],
-            self._fit_args['baseline_order'])
 
         if verbose:
             print(f"...completed in {time.time()-end_fit_time} seconds.")
 
-        return {'result': results, 'resList': res_list, 'optimisation_sol': sol}
+        return results, sol
 
     def fit_mean_spectrum(self):
         """Return the parameters from the fit of the mean spectra stored in mrs_list."""
@@ -288,12 +281,12 @@ class dynMRS(object):
         mean_mrs.FID = mean_fid
         return fitting.fit_FSLModel(mean_mrs, method='Newton', **self._fit_args).params
 
-    def initialise(self, indiv_init=None, verbose=False):
+    def initialise(self, indiv_init='mean', verbose=False):
         """Initialise the dynamic fitting using seperate fits of each spectrum.
 
         :param indiv_init: Optional initilisation of individual fits.
             Can be a numpy array of mapped parameters, 'mean' (fits the mean spectrum), or None (independent).
-            Defaults to None
+            Defaults to 'mean'.
         :param verbose: Print information during fitting, defaults to False
         :type verbose: bool, optional
         :return: Dict containing free parameters and individual FitRes objects
@@ -460,7 +453,7 @@ class dynMRS(object):
             fwd[time_index, :] = self.forward[time_index](p)
         return fwd.flatten()
 
-    def _form_FitRes(self, x, model, method, ppmlim, baseline_order):
+    def form_FitRes(self, x, method):
         """Create list of FitRes object"""
         _, _, _, base_poly, metab_groups, _, _, _ = self._get_constants(
             self.mrs_list[0],
@@ -486,13 +479,13 @@ class dynMRS(object):
         dynresList = []
         for t in range(self.vm.ntimes):
             mrs = self.mrs_list[t]
-            results = FitRes(model,
+            results = FitRes(self._fit_args['model'],
                              method,
                              mrs.names,
                              metab_groups,
-                             baseline_order,
+                             self._fit_args['baseline_order'],
                              base_poly,
-                             ppmlim)
+                             self._fit_args['ppmlim'])
             results.loadResults(mrs, mapped[t])
             dynresList.append(results)
         return dynresList

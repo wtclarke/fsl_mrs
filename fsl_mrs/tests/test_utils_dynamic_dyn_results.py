@@ -50,11 +50,9 @@ def test_dynRes(fixed_ratio_mrs):
         baseline_order=0,
         metab_groups=[0, 0],
         rescale=False)
-    res = dyn_obj.fit()
+    res_obj = dyn_obj.fit()[0]
 
     resinit = dyn_obj.initialise()
-
-    res_obj = res['result']
 
     import plotly
     fig = res_obj.plot_spectra(init=True, fit_to_init=True)
@@ -102,9 +100,8 @@ def test_dynRes_newton(fixed_ratio_mrs):
         baseline_order=0,
         metab_groups=[0, 0],
         rescale=False)
-    res = dyn_obj.fit()
+    res_obj = dyn_obj.fit()[0]
 
-    res_obj = res['result']
     assert isinstance(res_obj.cov_dyn, pd.DataFrame)
     assert res_obj.cov_dyn.shape == (10, 10)
 
@@ -122,6 +119,9 @@ def test_dynRes_newton(fixed_ratio_mrs):
     assert isinstance(res_obj.mapped_params, pd.DataFrame)
     assert res_obj.mapped_params.shape == (2, 8)
 
+    assert isinstance(res_obj.reslist, list)
+    assert len(res_obj.reslist) == 2
+
 
 def test_dynRes_mcmc(fixed_ratio_mrs):
     """Test mcmc optimiser specific components"""
@@ -136,9 +136,8 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
 
-    res = dyn_obj.fit(method='MH', mh_jumps=20)
+    res_obj = dyn_obj.fit(method='MH', mh_jumps=20)[0]
 
-    res_obj = res['result']
     assert isinstance(res_obj.cov_dyn, pd.DataFrame)
     assert res_obj.cov_dyn.shape == (10, 10)
 
@@ -169,7 +168,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
         metab_groups=[0, 0],
         rescale=False)
 
-    res = dyn_obj.fit()['result']
+    res = dyn_obj.fit()[0]
 
     res.save(tmp_path / 'res_save_test')
     res_loaded = dyn.load_dyn_result(tmp_path / 'res_save_test', dyn_obj)

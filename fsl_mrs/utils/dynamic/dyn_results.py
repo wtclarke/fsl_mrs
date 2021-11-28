@@ -529,6 +529,15 @@ class dynRes_mcmc(dynRes):
         super().__init__(samples, dyn, init)
 
     @property
+    def reslist(self):
+        """Generate a list of (independent) results objects.
+
+        :return: List of FitRes objects.
+        :rtype: list
+        """
+        return self._dyn.form_FitRes(self.dataframe.to_numpy(), 'MH')
+
+    @property
     def cov_dyn(self):
         """Returns the covariance matrix of free parameters
 
@@ -610,6 +619,15 @@ class dynRes_newton(dynRes):
                 s.append(np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T)))
             std[name] = np.array(s).T
         self._std = std
+
+    @property
+    def reslist(self):
+        """Generate a list of (independent) results objects.
+
+        :return: List of FitRes objects.
+        :rtype: list
+        """
+        return self._dyn.form_FitRes(self.x, 'Newton')
 
     @property
     def cov_dyn(self):
