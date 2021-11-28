@@ -70,6 +70,16 @@ def test_nifti_mrs_generator():
                              0, 0)
         break
 
+    for gen_data, slice_idx in obj.iterate_over_dims(dim='DIM_COIL'):
+        assert gen_data.shape == (1, 1, 1, 4096, 32)
+        assert slice_idx == (slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             0)
+        break
+
     for gen_data, slice_idx in obj.iterate_over_dims(dim='DIM_DYN'):
         assert gen_data.shape == (1, 1, 1, 4096, 64)
         assert slice_idx == (slice(None, None, None),
@@ -88,6 +98,32 @@ def test_nifti_mrs_generator():
                                                      reduce_dim_index=True):
         assert gen_data.shape == (4096, 64)
         assert slice_idx == (0, 0, 0, slice(None, None, None), 0)
+        break
+
+    obj2 = gen_new_nifti_mrs(
+        np.zeros((1, 1, 1, 100, 2, 10), dtype=complex),
+        0.0005,
+        120.0,
+        dim_tags=['DIM_EDIT', 'DIM_DYN', None])
+
+    for gen_data, slice_idx in obj2.iterate_over_dims(dim='DIM_DYN'):
+        assert gen_data.shape == (1, 1, 1, 100, 10)
+        assert slice_idx == (slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             0,
+                             slice(None, None, None))
+        break
+
+    for gen_data, slice_idx in obj2.iterate_over_dims(dim='DIM_EDIT'):
+        assert gen_data.shape == (1, 1, 1, 100, 2)
+        assert slice_idx == (slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             slice(None, None, None),
+                             0)
         break
 
 
