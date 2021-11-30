@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.9 (WIP)
--------------------------------
+1.1.9 (Tuesday 30th November 2021)
+----------------------------------
 - Fixed typos in fsl_mrs_proc help.
 - Fixed simulator bug for edited sequence coherence filters.
 - Modified API of syntheticFromBasis function.
@@ -11,6 +11,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Added MH sample option to fsl_mrs, matches interactive python interface.
 - Changes to the dynamic fitting results API.
 - Allow tissue fractions with larger errors, but normalise. Error thrown if sum < 0.9.
+- Specialist phase & frequency alignment via dynamic fitting added.
+- Added fsl_mrs_preproc_edit as a script for preprocessing edited data.
 
 1.1.8 (Tuesday 5th October 2021)
 --------------------------------

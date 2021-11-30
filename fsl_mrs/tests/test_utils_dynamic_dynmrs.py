@@ -150,7 +150,8 @@ def test_dynMRS_fit(fixed_ratio_mrs):
         baseline_order=0,
         metab_groups=[0, 0],
         rescale=False)
-    res, _ = dyn_obj.fit()
+    init = dyn_obj.initialise(indiv_init=None)
+    res, _ = dyn_obj.fit(init=init)
 
     concs = res.data_frame.filter(like='conc').to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
