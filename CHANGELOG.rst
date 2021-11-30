@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.9 (WIP)
--------------------------------
+1.1.9 (Tuesday 30th November 2021)
+----------------------------------
 - Fixed typos in fsl_mrs_proc help.
 - Fixed simulator bug for edited sequence coherence filters.
 - Modified API of syntheticFromBasis function.
