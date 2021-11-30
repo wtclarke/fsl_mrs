@@ -17,7 +17,7 @@ A basic call to :code:`fsl_mrs`, the SVS wrapper script, is as follows:
             --basis my_basis_spectra \
             --output example_fit
 
-This will run nonlinear optimisation using the Truncated Newton algorithm, as implemented in Scipy, and will produce a simple PNG file summarising the fit, and several CSV files containing concentrations, uncertainties, and QC parameters for further analysis. 
+This will run non-linear optimisation using the Truncated Newton algorithm, as implemented in Scipy, and will produce a simple PNG file summarising the fit, and several CSV files containing concentrations, uncertainties, and QC parameters for further analysis. 
 
 A more complete call to :code:`fsl_mrs` may be as follows.
 
@@ -67,31 +67,31 @@ Output
 Results from :code:`fsl_mrsi` are stored in a single folder containing the following output:
 
 - An interactive HTML report showing the fit to the average FID across all voxels in the mask.
-- NIFTI files summarising parameters, concentrations, and QC measures (one such file per metabolite)
-- Model prediction in the time domain (NIFTI)
-- Residuals (NIFTI)
-- Fitted Baseline (NIFTI)
+- NIfTI files summarising parameters, concentrations, and QC measures (one such file per metabolite)
+- Model prediction in the time domain (NIfTI)
+- Residuals (NIfTI)
+- Fitted Baseline (NIfTI)
 
-The above NIFTI output can all be visualied in FSLeyes alongside the original data.
+The above NIfTI output can all be visualised in FSLeyes alongside the original data.
 
 Python & Interactive Interface
 ------------------------------
 
 FSL-MRS can also be used in an interactive Python environment. The following is an example fitting and visualisation of data that has already been processed (e.g. with :code:`fsl_mrs_proc`). 
 
-In an IPython or Jupyter Notebook environment, run the follwing (the example data resides in the main :code:`fsl_mrs` package folder):
+In an IPython or Jupyter Notebook environment, run the following (the example data resides in the main :code:`fsl_mrs` package folder):
 
 Loading and preparing the data:
 
 ::
 
-    from fsl_mrs import MRS
+    from fsl_mrs.utils import mrs_io
 
     FID_file     = 'example_usage/example_data/metab.nii'
     basis_folder = 'example_usage/example_data/steam_11ms'    
 
-    mrs = MRS()
-    mrs.from_files(FID_file,basis_folder)
+    data = mrs_io.read_FID(FID_file)
+    mrs = data.mrs(basis_file=basis_folder)
     mrs.processForFitting()
 
 Fitting the model to the data:

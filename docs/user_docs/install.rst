@@ -24,7 +24,7 @@ The primary installation method is via *conda*. After installing conda and creat
 ::
 
     conda install -c conda-forge -c defaults \
-                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
+                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
                   fsl_mrs
 
 Example data with conda

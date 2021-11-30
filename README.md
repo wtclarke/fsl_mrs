@@ -21,7 +21,7 @@ Then activate the environment:
 Finally install FSL-MRS and its dependencies from the FSL conda channel.
 
     conda install -c conda-forge -c defaults \
-                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ \
+                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
                   fsl_mrs
 
 ### Source code
