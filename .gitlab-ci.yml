@@ -83,7 +83,7 @@ pytest:
   - source ~/.bashrc 
   - conda create -n fsl_mrs -y python=3.7
   - conda activate fsl_mrs
-  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/channel/ --file requirements.txt
+  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
   - conda install -y -c conda-forge pytest
   - pip install .
   script:

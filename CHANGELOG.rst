@@ -13,6 +13,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Allow tissue fractions with larger errors, but normalise. Error thrown if sum < 0.9.
 - Specialist phase & frequency alignment via dynamic fitting added.
 - Added fsl_mrs_preproc_edit as a script for preprocessing edited data.
+- Updated documentation with new install instructions.
+- Updated interactive fitting documentation
 
 1.1.8 (Tuesday 5th October 2021)
 --------------------------------
