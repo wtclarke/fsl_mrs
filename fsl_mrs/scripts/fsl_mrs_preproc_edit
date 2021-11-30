@@ -53,6 +53,11 @@ def main():
                           help='Do not average repetitions.')
     optional.add_argument('--hlsvd', action="store_true",
                           help='Apply HLSVD for residual water removal.')
+    optional.add_argument('--dynamic_align', action="store_true",
+                          help='Align spectra based on dynamic fitting. Must specify dynamic basis sets.')
+    optional.add_argument('--dynamic_basis', type=str, nargs=2,
+                          help='Paths to the two editing condition basis sets. '
+                          'Only needed if --dynamic_align is specified.')
     optional.add_argument('--leftshift', type=int, metavar='POINTS',
                           help='Remove points at the start of the fid.')
     optional.add_argument('--dynamic_align_ppm', type=float, nargs=2, default=(1.9, 4.2),
@@ -82,7 +87,9 @@ def main():
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import shutil
+    import numpy as np
     from fsl_mrs.utils.preproc import nifti_mrs_proc
+    from fsl_mrs.utils.preproc import dyn_based_proc as dproc
     from fsl_mrs.utils import nifti_mrs_tools as ntools
     from fsl_mrs.utils import plotting
     from fsl_mrs.utils import mrs_io
@@ -211,6 +218,29 @@ def main():
         report=report_dir,
         report_all=True)
 
+    if args.dynamic_align:
+        # Run dynamic fitting based alignment
+        edit_0, edit_1 = ntools.split(supp_data, 'DIM_EDIT', 0)
+
+        basis_0 = mrs_io.read_basis(args.dynamic_basis[0])
+        basis_1 = mrs_io.read_basis(args.dynamic_basis[1])
+
+        fitargs_0 = {'baseline_order': 1,
+                     'model': 'lorentzian',
+                     'ppmlim': (0.2, 4.2)}
+        fitargs_1 = {'baseline_order': 1,
+                     'model': 'lorentzian',
+                     'ppmlim': (2.0, 4.2)}
+
+        edit_0_aligned, eps0, phi0 = dproc.align_by_dynamic_fit(edit_0, basis_0, fitargs_0)
+        edit_1_aligned, eps1, phi1 = dproc.align_by_dynamic_fit(edit_1, basis_1, fitargs_1)
+
+        if report_dir is not None:
+            dproc.align_by_dynamic_fit_report(edit_0, edit_0_aligned, eps0, phi0, html=report_dir)
+            dproc.align_by_dynamic_fit_report(edit_1, edit_1_aligned, eps1, phi1, html=report_dir)
+
+        supp_data = ntools.merge([edit_0_aligned, edit_1_aligned], 'DIM_EDIT')
+
     if 'DIM_DYN' in ref_data.dim_tags:
         ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
 
@@ -289,13 +319,36 @@ def main():
         final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
     # Align between edit dimension
-    metab_edit_align = nifti_mrs_proc.align(
-        supp_data,
-        'DIM_EDIT',
-        ppmlim=args.edit_align_ppm,
-        niter=4,
-        apodize=0.0,
-        report=report_dir)
+    if args.dynamic_align and args.average:
+        metab_edit_align, eps, phi = dproc.align_by_dynamic_fit(supp_data, [basis_0, basis_1], fitargs_1)
+        if report_dir is not None:
+            dproc.align_by_dynamic_fit_report(supp_data, metab_edit_align, eps, phi, html=report_dir)
+
+    elif args.dynamic_align:
+        # Do not average and dynamic alignment
+        # Work out alignement on averaged data
+        supp_data_avg = nifti_mrs_proc.average(supp_data, 'DIM_DYN')
+        metab_edit_align, eps, phi = dproc.align_by_dynamic_fit(supp_data_avg, [basis_0, basis_1], fitargs_1)
+
+        # Split, apply correction, recombine...
+        unavg_0 = ntools.split(supp_data, 'DIM_EDIT', 0)
+        unavg_1 = ntools.split(supp_data, 'DIM_EDIT', 0)
+        unavg_0_aligned = nifti_mrs_proc.fshift(unavg_0, eps[0] * 1 / (2 * np.pi))
+        unavg_0_aligned = nifti_mrs_proc.apply_fixed_phase(unavg_0_aligned, phi[0] * 180 / np.pi)
+
+        unavg_1_aligned = nifti_mrs_proc.fshift(unavg_1, eps[1] * 1 / (2 * np.pi))
+        unavg_1_aligned = nifti_mrs_proc.apply_fixed_phase(unavg_1_aligned, phi[1] * 180 / np.pi)
+
+        metab_edit_align = ntools.merge([unavg_0_aligned, unavg_1_aligned], 'DIM_EDIT')
+
+    else:
+        metab_edit_align = nifti_mrs_proc.align(
+            supp_data,
+            'DIM_EDIT',
+            ppmlim=args.edit_align_ppm,
+            niter=4,
+            apodize=0.0,
+            report=report_dir)
 
     # Differencing
     metab_diff = nifti_mrs_proc.subtract(metab_edit_align, dim='DIM_EDIT', figure=False)
