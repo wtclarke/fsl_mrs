@@ -27,6 +27,14 @@ The primary installation method is via *conda*. After installing conda and creat
                   -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
                   fsl_mrs
 
+To check the version installed run :code:`fsl_mrs --version`. FSL-MRS can be updated by running :code:`conda update`:
+
+::
+
+    conda update -c conda-forge -c defaults \
+                  -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
+                  fsl_mrs
+
 Example data with conda
 -----------------------
 Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data|_.

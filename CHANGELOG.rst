@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.10 (WIP)
+----------------------------------
+- Updates to fsl_mrs_preproc_edit
+- Updated install documentation.
+
 1.1.9 (Tuesday 30th November 2021)
 ----------------------------------
 - Fixed typos in fsl_mrs_proc help.

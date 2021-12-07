@@ -55,15 +55,17 @@ def main():
                           help='Apply HLSVD for residual water removal.')
     optional.add_argument('--dynamic_align', action="store_true",
                           help='Align spectra based on dynamic fitting. Must specify dynamic basis sets.')
+    optional.add_argument('--dynamic_align_edit', action="store_true",
+                          help='Align conditions based on dynamic fitting. Must specify dynamic basis sets.')
     optional.add_argument('--dynamic_basis', type=str, nargs=2,
                           help='Paths to the two editing condition basis sets. '
                           'Only needed if --dynamic_align is specified.')
     optional.add_argument('--leftshift', type=int, metavar='POINTS',
                           help='Remove points at the start of the fid.')
-    optional.add_argument('--dynamic_align_ppm', type=float, nargs=2, default=(1.9, 4.2),
+    optional.add_argument('--align_ppm_dynamic', type=float, nargs=2, default=(1.9, 4.2),
                           help='PPM limit for dynamics dimension alignment. Default=(0.0, 4.2).')
-    optional.add_argument('--edit_align_ppm', type=float, nargs=2, default=(2.5, 4.2),
-                          help='PPM limit for edit dimension alignment. Default=(2.5, 4.2).')
+    optional.add_argument('--align_ppm_edit', type=float, nargs=2, default=None,
+                          help='PPM limit for edit dimension alignment. Default=full spectrum.')
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
                           help='structural image (for report)')
     optional.add_argument('--verbose', action="store_true",
@@ -212,7 +214,7 @@ def main():
     supp_data = nifti_mrs_proc.align(
         supp_data,
         'DIM_DYN',
-        ppmlim=args.dynamic_align_ppm,
+        ppmlim=args.align_ppm_dynamic,
         niter=4,
         apodize=0.0,
         report=report_dir,
@@ -319,12 +321,12 @@ def main():
         final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
     # Align between edit dimension
-    if args.dynamic_align and args.average:
+    if args.dynamic_align_edit and args.average:
         metab_edit_align, eps, phi = dproc.align_by_dynamic_fit(supp_data, [basis_0, basis_1], fitargs_1)
         if report_dir is not None:
             dproc.align_by_dynamic_fit_report(supp_data, metab_edit_align, eps, phi, html=report_dir)
 
-    elif args.dynamic_align:
+    elif args.dynamic_align_edit:
         # Do not average and dynamic alignment
         # Work out alignement on averaged data
         supp_data_avg = nifti_mrs_proc.average(supp_data, 'DIM_DYN')
@@ -345,9 +347,9 @@ def main():
         metab_edit_align = nifti_mrs_proc.align(
             supp_data,
             'DIM_EDIT',
-            ppmlim=args.edit_align_ppm,
+            ppmlim=args.align_ppm_edit,
             niter=4,
-            apodize=0.0,
+            apodize=10.0,
             report=report_dir)
 
     # Differencing
