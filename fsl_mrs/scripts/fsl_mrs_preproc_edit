@@ -349,7 +349,7 @@ def main():
             'DIM_EDIT',
             ppmlim=args.align_ppm_edit,
             niter=4,
-            apodize=0.0,
+            apodize=10.0,
             report=report_dir)
 
     # Differencing
