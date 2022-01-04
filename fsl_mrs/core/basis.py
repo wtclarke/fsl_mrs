@@ -80,6 +80,9 @@ class Basis:
         # This only has bearing on the plotting currently
         self._nucleus = '1H'
 
+        # Default interpolation is Fourier Transform based.
+        self._use_fourier_interp = True
+
     @classmethod
     def from_file(cls, filepath):
         """Create a Basis object from a path
@@ -173,6 +176,17 @@ class Basis:
     def nucleus(self, nucleus):
         """Set the nucleus string - only affects plotting"""
         self._nucleus = nucleus
+
+    @property
+    def use_fourier_interp(self):
+        """Return interpolation state"""
+        return self._use_fourier_interp
+
+    @use_fourier_interp.setter
+    def use_fourier_interp(self, true_false):
+        """Set to true to use FFT based interpolation (default)
+        Or set to False to use time domain linear interpolation."""
+        self._use_fourier_interp = true_false
 
     def save(self, out_path, overwrite=False, info_str=''):
         """Saves basis held in memory to a directory in FSL-MRS format.
@@ -299,10 +313,16 @@ class Basis:
            coverage than the FID.
         """
         try:
-            basis = misc.ts_to_ts(self._raw_fids,
-                                  self.original_dwell,
-                                  target_dwell,
-                                  target_points)
+            if self.use_fourier_interp:
+                basis = misc.ts_to_ts_ft(self._raw_fids,
+                                         self.original_dwell,
+                                         target_dwell,
+                                         target_points)
+            else:
+                basis = misc.ts_to_ts(self._raw_fids,
+                                      self.original_dwell,
+                                      target_dwell,
+                                      target_points)
         except misc.InsufficentTimeCoverageError:
             raise BasisHasInsufficentCoverage('The basis spectra covers too little time. '
                                               'Please reduce the dwelltime, number of points or pad this basis.')
