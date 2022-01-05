@@ -4,6 +4,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 ----------------------------------
 - Updates to fsl_mrs_preproc_edit
 - Updated install documentation.
+- Implemented new fft based interpolation of basis sets. Improves suppression of interpolation aliasing.
 
 1.1.9 (Tuesday 30th November 2021)
 ----------------------------------
