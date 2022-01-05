@@ -262,20 +262,23 @@ def ts_to_ts_ft(old_ts, old_dt, new_dt, new_n):
     npoints_f = (new_bw - old_bw) / (old_bw / old_ts.shape[0])
     npoints_f_half = int(np.round(npoints_f / 2))
 
+    # scale_factor = np.abs(float(npoints_f_half) * 2.0) / new_n
     if npoints_f_half < 0:
         # New bandwidth is smaller than old. Truncate
         npoints_f_half *= -1
         step1 = s2f(old_fs[npoints_f_half:-npoints_f_half])
     elif npoints_f_half > 0:
         # New bandwidth is larger than old. Pad
-        npoints_f_half
-        step1 = s2f(np.pad(old_fs, (npoints_f_half, npoints_f_half), 'constant', constant_values=(0j, 0j)))
+        step1 = s2f(np.pad(old_fs, ((npoints_f_half, npoints_f_half), (0, 0)), 'constant', constant_values=(0j, 0j)))
     else:
         step1 = s2f(old_fs)
 
+    # Scaling for different length fft/ifft
+    step1 = step1 * step1.shape[0] / old_fs.shape[0]
+
     # Step 2: pad or truncate in the temporal domain
     if step1.shape[0] < new_n:
-        step2 = np.pad(step1, (0, new_n - step1.shape[0]), 'constant', constant_values=(0j, 0j))
+        step2 = np.pad(step1, ((0, new_n - step1.shape[0]), (0, 0)), 'constant', constant_values=(0j, 0j))
     else:
         step2 = step1[:new_n]
 

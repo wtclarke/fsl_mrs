@@ -123,6 +123,40 @@ def test_formatting():
     assert np.isclose(np.linalg.norm(np.mean(no_scale * rescale[0], axis=1)), 100)
 
 
+def test_formatting_linear_interp():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+    original.use_fourier_interp = False
+
+    with pytest.raises(basis_mod.BasisHasInsufficentCoverage) as exc_info:
+        original.get_formatted_basis(2000, 2048)
+    assert exc_info.type is basis_mod.BasisHasInsufficentCoverage
+    assert exc_info.value.args[0] == 'The basis spectra covers too little time. '\
+                                     'Please reduce the dwelltime, number of points or pad this basis.'
+
+    basis = original.get_formatted_basis(2000, 1024)
+    assert basis.shape == (1024, 21)
+
+    basis = original.get_formatted_basis(2000, 1024, ignore=['Ins', 'Cr'])
+    assert basis.shape == (1024, 19)
+
+    basis = original.get_formatted_basis(2000, 1024, ignore=['Ins', 'Cr'], scale_factor=100)
+    assert np.isclose(np.linalg.norm(np.mean(basis, axis=1)), 100)
+
+    names = original.get_formatted_names(ignore=['Ins', 'Cr'])
+    assert 'Ins' not in names
+    assert 'Cr' not in names
+
+    basis = original.get_formatted_basis(2000, 1024, ignore=['Ins', 'Cr'], scale_factor=100, indept_scale=['Mac'])
+    index = original.get_formatted_names(ignore=['Ins', 'Cr']).index('Mac')
+    assert np.isclose(np.linalg.norm(np.mean(np.delete(basis, index, axis=1), axis=1)), 100)
+    assert np.isclose(np.linalg.norm(basis[:, index]), 100)
+
+    # Test rescale
+    rescale = original.get_rescale_values(2000, 1024, ignore=['Ins', 'Cr'], scale_factor=100)
+    no_scale = original.get_formatted_basis(2000, 1024, ignore=['Ins', 'Cr'])
+    assert np.isclose(np.linalg.norm(np.mean(no_scale * rescale[0], axis=1)), 100)
+
+
 def test_add_fid():
     original = basis_mod.Basis.from_file(fsl_basis_path)
 

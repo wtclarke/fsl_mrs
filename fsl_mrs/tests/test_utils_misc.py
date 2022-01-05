@@ -110,3 +110,36 @@ def test_parse_metab_groups():
     # List of integers
     assert misc.parse_metab_groups(mrs, [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])\
         == [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]
+
+
+def test_interpolation():
+    target_bw = 2000
+    target_n = 1024
+    fid_full, hdr_full = synth.syntheticFID(bandwidth=8000, points=8192, noisecovariance=[[0.0]])
+    fid_reduced, hdr_reduced = synth.syntheticFID(bandwidth=target_bw, points=target_n, noisecovariance=[[0.0]])
+
+    interp_lin = misc.ts_to_ts(fid_full[0], 1 / 8000, 1 / target_bw, target_n)
+    interp_ft = misc.ts_to_ts_ft(fid_full[0], 1 / 8000, 1 / target_bw, target_n)
+
+    # import matplotlib.pyplot as plt
+
+    # plt.plot(hdr_full['taxis'], np.squeeze(np.real(fid_full)), '-x')
+    # plt.plot(hdr_reduced['taxis'], np.squeeze(np.real(fid_reduced)), '--x')
+    # plt.plot(hdr_reduced['taxis'], np.squeeze(np.real(interp_lin)), ':x')
+    # plt.plot(hdr_reduced['taxis'], np.squeeze(np.real(interp_ft)), ':x')
+    # plt.xlim([-0.001, 0.1])
+    # plt.show()
+
+    # fig = plt.figure(figsize=(15,6))
+    # plt.plot(hdr_full['faxis'], np.real(plot.FID2Spec(np.asarray(np.squeeze(fid_full)))), '-')
+    # plt.plot(hdr_reduced['faxis'], np.real(plot.FID2Spec(np.asarray(np.squeeze(fid_reduced)))), '-')
+    # plt.plot(hdr_reduced['faxis'], np.squeeze(np.real(plot.FID2Spec(np.asarray(interp_lin)))), ':')
+    # plt.plot(hdr_reduced['faxis'], np.squeeze(np.real(plot.FID2Spec(np.asarray(interp_ft)))), ':')
+    # plt.xlim([-500,0])
+    # plt.show()
+
+    assert np.allclose(interp_lin, fid_reduced[0])
+
+    # We know the first few points are corrupted in the fft version, but that will appear at edge
+    # of the spectrum
+    assert np.allclose(interp_ft[10:-10], np.asarray(fid_reduced[0])[10:-10], atol=1E-1)
