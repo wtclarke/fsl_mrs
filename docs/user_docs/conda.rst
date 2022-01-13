@@ -1,4 +1,5 @@
 .. _conda:
+
 :orphan:
 
 ===========
@@ -8,13 +9,13 @@ Conda Guide
 This is a short guide on setting up conda for the first time.
 
 1. Download and install a python 3.7 version of Miniconda from the `package website <https://docs.conda.io/en/latest/miniconda.html>`_.
-2. Create a conda enviroment.
+2. Create a conda environment.
 
 ::
 
     conda create --name fsl_mrs -c conda-forge python=3.7
 
-3. Activate the enviroment.
+3. Activate the environment.
 
 ::
 

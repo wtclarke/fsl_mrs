@@ -216,6 +216,75 @@ def ts_to_ts(old_ts, old_dt, new_dt, new_n):
     return new_ts
 
 
+def ts_to_ts_ft(old_ts, old_dt, new_dt, new_n):
+    """Temporal resampling using Fourier transform based resampling
+
+    Using the method implemented in LCModel:
+    1. Data is padded or truncated in the spectral domain to match the bandwidth of the target.
+    The ifft then returns the time domain data with the right overall length.
+    2. The data is then padded or truncated in the time domain to the length of the target.
+    If the data is then FFT it return the interpolated data.
+
+    :param old_ts: Input time-domain data
+    :type old_ts: numpy.ndarray
+    :param old_dt: Input dwelltime
+    :type old_dt: float
+    :param new_dt: Target dwell time
+    :type new_dt: float
+    :param new_n: Target number of points
+    :type new_n: int
+    :rtype: numpy.ndarray
+    """
+
+    old_n = old_ts.shape[0]
+    old_t = np.linspace(old_dt, old_dt * old_n, old_n) - old_dt
+    new_t = np.linspace(new_dt, new_dt * new_n, new_n) - new_dt
+    # Round to nanoseconds
+    old_t = np.round(old_t, 9)
+    new_t = np.round(new_t, 9)
+
+    if new_t[-1] > old_t[-1]:
+        raise InsufficentTimeCoverageError('Input data covers less time than is requested by interpolation.'
+                                           ' Change interpolation points or dwell time.')
+
+    def f2s(x):
+        return np.fft.fftshift(np.fft.fft(x, axis=0), axes=0)
+
+    def s2f(x):
+        return np.fft.ifft(np.fft.ifftshift(x, axes=0), axis=0)
+
+    # Input data to frequency domain
+    old_fs = f2s(old_ts)
+
+    # Step 1: pad or truncate in the frequency domain
+    new_bw = 1 / new_dt
+    old_bw = 1 / old_dt
+    npoints_f = (new_bw - old_bw) / (old_bw / old_ts.shape[0])
+    npoints_f_half = int(np.round(npoints_f / 2))
+
+    # scale_factor = np.abs(float(npoints_f_half) * 2.0) / new_n
+    if npoints_f_half < 0:
+        # New bandwidth is smaller than old. Truncate
+        npoints_f_half *= -1
+        step1 = s2f(old_fs[npoints_f_half:-npoints_f_half])
+    elif npoints_f_half > 0:
+        # New bandwidth is larger than old. Pad
+        step1 = s2f(np.pad(old_fs, ((npoints_f_half, npoints_f_half), (0, 0)), 'constant', constant_values=(0j, 0j)))
+    else:
+        step1 = s2f(old_fs)
+
+    # Scaling for different length fft/ifft
+    step1 = step1 * step1.shape[0] / old_fs.shape[0]
+
+    # Step 2: pad or truncate in the temporal domain
+    if step1.shape[0] < new_n:
+        step2 = np.pad(step1, ((0, new_n - step1.shape[0]), (0, 0)), 'constant', constant_values=(0j, 0j))
+    else:
+        step2 = step1[:new_n]
+
+    return step2
+
+
 # Numerical differentiation (light)
 # Gradient Function
 def gradient(x, f):
