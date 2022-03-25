@@ -399,14 +399,15 @@ class dynRes:
         fig.legend(handles, labels, loc='right')
         return fig
 
-    def plot_spectra(self, init=False, fit_to_init=False):
+    def plot_spectra(self, init=False, fit_to_init=False, indices=None):
         """Plot individual spectra as fitted using the dynamic model
 
         :param init: Plot the spectra as per initilisation, defaults to False
         :type init: bool, optional
         :param fit_to_init: Plot the spectra as per fitting the dynamic model to init, defaults to False
         :type fit_to_init: bool, optional
-        :param init:
+        :param indices: List of indicies to plot, defaults to None which plots all.
+        :type indices: list, optional
         :return: plotly figure
         """
         from plotly.subplots import make_subplots
@@ -427,6 +428,7 @@ class dynRes:
         dyn_fit = np.asarray(dyn_fit)
         dyn_fit_mean = np.mean(dyn_fit, axis=0)
         dyn_fit_sd = np.std(dyn_fit.real, axis=0) + 1j * np.std(dyn_fit.imag, axis=0)
+
         x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
 
         colors = dict(data='rgb(67,67,67)',
@@ -443,6 +445,13 @@ class dynRes:
             sp_titles = [f'#{idx}' for idx in range(self._dyn._t_steps)]
         else:
             sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
+
+        if indices is not None:
+            init_fit = init_fit[indices, :]
+            init_fitted_fit = init_fitted_fit[indices, :]
+            dyn_fit_mean = dyn_fit_mean[indices, :]
+            dyn_fit_sd = dyn_fit_sd[indices, :]
+            sp_titles = np.asarray(sp_titles)[indices]
 
         row, col = subplot_shape(len(sp_titles))
 
