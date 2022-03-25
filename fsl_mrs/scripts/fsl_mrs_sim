@@ -74,6 +74,10 @@ def main():
                           required=False, metavar='ECHOTIME',
                           help='Echo time value in ms for output files (no effect on simulation).')
 
+    optional.add_argument('--num_processes', type=int,
+                          required=False, default=None,
+                          help='Number of worker processes to use in simulation, defaults to os.cpu_count().')
+
     # optional.add_argument('--verbose',action="store_true",
     #                help='spit out verbose info')
     optional.add_argument('--overwrite', action="store_true",
@@ -216,7 +220,8 @@ def main():
     # Loop over the spin systems (list) in a parallel way
     poolFunc = partial(runSimForMetab, seqParams=seqParams, args=args)
     poolArgs = [(i, s, n) for i, (s, n) in enumerate(zip(spinsys, spinsToSim))]
-    pool = mp.Pool()
+    # handle number of processes
+    pool = mp.Pool(args.num_processes)
     pool.starmap(poolFunc, poolArgs)
 
     # Additional write steps for MM and LCM basis generation
