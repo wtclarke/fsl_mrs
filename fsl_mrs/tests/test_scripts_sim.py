@@ -69,3 +69,27 @@ def test_sim(spinsys, seqparams, tmp_path):
 
     assert np.allclose(basis_j[:, names_j.index('sys1')], directSim1)
     assert np.allclose(basis_j[:, names_j.index('sys2')], directSim2)
+
+
+def test_sim_workers(spinsys, seqparams, tmp_path):
+    # Test simulation number of workers
+    # Run the sequence on a couple of metabolites, ask for all types of files, add the reference peak
+
+    ssFile = op.join(tmp_path, 'custom_ss.json')
+    outfile1 = op.join(tmp_path, 'simulated_single')
+    outfile2 = op.join(tmp_path, 'simulated_multi')
+    assert not subprocess.check_call(
+        ['fsl_mrs_sim',
+         '-s', ssFile,
+         '-o', outfile1,
+         '-r',
+         '-a', seqfile,
+         '--num_processes', '1'])
+
+    assert not subprocess.check_call(
+        ['fsl_mrs_sim',
+         '-s', ssFile,
+         '-o', outfile2,
+         '-r',
+         '-a', seqfile,
+         '--num_processes', '2'])

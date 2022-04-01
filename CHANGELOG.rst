@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.11 (WIP)
+-----------------------------
+- Now able to choose the number of workers in fsl_mrs_sim.
+- HSLVD routines now use dense (non-sparse) routine for better numerical stability
+
+
 1.1.10 (Thursday 12 January 2022)
 ---------------------------------
 - Updates to fsl_mrs_preproc_edit
