@@ -37,7 +37,7 @@ To check the version installed run :code:`fsl_mrs --version`. FSL-MRS can be upd
 
 Example data with conda
 -----------------------
-Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data|_.
+Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data_notebooks|_.
 
 
 Operating systems
