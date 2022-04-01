@@ -99,7 +99,7 @@ pages:
     GIT_LFS_SKIP_SMUDGE: "1"
     GIT_STRATEGY: clone
   only:
-    - master@wclarke/fsl_mrs
+    - branches@wclarke/fsl_mrs
     - tags@fsl/fsl_mrs
   image: python:3.7
   stage: doc
