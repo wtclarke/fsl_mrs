@@ -187,16 +187,17 @@ def siv_basis_header(header):
     """
       extracts metab names and ishift
     """
+    met_pattern = re.compile(r"\sMETABO\s*\=\s*'([^']+?)'\s*")
+    ishift_pattern = re.compile(r"\sISHIFT\s*\=\s*([0-9]+)\s*")
     metabo = []
     shifts = []
     for txt in header:
-        if txt.lower().find('metabo') > 0:
-            if txt.lower().find('metabo_') < 0:
-                content = re.search(r"'\s*([^']+?)\s*'", txt).groups()[0]
-                metabo.append(content)
-        if txt.lower().find('ishift') > 0:
-            shifts.append(int(tidy(txt).split()[-1]))
-
+        metab_str = met_pattern.search(txt)
+        ishft_str = ishift_pattern.search(txt)
+        if metab_str:
+            metabo.append(metab_str.groups()[0])
+        if ishft_str:
+            shifts.append(int(ishft_str.groups()[0]))
     return metabo, shifts
 
 
