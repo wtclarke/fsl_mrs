@@ -140,7 +140,9 @@ def main():
     hlsvd_group.add_argument('--ppm', type=float, nargs=2,
                              metavar='<lower-limit upper-limit>',
                              default=[4.5, 4.8],
-                             help='ppm limits of removal window')
+                             help='ppm limits of removal window.'
+                                  ' Defaults to 4.5 to 4.8 ppm.'
+                                  ' Includes (4.65 ppm) shift to TMS reference.')
     hlsvdparser.set_defaults(func=remove)
     add_common_args(hlsvdparser)
 
