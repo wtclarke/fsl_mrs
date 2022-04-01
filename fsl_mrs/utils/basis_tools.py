@@ -38,7 +38,10 @@ def convert_lcm_basis(path_to_basis, output_location=None):
     # 1. Read LCModel basis
     basis = mrs_io.read_basis(path_to_basis)
 
-    # 2. Write to new location
+    # 2. Conjugate to preserve the sense w.r.t. FSL-MRS useage.
+    basis = conjugate_basis(basis)
+
+    # 3. Write to new location
     sim_info = f'Converted from {str(path_to_basis)}'
     if output_location is None:
         basis.save(path_to_basis.stem, info_str=sim_info)
