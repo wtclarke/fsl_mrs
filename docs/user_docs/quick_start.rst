@@ -2,10 +2,20 @@
 
 Quick Start Guide
 =================
+This page aims to take you though fitting your first set of data in FSL-MRS. This web-based guide is now supplemented with a dedicated MRS section in the online FSL Course.
 
+FSL Course
+----------
+The `FSL Course <https://open.win.ox.ac.uk/pages/fslcourse/website/index.html>`_ now contains a dedicated section on MRS. This includes three videos on:
 
-Summary
--------
+1. `An introduction to MRS analysis <https://youtu.be/rt-oP_XNqSQ>`_
+2. `MRS pre-processing <https://youtu.be/L7V5Ffhf4EM>`_
+3. `MRS fitting <https://youtu.be/tLJG28Gs_xE>`_
+
+and an `online written practical <https://open.win.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html>`_. Data for the practical is available by following the `online instructions <https://open.win.ox.ac.uk/pages/fslcourse/website/downloads.html>`_.
+
+Online Guide
+------------
 Below we describe an end-to-end pipeline that includes data conversion, processing, model fitting, quantification, and visualisation of the results. To apply this step to the example data provided with FSL-MRS see the `example_usage` section in the main package.
 
 

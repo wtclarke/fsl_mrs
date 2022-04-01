@@ -4,9 +4,16 @@ Basis Spectra Simulation
 ========================
 The linear combination fitting method used by FSL-MRS requires the user to specify basis spectra. A basis spectrum must be supplied for each fitted metabolite. The basis spectra are specific to a sequence type, the precise sequence timings and RF pulses in the sequence. Each basis spectrum is effectively a “fingerprint” for a metabolite that will be scaled and manipulated simultaneously with all the other basis spectra during the fitting optimisation. Whilst the basis spectra can be generated from scanning phantoms, the recommended way is via simulation of the spectra using either a third-party software or FSL-MRS's own density matrix simulator. 
 
-Creation of basis spectra is a difficult step in the analysis of MRS data, with plenty of pitfalls even for experienced users. Please consult with local MRS experts or the technical community on the `MRSHub forums <https://forum.mrshub.org/>`_ for assistance and recommendations. The developers of FSL-MRS are aware that this area of the analysis pipeline remains a difficult stage and efforts are continuing to improve it for users.
-
 FSL-MRS's simulation software may be accessed through the :code:`fsl_mrs_sim` command line program. This section describes how to construct a description of your sequence, run the simulation and the format of the output basis spectra. Please see the dedicated simulation page for detailed information for the underlying simulation library. 
+
+Getting started
+---------------
+Creation of basis spectra is a difficult step in the analysis of MRS data, with plenty of pitfalls even for experienced users. Please consult with local MRS experts or the technical community on the `MRSHub forums <https://forum.mrshub.org/>`_ for assistance and recommendations. The developers of FSL-MRS are aware that this area of the analysis pipeline remains a difficult stage and efforts are continuing to improve it for users. To that aim we have created two  resources for understanding basis set simulation in FSL-MRS:
+
+1. The  section of the online |fsl_course|_ dedicated to MRS `basis set simulation <https://open.win.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html#seq_description>`_.
+
+2. The description in this documentation and the example python notebook `Example basis spectra creation.ipynb`, downloadable from this link: |fslmrs_pkg_data_notebooks|_.
+
 
 Describing a sequence – the sequence file format 
 ------------------------------------------------
@@ -28,7 +35,7 @@ MEGA‐PRESS [-1,1,1,-1,-1]
 
 For more information on coherence filters see this `reference <https://www.ncbi.nlm.nih.gov/pubmed/30390346>`_. The filter must end on –1. This is the only detected coherence in the simulator. 
 
-For a description of the sequence file parameters see the :ref:`sequence file <seq_file_params>` page. Alternatively see the examples in the simulator package (examplePRESS.json & exampleSTEAM.json).
+For a description of the sequence file parameters see the :ref:`sequence file <seq_file_params>` page. Alternatively see the examples in the packaged in the `example_usage/example_data/example_sequences` directory (examplePRESS.json & exampleSTEAM.json).
 
 Please note that delays in the sequence description file do not include the duration of the pulse. I.e., the time from the centroid to the start/end of the RF pulse must be added to the delay to calculate the time between pulse centroids.
 
