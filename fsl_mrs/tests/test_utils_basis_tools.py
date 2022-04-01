@@ -28,7 +28,9 @@ def test_convert_lcmodel(tmp_path):
     new_basis = mrs_io.read_basis(out_loc)
 
     assert basis.names == new_basis.names
-    assert np.allclose(basis.original_basis_array, new_basis.original_basis_array)
+    # Check that a conjugation has taken place. This is an annoying hack at the moment because
+    # fsl_mrs_sim has the wrong handedness.
+    assert np.allclose(basis.original_basis_array, new_basis.original_basis_array.conj())
     assert np.isclose(basis.original_bw, new_basis.original_bw)
     assert np.isclose(basis.cf, new_basis.cf)
 
