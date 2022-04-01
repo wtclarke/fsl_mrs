@@ -518,7 +518,8 @@ def quantifyInternal(reference, concentrations, names):
             raise ValueError(f'Internal reference {reference} is not a recognised metabolite.')
         concSum += concentrations[names.index(reference)]
 
-    return 1 / concSum
+    with np.errstate(divide='ignore', invalid='ignore'):
+        return 1 / concSum
 
 
 def quantifyWater(mrs, results, quant_info, verbose=False):
