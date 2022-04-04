@@ -43,6 +43,16 @@ def test_convert(tmp_path):
     assert (tmp_path / 'new' / 'NAA.json').is_file()
 
 
+def test_convert_with_remove(tmp_path):
+    subprocess.check_call(['basis_tools', 'convert',
+                           '--remove_reference',
+                           str(lcm),
+                           str(tmp_path / 'new')])
+
+    assert (tmp_path / 'new').is_dir()
+    assert (tmp_path / 'new' / 'NAA.json').is_file()
+
+
 def test_add(tmp_path):
     out_loc = tmp_path / 'test_basis'
     copytree(fsl, out_loc)
@@ -121,6 +131,33 @@ def test_conj(tmp_path):
 
     subprocess.check_call(['basis_tools', 'conj',
                            '--metabolite', 'NAA',
+                           str(fsl),
+                           str(out_loc)])
+
+    assert out_loc.is_dir()
+    assert (out_loc / 'NAA.json').is_file()
+
+
+def test_remove(tmp_path):
+    out_loc = tmp_path / 'test_basis'
+
+    subprocess.check_call(['basis_tools', 'remove_peak',
+                           '--all',
+                           '--ppmlim', '1.8', '2.0',
+                           str(fsl),
+                           str(out_loc)])
+
+    assert out_loc.is_dir()
+    assert (out_loc / 'NAA.json').is_file()
+
+
+def test_remove_hlsvd(tmp_path):
+    out_loc = tmp_path / 'test_basis'
+
+    subprocess.check_call(['basis_tools', 'remove_peak',
+                           '--all',
+                           '--ppmlim', '1.8', '2.0',
+                           '--hlsvd',
                            str(fsl),
                            str(out_loc)])
 

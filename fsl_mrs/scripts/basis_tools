@@ -54,6 +54,10 @@ def main():
                                help='Input basis file or folder')
     convertparser.add_argument('output', type=Path,
                                help='Output fsl formatted folder, will be created if needed.')
+    convertparser.add_argument('--remove_reference', action="store_true",
+                               help='Remove LCModel reference peak.')
+    convertparser.add_argument('--hlsvd', action="store_true",
+                               help='Use HLSVD peak removal, rather than zeroing.')
     convertparser.set_defaults(func=convert)
 
     # Add tool - add a json formatted fid to a basis set
@@ -148,6 +152,8 @@ def main():
                         help='Specify metabolite to edit')
     mutual.add_argument('--all', action="store_true",
                         help='Edit all basis spectra.')
+    rempeakparser.add_argument('--hlsvd', action="store_true",
+                               help='Use HLSVD peak removal, rather than zeroing.')
     rempeakparser.add_argument('--ppmlim', default=(-.2, .2), type=float,
                                nargs=2, metavar=('LOW', 'HIGH'),
                                help='Peak removal ppm range (default=(-.2, .2))')
@@ -194,7 +200,19 @@ def convert(args):
     :type args: Namespace
     """
     from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
     basis_tools.convert_lcm_basis(args.input, args.output)
+
+    if args.remove_reference:
+        # TODO sort this conjugation mess out.
+        basis = read_basis(args.output)
+        basis = basis_tools.conjugate_basis(basis)
+        basis = basis_tools.remove_peak(
+            basis,
+            (-.2, .2),
+            all=True,
+            use_hlsvd=args.hlsvd)
+        basis_tools.conjugate_basis(basis).save(args.output, overwrite=True)
 
 
 def add(args):
@@ -298,7 +316,8 @@ def rem_peak(args):
         read_basis(args.file),
         args.ppmlim,
         name=args.metabolite,
-        all=args.all
+        all=args.all,
+        use_hlsvd=args.hlsvd
     ).save(args.output, overwrite=True)
 
 

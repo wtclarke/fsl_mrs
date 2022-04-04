@@ -14,7 +14,7 @@ from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.qc import idPeaksCalcFWHM
 from fsl_mrs.utils.misc import ts_to_ts, InsufficentTimeCoverageError
-from fsl_mrs.utils.preproc import hlsvd
+from fsl_mrs.utils.preproc import hlsvd, zero_spectrum
 
 
 class IncompatibleBasisError(Exception):
@@ -246,26 +246,31 @@ def difference_basis_sets(basis_1, basis_2, add_or_subtract='add', missing_metab
     return Basis(np.asarray(difference_spec), names, headers)
 
 
-def remove_peak(basis, limits, name=None, all=False):
+def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
+
+    def removal_func(fid):
+        if use_hlsvd:
+            return hlsvd(
+                fid,
+                basis.original_dwell,
+                basis.cf * 1E6,
+                limits,
+                limitUnits='ppm+shift',
+                numSingularValues=5)
+        else:
+            return zero_spectrum(
+                fid,
+                basis.original_dwell,
+                basis.cf * 1E6,
+                limits,
+                limitUnits='ppmshift')
 
     if all:
         for b, n in zip(basis.original_basis_array.T, basis.names):
-            corrected_obj = hlsvd(b,
-                                  basis.original_dwell,
-                                  basis.cf * 1E6,
-                                  limits,
-                                  limitUnits='ppm+shift',
-                                  numSingularValues=5)
-            basis.update_fid(corrected_obj, n)
+            basis.update_fid(removal_func(b), n)
     else:
         index = basis.names.index(name)
         indexed_fid = basis.original_basis_array[:, index]
-        corrected_obj = hlsvd(indexed_fid,
-                              basis.original_dwell,
-                              basis.cf * 1E6,
-                              limits,
-                              limitUnits='ppm+shift',
-                              numSingularValues=5)
-        basis.update_fid(corrected_obj, name)
+        basis.update_fid(removal_func(indexed_fid), name)
 
     return basis

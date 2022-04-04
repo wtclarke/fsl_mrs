@@ -160,6 +160,36 @@ def test_apodize():
     assert apodFID[0] == 1.0
 
 
+# Test zero_spectrum by removing one peak from a two peak fid
+def test_remove():
+    # low noise
+    testFIDs, testHdrs = syn.syntheticFID(
+        noisecovariance=[[1E-6]],
+        amplitude=[1.0, 1.0],
+        chemicalshift=[-6, 0],
+        damping=[3, 3])
+    limits = [-7, -5]
+
+    testFIDs_single, _ = syn.syntheticFID(
+        noisecovariance=[[0]],
+        amplitude=[0.0, 1.0],
+        chemicalshift=[-6, 0],
+        damping=[3, 3])
+    # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
+
+    removedFID = preproc.zero_spectrum(
+        testFIDs[0],
+        testHdrs['dwelltime'],
+        testHdrs['centralFrequency'],
+        limits,
+        limitUnits='ppm')
+
+    assert np.allclose(
+        np.real(FIDToSpec(removedFID)),
+        np.real(FIDToSpec(testFIDs_single[0])),
+        atol=1E-2, rtol=1E-2)
+
+
 # Test hlsvd by removing one peak from a two peak fid
 def test_hlsvd():
     # low noise

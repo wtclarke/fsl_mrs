@@ -1,4 +1,4 @@
-# remove.py - HLSVD-based correction
+# remove.py - Removal of peaks, zeroing or HLSVD-based correction
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -8,8 +8,36 @@
 
 import numpy as np
 import hlsvdpropy
-from fsl_mrs.utils.misc import checkCFUnits
+from fsl_mrs.utils.misc import checkCFUnits, limit_to_range, calculateAxes, FIDToSpec, SpecToFID
 from fsl_mrs.utils.constants import H2O_PPM_TO_TMS
+
+
+def zero_spectrum(FID, dwelltime, centralFrequency, limits, limitUnits='ppmshift'):
+    """Zero part of a spectrum between limits
+
+    :param FID: FID to modify
+    :type FID: nump.array
+    :param dwelltime: Dwelltime in seconds
+    :type dwelltime: float
+    :param centralFrequency: Central imaging frequency in Hz or MHz
+    :type centralFrequency: float
+    :param limits: ppm limits
+    :type limits: tuple
+    :param limitUnits: Whether limits include shift ('ppm' or 'ppmshift), defaults to 'ppmshift'
+    :type limitUnits: str, optional
+    :return: Modified FID
+    :rtype: np.array
+    """
+    ppm_axes = calculateAxes(
+        1 / dwelltime,
+        checkCFUnits(centralFrequency),
+        len(FID),
+        H2O_PPM_TO_TMS)[limitUnits]
+    first, last = limit_to_range(ppm_axes, limits)
+    spec = FIDToSpec(FID)
+    spec[first:last] = 0.0 + 1j * 0.0
+    mod_fid = SpecToFID(spec)
+    return mod_fid
 
 
 def model_fid_hlsvd(FID, dwelltime, centralFrequency, limits=None,
@@ -92,7 +120,7 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
     :return: HLSVD modeled FID
     """
     m = FID.size // 2
-    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=False)
+    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=True)
     r = hlsvdpropy.convert_hlsvd_result(r, dwelltime)
     nsv_found, singular_values, frequencies, damping_factors, amplitudes, \
         phases = r[0:6]
