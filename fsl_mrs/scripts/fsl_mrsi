@@ -107,6 +107,8 @@ def main():
                           help='Additional scaling modifier for external water referencing.')
     optional.add_argument('--report', action="store_true",
                           help='output html report')
+    optional.add_argument('--output_correlations', action="store_true",
+                          help='Output correlation matricies for each fit.')
     optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
     optional.add_argument('--overwrite', action="store_true",
@@ -324,12 +326,14 @@ def main():
     nuisance_folder = os.path.join(args.output, 'nuisance')
     qc_folder = os.path.join(args.output, 'qc')
     fit_folder = os.path.join(args.output, 'fit')
+    misc_folder = os.path.join(args.output, 'misc')
 
     os.mkdir(concs_folder)
     os.mkdir(uncer_folder)
     os.mkdir(nuisance_folder)
     os.mkdir(qc_folder)
     os.mkdir(fit_folder)
+    os.mkdir(misc_folder)
 
     # Extract concentrations
     indicies = [res[1] for res in results]
@@ -457,7 +461,6 @@ def main():
                             dtype=float))
 
     # fit
-    # TODO: check if data has been conjugated, if so conjugate the predictions
     mrs_scale = mrsi.get_scalings_in_order()
     pred_list = []
     for res, scale in zip(results, mrs_scale):
@@ -491,6 +494,31 @@ def main():
                         indicies=indicies,
                         cleanup=False,
                         dtype=np.complex64))
+
+    # Save a parameter mappings of:
+    # 1) metabolites to groups
+    results[0][0].metab_in_group_json(
+        os.path.join(misc_folder, 'metabolite_groups.json'))
+
+    # 2) A list of parameters (to go with the correlation matrix)
+    results[0][0].fit_parameters_json(
+        os.path.join(misc_folder, 'mrs_fit_parameters.json'))
+
+    if args.output_correlations:
+        # Per voxel correlations of parameters
+        corr_list = [res[0].corr for res in results]
+        corr_mats = mrsi.list_to_correlation_array(
+            corr_list,
+            indicies=indicies,
+            cleanup=True)
+        # Save
+        file_nm = os.path.join(misc_folder, 'fit_correlations.nii.gz')
+        corr_img = nib.Nifti1Image(corr_mats, mrsi_data.voxToWorldMat)
+        corr_img.header.set_intent(
+            1005,  # NIFTI_INTENT_SYMMATRIX
+            params=(corr_list[0].shape[0], ),
+            name='MRS fit correlation matrix')
+        nib.save(corr_img, file_nm)
 
     if args.verbose:
         print('\n\n\nDone.')

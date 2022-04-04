@@ -34,6 +34,7 @@ def test_fsl_mrsi(tmp_path):
                            data['seg_wm'],
                            data['seg_gm'],
                            data['seg_csf'],
+                           '--output_correlations',
                            '--overwrite',
                            '--combine', 'Cr', 'PCr'])
 
@@ -55,6 +56,10 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/nuisance/combined_lw_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/gamma_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/sigma_group0.nii.gz').exists()
+
+    assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
+    assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()
+    assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
 
 
 def test_fsl_mrsi_noh2o(tmp_path):
@@ -86,3 +91,6 @@ def test_fsl_mrsi_noh2o(tmp_path):
     assert (tmp_path / 'fit_out/nuisance/combined_lw_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/gamma_group0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/sigma_group0.nii.gz').exists()
+
+    assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
+    assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()

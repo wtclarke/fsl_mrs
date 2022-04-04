@@ -355,6 +355,27 @@ class MRSI(object):
 
         return data
 
+    def list_to_correlation_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+        '''Convert 5D array of correlation matricies indexed from an mrsi object
+        to a numpy array with the shape of the first three dimensions matching
+        that of the MRSI object .'''
+        if indicies is None:
+            indicies = self.get_indicies_in_order()
+
+        size_m, size_n = data_list[0].shape
+        if size_m != size_n:
+            raise ValueError(f'Only symmetric matricies are handled, size is ({size_m},{size_n}).')
+        data = np.zeros(self.spatial_shape + (size_m, size_n), dtype=dtype)
+
+        for d, ind in zip(data_list, indicies):
+            data[ind] = d
+
+        if cleanup:
+            data[np.isnan(data)] = 0
+            data[np.isinf(data)] = 0
+
+        return data
+
     def check_basis(self, ppmlim=(.2, 4.2)):
         """Check orientation of basis using a single generated mrs object.
 

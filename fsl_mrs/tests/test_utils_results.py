@@ -10,6 +10,7 @@ from fsl_mrs.core import MRS
 from fsl_mrs.utils.fitting import fit_FSLModel
 from pytest import fixture
 import numpy as np
+import json
 
 
 # Set up some synthetic data to use
@@ -112,3 +113,42 @@ def test_qcOutput(data):
 
     assert np.allclose(FWHM, 10.0, atol=1E0)
     assert SNR.size == 3
+
+
+def test_metabs_in_groups(data):
+    res = data[0]
+    met_g = res.metabs_in_groups()
+
+    assert met_g == [['Cr', 'PCr', 'NAA']]
+
+
+def test_metabs_in_group(data):
+    res = data[0]
+    met_g = res.metabs_in_group(0)
+
+    assert met_g == ['Cr', 'PCr', 'NAA']
+
+
+def test_metab_in_group_json(data, tmp_path):
+    res = data[0]
+    met_g = res.metab_in_group_json()
+    assert json.loads(met_g) == {'0': ['Cr', 'PCr', 'NAA']}
+
+    met_g2 = res.metab_in_group_json(tmp_path / 'test.json')
+    assert json.loads(met_g2) == {'0': ['Cr', 'PCr', 'NAA']}
+    assert (tmp_path / 'test.json').is_file()
+    with open(tmp_path / 'test.json') as fp:
+        assert json.load(fp) == {'0': ['Cr', 'PCr', 'NAA']}
+
+
+def test_fit_parameters_json(data, tmp_path):
+    res = data[0]
+    res.fit_parameters_json(tmp_path / 'params.json')
+    with open(tmp_path / 'params.json') as fp:
+        saved_dict = json.load(fp)
+    assert saved_dict['parameters'] ==\
+        ['Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0']
+    assert saved_dict['parameters_inc_comb'] ==\
+        ['Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0', 'Cr+PCr']
+    assert saved_dict['metabolites'] == ['Cr', 'PCr', 'NAA']
+    assert saved_dict['metabolites_inc_comb'] == ['Cr', 'PCr', 'NAA', 'Cr+PCr']
