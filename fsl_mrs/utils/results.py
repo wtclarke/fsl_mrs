@@ -6,14 +6,16 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
+from copy import deepcopy
+import json
+
 import pandas as pd
+import numpy as np
+
 import fsl_mrs.utils.models as models
 import fsl_mrs.utils.quantify as quant
 import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
-
-import numpy as np
-from copy import deepcopy
 
 
 class FitRes(object):
@@ -409,6 +411,65 @@ class FitRes(object):
             df.reset_index(inplace=True)
 
         df.to_csv(filename, index=False, header=True)
+
+    def metabs_in_groups(self):
+        """Return list of metabolites in each metabolite group
+
+        :return: Returns nested list with metabolite strings in each metabolite_group
+        :rtype: list
+        """
+        group_list = []
+        for g in range(self.g):
+            metabs = []
+            for i, m in enumerate(self.original_metabs):
+                if self.metab_groups[i] == g:
+                    metabs.append(m)
+            group_list.append(metabs)
+        return group_list
+
+    def metabs_in_group(self, group):
+        """Get list of metabolites in specific group
+
+        :param group: Metabolite group index
+        :type group: int
+        :return: List of emtabolites in specified group
+        :rtype: List
+        """
+        if group >= self.g:
+            raise ValueError(f'Group must be in the range 0 to {self.g - 1}.')
+
+        return self.metabs_in_groups()[group]
+
+    def metab_in_group_json(self, save_path=None):
+        """Generate and (optionally) save a json representation
+        of the metabolites in each group
+
+        :param save_path: Optional path to save json to, defaults to None
+        :type save_path: str, optional
+        :return: Returns json formmatted string of metabolite groups
+        :rtype: str or Pathlib.Path
+        """
+        dict_repr = {idx: ml for idx, ml in enumerate(self.metabs_in_groups())}
+        if save_path:
+            with open(save_path, 'w') as jf:
+                json.dump(dict_repr, jf)
+            return json.dumps(dict_repr)
+        else:
+            return json.dumps(dict_repr)
+
+    def fit_parameters_json(self, save_path):
+        """Save a list of parameter names
+
+        :param save_path: Path to save json file containing parameter names
+        :type save_path: str or Pathlib.Path
+        """
+        param_dict = {'parameters': self.params_names,
+                      'parameters_inc_comb': self.params_names_inc_comb,
+                      'metabolites': self.original_metabs,
+                      'metabolites_inc_comb': self.metabs}
+
+        with open(save_path, 'w') as jf:
+            json.dump(param_dict, jf)
 
     # Functions to return physically meaningful units from the fitting results
     def getConc(self, scaling='raw', metab=None, function='mean'):

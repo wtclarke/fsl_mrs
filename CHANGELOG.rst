@@ -1,12 +1,13 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.11 (WIP)
------------------------------
+1.1.11 (Monday 4th April 2022)
+------------------------------
 - Now able to choose the number of workers in fsl_mrs_sim.
 - HSLVD routines now use dense (non-sparse) routine for better numerical stability
 - Updates and corrections to documentation, references to new FSL Course MRS section added.
 - Fixed bugs in LCModel basis set handling.
 - Removed divide by zero warnings in quantification of voxels where fitting has failed.
+- New outputs from fsl_mrsi script: parameter correlation matrices, group mappings and parameter names
 
 1.1.10 (Thursday 12 January 2022)
 ---------------------------------
