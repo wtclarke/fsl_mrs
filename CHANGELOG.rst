@@ -7,7 +7,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Updates and corrections to documentation, references to new FSL Course MRS section added.
 - Fixed bugs in LCModel basis set handling.
 - Removed divide by zero warnings in quantification of voxels where fitting has failed.
-- New outputs from fsl_mrsi script: parameter correlation matricies, group mappings na parameter names
+- New outputs from fsl_mrsi script: parameter correlation matrices, group mappings and parameter names
 
 1.1.10 (Thursday 12 January 2022)
 ---------------------------------
