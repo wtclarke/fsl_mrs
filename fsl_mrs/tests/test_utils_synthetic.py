@@ -6,7 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
-# from fsl_mrs.utils import mrs_io
+from fsl_mrs.utils import mrs_io
 import numpy as np
 from pathlib import Path
 
@@ -91,47 +91,51 @@ def test_syntheticFromBasis_baseline():
 
     assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, -1.0))
 
-# TO DO
-# def test_synthetic_spectra_from_model():
 
-#     names = mrs_io.read_basis(str(basis_path)).names
+def test_synthetic_spectra_from_model():
 
-#     time_var = np.arange(0, 10)
-#     period = 10.0
-#     time_var = time_var / period
+    names = mrs_io.read_basis(str(basis_path)).names
 
-#     camp = [0] * len(names)
-#     camp[names.index('NAA')] = 2
-#     defined_vals = {'c_0': 'conc',
-#                     'c_amp': camp,
-#                     'gamma': (20, 0),
-#                     'sigma': (20, 0),
-#                     'b_intercept': [1, 1, 1, 1, 1, 1],
-#                     'b_slope': [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]}
+    time_var = np.arange(0, 10)
+    period = 10.0
+    time_var = time_var / period
 
-#     p_noise = {'eps': (0, [0.01])}
-#     p_rel_noise = {'conc': (0, [0.05])}
+    defined_vals = {'c_0': 'conc',
+                    'gamma_0': 20,
+                    'gamma_1': 0,
+                    'sigma_0': 20,
+                    'sigma_1': 0}
 
-#     mrs_list, _, _ = syn.synthetic_spectra_from_model(
-#         str(dynamic_model_path),
-#         time_var,
-#         str(basis_path),
-#         ignore=None,
-#         metab_groups=['Mac'],
-#         ind_scaling=['Mac'],
-#         baseline_order=2,
-#         concentrations={'Mac': 15},
-#         defined_vals=defined_vals,
-#         bandwidth=6000,
-#         points=2048,
-#         baseline_ppm=(0, 5),
-#         param_noise=p_noise,
-#         param_rel_noise=p_rel_noise,
-#         coilamps=[1.0, 1.0],
-#         coilphase=[0.0, np.pi],
-#         noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
+    defined_vals.update({f'conc_{met}_c_amp': 0 for met in names})
+    defined_vals['conc_NAA_c_amp'] = 2
+    defined_vals.update({f'baseline_{i}_b_intercept': 1 for i in range(6)})
+    defined_vals.update({f'baseline_{i}_b_slope': 0.1 for i in range(6)})
 
-#     assert len(mrs_list) == 10
-#     assert len(mrs_list[0]) == 2
-#     assert mrs_list[0][0].numBasis == len(names)
-#     assert mrs_list[0][0].numPoints == 2048
+    print(defined_vals)
+
+    p_noise = {'eps': (0, [0.01])}
+    p_rel_noise = {'conc': (0, [0.05])}
+
+    mrs_list, _, _ = syn.synthetic_spectra_from_model(
+        str(dynamic_model_path),
+        time_var,
+        str(basis_path),
+        ignore=None,
+        metab_groups=['Mac'],
+        ind_scaling=['Mac'],
+        baseline_order=2,
+        concentrations={'Mac': 15},
+        defined_vals=defined_vals,
+        bandwidth=6000,
+        points=2048,
+        baseline_ppm=(0, 5),
+        param_noise=p_noise,
+        param_rel_noise=p_rel_noise,
+        coilamps=[1.0, 1.0],
+        coilphase=[0.0, np.pi],
+        noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
+
+    assert len(mrs_list) == 10
+    assert len(mrs_list[0]) == 2
+    assert mrs_list[0][0].numBasis == len(names)
+    assert mrs_list[0][0].numPoints == 2048

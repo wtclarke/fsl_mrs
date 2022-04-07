@@ -108,7 +108,7 @@ def synthetic_spectra_from_model(config_file,
     syn_free_params = []
     for param in vm._free_params:
         if param.name in def_vals_int:
-            syn_free_params.append(def_vals_int[param])
+            syn_free_params.append(def_vals_int[param.name])
         elif param.mapped_category in std_vals:
             if param.mapped_category == 'conc':
                 for idx, name in enumerate(empty_mrs.names):
@@ -134,28 +134,25 @@ def synthetic_spectra_from_model(config_file,
 
     # Amount of noise to add to each parameter in each timepoint
     mapped_noise = np.empty(mapped.shape, dtype=object)
-    for idx, _ in enumerate(mapped_noise):
-        for jdx, k in enumerate(varNames):
-            if param_noise is None \
-                    or k not in param_noise:
-                fixed_noise = np.zeros(sizes[jdx])
-            else:
-                fixed_noise = rng.normal(loc=param_noise[k][0],
-                                         scale=param_noise[k][1],
-                                         size=sizes[jdx])
-            if param_rel_noise is None \
-                    or k not in param_rel_noise:
-                rel_noise = np.zeros(sizes[jdx])
-            else:
-                rel_noise = rng.normal(loc=param_rel_noise[k][0],
-                                       scale=param_rel_noise[k][1],
-                                       size=sizes[jdx]) \
-                    * np.asarray(mapped[idx, jdx])
-            mapped_noise[idx, jdx] = fixed_noise + rel_noise
+    for idx, mp_obj in enumerate(vm.mapped_parameters):
+        if param_noise is None \
+                or mp_obj.category not in param_noise:
+            fixed_noise = 0
+        else:
+            fixed_noise = rng.normal(loc=param_noise[mp_obj.category][0],
+                                     scale=param_noise[mp_obj.category][1])
+        if param_rel_noise is None \
+                or mp_obj.category not in param_rel_noise:
+            rel_noise = 0 * np.asarray(mapped[:, idx])
+        else:
+            rel_noise = rng.normal(loc=param_rel_noise[mp_obj.category][0],
+                                   scale=param_rel_noise[mp_obj.category][1]) \
+                * np.asarray(mapped[:, idx])
+        mapped_noise[:, idx] = fixed_noise + rel_noise
 
     mrs_list = []
     for mm, mn in zip(mapped, mapped_noise):
-        x = np.concatenate(mm) + np.concatenate(mn)
+        x = mm + mn
 
         con, gamma, sigma, eps, phi0, phi1, b = x2p(x,
                                                     empty_mrs.numBasis,
