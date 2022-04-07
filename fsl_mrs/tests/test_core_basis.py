@@ -187,6 +187,19 @@ def test_add_peak():
     assert original.n_metabs == 22
 
 
+def test_add_mm():
+    original_no_mod = basis_mod.Basis.from_file(fsl_basis_path)
+    orig_names = original_no_mod.names
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+    original.add_default_MM_peaks(gamma=10, sigma=10)
+    assert original.n_metabs == 26
+    assert original.names == orig_names + ['MM09', 'MM12', 'MM14', 'MM17', 'MM21']
+
+    original.add_water_peak(gamma=10, sigma=10, name='myh20')
+    assert original.n_metabs == 27
+    assert original.names == orig_names + ['MM09', 'MM12', 'MM14', 'MM17', 'MM21', 'myh20']
+
+
 def test_update():
     original = basis_mod.Basis.from_file(fsl_basis_path)
 

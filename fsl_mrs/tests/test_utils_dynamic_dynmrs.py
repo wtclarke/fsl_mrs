@@ -57,10 +57,10 @@ def test_dynMRS_setup(fixed_ratio_mrs):
     # Test properties
     assert dyn_obj.metabolite_names == ['Met1', 'Met2']
     assert dyn_obj.free_names == [
-        'conc_c_0_Met1',
-        'conc_c_g_Met1',
-        'conc_c_0_Met2',
-        'conc_c_g_Met2',
+        'conc_Met1_c_0',
+        'conc_Met1_c_g',
+        'conc_Met2_c_0',
+        'conc_Met2_c_g',
         'gamma_0',
         'eps_0',
         'Phi_0_0',
@@ -70,12 +70,12 @@ def test_dynMRS_setup(fixed_ratio_mrs):
     assert dyn_obj.mapped_names == [
         'conc_Met1',
         'conc_Met2',
-        'gamma_00',
-        'eps_00',
-        'Phi_0_00',
-        'Phi_1_00',
-        'baseline_00',
-        'baseline_01']
+        'gamma_0',
+        'eps_0',
+        'Phi_0_0',
+        'Phi_1_0',
+        'baseline_0',
+        'baseline_1']
 
     assert isinstance(dyn_obj.vm, dyn.VariableMapping)
 

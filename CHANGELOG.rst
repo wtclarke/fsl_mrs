@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.0 (WIP)
+-----------
+Major rework of basis and fitting script interaction. Major release of dynamic MRS fitting.
+- Default macromolecules are now added through basis_tools script rather than fitting. Fitting does not alter basis at run time now.
+
 1.1.12 (Wednesday 20th April)
 -----------------------------
 - Update to fslpy version (to 3.9.0) to substantially speed up MRSI preprocessing.

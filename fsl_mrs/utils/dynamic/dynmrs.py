@@ -253,7 +253,7 @@ class dynMRS(object):
             self.prior_means = np.zeros_like(self.vm.nfree)
             self.prior_stds = np.ones_like(self.vm.nfree) * 1E3
             mcmc = mh.MH(self.dyn_loglik, self.dyn_logpr, burnin=100, njumps=mh_jumps, sampleevery=5)
-            LB, UB = mcmc.bounds_from_list(self.vm.nfree, self.vm.Bounds)
+            LB, UB = mcmc.bounds_from_list(self.vm.nfree, self.vm.Bounds.tolist())
             x = mcmc.fit(x0, LB=LB, UB=UB, verbose=verbose)
             sol = None
         else:

@@ -52,7 +52,7 @@ def standardConcentrations(basisNames):
     return concs
 
 
-def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations, metab_groups, add_mm):
+def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations, metab_groups):
     """Prepare an mrs object for use in creating a synthetic spectrum,
        and return selected concentrations.
 
@@ -76,10 +76,6 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
     empty_mrs.processForFitting(ind_scaling=ind_scaling)
 
     mg = parse_metab_groups(empty_mrs, metab_groups)
-    if add_mm:
-        n = empty_mrs.add_MM_peaks(gamma=40, sigma=30)
-        new_metab_groups = [i + max(mg) + 1 for i in range(n)]
-        mg = mg + new_metab_groups
 
     if concentrations is None:
         concentrations = standardConcentrations(empty_mrs.names)
@@ -116,8 +112,7 @@ def syntheticFromBasisFile(basisFile,
                            coilphase=[0.0],
                            noisecovariance=[[0.1]],
                            bandwidth=4000.0,
-                           points=2048,
-                           add_default_mm=False):
+                           points=2048):
     """ Create synthetic data from a set of FSL-MRS basis files.
 
     Args:
@@ -141,7 +136,6 @@ def syntheticFromBasisFile(basisFile,
             noisecovariance (list of floats, optional): N coils x N coils array of noise variance/covariance.
             bandwidth (float,optional): Bandwidth of output spectrum in Hz
             points (int,optional): Number of points in output spectrum.
-            add_default_mm (bool,optional): Add default MM after scaling
 
     Returns:
         FIDs: Numpy array of synthetic FIDs
@@ -155,8 +149,7 @@ def syntheticFromBasisFile(basisFile,
                                                            ignore,
                                                            ind_scaling,
                                                            concentrations,
-                                                           metab_groups,
-                                                           add_default_mm)
+                                                           metab_groups)
 
     # Currently hardcoded to voigt model. Sigma can always be set to 0.
     _, _, fwd_model, _, p2x = models.getModelFunctions('voigt')

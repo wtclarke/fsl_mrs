@@ -73,8 +73,8 @@ def align_by_dynamic_fit(data, basis, fitargs={}):
         fid_phased = proc.applyPhase(fid_shift, phi)
         return fid_phased
 
-    eps = dyn_res[0].mapped_params.eps_00.to_numpy()
-    phi = dyn_res[0].mapped_params.Phi_0_00.to_numpy()
+    eps = dyn_res[0].mapped_params.eps_0.to_numpy()
+    phi = dyn_res[0].mapped_params.Phi_0_0.to_numpy()
 
     aligned_obj = data.copy()
     generator = data.iterate_over_dims()
