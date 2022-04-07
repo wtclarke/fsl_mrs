@@ -95,11 +95,13 @@ class dynMRS(object):
         self.forward = self._get_forward()
         self.gradient = self._get_gradient()
 
-        numBasis, numGroups = self.mrs_list[0].numBasis, max(metab_groups) + 1
+        metab_names, numBasis, numGroups = self.mrs_list[0].names, self.mrs_list[0].numBasis, max(metab_groups) + 1
         varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
         self._vm = varmap.VariableMapping(
             param_names=varNames,
             param_sizes=varSizes,
+            metabolite_names=metab_names,
+            metabolite_groups=numGroups,
             time_variable=self.time_var,
             config_file=config_file)
 
@@ -185,29 +187,30 @@ class dynMRS(object):
 
     @property
     def free_names(self):
-        freenames = self.vm.create_free_names()
-        metabolites = self.metabolite_names
+        return self.vm.free_names
+        # metabolites = self.metabolite_names
 
-        metab_fn = []
-        for fn in freenames:
-            match = conc_index_re.match(fn)
-            if match:
-                mod_str = match[1] + metabolites[int(match[2])]
-                metab_fn.append(mod_str)
-            else:
-                metab_fn.append(fn)
+        # metab_fn = []
+        # for fn in freenames:
+        #     match = conc_index_re.match(fn)
+        #     if match:
+        #         mod_str = match[1] + metabolites[int(match[2])]
+        #         metab_fn.append(mod_str)
+        #     else:
+        #         metab_fn.append(fn)
 
-        return metab_fn
+        # return metab_fn
 
     @property
     def mapped_names(self):
-        full_mapped_names = []
-        for nn, ns in zip(self.vm.mapped_names, self.vm.mapped_sizes):
-            if nn == 'conc':
-                full_mapped_names.extend([f'{nn}_{nbasis}' for nbasis in self.metabolite_names])
-            else:
-                full_mapped_names.extend([f'{nn}_{idx:02.0f}' for idx in range(ns)])
-        return full_mapped_names
+        return self.vm.mapped_names
+        # full_mapped_names = []
+        # for nn, ns in zip(self.vm.mapped_names, self.vm.mapped_sizes):
+        #     if nn == 'conc':
+        #         full_mapped_names.extend([f'{nn}_{nbasis}' for nbasis in self.metabolite_names])
+        #     else:
+        #         full_mapped_names.extend([f'{nn}_{idx:02.0f}' for idx in range(ns)])
+        # return full_mapped_names
 
     @property
     def vm(self):
@@ -298,24 +301,15 @@ class dynMRS(object):
         if isinstance(indiv_init, str) and indiv_init == 'mean':
             indiv_init = self.fit_mean_spectrum()
 
-        varNames = models.FSLModel_vars(self._fit_args['model'])
-        numMetabs = self.mrs_list[0].numBasis
-        numGroups = max(self._fit_args['metab_groups']) + 1
-        if self._fit_args['model'] == 'lorentzian':
-            x2p = models.FSLModel_x2param
-        else:
-            x2p = models.FSLModel_x2param_Voigt
         # Get init from fitting to individual time points
-        init = np.empty((self._t_steps, len(varNames)), dtype=object)
+        init = np.zeros((self._t_steps, self.vm.mapped_nparams))
         resList = []
         for t, mrs in enumerate(self.mrs_list):
             if verbose:
                 print(f'Initialising {t + 1}/{len(self.mrs_list)}', end='\r')
             res = fitting.fit_FSLModel(mrs, method='Newton', x0=indiv_init, **self._fit_args)
             resList.append(res)
-            params = x2p(res.params, numMetabs, numGroups)
-            for i, p in enumerate(params):
-                init[t, i] = p
+            init[t, :] = res.params
         # Conveniently store mapped params
         mapped_params = self.vm.mapped_to_dict(init)
 
@@ -403,26 +397,21 @@ class dynMRS(object):
     def dyn_loss_grad(self, x):
         """Add gradients across data list"""
         mapped = self.vm.free_to_mapped(x)
-        LUT = self.vm.free_to_mapped(np.arange(self.vm.nfree), copy_only=True)
         dfdx = 0
         for time_index in range(self.vm.ntimes):
             # dfdmapped
-            p = np.hstack(mapped[time_index, :])
+            p = mapped[time_index, :]
             dfdp = self.loss_grad(p, time_index)
             # dmappeddfree
             dpdx = []
-            for param_index, param in enumerate(self.vm.mapped_names):
-                grad_fcn = self.vm.get_gradient_fcn(param)
-                nparams = self.vm.mapped_sizes[param_index]
-                xindex = LUT[time_index, param_index]
+            for mp in self.vm.mapped_parameters:
+                grad_fcn = self.vm.get_gradient_fcn(mp)
+                fp_index = mp.free_indices
 
-                for ip in range(nparams):
-                    gg = np.zeros(self.vm.nfree)
-                    if isinstance(xindex[ip], (int, np.int64)):
-                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)
-                    else:
-                        gg[xindex[ip]] = grad_fcn(x[xindex[ip]], self.vm.time_variable)[:, time_index]
-                    dpdx.append(gg)
+                gg = np.zeros(self.vm.nfree)
+                gg[fp_index] = grad_fcn(x[fp_index], self.vm.time_variable)[:, time_index]
+
+                dpdx.append(gg)
 
             dpdx = np.asarray(dpdx)
             dfdx += np.matmul(dfdp, dpdx)

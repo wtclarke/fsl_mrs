@@ -6,15 +6,19 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
+from dataclasses import dataclass
+from functools import partial
+
 import numpy as np
 from scipy.optimize import minimize
-from functools import partial
 
 
 class VariableMapping(object):
     def __init__(self,
                  param_names,
                  param_sizes,
+                 metabolite_names,
+                 metabolite_groups,
                  time_variable,
                  config_file):
         """
@@ -35,56 +39,67 @@ class VariableMapping(object):
         """
 
         if isinstance(time_variable, dict):
-            self.time_variable = {}
+            self._time_variable = {}
             t_size = []
             for key in time_variable:
                 t_element = np.asarray(time_variable[key])
                 t_size.append(t_element.shape[0])
-                self.time_variable.update({key: t_element})
+                self._time_variable.update({key: t_element})
             t_size = np.asarray(t_size)
             if np.all(np.isclose(t_size, t_size[0])):
-                self.ntimes = t_size[0]
+                self._ntimes = t_size[0]
             else:
-                raise ValueError('All values in time_variable dict must hav ethe same first diemension shape.')
+                raise ValueError('All values in time_variable dict must have the same first diemension shape.')
         else:
-            self.time_variable = np.asarray(time_variable)
-            self.ntimes = self.time_variable.shape[0]
+            self._time_variable = np.asarray(time_variable)
+            self._ntimes = self._time_variable.shape[0]
 
-        self.mapped_names   = param_names
-        self.mapped_nparams = len(self.mapped_names)
-        self.mapped_sizes   = param_sizes
+        self._metabolites = metabolite_names
+        self._n_groups = metabolite_groups
 
+        self._mapped_categories = param_names  # The catergories, e.g. 'conc', 'eps' etc.
+        self._mapped_sizes      = param_sizes  # The number of parameters in each category
+        # Calculate the mapped names
+        self._mapped_names = []
+        for mc, sizes in zip(self._mapped_categories, self._mapped_sizes):
+            # Special case for the concetrations - need to link to metabolites
+            if mc == 'conc':
+                self._mapped_names.extend([f'conc_{met}' for met in self._metabolites])
+            else:
+                self._mapped_names.extend([f'{mc}_{idx}' for idx in range(sizes)])
+
+        # Process the config file
         from runpy import run_path
         settings = run_path(config_file)
-
-        self.Parameters     = settings['Parameters']
-        for name in self.mapped_names:
-            if name not in self.Parameters:
-                self.Parameters[name] = 'fixed'
+        self._Parameters = settings['Parameters']
+        for name in self._mapped_categories:
+            if name not in self._Parameters:
+                self._Parameters[name] = 'fixed'
         self.fcns = {}
         for key in settings:
             if callable(settings[key]):
                 self.fcns[key] = settings[key]
         if 'Bounds' in settings:
             self.defined_bounds = settings['Bounds']
-            self.Bounds = self.create_constraints(settings['Bounds'])
         else:
             self.defined_bounds = None
-            self.Bounds         = self.create_constraints(None)
-        self.nfree          = self.calc_nfree()
+
+        # Form view of free and mapped parameter relations, and store
+        self._free_params = self._calculate_free_params()
+        self._mapped_params = self._calculate_mapped_parameters()
 
     def __str__(self):
         OUT  = '-----------------------\n'
         OUT += 'Variable Mapping Object\n'
         OUT += '-----------------------\n'
-        OUT += f'Number of Mapped param groups  = {len(self.mapped_names)}\n'
-        OUT += f'Number of Mapped params        = {sum(self.mapped_sizes)}\n'
+        OUT += f'Number of Mapped param groups  = {len(self.mapped_categories)}\n'
+        OUT += f'Number of Mapped params        = {sum(self._mapped_sizes)}\n'
         OUT += f'Number of Free params          = {self.nfree}\n'
-        OUT += f'Number of params if all indep  = {sum(self.mapped_sizes)*self.ntimes}\n'
+        OUT += f'Number of params if all indep  = {sum(self._mapped_sizes)*self.ntimes}\n'
 
         OUT += 'Dynamic functions\n'
-        for param_name in self.mapped_names:
-            beh = self.Parameters[param_name]
+        for param_name in self.mapped_categories:
+            beh = self._Parameters[param_name]
             OUT += f'{param_name} \t  {beh}\n'
 
         return OUT
@@ -92,76 +107,303 @@ class VariableMapping(object):
     def __repr__(self) -> str:
         return str(self)
 
-    def calc_nfree(self):
+    @property
+    def time_variable(self):
+        return self._time_variable
+
+    @property
+    def ntimes(self):
+        return self._ntimes
+
+    # Properties for mapped parameters
+    @property
+    def mapped_categories(self):
+        return self._mapped_categories
+
+    @property
+    def mapped_ncategories(self):
+        return len(self._mapped_categories)
+
+    @property
+    def mapped_names(self):
+        return self._mapped_names
+
+    @property
+    def mapped_nparams(self):
+        return len(self._mapped_names)
+
+    @dataclass
+    class _MappedParameter:
+        """Class to keep track of infromation about each mapped parameter."""
+        name: str
+        category: str
+        param_type: str
+        free_indices: tuple
+        function_name: str = None
+
+        def grad_function(self):
+            return self.function_name + '_grad'
+
+    @property
+    def mapped_parameters(self):
+        return self._mapped_params
+
+    def _calculate_mapped_parameters(self):
+        """Create an array of objects to keep track of Mapped parameter information"""
+        def gen_mp_obj(name):
+            free_pars = []
+            for t in range(self.ntimes):
+                t_name = name + f'_t{t}'
+                free_pars.extend([idx for idx, vals in enumerate(self.free_to_mapped_assoc) if t_name in vals])
+            free_pars = np.unique(free_pars)
+            # These next lines might go badly wrong at some point.
+            function = self.free_functions[free_pars[0]]
+            ptype = self.free_types[free_pars[0]]
+            category = self.free_category[free_pars[0]]
+            return self._MappedParameter(name, category, ptype, free_pars, function)
+
+        mapped_params = []
+        for name in self.mapped_names:
+            mapped_params.append(gen_mp_obj(name))
+        return mapped_params
+
+    # Properties for free parameters
+    @dataclass
+    class _FreeParameter:
+        """Class to keep track of infromation about each free parameter."""
+        name: str
+        mapped_category: str
+        param_type: str
+        mapped_param: str
+        function_name: str = None
+
+    @property
+    def free_names(self):
         """
-        Calculate number of free parameters based on mapped behaviour
+        list of names for free params
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.name for x in self._free_params]
+
+    @property
+    def free_types(self):
+        """
+        list of free param types
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.param_type for x in self._free_params]
+
+    @property
+    def free_category(self):
+        """
+        list of free param types
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.mapped_category for x in self._free_params]
+
+    @property
+    def free_to_mapped_assoc(self):
+        """
+        list of mapped parameters that free parameters are associated with.
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.mapped_param for x in self._free_params]
+
+    @property
+    def free_functions(self):
+        """
+        list of free param dynamic functions. None if fixed or variable
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.function_name if x.param_type == 'dynamic' else None for x in self._free_params]
+
+    def _calculate_free_params(self):
+        """
+        Calculate list of free parameters, including names,
+        types and associated dynamic functions
+
+        Returns
+        -------
+        list of _FreeParameters objects
+        """
+        def process_param(beh, par, group_or_mets):
+
+            def gen_mapped(stem):
+                return [stem + f'_t{t}' for t in range(self.ntimes)]
+
+            if isinstance(group_or_mets, list):
+                if (beh == 'fixed'):
+                    return [self._FreeParameter(f'{par}_{x}', par, 'fixed', gen_mapped(f'{par}_{x}'))
+                            for x in group_or_mets]
+                elif (beh == 'variable'):
+                    return [self._FreeParameter(f'{par}_{x}_t{t}', par, 'variable', f'{par}_{x}_t{t}')
+                            for t in range(self.ntimes) for x in group_or_mets]
+                elif 'dynamic' in beh:
+                    dyn_name = beh['params']
+                    return [self._FreeParameter(f'{par}_{x}_{y}', par, 'dynamic',
+                                                gen_mapped(f'{par}_{x}'), beh['dynamic'])
+                            for x in group_or_mets for y in dyn_name]
+                else:
+                    raise ValueError(f'Unrecognised parameter name {beh}')
+            elif isinstance(group_or_mets, int):
+                if (beh == 'fixed'):
+                    return [self._FreeParameter(f'{par}_{x}', par, 'fixed',
+                                                gen_mapped(f'{par}_{x}')) for x in range(group_or_mets)]
+                elif (beh == 'variable'):
+                    return [self._FreeParameter(f'{par}_{x}_t{t}', par, 'variable', f'{par}_{x}_t{t}')
+                            for t in range(self.ntimes) for x in range(group_or_mets)]
+                elif 'dynamic' in beh:
+                    dyn_name = beh['params']
+                    return [self._FreeParameter(f'{par}_{x}_{y}', par, 'dynamic',
+                                                gen_mapped(f'{par}_{x}'), beh['dynamic'])
+                            for x in range(group_or_mets) for y in dyn_name]
+                else:
+                    raise ValueError(f'Unrecognised parameter name {beh}')
+
+        fparams = []
+        for index, param in enumerate(self.mapped_categories):
+            if param == 'conc':
+                if isinstance(self._Parameters[param], dict)\
+                        and any([key in self._metabolites for key in self._Parameters[param]]):
+                    other_metabs = [m for m in self._metabolites if m not in self._Parameters[param].keys()]
+                    for key in self._Parameters[param]:
+                        if key in self._metabolites:
+                            fparams.extend(process_param(self._Parameters[param][key], param, [key, ]))
+                        elif key == 'other':
+                            fparams.extend(process_param(self._Parameters[param]['other'], param, other_metabs))
+                        else:
+                            raise ValueError(f'Key in nested "conc" must be a metabolite name or "other", not {key}')
+                else:
+                    fparams.extend(process_param(self._Parameters[param], param, self._metabolites))
+            elif param in ['eps', 'sigma', 'gamma']:
+                fparams.extend(process_param(self._Parameters[param], param, self._mapped_sizes[index]))
+            else:
+                fparams.extend(process_param(self._Parameters[param], param, self._mapped_sizes[index]))
+        return fparams
+
+    @property
+    def nfree(self):
+        """
+        Number of free parameters
 
         Returns
         -------
         int
         """
-        N = 0
-        for index, param in enumerate(self.mapped_names):
-            beh = self.Parameters[param]
-            if (beh == 'fixed'):
-                N += self.mapped_sizes[index]
-            elif (beh == 'variable'):
-                N += self.ntimes * self.mapped_sizes[index]
-            else:
-                if 'dynamic' in beh:
-                    N += len(beh['params']) * self.mapped_sizes[index]
-        return N
+        return len(self.free_names)
 
-    def create_constraints(self, bounds):
+    @property
+    def Bounds(self):
         """
-        Create list of constraints to be used in optimization
-
-        Parameters:
-        -----------
-        bounds : dict   {param:bounds}
+        List of constraints on free parameters to be used in optimization
 
         Returns
         -------
         list
         """
 
-        if bounds is None:
-            return [(None, None)] * self.calc_nfree()
+        if self.defined_bounds is None:
+            return [(None, None)] * self.nfree
 
-        if not isinstance(bounds, dict):
-            raise(Exception('Input should either be a dict or None'))
+        if not isinstance(self.defined_bounds, dict):
+            raise TypeError('defined_bounds should either be a dict or None')
 
         b = []  # list of bounds
-        for index, name in enumerate(self.mapped_names):
-            psize = self.mapped_sizes[index]
-
-            if (self.Parameters[name] == 'fixed'):
-                # check if there are bound on this param
-                if name in bounds:
-                    for s in range(psize):
-                        b.append(bounds[name])
-                else:
-                    for s in range(psize):
-                        b.append((None, None))
-
-            elif (self.Parameters[name] == 'variable'):
-                for t in range(self.ntimes):
-                    for s in range(psize):
-                        if name in bounds:
-                            b.append(bounds[name])
-                        else:
-                            b.append((None, None))
+        for free_p, free_t in zip(self.free_names, self.free_types):
+            # First look for an exact match, i.e. a bound on the precise parameter
+            if free_p in self.defined_bounds:
+                b.append(self.defined_bounds[free_p])
             else:
-                if 'dynamic' in self.Parameters[name]:
-                    pnames = self.Parameters[name]['params']
-                    for s in range(psize):
-                        for p in pnames:
-                            if p in bounds:
-                                b.append(bounds[p])
-                            else:
-                                b.append((None, None))
+                # If a dynamic function look for a bound specific to the dynamic function
+                if free_t == 'dynamic':
+                    mod_p_name = '_'.join(free_p.split('_')[2:])
+                    if mod_p_name in self.defined_bounds:
+                        b.append(self.defined_bounds[mod_p_name])
+                    else:
+                        b.append((None, None))
+                # If fixed or variable look for a bound on the generic form
+                elif free_t in ['fixed', 'variable']:
+                    mod_p_name = free_p.split('_')[0]
+                    if mod_p_name in self.defined_bounds:
+                        b.append(self.defined_bounds[mod_p_name])
+                    else:
+                        b.append((None, None))
+        return np.asarray(b)
 
-        return b
+    def free_to_mapped(self, p):
+        """
+        Convert free into mapped params over time
+        fixed params get copied over time domain
+        variable params are indep over time
+        dynamic params are mapped using dyn model
+
+        Parameters
+        ----------
+        p : 1D array
+        Returns
+        -------
+        2D array (time X params)
+
+        """
+        # Check input
+        if (p.size != self.nfree):
+            raise(Exception('Input free params does not have expected number of entries.'
+                            f' Found {p.size}, expected {self.nfree}'))
+
+        # Mapped params is time X nparams (each param is an array of params)
+        mapped_params = np.zeros((self.ntimes, self.mapped_nparams))
+
+        for index, mp_obj in enumerate(self._mapped_params):
+            if mp_obj.param_type == 'fixed':
+                mapped_params[:, index] = p[mp_obj.free_indices] * np.ones(self.ntimes)
+            elif mp_obj.param_type == 'variable':
+                mapped_params[:, index] = p[mp_obj.free_indices]
+            elif mp_obj.param_type == 'dynamic':
+                # Generate time courses
+                func_name = mp_obj.function_name
+                params = p[mp_obj.free_indices]
+                mapped_params[:, index] = self.fcns[func_name](params, self.time_variable)
+            else:
+                raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
+
+        return mapped_params
+
+    def print_free(self, x):
+        """
+        Print free params and their names
+        """
+        print(dict(zip(self.free_names, x)))
+
+    def check_bounds(self, x, tol=1e-10):
+        """
+        Check that bounds apply and return corrected x
+        """
+        if self.Bounds is None:
+            return x
+
+        for i, b in enumerate(self.Bounds):
+            LB = b[0] if b[0] is not None else -np.inf
+            UB = b[1] if b[1] is not None else np.inf
+            if (x[i] < LB):
+                x[i] = LB + tol
+            if (x[i] > UB):
+                x[i] = UB - tol
+        return x
 
     def mapped_from_list(self, p):
         """
@@ -180,119 +422,6 @@ class VariableMapping(object):
         if (p.ndim == 1):
             p = np.repeat(p[None, :], self.ntimes, 0)
         return p
-
-    def create_free_names(self):
-        """
-        create list of names for free params
-
-        Returns
-        -------
-        list of strings
-        """
-        names = []
-        for index, param in enumerate(self.mapped_names):
-            beh = self.Parameters[param]
-            if (beh == 'fixed'):
-                name = [f'{param}_{x}' for x in range(self.mapped_sizes[index])]
-                names.extend(name)
-            elif (beh == 'variable'):
-                name = [f'{param}_{x}_t{t}' for t in range(self.ntimes) for x in range(self.mapped_sizes[index])]
-                names.extend(name)
-            else:
-                if 'dynamic' in beh:
-                    dyn_name = self.Parameters[param]['params']
-                    name = [f'{param}_{y}_{x}' for x in range(self.mapped_sizes[index]) for y in dyn_name]
-                    names.extend(name)
-
-        return names
-
-    def free_to_mapped(self, p, copy_only=False):
-        """
-        Convert free into mapped params over time
-        fixed params get copied over time domain
-        variable params are indep over time
-        dynamic params are mapped using dyn model
-
-        Parameters
-        ----------
-        p : 1D array
-        copy_only : bool (copy params - don't use dynamic models)
-        Returns
-        -------
-        2D array (time X params)
-
-        """
-        # Check input
-        if (p.size != self.nfree):
-            raise(Exception('Input free params does not have expected number of entries.'
-                            f' Found {p.size}, expected {self.nfree}'))
-
-        # Mapped params is time X nparams (each param is an array of params)
-        mapped_params = np.empty((self.ntimes, self.mapped_nparams), dtype=object)
-
-        counter = 0
-        for index, name in enumerate(self.mapped_names):
-            nmapped   = self.mapped_sizes[index]
-
-            if (self.Parameters[name] == 'fixed'):  # repeat param over time
-                for t in range(self.ntimes):
-                    mapped_params[t, index] = p[counter:counter + nmapped]
-                counter += nmapped
-
-            elif (self.Parameters[name] == 'variable'):  # copy one param for each time point
-                for t in range(self.ntimes):
-                    mapped_params[t, index] = p[counter:counter + nmapped]
-                    counter += nmapped
-
-            else:
-                if 'dynamic' in self.Parameters[name]:
-                    # Generate time courses
-                    func_name = self.Parameters[name]['dynamic']
-                    nfree     = len(self.Parameters[name]['params'])
-
-                    if not copy_only:
-                        mapped = np.zeros((self.ntimes, nmapped))
-                        for i in range(nmapped):
-                            params      = p[counter:counter + nfree]
-                            mapped[:, i] = self.fcns[func_name](params, self.time_variable)
-                            counter += nfree
-                        for t in range(self.ntimes):
-                            mapped_params[t, index] = mapped[t, :]
-                    else:
-                        mapped = np.empty((self.ntimes, nmapped), dtype=object)
-                        for i in range(nmapped):
-                            params      = p[counter:counter + nfree]
-                            for t in range(self.ntimes):
-                                mapped[t, i] = params
-                            counter += nfree
-                        for t in range(self.ntimes):
-                            mapped_params[t, index] = mapped[t, :]
-                else:
-                    raise(Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
-
-        return mapped_params
-
-    def print_free(self, x):
-        """
-        Print free params and their names
-        """
-        print(dict(zip(self.create_free_names(), x)))
-
-    def check_bounds(self, x, tol=1e-10):
-        """
-        Check that bounds apply and return corrected x
-        """
-        if self.Bounds is None:
-            return x
-
-        for i, b in enumerate(self.Bounds):
-            LB = b[0] if b[0] is not None else -np.inf
-            UB = b[1] if b[1] is not None else np.inf
-            if (x[i] < LB):
-                x[i] = LB + tol
-            if (x[i] > UB):
-                x[i] = UB - tol
-        return x
 
     # This function may 'invert' the dynamic mapping
     # if the input params are from a single timepoint it assumes constant
@@ -316,71 +445,58 @@ class VariableMapping(object):
             raise(Exception(f'Input mapped params does not have expected number of entries.'
                             f' Found {p.shape}, expected {(self.ntimes,self.mapped_nparams)}'))
 
-        free_params = np.empty(self.nfree)
-        counter = 0
-        for index, name in enumerate(self.mapped_names):
-            psize = self.mapped_sizes[index]
-            if (self.Parameters[name] == 'fixed'):
-                free_params[counter:counter + psize] = np.median(np.stack(p[:, index]), axis=0)
-                counter += psize
-            elif (self.Parameters[name] == 'variable'):
-                for t in range(self.ntimes):
-                    free_params[counter:counter + psize] = p[t, index]
-                    counter += psize
+        free_params = np.zeros(self.nfree)
+        for index, mp_obj in enumerate(self._mapped_params):
+            if mp_obj.param_type == 'fixed':
+                free_params[mp_obj.free_indices] = np.median(np.stack(p[:, index]), axis=0)
+            elif mp_obj.param_type == 'variable':
+                free_params[mp_obj.free_indices] = p[:, index]
+            elif mp_obj.param_type == 'dynamic':
+                time_var  = self.time_variable
+                func      = partial(self.fcns[mp_obj.function_name], t=time_var)
+                gradfunc  = partial(self.get_gradient_fcn(mp_obj), t=time_var)
+
+                def loss(x):
+                    pred = func(x)
+                    return np.mean((p[:, index] - pred)**2)
+
+                def loss_grad(x):
+                    jac_out = []
+                    S = func(x)
+                    for ds in gradfunc(x):
+                        jac_out.append(np.sum((2 * S * ds)
+                                              - (2 * p[:, index] * ds)))
+                    return np.asarray(jac_out)
+
+                bounds = self.Bounds[mp_obj.free_indices].tolist()
+                vals = minimize(loss,
+                                np.zeros(len(mp_obj.free_indices)),
+                                jac=loss_grad,
+                                method='TNC',
+                                bounds=bounds).x
+
+                free_params[mp_obj.free_indices] = vals
+
             else:
-                if 'dynamic' in self.Parameters[name]:
-                    func_name = self.Parameters[name]['dynamic']
-                    time_var  = self.time_variable
-                    func      = partial(self.fcns[func_name], t=time_var)
-                    gradfunc  = partial(self.get_gradient_fcn(name), t=time_var)
-                    nfree     = len(self.Parameters[name]['params'])
-
-                    pp = np.stack(p[:, index][:], axis=0)
-                    for ppp in range(pp.shape[1]):
-                        def loss(x):
-                            pred = func(x)
-                            return np.mean((pp[:, ppp] - pred)**2)
-
-                        def loss_grad(x):
-                            jac_out = []
-                            S = func(x)
-                            for ds in gradfunc(x):
-                                jac_out.append(np.sum((2 * S * ds)
-                                                      - (2 * pp[:, ppp] * ds)))
-                            return np.asarray(jac_out)
-
-                        bounds = self.Bounds[counter:counter + nfree]
-                        vals = minimize(loss,
-                                        np.zeros(len(self.Parameters[name]['params'])),
-                                        jac=loss_grad,
-                                        method='TNC',
-                                        bounds=bounds).x
-
-                        free_params[counter:counter + nfree] = vals
-                        counter += nfree
-
-                else:
-                    raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
+                raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
 
         return free_params
 
-    def get_gradient_fcn(self, param_name):
+    def get_gradient_fcn(self, mp_param_obj):
         """
         Get the gradient function for a given parameter
         Returns:
         function
         """
-        if (self.Parameters[param_name] == 'fixed') or (self.Parameters[param_name] == 'variable'):
-            return lambda x, t: 1
+        if (mp_param_obj.param_type == 'fixed') or (mp_param_obj.param_type  == 'variable'):
+            return lambda x, t: np.ones((1, self.ntimes))
+        elif mp_param_obj.param_type == 'dynamic':
+            grad_name = mp_param_obj.grad_function()
+            if grad_name not in self.fcns:
+                raise ValueError(f"Could not find gradient for parameter {mp_param_obj.name}")
+            return self.fcns[grad_name]
         else:
-            if 'dynamic' in self.Parameters[param_name]:
-                func_name = self.Parameters[param_name]['dynamic']
-                grad_name = func_name + '_grad'
-                if grad_name not in self.fcns:
-                    raise (Exception(f"Could not find gradient for parameter {param_name}"))
-                return self.fcns[grad_name]
-            else:
-                raise (Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
+            raise (Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
 
     def mapped_to_dict(self, params):
         """
@@ -392,10 +508,9 @@ class VariableMapping(object):
         Returns:
             dict
         """
-        mapped_params = {}
-        for i, name in enumerate(self.mapped_names):
-            values = np.array([x for x in params[:, i]])
-            if values.ndim == 1:
-                values = values[:, np.newaxis]
-            mapped_params[name] = values
+        mapped_params = {c: [] for c in self.mapped_categories}
+        for p, mp_obj in zip(params.T, self._mapped_params):
+            mapped_params[mp_obj.category].append(p)
+        mapped_params = {c: np.stack(mapped_params[c]) for c in self.mapped_categories}
+
         return mapped_params

@@ -228,8 +228,7 @@ class dynRes:
         :return: Free parameters estimated from initilisation
         :rtype: np.array
         """
-        nested_init = self.nest_mapped(self.mapped_parameters_init_array, self._dyn.vm)
-        return self._dyn.vm.mapped_to_free(nested_init)
+        return self._dyn.vm.mapped_to_free(self.mapped_parameters_init_array)
 
     @property
     def init_dataframe(self):
@@ -614,19 +613,19 @@ class dynRes_newton(dynRes):
         self._corr_dyn = self._cov_dyn / (self._std_dyn[:, np.newaxis] * self._std_dyn[np.newaxis, :])
 
         # Mapped parameters
+        # import pdb; pdb.set_trace()
         p = dyn.vm.free_to_mapped(self.x)
         self._mapped_params = dyn.vm.mapped_to_dict(p)
         # Mapped parameters covariance etc.
         grad_all = np.transpose(gradient(self.x, dyn.vm.free_to_mapped), (2, 0, 1))
-        N = dyn.vm.ntimes
-        M = len(self.x)
-        std = {}
-        for i, name in enumerate(dyn.vm.mapped_names):
-            s = []
-            for j in range(self._mapped_params[name].shape[1]):
-                grad = np.reshape(np.array([grad_all[i][ll, kk][j] for ll in range(M) for kk in range(N)]), (M, N)).T
-                s.append(np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T)))
-            std[name] = np.array(s).T
+        print(grad_all.shape)
+        nt = dyn.vm.ntimes
+        nf = len(self.x)
+        std = np.zeros((dyn.vm.mapped_nparams, nt))
+        for idx in range(dyn.vm.mapped_nparams):
+            grad = np.reshape(np.array([grad_all[idx, ll, kk] for ll in range(nf) for kk in range(nt)]), (nf, nt)).T
+            s_tmp = np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T))
+            std[idx, :] = np.array(s_tmp).T
         self._std = std
 
     @property
@@ -672,4 +671,4 @@ class dynRes_newton(dynRes):
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.DataFrame(np.hstack(list(self._std.values())), columns=self.mapped_names)
+        return pd.DataFrame(self._std.T, columns=self.mapped_names, index=self._dyn.time_var)
