@@ -220,7 +220,8 @@ class dynMRS(object):
             method='Newton',
             mh_jumps=600,
             init=None,
-            verbose=False):
+            verbose=False,
+            output_opt_sol=False):
         """Fit the dynamic model
 
         :param method: 'Newton' or 'MH', defaults to 'Newton'
@@ -230,6 +231,8 @@ class dynMRS(object):
         :param init: Initilisation (x0), defaults to None
         :type init: dict, optional
         :param verbose: Verbosity flag, defaults to False
+        :param output_opt_sol: Output the scipy solution object (for debugging), defaults to False
+        :type output_opt_sol: bool, optional
         :type verbose: bool, optional
         :return: Tuple containing dedicated results object, and optimisation output (Newton only)
         :rtype: tuple
@@ -272,7 +275,10 @@ class dynMRS(object):
         if verbose:
             print(f"...completed in {time.time()-end_fit_time} seconds.")
 
-        return results, sol
+        if output_opt_sol:
+            return results, sol
+        else:
+            return results
 
     def fit_mean_spectrum(self):
         """Return the parameters from the fit of the mean spectra stored in mrs_list."""
