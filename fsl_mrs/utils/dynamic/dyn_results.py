@@ -113,7 +113,7 @@ class dynRes:
     def save(self, save_dir, save_dyn_obj=False):
         """Save the results to a directory
 
-        Saves the two dataframes to csv format. If pickle_dyn=True then the ._dyn object
+        Saves the two dataframes to csv format. If save_dyn_obj=True then the ._dyn object
         is also saved.
 
         :param save_dir: Location to save to, created if neccesary.
