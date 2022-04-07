@@ -47,8 +47,6 @@ def synthetic_spectra_from_model(config_file,
             baseline_order (int, optional): Order of baseline to simulate.
             baseline_ppm (tuple, optional): Specify ppm range over which baseline is calculated.
             defined_vals (dict, optional): Model parameters can be specified by adding a key of the same name.
-                If the value is a single value it will be coppied for all relavent values e.g. each metabolite group.
-                If the value is the same length as the parameter group then then each value will be assigned.
                 If set to one of 'conc', 'gamma', 'sigma', 'eps', 'baseline' then standard values will be used.
             param_noise (dict, optional): Add fixed Gaussian noise to 'conc', 'gamma', 'sigma', 'eps', 'baseline' at
                 each timepoint. Specified as (mean, SD) for each key.
