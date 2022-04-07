@@ -618,11 +618,10 @@ class dynRes_newton(dynRes):
         self._mapped_params = dyn.vm.mapped_to_dict(p)
         # Mapped parameters covariance etc.
         grad_all = np.transpose(gradient(self.x, dyn.vm.free_to_mapped), (2, 0, 1))
-        print(grad_all.shape)
         nt = dyn.vm.ntimes
         nf = len(self.x)
-        std = np.zeros((dyn.vm.mapped_nparams, nt))
-        for idx in range(dyn.vm.mapped_nparams):
+        std = np.zeros((dyn.vm.nmapped, nt))
+        for idx in range(dyn.vm.nmapped):
             grad = np.reshape(np.array([grad_all[idx, ll, kk] for ll in range(nf) for kk in range(nt)]), (nf, nt)).T
             s_tmp = np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T))
             std[idx, :] = np.array(s_tmp).T

@@ -302,7 +302,7 @@ class dynMRS(object):
             indiv_init = self.fit_mean_spectrum()
 
         # Get init from fitting to individual time points
-        init = np.zeros((self._t_steps, self.vm.mapped_nparams))
+        init = np.zeros((self._t_steps, self.vm.nmapped))
         resList = []
         for t, mrs in enumerate(self.mrs_list):
             if verbose:
