@@ -7,6 +7,7 @@
 # SHBASECOPYRIGHT
 
 from dataclasses import dataclass
+from typing import Union
 from functools import partial
 
 import numpy as np
@@ -211,6 +212,7 @@ class VariableMapping(object):
         mapped_category: str
         param_type: str
         mapped_param: str
+        met_or_group: Union[str, int] = None
         function_name: str = None
 
     @property
@@ -245,6 +247,17 @@ class VariableMapping(object):
         list of strings
         """
         return [x.mapped_category for x in self._free_params]
+
+    @property
+    def free_met_or_group(self):
+        """
+        list of free param types
+
+        Returns
+        -------
+        list of strings
+        """
+        return [x.met_or_group for x in self._free_params]
 
     @property
     def free_to_mapped_assoc(self):
@@ -291,34 +304,19 @@ class VariableMapping(object):
             def gen_mapped(stem):
                 return [stem + f'_t{t}' for t in range(self.ntimes)]
 
-            # if isinstance(group_or_mets, list):
             if (ptype == 'fixed'):
-                return [self._FreeParameter(f'{cat}_{x}', cat, 'fixed', gen_mapped(f'{cat}_{x}'))
+                return [self._FreeParameter(f'{cat}_{x}', cat, 'fixed', gen_mapped(f'{cat}_{x}'), x)
                         for x in group_or_mets]
             elif (ptype == 'variable'):
-                return [self._FreeParameter(f'{cat}_{x}_t{t}', cat, 'variable', f'{cat}_{x}_t{t}')
+                return [self._FreeParameter(f'{cat}_{x}_t{t}', cat, 'variable', f'{cat}_{x}_t{t}', x)
                         for t in range(self.ntimes) for x in group_or_mets]
             elif 'dynamic' in ptype:
                 dyn_name = ptype['params']
                 return [self._FreeParameter(f'{cat}_{x}_{y}', cat, 'dynamic',
-                                            gen_mapped(f'{cat}_{x}'), ptype['dynamic'])
+                                            gen_mapped(f'{cat}_{x}'), x, ptype['dynamic'])
                         for x in group_or_mets for y in dyn_name]
             else:
                 raise ValueError(f'Unrecognised parameter name {ptype}')
-            # elif isinstance(group_or_mets, int):
-            #     if (ptype == 'fixed'):
-            #         return [self._FreeParameter(f'{cat}_{x}', cat, 'fixed',
-            #                                     gen_mapped(f'{cat}_{x}')) for x in range(group_or_mets)]
-            #     elif (ptype == 'variable'):
-            #         return [self._FreeParameter(f'{cat}_{x}_t{t}', cat, 'variable', f'{cat}_{x}_t{t}')
-            #                 for t in range(self.ntimes) for x in range(group_or_mets)]
-            #     elif 'dynamic' in ptype:
-            #         dyn_name = ptype['params']
-            #         return [self._FreeParameter(f'{cat}_{x}_{y}', cat, 'dynamic',
-            #                                     gen_mapped(f'{cat}_{x}'), ptype['dynamic'])
-            #                 for x in range(group_or_mets) for y in dyn_name]
-            #     else:
-            #         raise ValueError(f'Unrecognised parameter name {ptype}')
 
         fparams = []
         for index, param in enumerate(self.mapped_categories):

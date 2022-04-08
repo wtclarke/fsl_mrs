@@ -151,9 +151,9 @@ def test_dynMRS_fit(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
     init = dyn_obj.initialise(indiv_init=None)
-    res, _ = dyn_obj.fit(init=init)
+    res = dyn_obj.fit(init=init)
 
-    concs = res.data_frame.filter(like='conc').to_numpy()
+    concs = res.dataframe_free.filter(like='conc').to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
 
 
@@ -169,9 +169,9 @@ def test_dynMRS_fit_mcmc(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
     init = dyn_obj.initialise(indiv_init=None)
-    res, _ = dyn_obj.fit(method='MH', mh_jumps=50, init=init)
+    res = dyn_obj.fit(method='MH', mh_jumps=50, init=init)
 
-    concs = res.data_frame.filter(like='conc').mean(axis=0).to_numpy()
+    concs = res.dataframe_free.filter(like='conc').mean(axis=0).to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
 
 

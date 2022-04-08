@@ -50,7 +50,7 @@ def test_dynRes(fixed_ratio_mrs):
         baseline_order=0,
         metab_groups=[0, 0],
         rescale=False)
-    res_obj = dyn_obj.fit()[0]
+    res_obj = dyn_obj.fit()
 
     resinit = dyn_obj.initialise()
 
@@ -62,27 +62,27 @@ def test_dynRes(fixed_ratio_mrs):
     fig = res_obj.plot_mapped(fit_to_init=True)
     assert isinstance(fig, matplotlib.pyplot.Figure)
 
-    assert isinstance(res_obj.data_frame, pd.DataFrame)
+    assert isinstance(res_obj.dataframe_free, pd.DataFrame)
     assert isinstance(res_obj.x, np.ndarray)
-    assert res_obj.x.shape[0] == res_obj.data_frame.shape[1]
+    assert res_obj.x.shape[0] == res_obj.dataframe_free.shape[1]
 
     assert isinstance(res_obj._init_x, pd.DataFrame)
-    assert np.allclose(dyn_obj.vm.mapped_to_free(resinit['x']), res_obj.free_parameters_init)
+    assert np.allclose(dyn_obj.vm.mapped_to_free(resinit['x']), res_obj.init_free_parameters)
 
     assert isinstance(res_obj.mapped_parameters_array, np.ndarray)
     assert res_obj.mapped_parameters_array.shape == (1, len(mrs_list), len(dyn_obj.mapped_names))
 
-    assert isinstance(res_obj.mapped_parameters_init_array, np.ndarray)
-    assert res_obj.mapped_parameters_init_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
+    assert isinstance(res_obj.init_mapped_parameters_array, np.ndarray)
+    assert res_obj.init_mapped_parameters_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
 
-    assert isinstance(res_obj.free_parameters_init, np.ndarray)
-    assert res_obj.free_parameters_init.shape == (len(dyn_obj.free_names),)
+    assert isinstance(res_obj.init_free_parameters, np.ndarray)
+    assert res_obj.init_free_parameters.shape == (len(dyn_obj.free_names),)
 
-    assert isinstance(res_obj.init_dataframe, pd.DataFrame)
-    assert res_obj.init_dataframe.shape == (1, len(dyn_obj.free_names),)
+    assert isinstance(res_obj.init_free_dataframe, pd.Series)
+    assert res_obj.init_free_dataframe.shape == (len(dyn_obj.free_names),)
 
-    assert isinstance(res_obj.mapped_parameters_fitted_init_array, np.ndarray)
-    assert res_obj.mapped_parameters_fitted_init_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
+    assert isinstance(res_obj.init_mapped_parameters_fitted_array, np.ndarray)
+    assert res_obj.init_mapped_parameters_fitted_array.shape == (len(mrs_list), len(dyn_obj.mapped_names))
 
     assert res_obj.mapped_names == dyn_obj.mapped_names
     assert res_obj.free_names == dyn_obj.free_names
@@ -100,24 +100,24 @@ def test_dynRes_newton(fixed_ratio_mrs):
         baseline_order=0,
         metab_groups=[0, 0],
         rescale=False)
-    res_obj = dyn_obj.fit()[0]
+    res_obj = dyn_obj.fit()
 
-    assert isinstance(res_obj.cov_dyn, pd.DataFrame)
-    assert res_obj.cov_dyn.shape == (10, 10)
+    assert isinstance(res_obj.cov_free, pd.DataFrame)
+    assert res_obj.cov_free.shape == (10, 10)
 
-    assert isinstance(res_obj.corr_dyn, pd.DataFrame)
-    assert res_obj.corr_dyn.shape == (10, 10)
+    assert isinstance(res_obj.corr_free, pd.DataFrame)
+    assert res_obj.corr_free.shape == (10, 10)
 
-    assert isinstance(res_obj.std_dyn, pd.Series)
-    assert res_obj.std_dyn.shape == (10,)
+    assert isinstance(res_obj.std_free, pd.Series)
+    assert res_obj.std_free.shape == (10,)
 
-    assert np.allclose(res_obj.std_dyn, np.sqrt(np.diagonal(res_obj.cov_dyn)))
+    assert np.allclose(res_obj.std_free, np.sqrt(np.diagonal(res_obj.cov_free)))
 
-    assert isinstance(res_obj.std, pd.DataFrame)
-    assert res_obj.std.shape == (2, 8)
+    assert isinstance(res_obj.std_mapped, pd.DataFrame)
+    assert res_obj.std_mapped.shape == (2, 8)
 
-    assert isinstance(res_obj.mapped_params, pd.DataFrame)
-    assert res_obj.mapped_params.shape == (2, 8)
+    assert isinstance(res_obj.dataframe_mapped, pd.DataFrame)
+    assert res_obj.dataframe_mapped.shape == (2, 8)
 
     assert isinstance(res_obj.reslist, list)
     assert len(res_obj.reslist) == 2
@@ -136,24 +136,24 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
 
-    res_obj = dyn_obj.fit(method='MH', mh_jumps=20)[0]
+    res_obj = dyn_obj.fit(method='MH', mh_jumps=20)
 
-    assert isinstance(res_obj.cov_dyn, pd.DataFrame)
-    assert res_obj.cov_dyn.shape == (10, 10)
+    assert isinstance(res_obj.cov_free, pd.DataFrame)
+    assert res_obj.cov_free.shape == (10, 10)
 
-    assert isinstance(res_obj.corr_dyn, pd.DataFrame)
-    assert res_obj.corr_dyn.shape == (10, 10)
+    assert isinstance(res_obj.corr_free, pd.DataFrame)
+    assert res_obj.corr_free.shape == (10, 10)
 
-    assert isinstance(res_obj.std_dyn, pd.Series)
-    assert res_obj.std_dyn.shape == (10,)
+    assert isinstance(res_obj.std_free, pd.Series)
+    assert res_obj.std_free.shape == (10,)
 
-    assert np.allclose(res_obj.std_dyn, np.sqrt(np.diagonal(res_obj.cov_dyn)))
+    assert np.allclose(res_obj.std_free, np.sqrt(np.diagonal(res_obj.cov_free)))
 
-    assert isinstance(res_obj.std, pd.DataFrame)
-    assert res_obj.std.shape == (2, 8)
+    assert isinstance(res_obj.std_mapped, pd.DataFrame)
+    assert res_obj.std_mapped.shape == (2, 8)
 
-    assert isinstance(res_obj.mapped_params, pd.DataFrame)
-    assert res_obj.mapped_params.shape == (2, 8)
+    assert isinstance(res_obj.dataframe_mapped, pd.DataFrame)
+    assert res_obj.dataframe_mapped.shape == (2, 8)
 
 
 def test_load_save(fixed_ratio_mrs, tmp_path):
@@ -168,7 +168,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
         metab_groups=[0, 0],
         rescale=False)
 
-    res = dyn_obj.fit()[0]
+    res = dyn_obj.fit()
 
     res.save(tmp_path / 'res_save_test')
     res_loaded = dyn.load_dyn_result(tmp_path / 'res_save_test', dyn_obj)
@@ -177,10 +177,9 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     assert_frame_equal(res._data, res_loaded._data)
     assert_frame_equal(res._init_x, res_loaded._init_x)
 
-    assert (tmp_path / 'res_save_test' / 'dyn_std.csv').is_file()
-    assert (tmp_path / 'res_save_test' / 'mapped_mean.csv').is_file()
-    assert (tmp_path / 'res_save_test' / 'mapped_std.csv').is_file()
-
+    assert (tmp_path / 'res_save_test' / 'free_parameters.csv').is_file()
+    assert (tmp_path / 'res_save_test' / 'mapped_parameters.csv').is_file()
+ 
     res.save(tmp_path / 'res_save_test2', save_dyn_obj=True)
     res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
 

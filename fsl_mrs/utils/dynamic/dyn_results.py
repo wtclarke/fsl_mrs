@@ -108,7 +108,7 @@ class dynRes:
         if isinstance(init, pd.DataFrame):
             self._init_x = init
         else:
-            self._init_x = pd.DataFrame(self.flatten_mapped(init['x']), columns=self._dyn.mapped_names)
+            self._init_x = pd.DataFrame(init['x'], columns=self._dyn.mapped_names)
 
     def save(self, save_dir, save_dyn_obj=False):
         """Save the results to a directory
@@ -125,152 +125,60 @@ class dynRes:
             save_dir = Path(save_dir)
         save_dir.mkdir(exist_ok=True, parents=True)
 
-        # Save the two dataframes
+        # Save the two dataframes that contain the optimisation results
+        # Everything else can be derived from these
         self._data.to_csv(save_dir / 'dyn_results.csv')
         self._init_x.to_csv(save_dir / 'init_results.csv')
 
-        # Save the uncertainties and mapped parameters as well - for ease of results writing
-        self.std_dyn.to_csv(save_dir / 'dyn_std.csv')
-        self.mapped_params.to_csv(save_dir / 'mapped_mean.csv')
-        self.std.to_csv(save_dir / 'mapped_std.csv')
+        # Save summaries of results
+        # 1. mean + std of free parameters
+        pd.concat((self.mean_free, self.std_free), axis=1, keys=['mean', 'sd'])\
+            .to_csv(save_dir / 'free_parameters.csv')
+        # 2. mean + std of mapped parameters
+        pd.concat((self.dataframe_mapped, self.std_mapped), keys=['mean', 'std'], axis=0)\
+            .T\
+            .reorder_levels([1, 0], axis=1)\
+            .sort_index(axis=1, level=0)\
+            .to_csv(save_dir / 'mapped_parameters.csv')
 
         # If selected save the dynamic object to a nested directory
         if save_dyn_obj:
             self._dyn.save(save_dir / 'dynmrs_obj', save_mrs_list=True)
 
+    '''Properties to access the results viewed as the free parameter set.
+       These are the free parameters that have been directly optimised.
+
+       obj.dataframe_free returns a pandas dataframe with all mcmc samples
+       obj.mean_free returns a pandas series contining the mean free parameters
+       obj.x returns a numpy array of the mean free parameter estimates
+       obj.std_free returns a pandas series contining the std of the free parameters
+       '''
     @property
-    def data_frame(self):
-        """Return the pandas dataframe view of the results."""
+    def dataframe_free(self):
+        """Return the pandas dataframe view of the (free parameter) results, includinge all mcmc samples."""
         return self._data
 
     @property
+    def mean_free(self):
+        """Return the (mcmc: mean) free parameters as a pandas Series."""
+        return self.dataframe_free.mean()
+
+    @property
     def x(self):
-        """Return the (mcmc: mean) results as a numpy array."""
-        return self.data_frame.mean().to_numpy()
-
-    @staticmethod
-    def flatten_mapped(mapped):
-        """Flatten the nested array of mapped parameters created by the variable mapping class into
-        a N timpoint x M parameter matrix.
-
-        :param mapped: Nested array representation
-        :type mapped: np.array
-        :return: Flattened array
-        :rtype: np.array
-        """
-        flattened = []
-        for mp in mapped:
-            flattened.append(np.hstack(mp))
-        return np.asarray(flattened)
-
-    @staticmethod
-    def nest_mapped(mapped, vm):
-        """Nest a flattened array of mapped parameters.
-
-        :param mapped: Flattened array representation
-        :type mapped: np.array
-        :param vm: VariableMapping object
-        :type vm: fsl_mrs.utisl.dynamic.VariableMapping
-        :return: Nested array
-        :rtype: np.array
-        """
-        nested = []
-        for mp in mapped:
-            tmp = np.split(mp, np.cumsum(vm.mapped_sizes))[:-1]
-            nested.append(tmp)
-        return np.asarray(nested, dtype=object)
-
-    @property
-    def mapped_parameters_array(self):
-        """Flattened mapped parameters. Shape is samples x timepoints x parameters.
-        Number of samples will be 1 for newton, and >1 for MCMC.
-
-        :return: array of mapped samples
-        :rtype: np.array
-        """
-        mapped_samples = []
-        for fp in self._data.to_numpy():
-            mapped_samples.append(self.flatten_mapped(self._dyn.vm.free_to_mapped(fp)))
-        return np.asarray(mapped_samples)
-
-    @property
-    def mapped_params(self):
-        """Mapped parameters arising from dynamic fit.
-
-        :return: Pandas dataframe containing the mean mapped parameters for each time point
-        :rtype: pandas.DataFrame
-        """
-        return pd.DataFrame(self.mapped_parameters_array.mean(axis=0), columns=self.mapped_names)
-
-    @property
-    def mapped_parameters_init_array(self):
-        """Flattened mapped parameters from initilisation
-        Shape is timepoints x parameters.
-
-        :return: Flattened mapped parameters from initilisation
-        :rtype: np.array
-        """
-        return self._init_x.to_numpy()
-
-    @property
-    def mapped_params_init(self):
-        """Mapped parameters arising from dynamic fit.
-
-        :return: Pandas dataframe containing the mean mapped parameters for each time point
-        :rtype: pandas.DataFrame
-        """
-        return self._init_x
-
-    @property
-    def free_parameters_init(self):
-        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
-
-        :return: Free parameters estimated from initilisation
-        :rtype: np.array
-        """
-        return self._dyn.vm.mapped_to_free(self.mapped_parameters_init_array)
-
-    @property
-    def init_dataframe(self):
-        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
-
-        :return: Free parameters estimated from initilisation
-        :rtype: np.array
-        """
-        return pd.DataFrame(data=self.free_parameters_init, index=self._dyn.free_names).T
-
-    @property
-    def mapped_parameters_fitted_init_array(self):
-        """Mapped parameters resulting from inversion of model using initilised parameters.
-        Shape is timepoints x parameters.
-
-        :return: Mapped parameters
-        :rtype: np.array
-        """
-        return self.flatten_mapped(self._dyn.vm.free_to_mapped(self.free_parameters_init))
-
-    @property
-    def mapped_params_fitted_init(self):
-        """Mapped parameters arising from fitting the initilisation parameters to the model.
-
-        :return: Pandas dataframe containing the mean mapped parameters for each time point
-        :rtype: pandas.DataFrame
-        """
-        return pd.DataFrame(self.mapped_parameters_fitted_init_array, columns=self.mapped_names)
-
-    @property
-    def mapped_names(self):
-        """Mapped names from stored dynamic object"""
-        return self._dyn.mapped_names
-
-    @property
-    def free_names(self):
-        """Free names from stored dynamic object"""
-        return self._dyn.free_names
+        """Return the (mcmc: mean) free parameters as a numpy array."""
+        return self.dataframe_free.mean().to_numpy()
 
     # Methods implemented in child classes
     @property
-    def cov_dyn(self):
+    def std_free(self):
+        """Implemented in child class
+
+        Returns the standard deviations of the free parameters as a pandas Series
+        """
+        pass
+
+    @property
+    def cov_free(self):
         """Implemented in child class
 
         Returns the covariance matrix of free parameters
@@ -278,94 +186,199 @@ class dynRes:
         pass
 
     @property
-    def corr_dyn(self):
+    def corr_free(self):
         """Implemented in child class
 
         Returns the correlation matrix of free parameters
         """
         pass
 
+    # Utility methods
     @property
-    def std_dyn(self):
-        """Implemented in child class
+    def free_names(self):
+        """Free names from stored dynamic object"""
+        return self._dyn.free_names
 
-        Returns the standard deviations of the free parameters
+    '''Properties to access the results viewed as the mapped parameter set.
+       These are the parameters that describe each individual spectrum in the dataset.
+
+       obj.mapped_parameters_array returns a numpy array of all samples of mapped parameters
+       obj.dataframe_mapped returns a pandas dataframe contining the mean free parameters
+       obj.std_mapped returns a pandas series contining the std of the mapped parameters
+       '''
+
+    @property
+    def mapped_parameters_array(self):
+        """All mapped parameters. Shape is samples x timepoints x parameters.
+        Number of samples will be 1 for newton, and >1 for MCMC.
+
+        :return: array of mapped samples
+        :rtype: np.array
         """
-        pass
+        mapped_samples = []
+        for fp in self._data.to_numpy():
+            mapped_samples.append(self._dyn.vm.free_to_mapped(fp))
+        return np.asarray(mapped_samples)
 
     @property
-    def std(self):
+    def dataframe_mapped(self):
+        """Mapped parameters arising from dynamic fit.
+
+        :return: Pandas dataframe containing the mean mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return pd.DataFrame(
+            self.mapped_parameters_array.mean(axis=0),
+            columns=self.mapped_names,
+            index=self._dyn.time_var)
+
+    # Methods implemented in child classes
+    @property
+    def std_mapped(self):
         """Implemented in child class
 
         Returns the standard deviations of the mapped parameters
         """
         pass
 
+    # Utility methods
+    @property
+    def mapped_names(self):
+        """Mapped names from stored dynamic object"""
+        return self._dyn.mapped_names
+
+    '''Views of the initilisation parameters.
+    Includes methods to vieww as both mapped and free parameter sets'''
+
+    @property
+    def init_mapped_params(self):
+        """Mapped parameters from initilisation as dataframe
+
+        :return: Pandas dataframe containing the mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return self._init_x
+
+    @property
+    def init_mapped_parameters_array(self):
+        """Mapped parameters from initilisation
+        Shape is timepoints x parameters.
+
+        :return: Array of mapped parameters from initilisation
+        :rtype: np.array
+        """
+        return self._init_x.to_numpy()
+
+    @property
+    def init_free_parameters(self):
+        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
+
+        :return: Free parameters estimated from initilisation
+        :rtype: np.array
+        """
+        return self._dyn.vm.mapped_to_free(self.init_mapped_parameters_array)
+
+    @property
+    def init_free_dataframe(self):
+        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
+
+        :return: Free parameters estimated from initilisation
+        :rtype: pandas.Series
+        """
+        return pd.Series(data=self.init_free_parameters, index=self._dyn.free_names)
+
+    @property
+    def init_mapped_parameters_fitted_array(self):
+        """Mapped parameters resulting from inversion of model using initilised parameters.
+        Shape is timepoints x parameters.
+
+        :return: Mapped parameters
+        :rtype: np.array
+        """
+        return self._dyn.vm.free_to_mapped(self.init_free_parameters)
+
+    @property
+    def init_mapped_params_fitted(self):
+        """Mapped parameters arising from fitting the initilisation parameters to the model.
+
+        :return: Pandas dataframe containing the mean mapped parameters for each time point
+        :rtype: pandas.DataFrame
+        """
+        return pd.DataFrame(self.init_mapped_parameters_fitted_array, columns=self.mapped_names)
+
+    '''Methods for collecting results for presentation.'''
+
     def collected_results(self, to_file=None):
         """Collect the results of dynamic MRS fitting
 
-        Each mapped parameter group gets its own dict
+        Each mapped parameter category gets its own dataframe
 
-        :param dynres:  output of dynmrs.fit()
-        :type dynres: dict
         :param to_file: Output path, defaults to None
         :type to_file: str, optional
         :return: Formatted results
-        :rtype: dict of dict
+        :rtype: dict of pandas Dataframes
         """
 
         vm      = self._dyn.vm   # variable mapping object
-        results = {}             # collect results here
-        values  = self.x   # get the optimisation results here
-        counter = 0
-        metab_names = self._dyn.metabolite_names
+        results = {cat: [] for cat in vm.free_category}  # collect results here
+        values = self.x
 
-        # Loop over parameter groups (e.g. conc, Phi_0,  Phi_1, ... )
-        # Each will have a number of dynamic params associated
+        # Loop over free parameters
         # Store the values and names of these params in dict
-        for index, param in enumerate(vm.mapped_names):
-            isconc = param == 'conc'  # special case for concentration params
-            results[param] = {}
-            nmapped = vm.mapped_sizes[index]  # how many mapped params?
-            beh     = vm.Parameters[param]    # what kind of dynamic model?
-            if (beh == 'fixed'):  # if fixed, just a single value per mapped param
-                if not isconc:
-                    results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
+        for val, name, ftype, category, mg in \
+                zip(values, vm.free_names, vm.free_types, vm.free_category, vm.free_met_or_group):
+            if category == 'conc':
+                curr_dict = {'metabolite': mg}
+                if ftype == 'fixed':
+                    parameter_name = category
                 else:
-                    results[param]['metab'] = metab_names
-                results[param]['Values'] = values[counter:counter + nmapped]
-                counter += nmapped
-            elif (beh == 'variable'):
-                if not isconc:
-                    results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
+                    parameter_name = name.replace(f'{category}_{mg}_', '')
+                curr_dict[parameter_name] = val
+                results[category].append(curr_dict)
+            elif category in ['eps', 'sigma', 'gamma']:
+                curr_dict = {'group': mg}
+                if ftype == 'fixed':
+                    parameter_name = category
                 else:
-                    results[param]['metab'] = metab_names
-                for t in range(vm.ntimes):
-                    results[param][f't{t}'] = values[counter:counter + nmapped]
-                    counter += nmapped
+                    parameter_name = name.replace(f'{category}_{mg}_', '')
+                curr_dict[parameter_name] = val
+                results[category].append(curr_dict)
             else:
-                if 'dynamic' in beh:
-                    dyn_name = vm.Parameters[param]['params']
-                    nfree    = len(dyn_name)
-                    if not isconc:
-                        results[param]['name'] = [f'{param}_{x}' for x in range(nmapped)]
-                    else:
-                        results[param]['metab'] = metab_names
-                    tmp = []
-                    for t in range(nmapped):
-                        tmp.append(values[counter:counter + nfree])
-                        counter += nfree
-                    tmp = np.asarray(tmp)
-                    for i, t in enumerate(dyn_name):
-                        results[param][t] = tmp[:, i]
+                curr_dict = {}
+                if ftype == 'fixed':
+                    parameter_name = category
+                else:
+                    parameter_name = name.replace(f'{category}_{mg}_', '')
+                curr_dict[parameter_name] = val
+                results[category].append(curr_dict)
 
+        df_dict = {}
+        for category in vm.free_category:
+            if category == 'conc':
+                df = pd.DataFrame(results[category]).set_index('metabolite').sort_index()
+                df = df.groupby(df.index).sum(min_count=1)
+            elif category in ['eps', 'sigma', 'gamma']:
+                df = pd.DataFrame(results[category]).set_index('group').sort_index()
+                df = df.groupby(df.index).sum(min_count=1)
+            elif category == 'baseline':
+                df = pd.DataFrame(results[category])
+                order = list(range(int(df.shape[0] / 2)))
+                projection = ['real', 'imag']
+                new_index = pd.MultiIndex.from_product(
+                    [order, projection],
+                    names=['order', 're/im'])
+                df.index = new_index
+            else:
+                df = pd.DataFrame(results[category])
+            df_dict[category] = df
+
+        # Optionally save out data
         if to_file is not None:
-            import pandas as pd
-            for param in vm.mapped_names:
-                df = pd.DataFrame(results[param])
-                df.to_csv(to_file + f'_{param}.csv', index=False)
+            for category in df_dict:
+                df_dict[category]\
+                    .to_csv(f'{to_file}_{category}.csv')
 
-        return results
+        return df_dict
 
     # Plotting
     def plot_mapped(self, tvals=None, fit_to_init=False):
@@ -375,8 +388,8 @@ class dynRes:
         :type fit_to_init: bool, optional
         """
 
-        init_params = self.mapped_parameters_init_array
-        fitted_init_params = self.mapped_parameters_fitted_init_array
+        init_params = self.init_mapped_parameters_array
+        fitted_init_params = self.init_mapped_parameters_fitted_array
         dyn_params = self.mapped_parameters_array.mean(axis=0)
         dyn_params_sd = self.mapped_parameters_array.std(axis=0)
         names = self.mapped_names
@@ -418,8 +431,8 @@ class dynRes:
                 fwd.append(self._dyn.forward[idx](mp))
             return np.asarray(fwd)
 
-        init_fit = calc_fit_from_flatmapped(self.mapped_parameters_init_array)
-        init_fitted_fit = calc_fit_from_flatmapped(self.mapped_parameters_fitted_init_array)
+        init_fit = calc_fit_from_flatmapped(self.init_mapped_parameters_array)
+        init_fitted_fit = calc_fit_from_flatmapped(self.init_mapped_parameters_fitted_array)
 
         dyn_fit = []
         for mp in self.mapped_parameters_array:
@@ -546,34 +559,34 @@ class dynRes_mcmc(dynRes):
         return self._dyn.form_FitRes(self.dataframe.to_numpy(), 'MH')
 
     @property
-    def cov_dyn(self):
+    def cov_free(self):
         """Returns the covariance matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return self.data_frame.cov()
+        return self.dataframe_free.cov()
 
     @property
-    def corr_dyn(self):
+    def corr_free(self):
         """Returns the correlation matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return self.data_frame.corr()
+        return self.dataframe_free.corr()
 
     @property
-    def std_dyn(self):
+    def std_free(self):
         """Returns the standard deviations of the free parameters
 
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return self.data_frame.std()
+        return self.dataframe_free.std()
 
     @property
-    def std(self):
+    def std_mapped(self):
         """Returns the standard deviations of the mapped parameters
 
         :return: Std as data Series
@@ -605,12 +618,12 @@ class dynRes_newton(dynRes):
         data = np.asarray(dyn.data).flatten()
 
         # Dynamic (free) parameters
-        self._cov_dyn = calculate_lap_cov(self.x, dyn.full_fwd, data)
-        crlb_dyn = np.diagonal(self._cov_dyn)
+        self._cov_free = calculate_lap_cov(self.x, dyn.full_fwd, data)
+        crlb_dyn = np.diagonal(self._cov_free)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', r'invalid value encountered in sqrt')
-            self._std_dyn = np.sqrt(crlb_dyn)
-        self._corr_dyn = self._cov_dyn / (self._std_dyn[:, np.newaxis] * self._std_dyn[np.newaxis, :])
+            self._std_free = np.sqrt(crlb_dyn)
+        self._corr_free = self._cov_free / (self._std_free[:, np.newaxis] * self._std_free[np.newaxis, :])
 
         # Mapped parameters
         # import pdb; pdb.set_trace()
@@ -623,9 +636,9 @@ class dynRes_newton(dynRes):
         std = np.zeros((dyn.vm.nmapped, nt))
         for idx in range(dyn.vm.nmapped):
             grad = np.reshape(np.array([grad_all[idx, ll, kk] for ll in range(nf) for kk in range(nt)]), (nf, nt)).T
-            s_tmp = np.sqrt(np.diag(grad @ self._cov_dyn @ grad.T))
+            s_tmp = np.sqrt(np.diag(grad @ self._cov_free @ grad.T))
             std[idx, :] = np.array(s_tmp).T
-        self._std = std
+        self._std_mapped = std
 
     @property
     def reslist(self):
@@ -637,37 +650,37 @@ class dynRes_newton(dynRes):
         return self._dyn.form_FitRes(self.x, 'Newton')
 
     @property
-    def cov_dyn(self):
+    def cov_free(self):
         """Returns the covariance matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return pd.DataFrame(self._cov_dyn, self.free_names, self.free_names)
+        return pd.DataFrame(self._cov_free, self.free_names, self.free_names)
 
     @property
-    def corr_dyn(self):
+    def corr_free(self):
         """Returns the correlation matrix of free parameters
 
         :return: Covariance matrix as a DataFrame
         :rtype: pandas.DataFrame
         """
-        return pd.DataFrame(self._corr_dyn, self.free_names, self.free_names)
+        return pd.DataFrame(self._corr_free, self.free_names, self.free_names)
 
     @property
-    def std_dyn(self):
+    def std_free(self):
         """Returns the standard deviations of the free parameters
 
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.Series(self._std_dyn, self.free_names)
+        return pd.Series(self._std_free, self.free_names)
 
     @property
-    def std(self):
+    def std_mapped(self):
         """Returns the standard deviations of the mapped parameters
 
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.DataFrame(self._std.T, columns=self.mapped_names, index=self._dyn.time_var)
+        return pd.DataFrame(self._std_mapped.T, columns=self.mapped_names, index=self._dyn.time_var)
