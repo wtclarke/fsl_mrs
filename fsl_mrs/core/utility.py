@@ -15,6 +15,7 @@ from fsl_mrs.utils import mrs_io
 from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NotNIFTI_MRS
 from fsl_mrs.utils.preproc.combine import combine_FIDs
 
+
 def mrs_from_files(FID_file, Basis_file, H2O_file=None):
     '''Construct an MRS object from FID, basis, and
      (optionally) a reference file
@@ -98,6 +99,7 @@ def is_nifti_mrs(file_path):
         return True
     except fslpath.PathError:
         raise NotNIFTI_MRS("File isn't NIFTI-MRS, wrong extension type.")
+
 
 def mrs_from_list(mrs_list, method='mean'):
     '''Combine mrs Objects to form one single MRS object, e.g. by averaging the FIDs'''

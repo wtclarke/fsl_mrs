@@ -179,7 +179,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
 
     assert (tmp_path / 'res_save_test' / 'free_parameters.csv').is_file()
     assert (tmp_path / 'res_save_test' / 'mapped_parameters.csv').is_file()
- 
+
     res.save(tmp_path / 'res_save_test2', save_dyn_obj=True)
     res_loaded2 = dyn.load_dyn_result(tmp_path / 'res_save_test2')
 
