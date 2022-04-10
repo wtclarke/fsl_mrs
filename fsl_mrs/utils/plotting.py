@@ -1164,63 +1164,98 @@ def plot_table_qc(res):
 
 # ----------- Dyn MRS
 # Visualisation
-def plotly_dynMRS(mrs_list, time_var, ppmlim=(.2, 4.2)):
+def plotly_dynMRS(mrs_list,
+                  res_list=None,
+                  time_var=None,
+                  ppmlim=(.2, 4.2),
+                  proj='real'):
     """
     Plot dynamic MRS data with a slider though time
     Args:
         mrs_list: list of MRS objects
-        time_var: list of time variable (or bvals for dMRS)
+        res_list : list of Results objects
+        time_var: list of time variable (or bvals for dwMRS)
         ppmlim: list
+        proj : string (one of 'real','imag','abs','angle')
 
     Returns:
         plotly Figure
     """
+    # number of dyn time points
+    n = len(mrs_list)
+    if time_var is None:
+        time_var = np.arange(n)
+    # how to represent the complex data
+    proj_funcs = {'real': np.real,
+                  'imag': np.imag,
+                  'angle': np.angle,
+                  'abs': np.abs}
+    # colors (same as SVS plotting - should these move to where we define global constants?)
+    colors = {'data': 'rgb(67,67,67)',
+              'pred': 'rgb(253,59,59)',
+              'base': 'rgb(0,150,242)',
+              'resid': 'rgb(170,170,170)'}
+
+    # data to plot
+    xaxis  = mrs_list[0].getAxes()
+    ydata  = {}
+    ydata['data'] = [proj_funcs[proj](mrs_list[i].get_spec()) for i in range(n)]
+    if res_list is not None:
+        ydata['pred'] = [proj_funcs[proj](res_list[i].pred_spec) for i in range(n)]
+        ydata['base'] = [proj_funcs[proj](FID2Spec(res_list[i].baseline)) for i in range(n)]
+        ydata['resid'] = [proj_funcs[proj](FID2Spec(res_list[i].residuals)) for i in range(n)]
+    # TODO : add residuals/baseline to the data for plotting
+
     # Create figure
     fig = go.Figure()
+
     # Add traces, one for each slider step
-    for i, t in enumerate(time_var):
-        x = mrs_list[i].getAxes()
-        y = np.real(FIDToSpec(mrs_list[i].FID))
-        fig.add_trace(
-            go.Scatter(
-                visible=False,
-                line=dict(color="black", width=3),
-                name=f"{t}",
-                x=x,
-                y=y))
+    for name in ydata:
+        for i, t in enumerate(time_var):
+            fig.add_trace(
+                go.Scatter(
+                    visible=False,
+                    line=dict(color=colors[name], width=1),
+                    name=f"{name} - {t}",
+                    x=xaxis,
+                    y=ydata[name][i]))
+
     fig.update_layout(template='plotly_white')
     fig.update_xaxes(title_text='Chemical shift (ppm)',
                      tick0=2, dtick=.5,
                      range=[ppmlim[1], ppmlim[0]])
 
-    # y-axis range
-    data = [np.real(FIDToSpec(mrs.FID)) for mrs in mrs_list]
-    data = np.asarray(data).flatten()
-    minval = np.min(data)
-    maxval = np.max(data)
-    ymin = minval - minval / 2
+    # guess y-axis range
+    data = np.asarray(ydata['data']).flatten()
+    minval, maxval = np.min(data), np.max(data)
+    ymin = minval - np.abs(minval) / 2
     ymax = maxval + maxval / 30
 
+    # update yaxes
     fig.update_yaxes(zeroline=True,
                      zerolinewidth=1,
                      zerolinecolor='Gray',
-                     showgrid=False, showticklabels=False,
+                     showgrid=False, showticklabels=True,
                      range=[ymin, ymax])
 
-    # Make 0th trace visible
-    fig.data[0].visible = True
-    # Create and add slider
+    # Make first traces visible
+    for i in range(len(ydata)):
+        fig.data[i * n].visible = True
+
+    # Create and add slider steps
     steps = []
-    for i in range(len(time_var)):
+    for i in range(n):
         step = dict(
             method="restyle",
             label=f"t={time_var[i]}",
             args=[{"visible": [False] * len(fig.data)},
-                  {"title": f"time_variable : {time_var[i]}"}],  # layout attribute
-        )
-        step["args"][0]["visible"][i] = True  # Toggle i'th trace to "visible"
+                  {"title": f"time_variable : {time_var[i]}"}])
+
+        for j in range(len(ydata)):
+            step["args"][0]["visible"][i + j * n] = True
         steps.append(step)
 
+    # Create slider
     sliders = [dict(
         active=0,
         currentvalue={"prefix": "time variable: "},
@@ -1228,7 +1263,7 @@ def plotly_dynMRS(mrs_list, time_var, ppmlim=(.2, 4.2)):
         steps=steps)]
 
     fig.update_layout(sliders=sliders)
-    fig.layout.update({'height': 800})
+    fig.layout.update({'height': 600})
 
     return fig
 

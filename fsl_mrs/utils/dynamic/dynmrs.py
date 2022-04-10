@@ -177,8 +177,9 @@ class dynMRS(object):
         for mrs in self.mrs_list:
             scales.append(rescale_FID(mrs.FID, scale=100.0)[1])
 
+        scale = np.mean(scales)
         for mrs in self.mrs_list:
-            mrs.fid_scaling = np.mean(scales)
+            mrs.fid_scaling = scale
             mrs.basis_scaling_target = 100.0
 
     @property

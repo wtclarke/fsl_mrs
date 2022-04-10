@@ -362,14 +362,18 @@ class dynRes:
                 df = df.groupby(df.index).sum(min_count=1)
             elif category == 'baseline':
                 df = pd.DataFrame(results[category])
-                order = list(range(int(df.shape[0] / 2)))
-                projection = ['real', 'imag']
+                border = self._dyn.vm._mapped_sizes[self._dyn.vm.mapped_categories.index('baseline')]
+                order = list(range(int(border / 2)))
+                nparams = int(df.shape[0] / (2 * border / 2))
+                projection = ['real', ] * nparams + ['imag', ] * nparams
                 new_index = pd.MultiIndex.from_product(
                     [order, projection],
                     names=['order', 're/im'])
                 df.index = new_index
+                df = df.groupby(level=[0, 1]).sum(min_count=1)
             else:
-                df = pd.DataFrame(results[category])
+                df = pd.DataFrame(pd.DataFrame(results[category]).sum(), columns=[category]).T
+
             df_dict[category] = df
 
         # Optionally save out data

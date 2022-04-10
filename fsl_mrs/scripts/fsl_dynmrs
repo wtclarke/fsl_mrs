@@ -9,8 +9,9 @@
 # SHBASECOPYRIGHT
 
 # Quick imports
-from fsl_mrs.auxiliary import configargparse
+from pathlib import Path
 
+from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 
 
@@ -33,19 +34,19 @@ def main():
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True, type=str, metavar='<FILE>',
-                          help='input FID file (should be 5D NIFTI)')
+                          required=True, type=Path, metavar='<FILE>',
+                          help='input NIfTI-MRS file (should be 5D NIFTI)')
     required.add_argument('--basis',
-                          required=True, type=str, metavar='<FILE>',
-                          help='.BASIS file or folder containing basis spectra')
+                          required=True, type=Path, metavar='<FILE>',
+                          help='Basis folder containing basis spectra')
     required.add_argument('--output',
-                          required=True, type=str, metavar='<str>',
+                          required=True, type=Path, metavar='<str>',
                           help='output folder')
     required.add_argument('--dyn_config',
-                          required=True, type=str, metavar='<FILE>',
+                          required=True, type=Path, metavar='<FILE>',
                           help='configuration file for dynamic fitting')
     required.add_argument('--time_variables',
-                          required=True, type=str, metavar='<FILE>', nargs='+',
+                          required=True, type=Path, metavar='<FILE>', nargs='+',
                           help='time variable files (e.g. bvals, bvecs, design.mat, etc.)')
 
     # FITTING ARGUMENTS
@@ -87,7 +88,6 @@ def main():
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import time
-    import os
     import shutil
     import json
     import warnings
@@ -97,10 +97,8 @@ def main():
     from fsl_mrs.utils.dynamic import dynMRS
     from fsl_mrs.utils import mrs_io
     from fsl_mrs.utils import report
-    from fsl_mrs.utils import fitting
     from fsl_mrs.utils import plotting
     from fsl_mrs.utils import misc
-    from fsl_mrs.utils import quantify
     import datetime
     # ######################################################
     if not args.verbose:
@@ -108,26 +106,21 @@ def main():
 
     # Check if output folder exists
     overwrite = args.overwrite
-    if os.path.exists(args.output):
+    if args.output.is_dir():
         if not overwrite:
             print(f"Folder '{args.output}' exists."
                   " Are you sure you want to delete it? [Y,N]")
             response = input()
             overwrite = response.upper() == "Y"
+
         if not overwrite:
-            print('Early stopping...')
+            print('Please specify a different output folder name.')
             exit()
         else:
             shutil.rmtree(args.output)
-            os.makedirs(args.output, exist_ok=True)
+            args.output.mkdir(parents=True, exist_ok=True)
     else:
-        os.makedirs(args.output, exist_ok=True)
-
-    # Save chosen arguments
-    with open(os.path.join(args.output, "options.txt"), "w") as f:
-        f.write(json.dumps(vars(args)))
-        f.write("\n--------\n")
-        f.write(p.format_values())
+        args.output.mkdir(parents=True, exist_ok=True)
 
     # Do the work
 
@@ -136,52 +129,38 @@ def main():
         print('--->> Read input data\n')
         print(f'  {args.data}')
 
-    data  = mrs_io.read_FID(args.data)
+    data = mrs_io.read_FID(args.data)
 
     # Display information about the data
     if args.verbose:
         print(f'data shape : {data.shape}')
         print(f'data tags  : {data.dim_tags}')
 
-    #if args.h2o is not None:
-    #    H2O = mrs_io.read_FID(args.h2o)
-    #else:
-    #    H2O = None
+    if args.h2o is not None:
+        raise NotImplementedError("H2O referencing not yet implemented for dynamic fitting.")
 
     # Create a MRS list
     mrslist = data.mrs(basis_file=args.basis)
-
-    # Create MRS Object for the average FID
-    from fsl_mrs.core.utility import mrs_from_list
-    mrs_avg = mrs_from_list(mrslist,'mean')
+    for mrs in mrslist:
+        mrs.check_FID(repair=True)
+        mrs.check_Basis(repair=True)
 
     # Get dynmrs time variables
-    if len(args.time_variables) == 0:
-        time_variables = np.loadtxt(args.time_variables)
+    if len(args.time_variables) == 1:
+        time_variables = np.loadtxt(args.time_variables[0])
     else:
         time_variables = [np.loadtxt(v) for v in args.time_variables]
-
-
-    # DO WE NEED THE BELOW STILL?
-    # Rescale FID, H2O and basis to have nice range
-    #if not args.no_rescale:
-    #    mrs.rescaleForFitting(ind_scaling=args.ind_scale)
-
 
     # Do the fitting here
     if args.verbose:
         print('--->> Start fitting\n\n')
     start = time.time()
 
-    ppmlim = args.ppmlim
-    if ppmlim is not None:
-        ppmlim = (ppmlim[0], ppmlim[1])
-
     # Parse metabolite groups
     metab_groups = misc.parse_metab_groups(mrslist[0], args.metab_groups)
 
     # Fitting Arguments
-    Fitargs = {'ppmlim': ppmlim,
+    Fitargs = {'ppmlim': args.ppmlim,
                'baseline_order': args.baseline_order,
                'metab_groups': metab_groups,
                'model': 'voigt'
@@ -189,18 +168,22 @@ def main():
     if args.lorentzian:
         Fitargs['model'] = 'lorentzian'
 
-
     # Now create a dynmrs object
     # This is the main class that knows how to map between
     # the parameters of the MRS model and the parameters
     # of the dynamic model
-    print('creating dynmrs object')
-    print(time_variables)
-    dyn = dynMRS(mrslist, time_variables[0], config_file=args.dyn_config, **Fitargs)
+    if args.verbose:
+        print('Creating dynmrs object.')
+        print(time_variables)
 
+    dyn = dynMRS(
+        mrslist,
+        time_variables,
+        config_file=args.dyn_config,
+        rescale=not args.no_rescale,
+        **Fitargs)
 
     if args.verbose:
-        print(mrs_avg)
         print('Fitting args:')
         print(Fitargs)
 
@@ -226,55 +209,48 @@ def main():
     if args.verbose:
         print('--->> Saving output files to {}\n'.format(args.output))
 
+    # Save chosen arguments
+    with open(args.output / "options.txt", "w") as f:
+        # Deal with stupid non-serialisability of pathlib path objects
+        var_print = {}
+        for key in vars(args):
+            if key in ['data', 'basis', 'output', 'dyn_config']:
+                var_print[key] = str(vars(args)[key])
+            elif key == 'time_variables':
+                var_print['time_variables'] = [str(val) for val in vars(args)['time_variables']]
+            else:
+                var_print[key] = vars(args)[key]
+        f.write(json.dumps(var_print))
+        f.write("\n--------\n")
+        f.write(p.format_values())
+
     # dump output to folder
-    dyn_res.save(os.path.join(args.output), save_dyn_obj=True)
-    # dyn_res.collected_results(to_file=os.path.join(args.output,'params'))
-
-
-    # res.to_file(filename=os.path.join(args.output, 'summary.csv'),
-    #             what='summary')
-    # res.to_file(filename=os.path.join(args.output, 'concentrations.csv'),
-    #             what='concentrations')
-    # res.to_file(filename=os.path.join(args.output, 'qc.csv'),
-    #             what='qc')
-    # res.to_file(filename=os.path.join(args.output, 'all_parameters.csv'),
-    #             what='parameters')
-    # if args.algo == 'MH':
-    #     res.to_file(filename=os.path.join(
-    #                 args.output, 'concentration_samples.csv'),
-    #                 what='concentrations-mh')
-    #     res.to_file(filename=os.path.join(args.output, 'all_samples.csv'),
-    #                 what='parameters-mh')
+    dyn_res.save(args.output, save_dyn_obj=True)
 
     # Save image of MRS voxel
     location_fig = None
     if args.t1 is not None \
-            and FID.getXFormCode() > 0:
+            and mrslist[0].getXFormCode() > 0:
         fig = plotting.plot_world_orient(args.t1, args.data)
         fig.tight_layout()
-        location_fig = os.path.join(args.output, 'voxel_location.png')
+        location_fig = args.output / 'voxel_location.png'
         fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
 
-    ## Save quick summary figure
-    #report.fitting_summary_fig(mrs_avg, res,
-    #                           filename=os.path.join(args.output,
-    #                                                 'fit_summary.png'))
-
     # Create interactive HTML report
-    # if args.report:
-    #     report.create_report(
-    #         mrslist[0],
-    #         dyn_res[0],
-    #         filename=os.path.join(args.output, 'report.html'),
-    #         fidfile=args.data,
-    #         basisfile=args.basis,
-    #         h2ofile=args.h2o,
-    #         date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-    #         location_fig=location_fig)
+    if args.report:
+        t_varFiles = '\n'.join([str(tfile) for tfile in args.time_variables])
+        report.create_dynmrs_report(
+            dyn_res,
+            filename=args.output / 'report.html',
+            fidfile=args.data,
+            basisfile=args.basis,
+            configfile=args.dyn_config,
+            tvarfiles=t_varFiles,
+            date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            location_fig=location_fig)
 
     if args.verbose:
         print('\n\n\nDone.')
-
 
 
 def str_or_int_arg(x):
@@ -282,7 +258,6 @@ def str_or_int_arg(x):
         return int(x)
     except ValueError:
         return x
-
 
 
 if __name__ == '__main__':

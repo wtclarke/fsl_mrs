@@ -47,6 +47,7 @@ class FitRes(object):
 
         # Store prediction, baseline, residual
         self.pred = self.predictedFID(mrs, mode='Full')
+        self.pred_spec = FIDToSpec(self.pred)
         self.baseline = self.predictedFID(mrs, mode='Baseline')
         self.residuals = mrs.FID - self.pred
 
