@@ -1,6 +1,6 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.2.12 (Wednesday 20th April)
+1.1.12 (Wednesday 20th April)
 -----------------------------
 - Update to fslpy version (to 3.9.0) to substantially speed up MRSI preprocessing.
 - Fixes to NIFTI_MRS class for compatibility with new fslpy version.
