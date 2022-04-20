@@ -365,22 +365,22 @@ def test_split():
     # Functionality testing
 
     out_1, out_2 = nmrs_tools.split(nmrs, 'DIM_DYN', 31)
-    assert out_1.data.shape == (1, 1, 1, 4096, 32, 32)
-    assert out_2.data.shape == (1, 1, 1, 4096, 32, 32)
-    assert np.allclose(out_1.data, nmrs.data[:, :, :, :, :, 0:32])
-    assert np.allclose(out_2.data, nmrs.data[:, :, :, :, :, 32:])
+    assert out_1[:].shape == (1, 1, 1, 4096, 32, 32)
+    assert out_2[:].shape == (1, 1, 1, 4096, 32, 32)
+    assert np.allclose(out_1[:], nmrs[:, :, :, :, :, 0:32])
+    assert np.allclose(out_2[:], nmrs[:, :, :, :, :, 32:])
     assert out_1.hdr_ext == nmrs.hdr_ext
     assert out_1.hdr_ext == nmrs.hdr_ext
     assert np.allclose(out_1.getAffine('voxel', 'world'), nmrs.getAffine('voxel', 'world'))
     assert np.allclose(out_2.getAffine('voxel', 'world'), nmrs.getAffine('voxel', 'world'))
 
     out_1, out_2 = nmrs_tools.split(nmrs, 'DIM_DYN', [0, 32, 63])
-    assert out_1.data.shape == (1, 1, 1, 4096, 32, 61)
-    assert out_2.data.shape == (1, 1, 1, 4096, 32, 3)
+    assert out_1[:].shape == (1, 1, 1, 4096, 32, 61)
+    assert out_2[:].shape == (1, 1, 1, 4096, 32, 3)
     test_list = np.arange(0, 64)
     test_list = np.delete(test_list, [0, 32, 63])
-    assert np.allclose(out_1.data, nmrs.data[:, :, :, :, :, test_list])
-    assert np.allclose(out_2.data, nmrs.data[:, :, :, :, :, [0, 32, 63]])
+    assert np.allclose(out_1[:], nmrs[:][:, :, :, :, :, test_list])
+    assert np.allclose(out_2[:], nmrs[:][:, :, :, :, :, [0, 32, 63]])
 
     # Split some synthetic data with header information
     nhdr_1 = gen_new_nifti_mrs(np.ones((1, 1, 1, 10, 4), dtype=complex),
@@ -461,9 +461,9 @@ def test_merge():
 
     # Functionality testing
     out = nmrs_tools.merge((nmrs_1, nmrs_2), 'DIM_DYN')
-    assert out.data.shape == (1, 1, 1, 4096, 32, 4)
-    assert np.allclose(out.data[:, :, :, :, :, 0:2], nmrs_1.data)
-    assert np.allclose(out.data[:, :, :, :, :, 2:], nmrs_2.data)
+    assert out[:].shape == (1, 1, 1, 4096, 32, 4)
+    assert np.allclose(out[:][:, :, :, :, :, 0:2], nmrs_1[:])
+    assert np.allclose(out[:][:, :, :, :, :, 2:], nmrs_2[:])
     assert out.hdr_ext == nmrs_1.hdr_ext
     assert np.allclose(out.getAffine('voxel', 'world'), nmrs_1.getAffine('voxel', 'world'))
 
@@ -471,7 +471,7 @@ def test_merge():
     nmrs_1_e = nmrs_tools.reorder(nmrs_1, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
     nmrs_2_e = nmrs_tools.reorder(nmrs_2, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
     out = nmrs_tools.merge((nmrs_1_e, nmrs_2_e), 'DIM_EDIT')
-    assert out.data.shape == (1, 1, 1, 4096, 32, 2, 2)
+    assert out[:].shape == (1, 1, 1, 4096, 32, 2, 2)
     assert out.hdr_ext['dim_7'] == 'DIM_EDIT'
 
     # Merge some synthetic data with header information
@@ -486,7 +486,7 @@ def test_merge():
     nhdr_2.set_dim_header('DIM_DYN', {'RepetitionTime': [1, 2, 3, 4]})
 
     out = nmrs_tools.merge((nhdr_1, nhdr_2, nhdr_2), 'DIM_DYN')
-    assert out.data.shape == (1, 1, 1, 10, 12)
+    assert out[:].shape == (1, 1, 1, 10, 12)
     assert out.hdr_ext['dim_5'] == 'DIM_DYN'
     assert out.hdr_ext['dim_5_header'] == {'RepetitionTime': [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4]}
 
@@ -494,7 +494,7 @@ def test_merge():
     nhdr_2.set_dim_header('DIM_DYN', {'RepetitionTime': [5, 6, 7, 8]})
 
     out = nmrs_tools.merge((nhdr_1, nhdr_2), 'DIM_DYN')
-    assert out.data.shape == (1, 1, 1, 10, 8)
+    assert out[:].shape == (1, 1, 1, 10, 8)
     assert out.hdr_ext['dim_5'] == 'DIM_DYN'
     assert out.hdr_ext['dim_5_header'] == {'RepetitionTime': {'start': 1, 'increment': 1}}
 
@@ -514,7 +514,7 @@ def test_merge():
     nhdr_2_e.set_dim_header('DIM_EDIT', {'OtherTime': [0.2, ]})
 
     out = nmrs_tools.merge((nhdr_1_e, nhdr_2_e), 'DIM_EDIT')
-    assert out.data.shape == (1, 1, 1, 10, 4, 2)
+    assert out[:].shape == (1, 1, 1, 10, 4, 2)
     assert out.hdr_ext['dim_6'] == 'DIM_EDIT'
     assert out.hdr_ext['dim_6_header'] == {'OtherTime': [0.1, 0.2, ]}
 
@@ -536,21 +536,21 @@ def test_reorder():
     # Functionality testing
     # Swap order of dimensions
     out = nmrs_tools.reorder(nmrs, ['DIM_DYN', 'DIM_COIL'])
-    assert out.data.shape == (1, 1, 1, 4096, 64, 32)
-    assert np.allclose(np.swapaxes(nmrs.data, 4, 5), out.data)
+    assert out[:].shape == (1, 1, 1, 4096, 64, 32)
+    assert np.allclose(np.swapaxes(nmrs[:], 4, 5), out[:])
     assert out.hdr_ext['dim_5'] == 'DIM_DYN'
     assert out.hdr_ext['dim_6'] == 'DIM_COIL'
 
     # # Add an additional singleton at end (not reported in shape)
     out = nmrs_tools.reorder(nmrs, ['DIM_COIL', 'DIM_DYN', 'DIM_EDIT'])
-    assert out.data.shape == (1, 1, 1, 4096, 32, 64)
+    assert out[:].shape == (1, 1, 1, 4096, 32, 64)
     assert out.hdr_ext['dim_5'] == 'DIM_COIL'
     assert out.hdr_ext['dim_6'] == 'DIM_DYN'
     assert out.hdr_ext['dim_7'] == 'DIM_EDIT'
 
     # Add an additional singleton at 5 (not reported in shape)
     out = nmrs_tools.reorder(nmrs, ['DIM_EDIT', 'DIM_COIL', 'DIM_DYN'])
-    assert out.data.shape == (1, 1, 1, 4096, 1, 32, 64)
+    assert out[:].shape == (1, 1, 1, 4096, 1, 32, 64)
     assert out.hdr_ext['dim_5'] == 'DIM_EDIT'
     assert out.hdr_ext['dim_6'] == 'DIM_COIL'
     assert out.hdr_ext['dim_7'] == 'DIM_DYN'

@@ -327,7 +327,7 @@ class NIFTI_MRS(Image):
             dim - None, dimension index (4, 5, 6) or tag. None iterates over all indices.'''
         if remove_dim:
             dim = self._dim_tag_to_index(remove_dim)
-            reduced_data = self.data.take(0, axis=dim)
+            reduced_data = self[:].take(0, axis=dim)
             new_obj = NIFTI_MRS(reduced_data, header=self.header)
             new_obj._filename = self.filename
 
@@ -350,7 +350,7 @@ class NIFTI_MRS(Image):
 
             return new_obj
         else:
-            return NIFTI_MRS(self.data, header=self.header)
+            return NIFTI_MRS(self[:], header=self.header)
 
     def iterate_over_dims(self, dim=None, iterate_over_space=False, reduce_dim_index=False, voxel_index=None):
         '''Return generator to iterate over all indices or one dimension (and FID).
@@ -364,7 +364,7 @@ class NIFTI_MRS(Image):
             index - data location slice object.
         '''
 
-        data = self.data
+        data = self[:]
         dim = self._dim_tag_to_index(dim)
 
         # Convert indicies to slices to preserve singleton dimensions
@@ -434,14 +434,14 @@ class NIFTI_MRS(Image):
         :yield: Complex FID data with any higher dimensions. Index to data.
         :rtype: tuple
         """
-        data = self.data
+        data = self[:]
 
         def calc_slice_idx(idx):
-            slice_obj = list(idx[:3]) + [slice(None), ] * (self.data.ndim - 3)
+            slice_obj = list(idx[:3]) + [slice(None), ] * (data.ndim - 3)
             return tuple(slice_obj)
 
         for idx in np.ndindex(data.shape[:3]):
-            yield self.data[idx], calc_slice_idx(idx)
+            yield self[idx], calc_slice_idx(idx)
 
     def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None):
         """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
@@ -578,9 +578,10 @@ class NIFTI_MRS(Image):
 
         return tvar_dict2, tvar_tuple2.reshape(self.shape[4:]), tvar_array
 
+    # As of move to fslpy 3.9.0 this is no longer required.
     # If save called do some hairy temporary conjugation
     # The save method of fsl.data.image.Image makes a call
     # to __getitem__ resulting in a final undesired conjugation.
-    def save(self, filename=None):
-        self[:] = self[:].conj()
-        super().save(filename=filename)
+    # def save(self, filename=None):
+    #     self[:] = self[:].conj()
+    #     super().save(filename=filename)

@@ -16,4 +16,4 @@ def test_conjugate():
 
     conjugated = nmrs_tools.conjugate(nmrs)
 
-    assert np.allclose(conjugated.data, np.conjugate(nmrs.data))
+    assert np.allclose(conjugated[:], np.conjugate(nmrs[:]))

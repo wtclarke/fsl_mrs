@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.12 (Wednesday 20th April)
+-----------------------------
+- Update to fslpy version (to 3.9.0) to substantially speed up MRSI preprocessing.
+- Fixes to NIFTI_MRS class for compatibility with new fslpy version.
+- Previous versions of FSL-MRS will not be compatible with fslpy >= 3.9.0
+
 1.1.11 (Monday 4th April 2022)
 ------------------------------
 - Now able to choose the number of workers in fsl_mrs_sim.
