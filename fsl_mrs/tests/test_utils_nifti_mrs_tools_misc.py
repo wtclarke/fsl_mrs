@@ -1,5 +1,4 @@
 from pathlib import Path
-from copy import deepcopy
 
 import numpy as np
 
