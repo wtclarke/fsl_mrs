@@ -18,4 +18,4 @@ def conjugate(nmrs):
     :rtype: NIFTI_MRS
     """
 
-    return NIFTI_MRS(np.conjugate(nmrs.data), header=nmrs.header)
+    return NIFTI_MRS(np.conjugate(nmrs[:]), header=nmrs.header)

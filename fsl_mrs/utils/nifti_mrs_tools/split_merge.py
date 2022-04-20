@@ -76,8 +76,8 @@ def split(nmrs, dimension, index_or_indicies):
     out_hdr_1 = utils.modify_hdr_ext(split_hdr_ext_1, nmrs.header)
     out_hdr_2 = utils.modify_hdr_ext(split_hdr_ext_2, nmrs.header)
 
-    nmrs_1 = NIFTI_MRS(np.delete(nmrs.data, index, axis=dim_index), header=out_hdr_1)
-    nmrs_2 = NIFTI_MRS(np.take(nmrs.data, index, axis=dim_index), header=out_hdr_2)
+    nmrs_1 = NIFTI_MRS(np.delete(nmrs[:], index, axis=dim_index), header=out_hdr_1)
+    nmrs_2 = NIFTI_MRS(np.take(nmrs[:], index, axis=dim_index), header=out_hdr_2)
 
     return nmrs_1, nmrs_2
 
@@ -198,9 +198,9 @@ def merge(array_of_nmrs, dimension):
 
         if nmrs.ndim == dim_index:
             # If a squeezed singleton on the end.
-            to_concat.append(np.expand_dims(nmrs.data, -1))
+            to_concat.append(np.expand_dims(nmrs[:], -1))
         else:
-            to_concat.append(nmrs.data)
+            to_concat.append(nmrs[:])
 
         # Merge header extension
         if idx == 0:
@@ -317,7 +317,7 @@ def reorder(nmrs, dim_tag_list):
     original_dims = nmrs.ndim
     new_dim = sum(x is not None for x in nmrs.dim_tags) + 4
     dims_to_add = tuple(range(original_dims, new_dim + 1))
-    data_with_singleton = np.expand_dims(nmrs.data, dims_to_add)
+    data_with_singleton = np.expand_dims(nmrs[:], dims_to_add)
 
     # Create list of source indicies
     # Create list of destination indicies

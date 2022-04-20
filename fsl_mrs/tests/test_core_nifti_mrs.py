@@ -6,6 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 from pathlib import Path
+from copy import deepcopy
 
 import pytest
 import numpy as np
@@ -53,9 +54,15 @@ def test_nifti_mrs_filename():
 
 def test_nifti_mrs_save(tmp_path):
     obj = NIFTI_MRS(data['metab'])
-    obj.save(tmp_path / 'out')
+    original = deepcopy(obj[:])
 
+    obj.save(tmp_path / 'out')
     assert (tmp_path / 'out.nii.gz').exists()
+
+    obj_reloaded = NIFTI_MRS(tmp_path / 'out.nii.gz')
+
+    assert np.allclose(obj_reloaded[:], obj[:])
+    assert np.allclose(obj_reloaded[:], original)
 
 
 def test_nifti_mrs_generator():
@@ -187,6 +194,17 @@ def test_gen_new_nifti_mrs(tmp_path):
     nmrs.save(tmp_path / 'out')
 
     assert (tmp_path / 'out.nii.gz').exists()
+
+
+def test_gen_new_nifti_mrs_conj(tmp_path):
+    obj_in = NIFTI_MRS(data['metab'])
+
+    nmrs = gen_new_nifti_mrs(obj_in[:],
+                             obj_in.dwelltime,
+                             obj_in.spectrometer_frequency[0],
+                             nucleus='1H')
+
+    assert np.allclose(nmrs[:], obj_in[:])
 
 
 def test_add_remove_field():

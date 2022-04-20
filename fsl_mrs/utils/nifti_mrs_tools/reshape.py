@@ -33,9 +33,9 @@ def reshape(nmrs, reshape, d5=None, d6=None, d7=None):
     :type d7: str, optional
     """
 
-    shape = nmrs.data.shape[0:4]
+    shape = nmrs[:].shape[0:4]
     shape += reshape
-    nmrs_reshaped = NIFTI_MRS(np.reshape(nmrs.data, shape), header=nmrs.header)
+    nmrs_reshaped = NIFTI_MRS(np.reshape(nmrs[:], shape), header=nmrs.header)
 
     # reshpaed_hrd = _reshape_hdr(nmrs_reshaped.dynamic_hdr_vals[2],)
 

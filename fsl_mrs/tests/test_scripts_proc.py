@@ -275,7 +275,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     # Run directly
     directRun = preproc.coilcombine(svsdata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -290,7 +290,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     # Run directly
     directRun = preproc.coilcombine(mrsidata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_average(svs_data, mrsi_data, tmp_path):
@@ -310,7 +310,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.average(svsdata, 'DIM_DYN')
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -326,7 +326,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.average(mrsidata, 'DIM_DYN')
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_align(svs_data, mrsi_data, tmp_path):
@@ -347,7 +347,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     subprocess.check_call(['fsl_mrs_proc',
                            'align',
@@ -384,7 +384,7 @@ def test_align_all(svs_data_uncomb_reps, tmp_path):
     # Run directly
     directRun = preproc.align(svsdata, 'all', ppmlim=(-10, 10))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_ecc(svs_data, mrsi_data, tmp_path):
@@ -404,7 +404,7 @@ def test_ecc(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.ecc(svsdata, svsdata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil ecc on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -420,7 +420,7 @@ def test_ecc(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.ecc(mrsidata, mrsidata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_remove(svs_data, mrsi_data, tmp_path):
@@ -440,7 +440,7 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.remove_peaks(svsdata, (-10, 10))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -456,7 +456,7 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.remove_peaks(mrsidata, (-10, 10))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_model(svs_data, mrsi_data, tmp_path):
@@ -477,7 +477,7 @@ def test_model(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.hlsvd_model_peaks(svsdata, (-10, 10), components=5)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run model on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -494,7 +494,7 @@ def test_model(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.hlsvd_model_peaks(mrsidata, (-10, 10), components=5)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
@@ -518,7 +518,7 @@ def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
                                   'add',
                                   ppmlim=(-10, 10))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
     # TODO: finish MRSI test
 
 
@@ -538,7 +538,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.fshift(svsdata, 1.0 * 123.2)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     subprocess.check_call(['fsl_mrs_proc',
                            'fshift',
@@ -555,7 +555,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
     # TODO: finish MRSI test
 
 
@@ -576,7 +576,7 @@ def test_conj(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.conjugate(svsdata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -591,7 +591,7 @@ def test_conj(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.conjugate(mrsidata)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_fixed_phase(svs_data, mrsi_data, tmp_path):
@@ -613,7 +613,7 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.apply_fixed_phase(svsdata, 90, 0.001)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
 
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
@@ -630,4 +630,4 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.apply_fixed_phase(mrsidata, 90, 0.001)
 
-    assert np.allclose(data.data, directRun.data)
+    assert np.allclose(data[:], directRun[:])
