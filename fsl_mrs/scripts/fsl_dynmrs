@@ -146,10 +146,16 @@ def main():
         mrs.check_Basis(repair=True)
 
     # Get dynmrs time variables
+    def load_tvar_file(fp):
+        if fp.suffix in ['.csv', ]:
+            return np.loadtxt(fp, delimiter=',')
+        else:
+            return np.loadtxt(fp)
+
     if len(args.time_variables) == 1:
-        time_variables = np.loadtxt(args.time_variables[0])
+        time_variables = load_tvar_file(args.time_variables[0])
     else:
-        time_variables = [np.loadtxt(v) for v in args.time_variables]
+        time_variables = [load_tvar_file(v) for v in args.time_variables]
 
     # Do the fitting here
     if args.verbose:

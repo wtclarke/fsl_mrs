@@ -217,6 +217,14 @@ class dynMRS(object):
     def vm(self):
         return self._vm
 
+    @property
+    def time_index(self):
+        """Returns a simple 1D index of time points.
+
+        Usefull for plotting etc. when there is a ND time variable
+        """
+        return np.arange(len(self.time_var)).tolist()
+
     def fit(self,
             method='Newton',
             mh_jumps=600,

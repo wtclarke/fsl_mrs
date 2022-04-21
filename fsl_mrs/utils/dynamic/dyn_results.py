@@ -220,6 +220,13 @@ class dynRes:
             mapped_samples.append(self._dyn.vm.free_to_mapped(fp))
         return np.asarray(mapped_samples)
 
+    def _time_index_1d(self):
+        """Utility function to return the best 1D time index"""
+        if self._dyn.time_var.ndim > 1:
+            return self._dyn.time_index
+        else:
+            return self._dyn.time_var
+
     @property
     def dataframe_mapped(self):
         """Mapped parameters arising from dynamic fit.
@@ -227,10 +234,11 @@ class dynRes:
         :return: Pandas dataframe containing the mean mapped parameters for each time point
         :rtype: pandas.DataFrame
         """
+
         return pd.DataFrame(
             self.mapped_parameters_array.mean(axis=0),
             columns=self.mapped_names,
-            index=self._dyn.time_var)
+            index=self._time_index_1d())
 
     # Methods implemented in child classes
     @property
@@ -398,7 +406,7 @@ class dynRes:
         dyn_params_sd = self.mapped_parameters_array.std(axis=0)
         names = self.mapped_names
         if tvals is None:
-            tvals = self._dyn.time_var
+            tvals = self._time_index_1d()
 
         # Plot the lot
         row, col = subplot_shape(len(names))
@@ -415,7 +423,7 @@ class dynRes:
         fig.legend(handles, labels, loc='right')
         return fig
 
-    def plot_spectra(self, init=False, fit_to_init=False, indices=None):
+    def plot_spectra(self, init=False, fit_to_init=False, indices=None, tvals=None):
         """Plot individual spectra as fitted using the dynamic model
 
         :param init: Plot the spectra as per initilisation, defaults to False
@@ -456,8 +464,9 @@ class dynRes:
                          init=0.5,
                          init_fit=0.5,
                          dyn=1)
-
-        if isinstance(self._dyn.time_var, dict):
+        if tvals is not None:
+            sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(tvals)]
+        elif isinstance(self._dyn.time_var, dict):
             sp_titles = [f'#{idx}' for idx in range(self._dyn._t_steps)]
         else:
             sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
@@ -596,7 +605,10 @@ class dynRes_mcmc(dynRes):
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.DataFrame(self.mapped_parameters_array.std(axis=0), columns=self.mapped_names)
+        return pd.DataFrame(
+            self.mapped_parameters_array.std(axis=0),
+            columns=self.mapped_names,
+            index=self._time_index_1d())
 
 
 class dynRes_newton(dynRes):
@@ -687,4 +699,4 @@ class dynRes_newton(dynRes):
         :return: Std as data Series
         :rtype: pandas.Series
         """
-        return pd.DataFrame(self._std_mapped.T, columns=self.mapped_names, index=self._dyn.time_var)
+        return pd.DataFrame(self._std_mapped.T, columns=self.mapped_names, index=self._time_index_1d())

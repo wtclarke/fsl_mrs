@@ -338,7 +338,8 @@ class VariableMapping(object):
 
             # Shift and linewidth parameters can be separated per metabolite group
             elif param in ['eps', 'sigma', 'gamma']:
-                if isinstance(self._Parameters[param], dict):
+                if isinstance(self._Parameters[param], dict)\
+                        and any([key.isdigit() for key in self._Parameters[param]]):
                     other_groups = [g for g in range(self._mapped_sizes[index])
                                     if str(g) not in self._Parameters[param].keys()]
                     for key in self._Parameters[param]:
