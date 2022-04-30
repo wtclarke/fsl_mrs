@@ -129,6 +129,9 @@ class dynRes:
         # Everything else can be derived from these
         self._data.to_csv(save_dir / 'dyn_results.csv')
         self._init_x.to_csv(save_dir / 'init_results.csv')
+        # Also save the free parameter covariances, which cannont be reconstructed without the data load.
+        # But these are needed for peak combinations in 2nd level group analysis
+        self.cov_free.to_csv(save_dir / 'dyn_cov.csv')
 
         # Save summaries of results
         # 1. mean + std of free parameters

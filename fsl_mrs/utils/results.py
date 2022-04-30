@@ -64,7 +64,13 @@ class FitRes(object):
                            self.g)[first:last]
         data = mrs.get_spec(ppmlim=self.ppmlim)
         # self.crlb      = calculate_crlb(self.params,forward_lim,data)
+
+        # Calculate uncertainties using covariance derived from Fisher information
+        # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
+        # Empirical factor of 2 found, likely to arise from complex data/residuals
         self.cov = calculate_lap_cov(self.params, forward_lim, data)
+        self.cov /= 2  # Apply factor 2 corrrection
+
         self.crlb = np.diagonal(self.cov)
         std = np.sqrt(self.crlb)
         self.corr = self.cov / (std[:, np.newaxis] * std[np.newaxis, :])

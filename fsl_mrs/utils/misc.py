@@ -304,8 +304,8 @@ def gradient(x, f):
     gradient = []
     for i in range(N):
         eps = abs(x[i]) * np.finfo(np.float32).eps
-        if eps == 0:
-            eps = 1e-5
+        if eps <= np.finfo(np.float32).eps:
+            eps = np.finfo(np.float32).eps
         xl = np.array(x)
         xu = np.array(x)
         xl[i] -= eps
