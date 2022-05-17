@@ -8,7 +8,7 @@ import os.path as op
 
 import numpy as np
 
-from fsl_mrs.utils.dynamic import dynMRS
+from fsl_mrs.dynamic import dynMRS
 from fsl_mrs.utils import preproc as proc
 from fsl_mrs.core import NIFTI_MRS
 from fsl_mrs.utils.preproc.align import phase_freq_align_report

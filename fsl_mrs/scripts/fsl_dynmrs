@@ -94,7 +94,7 @@ def main():
     import matplotlib
     import numpy as np
     matplotlib.use('agg')
-    from fsl_mrs.utils.dynamic import dynMRS
+    from fsl_mrs.dynamic import dynMRS
     from fsl_mrs.utils import mrs_io
     from fsl_mrs.utils import report
     from fsl_mrs.utils import plotting
