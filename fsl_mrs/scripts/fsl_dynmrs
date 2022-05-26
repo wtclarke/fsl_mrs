@@ -19,12 +19,7 @@ def main():
     # Parse command-line arguments
     p = configargparse.ArgParser(
         add_config_file_help=False,
-        description="FSL Magnetic Resonance Spectroscopy Wrapper Script")
-
-    # utility for hiding certain arguments
-    def hide_args(arglist):
-        for action in arglist:
-            action.help = p.SUPPRESS
+        description="FSL Dynamic Magnetic Resonance Spectroscopy Wrapper Script")
 
     p.add_argument('-v', '--version', action='version', version=__version__)
 
