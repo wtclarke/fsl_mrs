@@ -179,20 +179,28 @@ def _combine_params(values, covariance, metabolite_comb, contrasts):
 
 
 def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_dir=None, full_load=False):
-    """Generate contrasts from fMRS fit.
+    """Generate contrasts from dynamic fMRS fit.
 
     _extended_summary_
 
-    :param results: _description_
-    :type results: _type_
-    :param contrasts: _description_, defaults to []
-    :type contrasts: list, optional
-    :param metabolites_to_combine: _description_, defaults to []
+    :param results: FSL-MRS dynamic results object, or path to saved results
+    :type results: fsl_mrs.dynamic.dyn_results.dynRes or str or pathlib.Path
+    :param contrasts: Contrast objects which encode a contrast name, and linear combination of betas, defaults to []
+    :type contrasts: list of .Contrast objects, optional
+    :param metabolites_to_combine: Nested list of metabolite names, defaults to []
     :type metabolites_to_combine: list, optional
-    :param output_dir: _description_, defaults to None
-    :type output_dir: _type_, optional
-    :return: _description_
-    :rtype: _type_
+    :param output_dir: Output directory, defaults to None
+    :type output_dir: str or pathlib.Path, optional
+    :param full_load: Load the full results object from file, defaults to False
+    :type full_load: Bool, optional
+    :return values_out: Expanded free parameter results dataframe
+    :rtype: pandas.Dataframe
+    :return covariance_out: Expanded covariance matrix (off-diagonals of new parameters are Nan)
+    :rtype: pandas.Dataframe
+    :return summary_df: New free_parameters.csv with parameter means and std.
+    :rtype: pandas.Dataframe
+    :return new_params: List of parameter names added by function
+    :rtype: list
     """
     # Load data
     if isinstance(results, (dres.dynRes_mcmc, dres.dynRes_newton)):

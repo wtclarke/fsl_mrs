@@ -56,6 +56,8 @@ def main():
                                   help='FSL VEST file defining higher-level/group contrasts')
     ga_contrast_args.add_argument('--hl-covariance', type=Path, metavar='<FILE>',
                                   help='FSL VEST file defining higher-level/group covariance groups')
+    ga_contrast_args.add_argument('--hl-contrast-names', type=str, nargs='+', default=None,
+                                  help='Names assigned to each contrast specified by hl-contrasts option')
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--report', action="store_true",
@@ -196,10 +198,16 @@ def main():
             columns=parameters).T
     else:
         all_stats = np.stack([out_cope, out_varcope, z, p])
-        columns = pd.MultiIndex.from_product(
-            (['COPE', 'VARCOPE', 'z', 'p'],
-             list(range(all_stats.shape[1]))),
-            names=['Statistics', 'Contrast'])
+        if args.hl_contrast_names is None:
+            columns = pd.MultiIndex.from_product(
+                (['COPE', 'VARCOPE', 'z', 'p'],
+                 list(range(all_stats.shape[1]))),
+                names=['Statistics', 'Contrast'])
+        else:
+            columns = pd.MultiIndex.from_product(
+                (['COPE', 'VARCOPE', 'z', 'p'],
+                 args.hl_contrast_names),
+                names=['Statistics', 'Contrast'])
         group_stats = pd.DataFrame(all_stats.reshape(-1, all_stats.shape[-1]), index=columns, columns=parameters).T
 
     # 2. Save to output folder
