@@ -4,10 +4,15 @@ Test functions that appear in utils.fmrs_tools.contrasts module
 
 Copyright Will Clarke, University of Oxford, 2022"""
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 import fsl_mrs.utils.fmrs_tools.contrasts as con
+
+testsPath = Path(__file__).parent
+sim_results = testsPath / 'testdata/fmrs_tools/sim_fmrs/sub0/ctrl'
 
 
 def test__comb_variance():
@@ -94,3 +99,31 @@ def test__combine_params():
                  'conc_A+B_mean']])
     assert np.isclose(new_vals['conc_A+B_mean'], 2.0)
     assert np.isclose(new_cov.loc['conc_A+B_mean', 'conc_A+B_mean'], (6 / 9 + 30 / 90) * 1E-3)
+
+
+def test_create_contrasts(tmp_path):
+    """Test the primary function in module.
+
+    See that it can load, manipulate, and save outputs
+    """
+    contrasts = [
+        con.Contrast('mean', ['beta0', 'beta1'], [0.5, 0.5])]
+    metabolites_to_combine = [
+        ['PCh', 'GPC'],
+        ['Cr', 'PCr'],
+        ['NAA', 'NAAG'],
+        ['Glu', 'Gln']]
+
+    new_vals, new_cov, summary_out, new_params = con.create_contrasts(
+        sim_results,
+        contrasts=contrasts,
+        metabolites_to_combine=metabolites_to_combine,
+        output_dir=tmp_path,
+        full_load=False)
+
+    assert all([x in new_vals.columns for x in new_params])
+    assert all([x in new_cov.columns for x in new_params])
+    assert all([x in summary_out.index for x in new_params])
+    assert (tmp_path / 'dyn_cov.csv').is_file()
+    assert (tmp_path / 'dyn_results.csv').is_file()
+    assert (tmp_path / 'free_parameters.csv').is_file()
