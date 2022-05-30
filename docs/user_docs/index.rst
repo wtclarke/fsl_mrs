@@ -27,6 +27,8 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    simulation
    basis_tools
    visualisation
+   dynamic
+   fmrs
    constants
    troubleshooting
    changelog
