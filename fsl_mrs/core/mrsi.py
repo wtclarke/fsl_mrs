@@ -340,10 +340,10 @@ class MRSI(object):
 
         # Deal with the variable types (float vs np.float64) that pandas
         # seems to generate depending on (python?) version.
-        if len(data_list[0]) > 1:
-            nt = data_list[0].size
-        else:
+        if isinstance(data_list[0], (float, int)):
             nt = 1
+        else:
+            nt = data_list[0].size
 
         if nt > 1:
             data = np.zeros(self.spatial_shape + (nt,), dtype=dtype)
