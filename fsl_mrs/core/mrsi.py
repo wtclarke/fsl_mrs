@@ -337,9 +337,14 @@ class MRSI(object):
         to a  numpy array matching the shape of the mrsi data.'''
         if indicies is None:
             indicies = self.get_indicies_in_order()
-        print(type(data_list[0]))
-        print(data_list[0].size)
-        nt = data_list[0].size
+
+        # Deal with the variable types (float vs np.float64) that pandas
+        # seems to generate depending on (python?) version.
+        if len(data_list[0]) > 1:
+            nt = data_list[0].size
+        else:
+            nt = 1
+
         if nt > 1:
             data = np.zeros(self.spatial_shape + (nt,), dtype=dtype)
         else:
