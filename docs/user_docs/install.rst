@@ -58,6 +58,11 @@ Alternatively, as of V1.1.13 of FSL-MRS the python-only FSL-MRS package can be r
 
 1. Enable WSL and install FSL into WSL as described in the `FSL install instructions <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_.
 
-2. Add an :code:`FSLDIR` enviroment variable on the host Windows machine. This should be set to :code:`\\wsl$\usr\local\fsl` assuming the default install directory for FSL on the WSL guest. In Powershell this can be done with the command :code:`$env:FSLDIR = "\\wsl$\usr\local\fsl"`.
+2. Add an :code:`FSLDIR` enviroment variable on the host Windows machine. This should be set to :code:`\\\\wsl$\\usr\\local\\fsl` assuming the default install directory for FSL on the WSL guest. In Powershell this can be done with the command :code:`$env:FSLDIR = "\\wsl$\usr\local\fsl"` to set it for a single session or :code:`[System.Environment]::SetEnvironmentVariable("FSLDIR", "\\wsl$\usr\local\fsl", [System.EnvironmentVariableTarget]::User)` to set it permanently.
 
 3. Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1.
+
+Verifying the installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Please run the packaged :code:`fsl_mrs_verify` script to confirm that installation has successfully completed.
