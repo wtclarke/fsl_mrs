@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.13 (Wednesday 1st June)
+---------------------------
+- Updated setup script to allow command line scripts to run on MS Windows.
+- Any FSL cmd-line scripts used operate through fslpy wrappers (including WSL interface).
+- Updated install instructions for Windows.
+- Added the fsl_mrs_verify script which can be run to verify correct function of FSL-MRS.
+
 1.1.12 (Wednesday 20th April)
 -----------------------------
 - Update to fslpy version (to 3.9.0) to substantially speed up MRSI preprocessing.
