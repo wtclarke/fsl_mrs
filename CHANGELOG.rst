@@ -5,6 +5,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Updated setup script to allow command line scripts to run on MS Windows.
 - Unde the hood changes to call all FSL cmd line scripts through fslpy runfsl method.
 - Updated install instructions for Windows.
+- Added the fsl_mrs_verify script which can be run to verify correct function of FSL-MRS.
 
 1.1.12 (Wednesday 20th April)
 -----------------------------
