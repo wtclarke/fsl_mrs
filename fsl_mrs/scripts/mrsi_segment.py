@@ -10,8 +10,7 @@
 
 # Quick imports
 import argparse
-import os.path as op
-from os import remove
+from pathlib import Path
 from fsl.wrappers import fsl_anat
 from fsl.wrappers.fnirt import applywarp
 import numpy as np
@@ -27,21 +26,30 @@ def main():
     parser.add_argument('mrsi', type=str, metavar='MRSI',
                         help='MRSI nifti file')
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-t', '--t1', type=str, metavar='T1',
+    group.add_argument('-t', '--t1', type=Path, metavar='T1',
                        help='T1 nifti file')
-    group.add_argument('-a', '--anat', type=str,
+    group.add_argument('-a', '--anat', type=Path,
                        help='fsl_anat output directory.')
-    parser.add_argument('-o', '--output', type=str,
+    parser.add_argument('-o', '--output', type=Path,
                         help='Output directory', default='.')
     parser.add_argument('-f', '--filename', type=str,
                         help='Output file name', default='mrsi_seg')
     args = parser.parse_args()
 
+    # For windows implementations we must supply absolute
+    # paths. This enables conversion to wsl paths.
+    # The fslpy wrapper code requires a string rather than pathlib Path.
+    def str_resolve_path(pathlib_path):
+        return str(pathlib_path.resolve())
+
     # If not prevented run fsl_anat for fast segmentation
     if (args.anat is None) and (not args.mask_only):
-        anat = op.join(args.output, 'fsl_anat')
-        fsl_anat(args.t1, out=anat, nosubcortseg=True)
-        anat += '.anat'
+        anat = args.output  / 'fsl_anat'
+        fsl_anat(
+            str_resolve_path(args.t1),
+            out=str_resolve_path(anat),
+            nosubcortseg=True)
+        anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
 
@@ -49,27 +57,24 @@ def main():
     mrsi_in = Image(args.mrsi)
     tmp_img = np.zeros(mrsi_in.shape[0:3])
     tmp_img = Image(tmp_img, xform=mrsi_in.voxToWorldMat)
-    tmp_img.save(op.join(args.output, 'tmp.nii.gz'))
 
     # Register the pvseg to the MRSI data using flirt
     def applywarp_func(i, o):
-        applywarp(i,
-                  op.join(args.output, 'tmp.nii.gz'),
-                  o,
+        applywarp(str_resolve_path(i),
+                  tmp_img,
+                  str_resolve_path(o),
                   usesqform=True,
                   super=True,
                   superlevel='a')
 
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
-    applywarp_func(op.join(anat, 'T1_fast_pve_0.nii.gz'),
-                   op.join(args.output, args.filename + '_csf.nii.gz'))
-    applywarp_func(op.join(anat, 'T1_fast_pve_1.nii.gz'),
-                   op.join(args.output, args.filename + '_gm.nii.gz'))
-    applywarp_func(op.join(anat, 'T1_fast_pve_2.nii.gz'),
-                   op.join(args.output, args.filename + '_wm.nii.gz'))
-
-    remove(op.join(args.output, 'tmp.nii.gz'))
+    applywarp_func(anat / 'T1_fast_pve_0.nii.gz',
+                   args.output / (args.filename + '_csf.nii.gz'))
+    applywarp_func(anat / 'T1_fast_pve_1.nii.gz',
+                   args.output / (args.filename + '_gm.nii.gz'))
+    applywarp_func(anat / 'T1_fast_pve_2.nii.gz',
+                   args.output / (args.filename + '_wm.nii.gz'))
 
 
 if __name__ == '__main__':

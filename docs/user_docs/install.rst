@@ -62,6 +62,8 @@ Alternatively, as of V1.1.13 of FSL-MRS the python-only FSL-MRS package can be r
 
 3. Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1.
 
+For FSL-MRS to access the FSL scripts installed on the WSL machine, it must be running.
+
 Verifying the installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
