@@ -338,7 +338,13 @@ class MRSI(object):
         if indicies is None:
             indicies = self.get_indicies_in_order()
 
-        nt = data_list[0].size
+        # Deal with the variable types (float vs np.float64) that pandas
+        # seems to generate depending on (python?) version.
+        if isinstance(data_list[0], (float, int)):
+            nt = 1
+        else:
+            nt = data_list[0].size
+
         if nt > 1:
             data = np.zeros(self.spatial_shape + (nt,), dtype=dtype)
         else:

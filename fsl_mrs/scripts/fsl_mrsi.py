@@ -353,6 +353,7 @@ def main():
         for metab in metabs:
             metab_conc_list = [res[0].getConc(scaling=scale, metab=metab)
                                for res in results]
+
             file_nm = os.path.join(cur_fldr, metab + '.nii.gz')
             save_img_output(file_nm,
                             mrsi.list_to_matched_array(

@@ -11,8 +11,7 @@
 
 # Quick imports
 import argparse
-import os.path as op
-from os import remove
+from pathlib import Path
 import nibabel as nib
 import numpy as np
 from fsl.wrappers import flirt, fslstats, fsl_anat, fslmaths
@@ -27,15 +26,15 @@ def main():
                     " - Construct mask in T1 space of an SVS voxel"
                     " and generate a tissue segmentation file.")
 
-    parser.add_argument('svs', type=str, metavar='SVS',
+    parser.add_argument('svs', type=Path, metavar='SVS',
                         help='SVS nifti file')
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-t', '--t1', type=str, metavar='T1',
+    group.add_argument('-t', '--t1', type=Path, metavar='T1',
                        help='T1 nifti file')
-    group.add_argument('-a', '--anat', type=str,
+    group.add_argument('-a', '--anat', type=Path,
                        help='fsl_anat output directory.')
-    parser.add_argument('-o', '--output', type=str,
-                        help='Output directory', default='.')
+    parser.add_argument('-o', '--output', type=Path,
+                        help='Output directory', default=Path.cwd())
     parser.add_argument('-f', '--filename', type=str,
                         help='file name stem. _mask.nii.gz'
                              ' or _segmentation.json will be added.',
@@ -43,15 +42,22 @@ def main():
     parser.add_argument('-m', '--mask_only', action="store_true",
                         help='Only perform masking stage,'
                              ' do not run fsl_anat if only T1 passed.')
-    parser.add_argument('--no_clean', action="store_false",
-                        help="Don't clean intermediate output.", dest='clean')
     args = parser.parse_args()
+
+    # For windows implementations we must supply absolute
+    # paths. This enables conversion to wsl paths.
+    # The fslpy wrapper code requires a string rather than pathlib Path.
+    def str_resolve_path(pathlib_path):
+        return str(pathlib_path.resolve())
 
     # If not prevented run fsl_anat for fast segmentation
     if (args.anat is None) and (not args.mask_only):
-        anat = op.join(args.output, 'fsl_anat')
-        fsl_anat(args.t1, out=anat, nosubcortseg=True)
-        anat += '.anat'
+        anat = args.output  / 'fsl_anat'
+        fsl_anat(
+            str_resolve_path(args.t1),
+            out=str_resolve_path(anat),
+            nosubcortseg=True)
+        anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
 
@@ -60,24 +66,22 @@ def main():
     # Create 3D mock data
     mockData = np.zeros((2, 2, 2))
     mockData[0, 0, 0] = 1.0
-    img = nib.Nifti1Image(mockData, affine=data_hdr.affine)
-
-    flirt_in = op.join(args.output, 'tmp_mask.nii')
-    nib.save(img, flirt_in)
+    tmp = nib.Nifti1Image(mockData, affine=data_hdr.affine)
 
     # Run flirt
     if anat is not None:
-        flirt_ref = op.join(anat, 'T1_biascorr.nii.gz')
+        flirt_ref = anat / 'T1_biascorr.nii.gz'
     else:
         flirt_ref = args.t1
+    flirt_ref = str_resolve_path(flirt_ref)
 
     if args.filename is None:
         mask_name = 'mask.nii.gz'
     else:
         mask_name = args.filename + '_mask.nii.gz'
-    flirt_out = op.join(args.output, mask_name)
+    flirt_out = str_resolve_path(args.output / mask_name)
 
-    flirt(flirt_in,
+    flirt(tmp,
           flirt_ref,
           out=flirt_out,
           usesqform=True,
@@ -87,29 +91,24 @@ def main():
           setbackground=0,
           paddingsize=1)
 
-    # Clean up
-    if args.clean:
-        remove(flirt_in)
-
     # Provide tissue segmentation if anat is available
     if anat is not None:
         # Check that the svs mask intersects with brain, issue warning if not.
-        fslmaths(flirt_out).add(
-            op.join(anat, 'T1_biascorr_brain_mask.nii.gz')) \
-            .mas(flirt_out).run(op.join(args.output, 'tmp.nii.gz'))
+        mask_path = str_resolve_path(anat / 'T1_biascorr_brain_mask.nii.gz')
+        tmp_out = fslmaths(flirt_out)\
+            .add(mask_path)\
+            .mas(flirt_out)\
+            .run()
 
-        meanInVox = fslstats(op.join(args.output, 'tmp.nii.gz')).M.run()
+        meanInVox = fslstats(tmp_out).M.run()
         if meanInVox < 2.0:
             warnings.warn('The mask does not fully intersect'
                           ' with the brain mask. Check manually.')
 
-        if args.clean:
-            remove(op.join(args.output, 'tmp.nii.gz'))
-
         # Count up segmentation values in mask.
-        seg_csf = op.join(anat, 'T1_fast_pve_0.nii.gz')
-        seg_gm = op.join(anat, 'T1_fast_pve_1.nii.gz')
-        seg_wm = op.join(anat, 'T1_fast_pve_2.nii.gz')
+        seg_csf = str_resolve_path(anat / 'T1_fast_pve_0.nii.gz')
+        seg_gm = str_resolve_path(anat / 'T1_fast_pve_1.nii.gz')
+        seg_wm = str_resolve_path(anat / 'T1_fast_pve_2.nii.gz')
 
         # fslstats -t /fast_output/fast_output_pve_0 -k SVS_mask.nii –m
         CSF = fslstats(seg_csf).k(flirt_out).m.run()
@@ -123,7 +122,7 @@ def main():
         else:
             seg_name = args.filename + '_segmentation.json'
 
-        with open(op.join(args.output, seg_name), 'w', encoding='utf-8') as f:
+        with open(args.output / seg_name, 'w', encoding='utf-8') as f:
             json.dump(segresults, f, ensure_ascii=False, indent='\t')
 
 
