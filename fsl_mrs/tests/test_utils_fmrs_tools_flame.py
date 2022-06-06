@@ -14,8 +14,9 @@ def test_flameo_wrapper():
     # Test 1 - single group average
     cope = np.ones((10, 1))
     varcope = 1E-5 * np.ones((10, 1))
-    z, out_cope, out_varcope = flame.flameo_wrapper(cope, varcope)
+    p, z, out_cope, out_varcope = flame.flameo_wrapper(cope, varcope)
 
+    assert p < 1E-5
     assert np.isclose(z, 10.107995)
     assert np.isclose(out_cope, 1)
     assert np.isclose(out_varcope, 1E-6)
@@ -23,8 +24,9 @@ def test_flameo_wrapper():
     # Test 2 - multiple values
     cope = np.ones((10, 2))
     varcope = 1E-5 * np.ones((10, 2))
-    z, out_cope, out_varcope = flame.flameo_wrapper(cope, varcope)
+    p, z, out_cope, out_varcope = flame.flameo_wrapper(cope, varcope)
 
+    assert (p < 1E-5).all()
     assert np.allclose(z, 10.107995)
     assert np.allclose(out_cope, 1)
     assert np.allclose(out_varcope, 1E-6)
@@ -36,7 +38,7 @@ def test_flameo_wrapper():
             'conmat': np.array([[1, -1], [-1, 1], [1, 0], [0, 1], [0.5, 0.5]]),
             'covmat': np.ones((20, 1))}
 
-    z, out_cope, out_varcope = flame.flameo_wrapper(
+    p, z, out_cope, out_varcope = flame.flameo_wrapper(
         cope,
         varcope,
         design_mat=mats['desmat'],
@@ -56,6 +58,9 @@ def test_flameo_wrapper():
         [0., 2.],
         [0.5, 1.5]])
 
+    assert p.shape == (5, 2)
+    assert p[0, 0] < 1E-5
+    assert p[0, 1] > 0.9
     assert np.allclose(z, ztrue)
     assert np.allclose(out_cope, oc_true)
     assert out_varcope.shape == (5, 2)
