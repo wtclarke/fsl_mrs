@@ -60,7 +60,7 @@ def synthetic_spectra_from_model(config_file,
 
     Returns:
         mrs_list: Numpy array of synthetic MRS objects at each timepoint.
-        vm: fsl_mrs.utils.dynamic.VariableMapping object.
+        vm: fsl_mrs.dynamic.VariableMapping object.
         syn_free_params: Value of model free parameters used in the simulation.
     """
     empty_mrs, concentrations, mg = prep_mrs_for_synthetic(basis_file,

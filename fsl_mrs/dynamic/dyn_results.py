@@ -31,7 +31,7 @@ def load_dyn_result(load_dir, dyn_obj=None):
     :type load_dir: str or pathlib.Path
     :param dyn_obj: Associated dynMRS object or if None will attempt to load a
      nested dynmrs_obj directory, defaults to None
-    :type dyn_obj: fsl_mrs.utils.dynamic.dynMRS, optional
+    :type dyn_obj: fsl_mrs.dynamic.dynMRS, optional
     :return: Dynamic results object
     :rtype: dynRes_newton or dynRes_mcmc
     """
@@ -91,7 +91,7 @@ class dynRes:
         :type samples: numpy.ndarray
         :type init: pd.DataFrame
         :param dyn: Copy of dynMRS class object.
-        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :type dyn: fsl_mrs.dynamic.dynMRS
         :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         :type init: pd.DataFrame
@@ -559,7 +559,7 @@ class dynRes_mcmc(dynRes):
         :param samples: Array of free parameters returned by optimiser, can be 2D in mcmc case.
         :type samples: numpy.ndarray
         :param dyn: Copy of dynMRS class object.
-        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :type dyn: fsl_mrs.dynamic.dynMRS
         :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         """
@@ -624,7 +624,7 @@ class dynRes_newton(dynRes):
         :param samples: Array of free parameters returned by optimiser, can be 2D in mcmc case.
         :type samples: numpy.ndarray
         :param dyn: Copy of dynMRS class object.
-        :type dyn: fsl_mrs.utils.dynamic.dynMRS
+        :type dyn: fsl_mrs.dynamic.dynMRS
         :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         """

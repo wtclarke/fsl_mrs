@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.core import MRS, basis
-import fsl_mrs.utils.dynamic as dyn
+import fsl_mrs.dynamic as dyn
 
 
 @pytest.fixture
