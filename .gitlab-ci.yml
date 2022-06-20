@@ -74,7 +74,7 @@ flake8:
 
 pytest:
   <<: *except_releases
-  image: wtclarke/fsl_mrs_tests:1.0
+  image: wtclarke/fsl_mrs_tests:2.0
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: normal
