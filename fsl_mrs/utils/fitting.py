@@ -296,11 +296,11 @@ def fit_FSLModel(mrs,
     # Prepare baseline
     B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
-    # Results object
-    results = FitRes(model, method, mrs.names, metab_groups, baseline_order, B, ppmlim)
-
     # Constants
-    g = results.g
+    if metab_groups is None:
+        g = 1
+    else:
+        g = max(metab_groups) + 1
     constants = (freq, time, basis, B, metab_groups, g, data, first, last)
 
     if x0 is None:
@@ -313,8 +313,8 @@ def fit_FSLModel(mrs,
         bounds = get_bounds(mrs.numBasis, g, baseline_order, model, method, disableBaseline=disableBaseline)
         res = minimize(err_func, x0, args=constants,
                        method='TNC', jac=grad_func, bounds=bounds)
-        # collect results
-        results.loadResults(mrs, res.x)
+        # Results
+        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'init':
         results.loadResults(mrs, x0)

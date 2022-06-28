@@ -481,6 +481,123 @@ def plot_fit_pretty(mrs, pred=None, ppmlim=(0.40, 4.2), proj='real'):
 
 
 # plotly imports
+def plotly_spectrum(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0)):
+    """
+         plot model fitting plus baseline
+
+    Parameters:
+         mrs    : MRS object
+         res    : ResFit Object
+         ppmlim : tuple
+         metabs : list of metabolite to include in pred
+         phs    : display phasing in degrees and seconds
+
+    Returns
+         fig
+     """
+    def project(x, proj):
+        if proj == 'real':
+            return np.real(x)
+        elif proj == 'imag':
+            return np.imag(x)
+        elif proj == 'angle':
+            return np.angle(x)
+        else:
+            return np.abs(x)
+
+    # Prepare the data
+    base = FID2Spec(res.baseline)
+    axis = mrs.getAxes()
+    data = FID2Spec(mrs.FID)
+
+    if ppmlim is None:
+        ppmlim = res.ppmlim
+
+    if metabs is not None:
+        preds = []
+        for m in metabs:
+            preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
+        preds = sum(preds)
+        preds += FID2Spec(res.baseline)
+        resid = data - preds
+    else:
+        preds = FID2Spec(res.pred)
+        resid = FID2Spec(res.residuals)
+
+    # phasing
+    faxis = mrs.getAxes(axis='freq')
+    phaseTerm = np.exp(1j * (phs[0] * np.pi / 180)) * np.exp(1j * 2 * np.pi * phs[1] * faxis)
+
+    base *= phaseTerm
+    data *= phaseTerm
+    preds *= phaseTerm
+    resid *= phaseTerm
+
+    base = project(base, proj)
+    data = project(data, proj)
+    preds = project(preds, proj)
+    resid = project(resid, proj)
+
+    # y-axis range
+    minval = min(np.min(base), np.min(data), np.min(preds), np.min(resid))
+    maxval = max(np.max(base), np.max(data), np.max(preds), np.max(resid))
+    ymin = minval - minval / 2
+    ymax = maxval + maxval / 30
+
+    # Build the plot
+
+    colors = dict(data='rgb(67,67,67)',
+                  pred='rgb(253,59,59)',
+                  base='rgb(0,150,242)',
+                  resid='rgb(170,170,170)')
+    line_size = dict(data=1,
+                     pred=2,
+                     base=1, resid=1)
+
+    trace1 = go.Scatter(x=axis, y=data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color=colors['data'], width=line_size['data']),
+                        )
+    trace2 = go.Scatter(x=axis, y=preds,
+                        mode='lines',
+                        name='model',
+                        line=dict(color=colors['pred'], width=line_size['pred']),
+                        )
+    trace3 = go.Scatter(x=axis, y=base,
+                        mode='lines',
+                        name='baseline',
+                        line=dict(color=colors['base'], width=line_size['base']),
+                        )
+    trace4 = go.Scatter(x=axis, y=resid,
+                        mode='lines',
+                        name='residuals',
+                        line=dict(color=colors['resid'], width=line_size['resid']),
+                        )
+
+    fig = go.Figure()
+
+    fig.add_trace(trace1)
+    fig.add_trace(trace2)
+    fig.add_trace(trace3)
+    fig.add_trace(trace4)
+
+    fig.update_layout(template='plotly_white')
+
+    fig.update_xaxes(title_text='Chemical shift (ppm)',
+                     tick0=2, dtick=.5,
+                     range=[ppmlim[1], ppmlim[0]])
+
+    fig.update_yaxes(zeroline=True,
+                     zerolinewidth=1,
+                     zerolinecolor='Gray',
+                     showgrid=False, showticklabels=False,
+                     range=[ymin, ymax])
+
+    fig.layout.update({'height': 600})
+
+    return fig
+
 
 def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0)):
     """
@@ -619,6 +736,77 @@ def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0))
 
     fig.layout.update({'height': 800})
 
+    return fig
+
+
+def plotly_avg_fit(mrs_list, res_list, ppmlim=(.2, 4.2)):
+
+    all_specs = []
+    all_pred = []
+    for mrs, res in zip(mrs_list, res_list):
+        all_specs.append(mrs.FID)
+        all_pred.append(res.pred)
+
+    from fsl_mrs.utils import preproc as proc
+
+    fids, _, _ = proc.phase_freq_align(
+        all_specs,
+        mrs_list[0].bandwidth, mrs_list[0].centralFrequency)
+    pred, _, _ = proc.phase_freq_align(
+        all_pred,
+        mrs_list[0].bandwidth, mrs_list[0].centralFrequency,
+        target=np.asarray(fids).mean(axis=0))
+
+    specs = [FID2Spec(x) for x in fids]
+    avg_spec = np.asarray(specs).mean(axis=0).real
+    plus1sd_spec = avg_spec + 1 * np.asarray(specs).std(axis=0).real
+    minus1sd_spec = avg_spec - 1 * np.asarray(specs).std(axis=0).real
+    avg_fit = FID2Spec(np.asarray(pred).mean(axis=0)).real
+    axis = mrs_list[0].getAxes()
+
+    # y-axis range
+    minval = min((np.min(avg_spec), np.min(plus1sd_spec), np.min(minus1sd_spec), np.min(avg_fit)))
+    maxval = max((np.max(avg_spec), np.max(plus1sd_spec), np.max(minus1sd_spec), np.max(avg_fit)))
+    ymin = minval - minval / 2
+    ymax = maxval + maxval / 30
+
+    trace1 = go.Scatter(x=axis, y=avg_spec,
+                        mode='lines',
+                        name='Mean data',
+                        line=dict(color='rgb(67,67,67)', width=1.5),
+                        )
+
+    trace2 = go.Scatter(
+        x=axis.tolist() + axis.tolist()[::-1],
+        y=plus1sd_spec.tolist() + minus1sd_spec.tolist()[::-1],
+        fill='toself',
+        mode='lines',
+        name='±1SD',
+        line=dict(color='rgb(100,100,100)', width=0.5))
+
+    trace3 = go.Scatter(x=axis, y=avg_fit,
+                        mode='lines',
+                        name='Mean fit',
+                        line=dict(color='rgb(253,59,59)', width=2),
+                        )
+
+    fig = go.Figure()
+    fig.update_layout(template='plotly_white')
+    fig.add_trace(trace1)
+    fig.add_trace(trace2)
+    fig.add_trace(trace3)
+
+    fig.update_xaxes(title_text='Chemical shift (ppm)',
+                     tick0=2, dtick=.5,
+                     range=[ppmlim[1], ppmlim[0]])
+
+    fig.update_yaxes(zeroline=True,
+                     zerolinewidth=1,
+                     zerolinecolor='Gray',
+                     showgrid=False, showticklabels=False,
+                     range=[ymin, ymax])
+
+    fig.layout.update({'height': 600})
     return fig
 
 

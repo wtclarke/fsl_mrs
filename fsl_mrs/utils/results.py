@@ -23,63 +23,89 @@ class FitRes(object):
        Collects fitting results
     """
 
-    def __init__(self, model, method, names, metab_groups, baseline_order, B, ppmlim):
-        """ Short class initilisation """
+    def __init__(self, mrs, results, model, method, metab_groups, baseline_order, B, ppmlim, runqc=True):
+        """_summary_
+
+        _extended_summary_
+
+        :param mrs: _description_
+        :type mrs: _type_
+        :param results: _description_
+        :type results: _type_
+        :param model: _description_
+        :type model: _type_
+        :param method: _description_
+        :type method: _type_
+        :param metab_groups: _description_
+        :type metab_groups: _type_
+        :param baseline_order: _description_
+        :type baseline_order: _type_
+        :param B: _description_
+        :type B: _type_
+        :param ppmlim: _description_
+        :type ppmlim: _type_
+        :param runqc: _description_, defaults to True
+        :type runqc: bool, optional
+        :return: _description_
+        :rtype: _type_
+        """
         # Initilise some basic parameters - includes fitting options
         # Populate parameter names
         self.model = model
-        self.fill_names(names, baseline_order=baseline_order, metab_groups=metab_groups)
+        self.fill_names(mrs.names, baseline_order=baseline_order, metab_groups=metab_groups)
         self.method = method
         self.ppmlim = ppmlim
         self.baseline_order = baseline_order
         self.base_poly = B
 
+        # Init properties
         self.concScalings = {'internal': None, 'internalRef': None, 'molarity': None, 'molality': None, 'info': None}
+        self._combined_crlb = np.asarray([])
 
-    def loadResults(self, mrs, fitResults):
-        "Load fitting results and calculate some metrics"
         # Populate data frame
-        if fitResults.ndim == 1:
-            self.fitResults = pd.DataFrame(data=fitResults[np.newaxis, :], columns=self.params_names)
+        if results.ndim == 1:
+            self.fitResults = pd.DataFrame(data=results[np.newaxis, :], columns=self.params_names)
         else:
-            self.fitResults = pd.DataFrame(data=fitResults, columns=self.params_names)
-        self.params = self.fitResults.mean().values
+            self.fitResults = pd.DataFrame(data=results, columns=self.params_names)
 
         # Store prediction, baseline, residual
-        self.pred = self.predictedFID(mrs, mode='Full')
-        self.pred_spec = FIDToSpec(self.pred)
-        self.baseline = self.predictedFID(mrs, mode='Baseline')
-        self.residuals = mrs.FID - self.pred
+        self._pred = self.predictedFID(mrs, mode='Full')
+        self._baseline = self.predictedFID(mrs, mode='Baseline')
+        self._residuals = mrs.FID - self.pred
+        first, last = mrs.ppmlim_to_range(self.ppmlim)
+        self._mse = np.mean(np.abs(FIDToSpec(self._residuals)[first:last])**2)
 
         # Calculate single point crlb and cov
-        first, last = mrs.ppmlim_to_range(self.ppmlim)
         _, _, forward, _, _ = models.getModelFunctions(self.model)
+        jac = models.getModelJac(self.model)
+        data = mrs.get_spec(ppmlim=self.ppmlim)
 
         def forward_lim(p):
-            return forward(p, mrs.frequencyAxis,
-                           mrs.timeAxis,
-                           mrs.basis,
-                           self.base_poly,
-                           self.metab_groups,
-                           self.g)[first:last]
-        data = mrs.get_spec(ppmlim=self.ppmlim)
-        # self.crlb      = calculate_crlb(self.params,forward_lim,data)
+            return forward(
+                p,
+                mrs.frequencyAxis,
+                mrs.timeAxis,
+                mrs.basis,
+                self.base_poly,
+                self.metab_groups,
+                self.g)[first:last]
+
+        def jac_lim(p):
+            return jac(
+                p,
+                mrs.frequencyAxis,
+                mrs.timeAxis,
+                mrs.basis,
+                self.base_poly,
+                self.metab_groups,
+                self.g,
+                first, last)
 
         # Calculate uncertainties using covariance derived from Fisher information
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
         # Empirical factor of 2 found, likely to arise from complex data/residuals
-        self.cov = calculate_lap_cov(self.params, forward_lim, data)
-        self.cov /= 2  # Apply factor 2 corrrection
-
-        self.crlb = np.diagonal(self.cov)
-        std = np.sqrt(self.crlb)
-        self.corr = self.cov / (std[:, np.newaxis] * std[np.newaxis, :])
-        self.mse = np.mean(np.abs(FIDToSpec(self.residuals)[first:last])**2)
-
-        with np.errstate(divide='ignore', invalid='ignore'):
-            self.perc_SD = np.sqrt(self.crlb) / self.params * 100
-        self.perc_SD[self.perc_SD > 999] = 999   # Like LCModel :)
-        self.perc_SD[np.isnan(self.perc_SD)] = 999
+        self._cov = calculate_lap_cov(self.params, forward_lim, data, jac_lim(self.params).T)
+        self._cov /= 2  # Apply factor 2 corrrection
 
         # Calculate mcmc metrics
         if self.method == 'MH':
@@ -98,13 +124,75 @@ class FitRes(object):
         self.hzperppm = mrs.centralFrequency / 1E6
 
         # Calculate QC metrics
-        self.FWHM, self.SNR = qc.calcQC(mrs, self, ppmlim=(0.2, 4.2))
+        if runqc:
+            self.FWHM, self.SNR = qc.calcQC(mrs, self, ppmlim=(0.2, 4.2))
 
         # Run relative concentration scaling to tCr in 'default' 1H MRS case.
         # Create combined metab at same time to avoid later errors.
         if (('Cr' in self.metabs) and ('PCr' in self.metabs)):
             self.combine([['Cr', 'PCr']])
             self.calculateConcScaling(mrs)
+
+    @property
+    def numMetabs(self):
+        """Return number of metabolites in model"""
+        return len(self.metabs)
+
+    @property
+    def params(self):
+        """Return mean fit parameters as numpy array"""
+        return self.fitResults.mean().values
+
+    @property
+    def pred(self):
+        """Return predicted FID"""
+        return self._pred
+
+    @property
+    def pred_spec(self):
+        """Returns predicted spectrum"""
+        return FIDToSpec(self._pred)
+
+    @property
+    def baseline(self):
+        """Returns predicted baseline"""
+        return self._baseline
+
+    @property
+    def residuals(self):
+        """Returns fit residual"""
+        return self._residuals
+
+    @property
+    def mse(self):
+        """Returns mse of fit"""
+        return self._mse
+
+    @property
+    def cov(self):
+        """Returns covariance matrix"""
+        return self._cov
+
+    @property
+    def corr(self):
+        """Returns correlation matrix"""
+        std = np.sqrt(np.diagonal(self.cov))
+        return self.cov / (std[:, np.newaxis] * std[np.newaxis, :])
+
+    @property
+    def crlb(self):
+        """Returns crlb (variance) vector"""
+        original_crlb = np.diagonal(self.cov)
+        return np.concatenate([original_crlb, self._combined_crlb])
+
+    @property
+    def perc_SD(self):
+        """Returns the percentage standard deviation"""
+        with np.errstate(divide='ignore', invalid='ignore'):
+            perc_SD = np.sqrt(self.crlb) / self.params * 100
+            perc_SD[perc_SD > 999] = 999   # Like LCModel :)
+            perc_SD[np.isnan(perc_SD)] = 999
+        return perc_SD
 
     def calculateConcScaling(self,
                              mrs,
@@ -169,16 +257,8 @@ class FitRes(object):
             self.fitResults[newstr] = pd.Series(ds, index=self.fitResults.index)
             self.params_names_inc_comb.append(newstr)
             self.metabs.append(newstr)
-            newCRLB = jac @ self.cov @ jac
-            self.crlb = np.concatenate((self.crlb, newCRLB[np.newaxis]))
-
-        self.numMetabs = len(self.metabs)
-        # self.params = self.fitResults.mean().values
-        with np.errstate(divide='ignore', invalid='ignore'):
-            params = self.fitResults.mean().values
-            self.perc_SD = np.sqrt(self.crlb) / params * 100
-        self.perc_SD[self.perc_SD > 999] = 999   # Like LCModel :)
-        self.perc_SD[np.isnan(self.perc_SD)] = 999
+            new_crlb = np.atleast_1d(jac @ self.cov @ jac)
+            self._combined_crlb = np.concatenate([self._combined_crlb, new_crlb])
 
         if self.method == 'MH':
             self.mcmc_cov = self.fitResults.cov().values
@@ -274,7 +354,6 @@ class FitRes(object):
         """
         self.metabs = deepcopy(names)
         self.original_metabs = deepcopy(names)
-        self.numMetabs = len(self.metabs)
 
         self.params_names = []
         self.params_names.extend(names)
@@ -692,7 +771,8 @@ class FitRes(object):
             return abs_std * self.concScalings['internal']
         elif type.lower() == 'percentage':
             vals = self.fitResults[metab].mean().to_numpy()
-            perc_SD = abs_std / vals * 100
+            with np.errstate(divide='ignore', invalid='ignore'):
+                perc_SD = abs_std / vals * 100
             perc_SD[perc_SD > 999] = 999   # Like LCModel :)
             perc_SD[np.isnan(perc_SD)] = 999
             return perc_SD

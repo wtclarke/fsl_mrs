@@ -429,7 +429,7 @@ def calculate_crlb(x, f, data):
     return crlb
 
 
-def calculate_lap_cov(x, f, data, sig2=None):
+def calculate_lap_cov(x, f, data, grad=None, sig2=None):
     """
       Calculate approximate covariance using
       Fisher information matrix
@@ -440,6 +440,7 @@ def calculate_lap_cov(x, f, data, sig2=None):
        x : array-like
        f : function
        data : array-like
+       grad : optional jacobian matrix
        sig2 : optional noise variance
 
       Returns:
@@ -449,7 +450,8 @@ def calculate_lap_cov(x, f, data, sig2=None):
     N = x.size
     if sig2 is None:
         sig2 = np.var(data - f(x))
-    grad = gradient(x, f)
+    if grad is None:
+        grad = gradient(x, f)
 
     J = np.concatenate((np.real(grad), np.imag(grad)), axis=1)
     P0 = np.diag(np.ones(N) * 1E-5)
