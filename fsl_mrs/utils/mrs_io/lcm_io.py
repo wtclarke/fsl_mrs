@@ -88,6 +88,10 @@ def read_basis_files(basisfiles, ignore=[]):
     return basis, names
 
 
+class EncryptedBasisError(Exception):
+    pass
+
+
 # Read .BASIS files
 def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     """
@@ -143,6 +147,11 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # the FID
     header = unpackHeader(header)
 
+    if header['dwelltime'] < 0:
+        raise EncryptedBasisError(
+            'This is an encrypted LCModel basis. '
+            'Please consider using a basis specific to your sequence.')
+
     # Duplicate header so that it matches all the other basis read functions
     headers = [header] * len(metabo)
 
@@ -164,21 +173,28 @@ def unpackHeader(header):
        Including central frequency, dwelltime, echotime
     """
 
-    tidy_header = dict()
-    tidy_header['centralFrequency'] = None
-    tidy_header['bandwidth'] = None
-    tidy_header['echotime'] = None
+    tidy_header = {
+        'centralFrequency': None,
+        'bandwidth': None,
+        'echotime': None}
+    pattern = re.compile(r"\s([A-Za-z]+)\s*=[\s]*([0-9eE\-\.]+)\s*")
     for line in header:
-        if line.lower().find('hzpppm') > 0:
-            tidy_header['centralFrequency'] = float(tidy(line).split()[-1]) * 1E6
-        if line.lower().find('dwelltime') > 0:
-            tidy_header['dwelltime'] = float(tidy(line).split()[-1])
-            tidy_header['bandwidth'] = 1 / float(tidy(line).split()[-1])
-        if line.lower().find('echot') > 0:
-            tidy_header['echotime'] = float(tidy(line).split()[-1]) / 1e3  # convert to secs
-        if line.lower().find('badelt') > 0:
-            tidy_header['dwelltime'] = float(tidy(line).split()[-1])
-            tidy_header['bandwidth'] = 1 / float(tidy(line).split()[-1])
+        search_result = pattern.search(line)
+        if search_result:
+            groups = search_result.groups()
+        else:
+            continue
+
+        if groups[0].lower() == 'hzpppm':
+            tidy_header['centralFrequency'] = float(groups[1]) * 1E6
+        if groups[0].lower() == 'dwelltime':
+            tidy_header['dwelltime'] = float(groups[1])
+            tidy_header['bandwidth'] = 1 / float(groups[1])
+        if groups[0].lower() == 'echot':
+            tidy_header['echotime'] = float(groups[1]) / 1e3  # convert to secs
+        if groups[0].lower() == 'badelt':
+            tidy_header['dwelltime'] = float(groups[1])
+            tidy_header['bandwidth'] = 1 / float(groups[1])
 
     return tidy_header
 
@@ -188,14 +204,14 @@ def siv_basis_header(header):
       extracts metab names and ishift
     """
     met_pattern = re.compile(r"\sMETABO\s*\=\s*'([^']+?)'\s*")
-    ishift_pattern = re.compile(r"\sISHIFT\s*\=\s*([0-9]+)\s*")
+    ishift_pattern = re.compile(r"\sISHIFT\s*\=\s*([\-0-9]+)\s*")
     metabo = []
     shifts = []
     for txt in header:
         metab_str = met_pattern.search(txt)
         ishft_str = ishift_pattern.search(txt)
         if metab_str:
-            metabo.append(metab_str.groups()[0])
+            metabo.append(metab_str.groups()[0].rstrip())
         if ishft_str:
             shifts.append(int(ishft_str.groups()[0]))
     return metabo, shifts
