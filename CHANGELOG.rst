@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+1.1.14 (Tuesday 28th June)
+--------------------------
+- Fixed variability in HLSVD by moving to Scipy dense svd.
+- Fix for -ve ISHIFT in LCModel basis read. Also throws helpful error for encrypted basis.
+
 1.1.13 (Wednesday 1st June)
 ---------------------------
 - Updated setup script to allow command line scripts to run on MS Windows.
