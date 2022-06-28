@@ -120,7 +120,7 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
     :return: HLSVD modeled FID
     """
     m = FID.size // 2
-    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=True)
+    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=False)
     r = hlsvdpropy.convert_hlsvd_result(r, dwelltime)
     nsv_found, singular_values, frequencies, damping_factors, amplitudes, \
         phases = r[0:6]
