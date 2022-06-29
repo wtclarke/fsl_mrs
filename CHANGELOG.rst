@@ -1,9 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.14 (Tuesday 28th June)
---------------------------
+1.1.14 (Wednesday 29th June)
+----------------------------
 - Fixed variability in HLSVD by moving to Scipy dense svd.
 - Fix for -ve ISHIFT in LCModel basis read. Also throws helpful error for encrypted basis.
+- Fixed incorrect plotting of svs voxel orientation in fitting report.
+- Fix issue in results_to_spectrum for disabled baseline.
 
 1.1.13 (Wednesday 1st June)
 ---------------------------

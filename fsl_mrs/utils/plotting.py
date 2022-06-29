@@ -11,15 +11,14 @@
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import pandas as pd
-from fsl_mrs.utils import mrs_io
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 from plotly import tools
-import nibabel as nib
-import scipy.ndimage as ndimage
-import itertools as it
 
+from fsl.data.image import Image
+from fsl_mrs.utils import mrs_io
+from fsl.transform.affine import transform
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, limit_to_range
 
 
@@ -1234,226 +1233,53 @@ def plotly_dynMRS(mrs_list, time_var, ppmlim=(.2, 4.2)):
 
 
 # ----------- Imaging
-# helper functions
-def ijk2xyz(ijk, affine):
-    """ Return X, Y, Z coordinates for i, j, k """
-    ijk = np.asarray(ijk)
-    return affine[:3, :3].dot(ijk.T).T + affine[:3, 3]
-
-
-def xyz2ijk(xyz, affine):
-    """ Return i, j, k coordinates for X, Y, Z """
-    xyz = np.asarray(xyz)
-    inv_affine = np.linalg.inv(affine)
-    return inv_affine[:3, :3].dot(xyz.T).T + inv_affine[:3, 3]
-
-
-def do_plot_slice(slice, rect):
-    vmin = np.quantile(slice, .01)
-    vmax = np.quantile(slice, .99)
-    plt.imshow(slice, cmap="gray", origin="lower", vmin=vmin, vmax=vmax)
-    plt.plot(rect[:, 0], rect[:, 1], c='#FF4646', linewidth=2)
-    plt.xticks([])
-    plt.yticks([])
-
-
-def plot_voxel_orient(t1file, voxfile):
-    """
-    Plot T1 centered on voxel
-    Overlay voxel in red
-    Plots in voxel coordinates
-    """
-    t1 = nib.load(t1file)
-    vox = nib.load(voxfile)
-    t1_data = t1.get_fdata()
-
-    # centre of MRS voxel in T1 voxel space (or is it the corner?)
-    #
-    # PM: Nope, it's the voxel centre - this is mandated by the NIFTI spec
-    #
-    ijk = xyz2ijk(ijk2xyz([0, 0, 0], vox.affine), t1.affine)
-    i, j, k = ijk
-
-    # half size of MRS voxel (careful this assumes 1mm resolution T1)
-    si, sj, sk = np.array(vox.header.get_zooms())[:3] / 2
-    # Do the plotting
-    plt.figure(figsize=(15, 10))
-    plt.subplot(1, 3, 1)
-    slice = np.squeeze(t1_data[int(i), :, :]).T
-    rect = np.asarray([[j - sj, k - sk],
-                       [j + sj, k - sk],
-                       [j + sj, k + sk],
-                       [j - sj, k + sk],
-                       [j - sj, k - sk]])
-    do_plot_slice(slice, rect)
-    plt.subplot(1, 3, 2)
-    slice = np.squeeze(t1_data[:, int(j), :]).T
-    rect = np.asarray([[i - si, k - sk],
-                       [i + si, k - sk],
-                       [i + si, k + sk],
-                       [i - si, k + sk],
-                       [i - si, k - sk]])
-    do_plot_slice(slice, rect)
-    plt.subplot(1, 3, 3)
-    slice = np.squeeze(t1_data[:, :, int(k)]).T
-    rect = np.asarray([[i - si, j - sj],
-                       [i + si, j - sj],
-                       [i + si, j + sj],
-                       [i - si, j + sj],
-                       [i - si, j - sj]])
-    do_plot_slice(slice, rect)
-
-    return plt.gcf()
-
-
 def plot_world_orient(t1file, voxfile):
     """
-    Plot sagittal/coronal/axial T1 centered on voxel
-    Overlay voxel in red
-    Plots in world coordinates with the 'MNI' convention
+    Plot sagittal/coronal/axial T1 with voxel overlay in red
     """
-    t1 = nib.load(t1file)
+    t1img = Image(t1file)
     vox = mrs_io.read_FID(voxfile)
-    t1_data = t1.get_fdata()
 
-    # transform t1 data into world coordinate system,
-    # resampling to 1mm^3.
-    #
-    # This is a touch fiddly because the affine_transform
-    # function uses the destination coordinate system as
-    # data indices. So we need to remove any translation
-    # in the original affine, to ensure that the origin
-    # of the destination coordinate system is forced to
-    # be (0, 0, 0).
-    #
-    # We figure all of this out by transforming the image
-    # bounding box coordinates into world coordinates,
-    # and then figuring out a suitable offset and resampling
-    # data shape from them.
-    extents = zip((0, 0, 0), t1_data.shape)
-    extents = np.asarray(list(it.product(*extents)))
-    extents = ijk2xyz(extents, t1.affine)
-    offset = extents.min(axis=0)
-    offaff = np.eye(4)
-    offaff[:3, 3] = -offset
-    shape = (extents.max(axis=0) - offset).astype(np.int)[:3]
+    # Centre of voxel
+    originvox = np.zeros(3)
+    centre_mm = transform(originvox, vox.voxToWorldMat)
+    voxel_corners_world = [
+        [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5],
+        [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5]]
+    voxel_corners_mm = [transform(vcw, vox.voxToWorldMat) for vcw in voxel_corners_world]
 
-    t1_data = ndimage.affine_transform(t1_data,
-                                       np.dot(offaff, t1.affine),
-                                       output_shape=shape,
-                                       order=3,
-                                       mode='constant',
-                                       cval=0)
+    # What indicies does this correspond to in the T1 img?
+    centre_vox_t1 = transform(centre_mm, t1img.worldToVoxMat)
+    centre_vox_t1_int = centre_vox_t1.astype(int)
+    voxel_corners_t1 = np.asarray([transform(vcm, t1img.worldToVoxMat) for vcm in voxel_corners_mm])
 
-    # centre of MRS voxel in (transformed) T1 voxel space
-    ijk = xyz2ijk(ijk2xyz([0, 0, 0], vox.voxToWorldMat), np.linalg.inv(offaff))
-    i, j, k = ijk
+    fig, axes = plt.subplots(1, 3, figsize=(15, 10))
+    slices = [
+        t1img[centre_vox_t1_int[0], :, :],
+        t1img[:, centre_vox_t1_int[1], :],
+        t1img[:, :, centre_vox_t1_int[2]]]
+    vox_centre = [[1, 2], [0, 2], [0, 1]]
 
-    si, sj, sk = np.array(vox.header.get_zooms())[:3] / 2
-    # Do the plotting
-    plt.figure(figsize=(15, 10))
-    plt.subplot(1, 3, 1)
-    slice = np.squeeze(t1_data[int(i), :, :]).T
-    rect = np.asarray([[j - sj, k - sk],
-                       [j + sj, k - sk],
-                       [j + sj, k + sk],
-                       [j - sj, k + sk],
-                       [j - sj, k - sk]])
-    do_plot_slice(slice, rect)
-    plt.subplot(1, 3, 2)
-    slice = np.squeeze(t1_data[:, int(j), :]).T
-    rect = np.asarray([[i - si, k - sk],
-                       [i + si, k - sk],
-                       [i + si, k + sk],
-                       [i - si, k + sk],
-                       [i - si, k - sk]])
-    do_plot_slice(slice, rect)
-    plt.gca().invert_xaxis()
-    plt.subplot(1, 3, 3)
-    slice = np.squeeze(t1_data[:, :, int(k)]).T
-    rect = np.asarray([[i - si, j - sj],
-                       [i + si, j - sj],
-                       [i + si, j + sj],
-                       [i - si, j + sj],
-                       [i - si, j - sj]])
-    do_plot_slice(slice, rect)
-    plt.gca().invert_xaxis()
+    def plot_joined(ax, coordsx, coordsy):
+        fullx = coordsx[[0, 1, 2, 3, 0, 4, 5, 1, 2, 6, 7, 4, 5, 6, 7, 3]]
+        fully = coordsy[[0, 1, 2, 3, 0, 4, 5, 1, 2, 6, 7, 4, 5, 6, 7, 3]]
+        ax.plot(fullx, fully, 'r')
+
+    for idx, (ax, sli, loc) in enumerate(zip(axes, slices, vox_centre)):
+        vmin = np.quantile(sli, .01)
+        vmax = np.quantile(sli, .99)
+        ax.imshow(sli.T, cmap="gray", origin="lower", vmin=vmin, vmax=vmax)
+
+        # ax.plot(centre_vox_t1[loc[0]], centre_vox_t1[loc[1]], 'go')
+        # for vertex in voxel_corners_t1:
+        #     ax.plot(vertex[loc[0]], vertex[loc[1]], 'rx')
+
+        plot_joined(ax, voxel_corners_t1[:, loc[0]], voxel_corners_t1[:, loc[1]])
+        ax.hlines(centre_vox_t1_int[loc[1]], xmin=0, xmax=sli.shape[0])
+        ax.vlines(centre_vox_t1_int[loc[0]], ymin=0, ymax=sli.shape[1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlim([0, sli.shape[0]])
+        ax.set_ylim([0, sli.shape[1]])
 
     return plt.gcf()
-
-
-def plot_world_orient_ax(t1file, voxfile, ax, orientation='axial'):
-    """
-    Plot sagittal/coronal/axial T1 centered on voxel in axes passed
-    Overlay voxel in red
-    Plots in world coordinates with the 'MNI' convention
-    """
-    t1 = nib.load(t1file)
-    vox = nib.load(voxfile)
-    t1_data = t1.get_fdata()
-
-    # transform t1 data into world coordinate system,
-    # resampling to 1mm^3.
-    #
-    # This is a touch fiddly because the affine_transform
-    # function uses the destination coordinate system as
-    # data indices. So we need to remove any translation
-    # in the original affine, to ensure that the origin
-    # of the destination coordinate system is forced to
-    # be (0, 0, 0).
-    #
-    # We figure all of this out by transforming the image
-    # bounding box coordinates into world coordinates,
-    # and then figuring out a suitable offset and resampling
-    # data shape from them.
-    extents = zip((0, 0, 0), t1_data.shape)
-    extents = np.asarray(list(it.product(*extents)))
-    extents = ijk2xyz(extents, t1.affine)
-    offset = extents.min(axis=0)
-    offaff = np.eye(4)
-    offaff[:3, 3] = -offset
-    shape = (extents.max(axis=0) - offset).astype(np.int)[:3]
-
-    t1_data = ndimage.affine_transform(t1_data,
-                                       np.dot(offaff, t1.affine),
-                                       output_shape=shape,
-                                       order=3,
-                                       mode='constant',
-                                       cval=0)
-
-    # centre of MRS voxel in (transformed) T1 voxel space
-    ijk = xyz2ijk(ijk2xyz([0, 0, 0], vox.affine), np.linalg.inv(offaff))
-    i, j, k = ijk
-
-    si, sj, sk = np.array(vox.header.get_zooms())[:3] / 2
-    # Do the plotting
-    plt.sca(ax)
-    if orientation == 'sagital':
-        slice = np.squeeze(t1_data[int(i), :, :]).T
-        rect = np.asarray([[j - sj, k - sk],
-                           [j + sj, k - sk],
-                           [j + sj, k + sk],
-                           [j - sj, k + sk],
-                           [j - sj, k - sk]])
-        do_plot_slice(slice, rect)
-    elif orientation == 'coronal':
-
-        slice = np.squeeze(t1_data[:, int(j), :]).T
-        rect = np.asarray([[i - si, k - sk],
-                           [i + si, k - sk],
-                           [i + si, k + sk],
-                           [i - si, k + sk],
-                           [i - si, k - sk]])
-        do_plot_slice(slice, rect)
-        ax.invert_xaxis()
-    elif orientation == 'axial':
-        slice = np.squeeze(t1_data[:, :, int(k)]).T
-        rect = np.asarray([[i - si, j - sj],
-                           [i + si, j - sj],
-                           [i + si, j + sj],
-                           [i - si, j + sj],
-                           [i - si, j - sj]])
-        do_plot_slice(slice, rect)
-        ax.invert_xaxis()
-
-    return plt.gca()
