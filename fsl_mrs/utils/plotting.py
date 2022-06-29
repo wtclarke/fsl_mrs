@@ -1274,7 +1274,7 @@ def plot_world_orient(t1file, voxfile):
         # for vertex in voxel_corners_t1:
         #     ax.plot(vertex[loc[0]], vertex[loc[1]], 'rx')
 
-        plot_joined(ax, voxel_corners_t1[:,loc[0]], voxel_corners_t1[:,loc[1]])
+        plot_joined(ax, voxel_corners_t1[:, loc[0]], voxel_corners_t1[:, loc[1]])
         ax.hlines(centre_vox_t1_int[loc[1]], xmin=0, xmax=sli.shape[0])
         ax.vlines(centre_vox_t1_int[loc[0]], ymin=0, ymax=sli.shape[1])
         ax.set_xticks([])
