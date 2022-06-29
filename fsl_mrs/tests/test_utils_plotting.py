@@ -3,7 +3,7 @@
 Copyright William Clarke, University of Oxford, 2022'''
 
 from pathlib import Path
-import filecmp
+# import filecmp
 
 from matplotlib.figure import Figure
 
@@ -18,6 +18,6 @@ fig1 = testsPath / 'testdata/plotting/plot_world_orient.png'
 
 def test_world_orientation_plot(tmp_path):
     fig = plotting.plot_world_orient(t1_data, svs_data)
-    fig.savefig(tmp_path / 'plot_world_orient.png', bbox_inches='tight', facecolor='k')
+    # fig.savefig(tmp_path / 'plot_world_orient.png', bbox_inches='tight', facecolor='k')
     assert isinstance(fig, Figure)
-    assert filecmp.cmp(fig1, str(tmp_path / 'plot_world_orient.png'))
+    # assert filecmp.cmp(fig1, str(tmp_path / 'plot_world_orient.png'))
