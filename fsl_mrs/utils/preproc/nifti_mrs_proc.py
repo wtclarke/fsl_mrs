@@ -786,7 +786,7 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     return good_out, bad_out
 
 
-def phase_correct(data, ppmlim, hlsvd=True, figure=False, report=None, report_all=False):
+def phase_correct(data, ppmlim, hlsvd=False, figure=False, report=None, report_all=False):
     '''Zero-order phase correct based on peak maximum
 
     :param NIFTI_MRS data: Data to truncate or pad

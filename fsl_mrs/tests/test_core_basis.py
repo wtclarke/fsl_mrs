@@ -12,10 +12,13 @@ import pytest
 
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
 from fsl_mrs.core import basis as basis_mod
+from fsl_mrs.utils.mrs_io.lcm_io import EncryptedBasisError
 
 testsPath = Path(__file__).parent
 fsl_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_FSL'
 lcm_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_LCModel.BASIS'
+lcm_basis_official = testsPath / 'testdata' / 'mrs_io' / 'gamma_press_te20_3t_v1.basis'
+lcm_basis_encrypted = testsPath / 'testdata' / 'mrs_io' / 'press_te25_3t_v3.basis'
 
 
 def test_load_and_constructors():
@@ -77,6 +80,20 @@ def test_lcm_load():
     assert lcm.n_metabs == 21
     assert lcm.original_basis_array.shape == (4096, 21)
     assert lcm.original_basis_array.dtype == complex
+
+    lcm = basis_mod.Basis.from_file(lcm_basis_official)
+    assert lcm.cf == 123.199997
+    assert lcm.original_points == 9872
+    assert lcm.n_metabs == 17
+    assert lcm.original_basis_array.shape == (9872, 17)
+    assert lcm.original_basis_array.dtype == complex
+
+    with pytest.raises(EncryptedBasisError) as exc_info:
+        lcm = basis_mod.Basis.from_file(lcm_basis_encrypted)
+    assert exc_info.type is EncryptedBasisError
+    assert exc_info.value.args[0] ==\
+        'This is an encrypted LCModel basis. '\
+        'Please consider using a basis specific to your sequence.'
 
 
 def test_save(tmp_path):

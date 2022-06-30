@@ -83,6 +83,8 @@ def main():
     # Generate metabolite groups
     metab_groups = misc.parse_metab_groups(mrs, orig_args['metab_groups'])
     baseline_order = orig_args['baseline_order']
+    if baseline_order < 0:
+        baseline_order = 0  # Required to make prepare_baseline_regressor run.
     ppmlim = orig_args['ppmlim']
     # Generate baseline polynomials (B)
     B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
