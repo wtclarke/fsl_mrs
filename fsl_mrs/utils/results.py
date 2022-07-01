@@ -141,6 +141,11 @@ class FitRes(object):
     @property
     def params(self):
         """Return mean fit parameters as numpy array"""
+        return self.fitResults.loc[:, self.params_names].mean().values
+
+    @property
+    def params_inc_combine(self):
+        """Return mean fit parameters (including combined metabolites) as numpy array"""
         return self.fitResults.mean().values
 
     @property

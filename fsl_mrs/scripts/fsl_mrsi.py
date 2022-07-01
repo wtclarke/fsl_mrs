@@ -270,7 +270,7 @@ def main():
 
     # Create interactive HTML report
     if args.report:
-        report.create_report(
+        report.create_svs_report(
             mrs,
             res_init,
             filename=os.path.join(args.output, 'report.html'),

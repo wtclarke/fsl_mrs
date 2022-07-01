@@ -13,7 +13,7 @@ For an in depth discussion of the effects of MM basis spectra choice on fitting 
 
 Synthetic MM
 ~~~~~~~~~~~~
-Syntheic MM basis spectra may be added using the :code:`--add_MM` flag with :code:`fsl_mrs` or :code:`fsl_mrsi`. In the interactive environment the same can be achieved by calling the method :code:`add_MM_peaks` of :code:`fsl_mrs.core.MRS`.
+Synthetic MM basis spectra can be added to a basis set using :code:`basis_tools add_set --add_MM basis_in basis_out`. In the interactive environment the same can be achieved by calling the method :code:`add_default_MM_peaks` in a basis object (of type :code:`fsl_mrs.core.Basis`).
 
 By default this option will add the following basis spectra (in separate metabolite groups) to the basis sets.
 
@@ -27,7 +27,9 @@ By default this option will add the following basis spectra (in separate metabol
     MM17,	1.7,	2,	10/20
     MM21,	"2.08, 2.25, 1.95, 3.0",	"1.33, 0.22, 0.33, 0.4",	10/20
 
-Additional peaks may be added int he interactive environment by calling :code:`add_MM_peaks` with optional arguments to override the defaults.
+Additional peaks may be added in using :code:`basis_tools add_set --gamma ...`, or in the interactive environment by calling :code:`basis.add_MM_peaks`.
+
+Note that when fitting using the synthetic macromolecular peaks the :code:`--metab_groups` option should be used to assign each synthetic MM peak to its own group. E.g., :code:`--metab_groups MM09 MM12 MM14 MM17 MM21`
 
 References
 ~~~~~~~~~~

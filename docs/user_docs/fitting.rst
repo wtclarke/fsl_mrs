@@ -162,10 +162,6 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Polynomial baseline order. Set to -1 to remove the baseline altogether.
 :code:`--metab_groups`      
     Group metabolites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
-:code:`--add_MM`            
-    Add macromolecule peaks at the following frequencies: 0.9, 1.2, 1.4, 1.7 ppm and a doublet at 2.08 & 3.0 ppm
-:code:`--add_MM_MEGA`            
-    Add linked macromolecule peaks at 0.915 & 3.0 ppm (ratio of 3.75:2.0). This option is experimental!
 :code:`--lorentzian`        
     By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
 :code:`--ind_scale`        
@@ -189,7 +185,6 @@ The wrapper scripts can also take a configuration file as an input. For example,
     ppmlim       = [0.3,4.1]
     metab_groups = combine_all
     TE           = 11
-    add_MM
     report
 
 The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
@@ -199,7 +194,7 @@ The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
 
 ::
 
-    fsl_mrs --ppmlim .3 4.1 --metab_groups combine_all --TE 11 --add_MM --report
+    fsl_mrs --ppmlim .3 4.1 --metab_groups combine_all --TE 11 --report
 
 
 

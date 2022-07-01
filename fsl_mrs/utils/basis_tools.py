@@ -256,7 +256,8 @@ def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
                 basis.cf * 1E6,
                 limits,
                 limitUnits='ppm+shift',
-                numSingularValues=5)
+                numSingularValues=5,
+                sparse_algo=True)
         else:
             return zero_spectrum(
                 fid,
