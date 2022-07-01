@@ -23,7 +23,7 @@ class FitRes(object):
        Collects fitting results
     """
 
-    def __init__(self, mrs, results, model, method, metab_groups, baseline_order, B, ppmlim, runqc=True):
+    def __init__(self, mrs, results, model, method, metab_groups, baseline_order, B, ppmlim, runqc=True, vb_optim=None):
         """_summary_
 
         _extended_summary_
@@ -116,8 +116,8 @@ class FitRes(object):
 
         # VB metrics
         if self.method == 'VB':
-            self.vb_cov = self.optim_out.cov
-            self.vb_var = self.optim_out.var
+            self.vb_cov = vb_optim.cov
+            self.vb_var = vb_optim.var
             std = np.sqrt(self.vb_var)
             self.vb_corr = self.vb_cov / (std[:, np.newaxis] * std[np.newaxis, :])
 

@@ -317,7 +317,7 @@ def fit_FSLModel(mrs,
         results = FitRes(mrs, res.x, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'init':
-        results.loadResults(mrs, x0)
+        results = FitRes(mrs, x0, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'MH':
         def forward_mh(p):
@@ -406,7 +406,7 @@ def fit_FSLModel(mrs,
         samples = mcmc.fit(p0, LB=LB, UB=UB, verbose=False, mask=mask)
 
         # collect results
-        results.loadResults(mrs, samples)
+        results = FitRes(mrs, samples, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'VB':
         import warnings
@@ -470,7 +470,7 @@ def fit_FSLModel(mrs,
             x = p2x(np.exp(logcon), np.exp(loggamma), np.exp(logsigma), eps, phi0, phi1, b)
 
         # collect results
-        results.loadResults(mrs, x)
+        results = FitRes(mrs, x, model, method, metab_groups, baseline_order, B, ppmlim, vb_optim=res_vb)
 
     else:
         raise Exception('Unknown optimisation method.')

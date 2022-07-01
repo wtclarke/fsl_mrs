@@ -483,13 +483,13 @@ class dynMRS(object):
         dynresList = []
         for t in range(self.vm.ntimes):
             mrs = self.mrs_list[t]
-            results = FitRes(self._fit_args['model'],
+            results = FitRes(mrs,
+                             mapped[t],
+                             self._fit_args['model'],
                              method,
-                             mrs.names,
                              metab_groups,
                              self._fit_args['baseline_order'],
                              base_poly,
                              self._fit_args['ppmlim'])
-            results.loadResults(mrs, mapped[t])
             dynresList.append(results)
         return dynresList
