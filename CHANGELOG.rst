@@ -3,13 +3,17 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.0.0 (WIP)
 -----------
 **Major rework of basis and fitting script interaction. First release of dynamic MRS fitting.**
+*Static fitting*
 - Default macromolecules are now added through basis_tools script rather than fitting. Fitting does not alter basis at run time now.
 - Fixed bug in calculation of concentration covariances. New MC tests included.
-- Better covariance estimation for parameters with small values (< machine epsilon)
+- Better and faster covariance estimation.
 *Dynamic fitting*
 - Saved dynamic results now contain free parameter covariances.
 - New documentation for dynamic fitting
 - New fmrs_stats module and script for higher-level GLM analysis.
+*Other new features*
+- Experimental SVS results dashboard - view the results of multiple SVS fits together in a single summary.
+- New documentation for dynamic fitting and all new features.
 
 1.1.14 (Wednesday 29th June)
 ----------------------------
