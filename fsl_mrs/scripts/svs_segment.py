@@ -12,11 +12,9 @@
 # Quick imports
 import argparse
 from pathlib import Path
-import nibabel as nib
-import numpy as np
-from fsl.wrappers import flirt, fslstats, fsl_anat, fslmaths
 import json
 import warnings
+# More imports below after argument parsing!
 
 
 def main():
@@ -43,6 +41,11 @@ def main():
                         help='Only perform masking stage,'
                              ' do not run fsl_anat if only T1 passed.')
     args = parser.parse_args()
+
+    # Imports post argparse
+    import nibabel as nib
+    import numpy as np
+    from fsl.wrappers import flirt, fslstats, fsl_anat, fslmaths
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.

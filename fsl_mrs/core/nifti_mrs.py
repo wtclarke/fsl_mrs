@@ -87,7 +87,7 @@ class NotNIFTI_MRS(Exception):
 
 
 class NIFTI_MRS(Image):
-    """Load NIFTI MRS format data. Derived from nibabel's Nifti2Image."""
+    """Load NIFTI MRS format data. Derived from FSL's Image class and nibabel's Nifti2Image."""
     def __init__(self, *args, **kwargs):
         # If generated from np array include conjugation
         # to make sure storage is right-handed

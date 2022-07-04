@@ -9,15 +9,22 @@
 # SHBASECOPYRIGHT
 
 # Imports
-from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
-from fsl_mrs.utils.splash import splash
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from os import makedirs
 from shutil import rmtree
 import os.path as op
-from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
-from fsl_mrs.core import NIFTI_MRS, is_nifti_mrs
 from dataclasses import dataclass
+
+
+from fsl_mrs.auxiliary import configargparse
+from fsl_mrs import __version__
+from fsl_mrs.utils.splash import splash
+if TYPE_CHECKING:
+    # Performed to enable NIFTI_MRS typing in dataclass
+    # and a quick startup by not importing NIFTI_MRS yet.
+    from fsl_mrs.core import NIFTI_MRS
 
 
 class InappropriateDataError(Exception):
@@ -422,6 +429,7 @@ def loadData(datafile, refdatafile=None):
     The data must be of NIFTI MRS format.
     Optionaly loads a reference file.
     """
+    from fsl_mrs.core import NIFTI_MRS, is_nifti_mrs
 
     # Do a check on the data file passed. The data must be of nifti type.
     if not is_nifti_mrs(datafile):
@@ -463,6 +471,7 @@ def writeData(dataobj, args):
 
 # Preprocessing functions
 def coilcombine(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 
     if 'DIM_COIL' not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no coil dimension.'
@@ -478,6 +487,8 @@ def coilcombine(dataobj, args):
 
 
 def average(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if args['dim'] not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no {args["dim"]} dimension.'
                                      f' Dimensions are is {dataobj.data.dim_tags}.')
@@ -491,6 +502,8 @@ def average(dataobj, args):
 
 
 def align(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if args['dim'].lower() == 'all':
         pass
     elif args['dim'] not in dataobj.data.dim_tags:
@@ -508,6 +521,8 @@ def align(dataobj, args):
 
 
 def aligndiff(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if args['dim'] not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no {args["dim"]} dimension.'
                                      f' Dimensions are is {dataobj.data.dim_tags}.')
@@ -524,6 +539,8 @@ def aligndiff(dataobj, args):
 
 
 def ecc(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     corrected = preproc.ecc(dataobj.data,
                             dataobj.reference,
                             report=args['generateReports'],
@@ -533,6 +550,8 @@ def ecc(dataobj, args):
 
 
 def remove(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     corrected = preproc.remove_peaks(dataobj.data,
                                      limits=args['ppm'],
                                      report=args['generateReports'],
@@ -542,6 +561,8 @@ def remove(dataobj, args):
 
 
 def model(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     modelled = preproc.hlsvd_model_peaks(dataobj.data,
                                          limits=args['ppm'],
                                          components=args['components'],
@@ -552,6 +573,8 @@ def model(dataobj, args):
 
 
 def tshift(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     shifted = preproc.tshift(dataobj.data,
                              tshiftStart=args['tshiftStart'],
                              tshiftEnd=args['tshiftEnd'],
@@ -563,6 +586,8 @@ def tshift(dataobj, args):
 
 
 def truncate(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     truncated = preproc.truncate_or_pad(dataobj.data,
                                         args['points'],
                                         args['pos'],
@@ -573,6 +598,8 @@ def truncate(dataobj, args):
 
 
 def apodize(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     apodized = preproc.truncate_or_pad(dataobj.data,
                                        args['amount'],
                                        filter=args['filter'],
@@ -583,6 +610,8 @@ def apodize(dataobj, args):
 
 
 def fshift(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if args['shiftppm'] is not None:
         shift = args['shiftppm'] * dataobj.data.spectrometer_frequency[0]
         callMode = 'fixed'
@@ -611,6 +640,8 @@ def fshift(dataobj, args):
 
 
 def unlike(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if dataobj.data.shape[:3] != (1, 1, 1):
         raise InappropriateDataError('unlike subcommand only works on single voxel data.'
                                      ' It is unclear what should happen with MRSI data.')
@@ -629,6 +660,8 @@ def unlike(dataobj, args):
 
 
 def phase(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     phased = preproc.phase_correct(dataobj.data,
                                    args['ppm'],
                                    hlsvd=args['hlsvd'],
@@ -639,6 +672,8 @@ def phase(dataobj, args):
 
 
 def fixed_phase(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     phased = preproc.apply_fixed_phase(dataobj.data,
                                        args['p0'],
                                        p1=args['p1'],
@@ -649,6 +684,8 @@ def fixed_phase(dataobj, args):
 
 
 def subtract(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if dataobj.reference is not None:
         subtracted = preproc.subtract(dataobj.data,
                                       data1=dataobj.reference,
@@ -666,6 +703,8 @@ def subtract(dataobj, args):
 
 
 def add(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     if dataobj.reference is not None:
         added = preproc.add(dataobj.data,
                             data1=dataobj.reference,
@@ -683,6 +722,8 @@ def add(dataobj, args):
 
 
 def conj(dataobj, args):
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
     conjugated = preproc.conjugate(dataobj.data,
                                    report=args['generateReports'],
                                    report_all=args['allreports'])

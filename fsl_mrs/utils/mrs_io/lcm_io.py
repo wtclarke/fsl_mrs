@@ -6,7 +6,6 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
-import scipy.signal as ss
 import numpy as np
 import os
 import re
@@ -128,6 +127,7 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # Resample if necessary? --> should not be allowed actually
     if N is not None:
         if N != data.shape[0]:
+            import scipy.signal as ss
             data = ss.resample(data, N)
 
     # if freq domain --> turn to time domain

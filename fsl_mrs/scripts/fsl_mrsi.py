@@ -13,8 +13,6 @@ import warnings
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-from fsl_mrs.utils import fitting, misc, mrs_io, quantify
-
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 
@@ -144,6 +142,7 @@ def main():
     import nibabel as nib
     from functools import partial
     import multiprocessing as mp
+    from fsl_mrs.utils import misc, mrs_io
     # ######################################################
 
     # Check if output folder exists
@@ -520,6 +519,8 @@ def main():
 
 
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
+    from fsl_mrs.utils import fitting, quantify
+
     mrs, index, tissue_seg = mrs_in
 
     res = fitting.fit_FSLModel(mrs, **Fitargs)

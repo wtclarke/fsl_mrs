@@ -11,7 +11,6 @@
 from copy import deepcopy
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
@@ -262,6 +261,8 @@ class MRSI(object):
 
     def plot(self, mask=True, ppmlim=(0.2, 4.2)):
         '''Plot (masked) grid of spectra.'''
+        import matplotlib.pyplot as plt
+
         if mask:
             mask_indicies = np.where(self.mask)
         else:

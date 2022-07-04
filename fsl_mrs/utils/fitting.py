@@ -11,7 +11,6 @@
 import numpy as np
 
 from fsl_mrs.utils import models, misc
-from fsl_mrs.utils.stats import mh, vb, dist
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 
@@ -320,6 +319,8 @@ def fit_FSLModel(mrs,
         results = FitRes(mrs, x0, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'MH':
+        from fsl_mrs.utils.stats import mh, dist
+
         def forward_mh(p):
             return forward(p, freq, time, basis, B, metab_groups, g)[first:last]
         numPoints_over_2 = (last - first) / 2.0
@@ -409,6 +410,7 @@ def fit_FSLModel(mrs,
         results = FitRes(mrs, samples, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'VB':
+        from fsl_mrs.utils.stats import vb
         import warnings
         warnings.warn('VB method still under development!', UserWarning)
 

@@ -7,8 +7,6 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from scipy.signal import butter, lfilter
-from scipy.interpolate import interp1d
 import itertools as it
 from .constants import H2O_PPM_TO_TMS
 
@@ -167,6 +165,7 @@ def filter(mrs, FID, ppmlim, filter_type='bandpass'):
        -------
        numpy array
     """
+    from scipy.signal import butter, lfilter
 
     # Sampling frequency (Hz)
     fs = 1 / mrs.dwellTime
@@ -199,6 +198,8 @@ def ts_to_ts(old_ts, old_dt, new_dt, new_n):
         new_dt: Output dwelltime
         new_n: Output number of points
     """
+    from scipy.interpolate import interp1d
+
     old_n = old_ts.shape[0]
     old_t = np.linspace(old_dt, old_dt * old_n, old_n) - old_dt
     new_t = np.linspace(new_dt, new_dt * new_n, new_n) - new_dt
