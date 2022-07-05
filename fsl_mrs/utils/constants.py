@@ -28,6 +28,9 @@ PPM_RANGE = {'1H': (0.2, 4.2),
              '13C': (10, 100),
              '31P': (-20, 10)}
 
+NOISE_REGION = {'1H': ([None, int(-2)], [10, None]),
+                '31P': ([None, int(-15)], [12, None])}
+
 # Concentration scaling parameters
 TISSUE_WATER_DENSITY = {'GM': 0.78, 'WM': 0.65, 'CSF': 0.97}
 # TISSUE_WATER_DENSITY reference: Ernst T, Kreis R, Ross BD.

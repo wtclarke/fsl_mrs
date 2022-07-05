@@ -9,13 +9,15 @@
 # SHBASECOPYRIGHT
 
 from fsl_mrs.utils import models
+from fsl_mrs.utils.constants import NOISE_REGION
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
 from fsl_mrs.core import MRS
 from scipy.signal import find_peaks
+from scipy.stats import levene
 import numpy as np
-from numpy.lib.stride_tricks import as_strided
 from collections import namedtuple
 import pandas as pd
+import numpy.polynomial.polynomial as poly
 
 SNR = namedtuple('SNR', ['spectrum', 'peaks', 'residual'])
 
@@ -88,12 +90,23 @@ def calcQCOnResults(mrs, res, resparams, ppmlim):
     # Generate MRS objs for the results
     basisMRS = generateBasisFromRes(mrs, res, resparams)
 
-    # Generate masks for noise regions
-    combinedSpectrum = np.zeros(mrs.FID.size)
-    for basemrs in basisMRS:
-        combinedSpectrum += np.real(basemrs.get_spec())
+    # ID noise region
+    noisemask = idNoiseRegion(mrs, debug=False)
 
-    noisemask = idNoiseRegion(mrs, combinedSpectrum)
+    fwhm = []
+    for basemrs in basisMRS:
+        # FWHM
+        baseFWHM = res.getLineShapeParams()
+        fwhm_curr, _, _ = idPeaksCalcFWHM(basemrs, estimatedFWHM=np.max(baseFWHM[0]), ppmlim=ppmlim)
+        fwhm.append(fwhm_curr)
+
+    # Identify min FWHM to use:
+    singlet_fwhm = min(fwhm)
+
+    if noisemask.sum() < 100:
+        import warnings
+        raise warnings.warn('There are insufficent signal free (noise) points. SNR not calculated.')
+        return None, fwhm, None
 
     # Calculate single spectrum SNR - based on max value of actual data in region
     # No apodisation applied.
@@ -101,46 +114,97 @@ def calcQCOnResults(mrs, res, resparams, ppmlim):
     unApodNoise = noiseSD(mrs.get_spec(), noisemask)
     specSNR = allSpecHeight / unApodNoise
 
-    fwhm = []
     basisSNR = []
     for basemrs in basisMRS:
-        # FWHM
-        baseFWHM = res.getLineShapeParams()
-        fwhm_curr, _, _ = idPeaksCalcFWHM(basemrs, estimatedFWHM=np.max(baseFWHM[0]), ppmlim=ppmlim)
-        fwhm.append(fwhm_curr)
-
         # Basis SNR
-        basisSNR.append(matchedFilterSNR(mrs, basemrs, fwhm_curr, noisemask, ppmlim))
+        basisSNR.append(matchedFilterSNR(mrs, basemrs, singlet_fwhm, noisemask, ppmlim))
 
     return basisSNR, fwhm, specSNR
 
 
-def noiseSD(spectrum, noisemask):
+def noiseSD(spectrum, noisemask=None):
     """ Return noise SD. sqrt(2)*real(spectrum)"""
-    return np.sqrt(2) * np.std(np.real(spectrum[noisemask]))
+    if noisemask is None:
+        return np.sqrt(2) * np.std(np.real(spectrum))
+    else:
+        return np.sqrt(2) * np.std(np.real(spectrum[noisemask]))
 
 
-def idNoiseRegion(mrs, spectrum, startingNoiseThreshold=0.001):
+class NucleusQCNotImplemented(Exception):
+    pass
+
+
+def _detrend_noise(spec, axis):
+    '''Polynomial fit to remove trend from noise region'''
+    coefs = poly.polyfit(axis, spec, 4)
+    fit = poly.polyval(axis, coefs)
+    return spec - fit
+
+
+def idNoiseRegion(mrs, debug=False):
     """ Identify noise region in given spectrum"""
-    with np.errstate(divide='ignore', invalid='ignore'):
-        normspec = np.real(spectrum) / np.max(np.real(spectrum))
-    noiseThreshold = startingNoiseThreshold
-    noiseRegion = np.abs(normspec) < noiseThreshold
-    # print(np.sum(noiseRegion))
-    while np.sum(noiseRegion) < 100:
-        if noiseThreshold > 0.1:
-            raise NoiseNotFoundError(
-                f'Unable to identify suitable noise area. '
-                f'Only {np.sum(noiseRegion)} points of {normspec.size} found. Minimum of 100 needed.')
-        noiseThreshold += 0.001
-        noiseRegion = np.abs(normspec) < noiseThreshold
-        # print(np.sum(noiseRegion))
+    spectrum = mrs.get_spec()
+    npoints = spectrum.size
+    ppmaxis = mrs.getAxes()
 
-    # Noise region OS masks
-    noiseOSMask = detectOS(mrs, noiseRegion)
-    combinedMask = noiseRegion & noiseOSMask
+    # Noise regions dependent on nucleus
+    try:
+        noise_regions = NOISE_REGION[mrs.nucleus]
+    except KeyError:
+        raise NucleusQCNotImplemented(f'QC for {mrs.nucleus} not yet implemented.')
 
-    return combinedMask
+    noise_mask = np.zeros(npoints, dtype=bool)
+    detrended_noise_spec = np.zeros_like(spectrum.real)
+
+    for region in noise_regions:
+        # Convert ppm range to index in this spectrum
+        if region[0] is None:
+            region[0] = ppmaxis.min()
+        if region[1] is None:
+            region[1] = ppmaxis.max()
+        first, last = mrs.ppmlim_to_range(ppmlim=region)
+        last += 1
+
+        # Assign to initial noise mask
+        noise_mask[first:last] = 1
+
+        # Detrend the data for the os detection
+        detrended_noise_spec[first:last] = _detrend_noise(
+            spectrum.real[first:last],
+            ppmaxis[first:last])
+
+    # Now check for oversampling that hasn't been removed
+    # Identify possible OS region - assume max OS of 2
+    poss_os_region = np.zeros(spectrum.shape, dtype=bool)
+    poss_os_region[:int(spectrum.size / 4)] = 1
+    poss_os_region[-int(spectrum.size / 4):] = 1
+
+    just_os = noise_mask & poss_os_region
+    just_normal = noise_mask ^ poss_os_region
+
+    os_region = detrended_noise_spec[just_os]
+    central_region = detrended_noise_spec[just_normal]
+
+    # Test for unequal variances between possible os region and the remainder noise region
+    _, p = levene(os_region, central_region, center='mean')
+
+    if debug:
+        import matplotlib.pyplot as plt
+        max_val = np.abs(detrended_noise_spec).max()
+        plt.figure(figsize=(8, 8))
+        plt.plot(detrended_noise_spec)
+        plt.plot(noise_mask * max_val)
+        plt.plot(poss_os_region * max_val * 0.75)
+        plt.plot(just_os * max_val * 0.5E7)
+        plt.plot(just_normal * max_val * 0.25E7)
+        plt.savefig('noise_id.png')
+
+    if p < 0.05:
+        if debug:
+            print('Oversampling detected')
+        return just_normal
+    else:
+        return noise_mask
 
 
 def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=(0.2, 4.2)):
@@ -194,62 +258,13 @@ def specApodise(mrs, amount):
 def matchedFilterSNR(mrs, basismrs, lw, noisemask, ppmlim):
     apodbasis = specApodise(basismrs, lw)
     apodSpec = specApodise(mrs, lw)
-    currNoise = noiseSD(apodSpec, noisemask)
+
+    apodNoise = _detrend_noise(
+        apodSpec[noisemask],
+        np.arange(noisemask.sum()))
+
+    currNoise = noiseSD(apodNoise)
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
     peakHeight = np.max(np.abs(np.real(apodbasis[first:last])))
-    # import matplotlib.pyplot as plt
-    # plt.plot(np.real(apodSpec))
-    # plt.plot(noisemask*np.max(np.real(apodSpec)))
-    # plt.show()
-    # print(f'SNR: {peakHeight / currNoise:0.1f} ({peakHeight:0.2e}/{currNoise:0.2e}), LW: {lw:0.1f}')
+
     return peakHeight / currNoise
-
-
-def detectOS(mrs, noiseregionmask):
-    """ If OS is detected restrict noise region to inner half"""
-
-    sdSpec = getNoiseSDDist(np.real(mrs.get_spec()), noiseregionmask)
-    sdSpec /= np.nanmean(sdSpec)
-    sdSpec = sdSpec[~np.isnan(sdSpec)]
-    npoints = sdSpec.size
-
-    outerSD = np.concatenate((sdSpec[:int(npoints / 10)], sdSpec[-int(npoints / 10):]))
-    innerSD = np.concatenate((sdSpec[int(npoints / 10):2 * int(npoints / 10)],
-                              sdSpec[-2 * int(npoints / 10):-int(npoints / 10)]))
-
-    inner_mean = np.mean(innerSD)
-    inner_SD = np.std(innerSD)
-    outer_mean = np.mean(outerSD)
-
-    sdDiff = np.abs(outer_mean - inner_mean) / inner_SD
-
-    if sdDiff > 2:
-        # print('Oversampling detected')
-        noiseRegionMask = np.full(mrs.FID.shape, False)
-        npoints = mrs.FID.size
-        noiseRegionMask[int(npoints * 0.25):int(npoints * 0.75)] = True
-    else:
-        noiseRegionMask = np.full(mrs.FID.shape, True)
-    return noiseRegionMask
-
-
-def getNoiseSDDist(specIn, noiseregionmask):
-    """ Calculate rolling SD of noise region"""
-    # Normalise
-    specIn /= np.max(specIn)
-
-    # select noise regions
-    noiseOnlySpec = specIn[noiseregionmask]
-
-    npoints = noiseOnlySpec.size
-    regionPoints = min(100, int(npoints / 10))
-
-    def running_std_strides(seq, window=100):
-        stride = seq.strides[0]
-        sequence_strides = as_strided(seq, shape=[len(seq) - window + 1, window], strides=[stride, stride])
-        return sequence_strides.std(axis=1)
-
-    out = running_std_strides(noiseOnlySpec, window=regionPoints)
-    padded = np.pad(out, (int(regionPoints / 2), int(regionPoints / 2) - 1), constant_values=np.nan)
-
-    return padded
