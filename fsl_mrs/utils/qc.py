@@ -103,11 +103,6 @@ def calcQCOnResults(mrs, res, resparams, ppmlim):
     # Identify min FWHM to use:
     singlet_fwhm = min(fwhm)
 
-    if noisemask.sum() < 100:
-        import warnings
-        raise warnings.warn('There are insufficent signal free (noise) points. SNR not calculated.')
-        return None, fwhm, None
-
     # Calculate single spectrum SNR - based on max value of actual data in region
     # No apodisation applied.
     allSpecHeight = np.max(np.abs(np.real(mrs.get_spec(ppmlim=ppmlim))))
@@ -185,18 +180,25 @@ def idNoiseRegion(mrs, debug=False):
     os_region = detrended_noise_spec[just_os]
     central_region = detrended_noise_spec[just_normal]
 
-    # Test for unequal variances between possible os region and the remainder noise region
-    _, p = levene(os_region, central_region, center='mean')
+    if noise_mask.sum() < 100:
+        # Fallback - take 50 points from each end
+        noise_mask[:50] = 1
+        noise_mask[-50:] = 1
+        p = 1.0
+    else:
+        # Test for unequal variances between possible os region and the remainder noise region
+        _, p = levene(os_region, central_region, center='mean')
 
     if debug:
         import matplotlib.pyplot as plt
         max_val = np.abs(detrended_noise_spec).max()
         plt.figure(figsize=(8, 8))
+        plt.plot(max_val * spectrum.real / spectrum.real.max(), 'k')
         plt.plot(detrended_noise_spec)
         plt.plot(noise_mask * max_val)
         plt.plot(poss_os_region * max_val * 0.75)
-        plt.plot(just_os * max_val * 0.5E7)
-        plt.plot(just_normal * max_val * 0.25E7)
+        plt.plot(just_os * max_val * 0.5)
+        plt.plot(just_normal * max_val * 0.25)
         plt.savefig('noise_id.png')
 
     if p < 0.05:
