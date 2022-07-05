@@ -8,7 +8,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 - Default macromolecules are now added through basis_tools script rather than fitting. Fitting does not alter basis at run time now.
 - Fixed bug in calculation of concentration covariances. New MC tests included.
-- Better and faster covariance estimation.
+- Better and faster covariance estimation via analytical jacobian.
+- Update to QC SNR calculation to improve stability.
 
 *Dynamic fitting*
 
