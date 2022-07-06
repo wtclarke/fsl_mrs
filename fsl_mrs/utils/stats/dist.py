@@ -8,7 +8,6 @@
 # SHBASECOPYRIGHT
 
 
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.special import gammaln
 
@@ -100,6 +99,8 @@ def lognorm2stats(loc, scale):
 
 # quick plotting
 def plot_gausspdf(loc, scale, interval=None, numpoints=100):
+    import matplotlib.pyplot as plt
+
     if interval is None:
         interval = np.linspace(loc - 3 * scale, loc + 3 * scale, numpoints)
     value = -(interval - loc)**2 / 2 / scale**2
@@ -110,6 +111,8 @@ def plot_gausspdf(loc, scale, interval=None, numpoints=100):
 
 
 def plot_lognormpdf(loc, scale, interval=None, numpoints=100):
+    import matplotlib.pyplot as plt
+
     if interval is None:
         interval = np.linspace(1E-10, np.exp(loc) + 2 * np.exp(loc), numpoints)
     value = -(np.log(interval) - loc)**2 / 2 / scale**2

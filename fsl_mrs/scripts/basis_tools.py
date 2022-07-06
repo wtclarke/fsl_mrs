@@ -54,6 +54,10 @@ def main():
                                help='Input basis file or folder')
     convertparser.add_argument('output', type=Path,
                                help='Output fsl formatted folder, will be created if needed.')
+    convertparser.add_argument('--bandwidth', type=float, default=None,
+                               help='Required for LCModel RAW format only: spectral bandwidth in Hz.')
+    convertparser.add_argument('--fieldstrength', type=float, default=None,
+                               help='Required for LCModel RAW format only: field strength in tesla.')
     convertparser.add_argument('--remove_reference', action="store_true",
                                help='Remove LCModel reference peak.')
     convertparser.add_argument('--hlsvd', action="store_true",
@@ -159,6 +163,45 @@ def main():
                                help='Peak removal ppm range (default=(-.2, .2))')
     rempeakparser.set_defaults(func=rem_peak)
 
+    # Add manual peak (sets) defined by ppm etc
+    add_p_parser = sp.add_parser(
+        'add_peak',
+        help='Edit a basis set by adding a peak specified by position, amplitude, width.')
+    add_p_parser.add_argument('file', type=Path,
+                              help='Basis file')
+    add_p_parser.add_argument('output', type=Path,
+                              help='Output location, can overwrite.')
+    add_p_parser.add_argument('ppm', type=float, nargs='+',
+                              help='Peak positions in ppm.')
+    add_p_parser.add_argument('amp', type=float, nargs='+',
+                              help='Peak amplitudes in ppm.')
+    add_p_parser.add_argument('--gamma', type=float, default=0,
+                              help='Peak widths (lorentzian) in Hz.')
+    add_p_parser.add_argument('--sigma', type=float, default=0,
+                              help='Peak widths (gaussian) in Hz.')
+    add_p_parser.set_defaults(func=add_peak)
+
+    # Add defined sets of peaks to the basis set
+    add_p_sets_parser = sp.add_parser(
+        'add_set',
+        help='Edit a basis set by adding a pre-specified peak sets e.g. default MM.')
+    add_p_sets_parser.add_argument('file', type=Path,
+                                   help='Basis file')
+    add_p_sets_parser.add_argument('output', type=Path,
+                                   help='Output location, can overwrite.')
+    mutual_ps = add_p_sets_parser.add_mutually_exclusive_group(required=True)
+    mutual_ps.add_argument('--add_MM', action="store_true",
+                           help="include default macromolecule peaks")
+    mutual_ps.add_argument('--add_MM_MEGA', action="store_true",
+                           help="include default MEGA-PRESS macromolecule peaks. This option is experimental!")
+    mutual_ps.add_argument('--add_water', action="store_true",
+                           help="include water peak.")
+    add_p_sets_parser.add_argument('--gamma', type=float, default=None,
+                                   help='Peak widths (lorentzian) in Hz.')
+    add_p_sets_parser.add_argument('--sigma', type=float, default=None,
+                                   help='Peak widths (gaussian) in Hz.')
+    add_p_sets_parser.set_defaults(func=add_peak_set)
+
     # Parse command-line arguments
     args = p.parse_args()
 
@@ -201,7 +244,16 @@ def convert(args):
     """
     from fsl_mrs.utils import basis_tools
     from fsl_mrs.utils.mrs_io import read_basis
-    basis_tools.convert_lcm_basis(args.input, args.output)
+    from fsl_mrs.utils.constants import GYRO_MAG_RATIO
+
+    if args.input.is_file():
+        basis_tools.convert_lcm_basis(args.input, args.output)
+    elif args.input.is_dir():
+        basis_tools.convert_lcm_raw_basis(
+            args.input,
+            args.bandwidth,
+            args.fieldstrength * GYRO_MAG_RATIO['1H'],
+            args.output)
 
     if args.remove_reference:
         # TODO sort this conjugation mess out.
@@ -319,6 +371,63 @@ def rem_peak(args):
         all=args.all,
         use_hlsvd=args.hlsvd
     ).save(args.output, overwrite=True)
+
+
+def add_peak(args):
+    from fsl_mrs.utils.mrs_io import read_basis
+    from fsl_mrs.utils import basis_tools
+
+    basis = read_basis(args.file)
+    names = basis.add_MM_peaks(args.ppm, args.amp, args.gamma, args.sigma, conj=True)
+    for name in names:
+        basis = basis_tools.rescale_basis(basis, name)
+    basis.save(args.output, overwrite=True)
+
+
+def add_peak_set(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+    import numpy as np
+
+    basis = read_basis(args.file)
+    all_original = basis.original_basis_array
+    original_target = np.linalg.norm(np.mean(all_original, axis=1), axis=0)
+
+    if args.add_MM:
+        if args.gamma is None:
+            gamma = 40
+        else:
+            gamma = args.gamma
+        if args.sigma is None:
+            sigma = 30
+        else:
+            sigma = args.sigma
+        names = basis.add_default_MM_peaks(gamma, sigma, conj=False)
+    elif args.add_MM_MEGA:
+        if args.gamma is None:
+            gamma = 10
+        else:
+            gamma = args.gamma
+        if args.sigma is None:
+            sigma = 0
+        else:
+            sigma = args.sigma
+        names = basis.add_default_MEGA_MM_peaks(gamma, sigma, conj=False)
+    elif args.add_water:
+        if args.gamma is None:
+            gamma = 0
+        else:
+            gamma = args.gamma
+        if args.sigma is None:
+            sigma = 0
+        else:
+            sigma = args.sigma
+        names = basis.add_water_peak(gamma, sigma, conj=False)
+
+    for name in names:
+        basis = basis_tools.rescale_basis(basis, name, target_scale=original_target)
+
+    basis.save(args.output, overwrite=True)
 
 
 if __name__ == '__main__':

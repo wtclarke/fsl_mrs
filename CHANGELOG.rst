@@ -1,21 +1,45 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-1.1.14 (Wednesday 29th June)
-----------------------------
+2.0.0 (Wednesday 6th July 2022)
+-------------------------------
+**Major rework of basis and fitting script interaction. First release of dynamic MRS fitting.**  
+
+*Static fitting*  
+
+- Default macromolecules are now added through basis_tools script rather than fitting. Fitting does not alter basis at run time now.
+- Fixed bug in calculation of concentration covariances. New MC tests included.
+- Better and faster covariance estimation via analytical jacobian.
+- Update to QC SNR calculation to improve stability.
+
+*Dynamic fitting*
+
+- Saved dynamic results now contain free parameter covariances.
+- New documentation for dynamic fitting
+- New fmrs_stats module and script for higher-level GLM analysis.
+
+*Other new features*  
+
+- Experimental SVS results dashboard - view the results of multiple SVS fits together in a single summary.
+- New documentation for dynamic fitting and all new features.
+- Refactored imports to improve CLI startup times
+- Conversion of LCModel raw formatted basis sets using basis_tools convert.
+
+1.1.14 (Wednesday 29th June 2022)
+---------------------------------
 - Fixed variability in HLSVD by moving to Scipy dense svd.
 - Fix for -ve ISHIFT in LCModel basis read. Also throws helpful error for encrypted basis.
 - Fixed incorrect plotting of svs voxel orientation in fitting report.
 - Fix issue in results_to_spectrum for disabled baseline.
 
-1.1.13 (Wednesday 1st June)
----------------------------
+1.1.13 (Wednesday 1st June 2022)
+--------------------------------
 - Updated setup script to allow command line scripts to run on MS Windows.
 - Any FSL cmd-line scripts used operate through fslpy wrappers (including WSL interface).
 - Updated install instructions for Windows.
 - Added the fsl_mrs_verify script which can be run to verify correct function of FSL-MRS.
 
-1.1.12 (Wednesday 20th April)
------------------------------
+1.1.12 (Wednesday 20th April 2022)
+----------------------------------
 - Update to fslpy version (to 3.9.0) to substantially speed up MRSI preprocessing.
 - Fixes to NIFTI_MRS class for compatibility with new fslpy version.
 - Previous versions of FSL-MRS will not be compatible with fslpy >= 3.9.0

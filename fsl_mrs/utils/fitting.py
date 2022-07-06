@@ -11,7 +11,6 @@
 import numpy as np
 
 from fsl_mrs.utils import models, misc
-from fsl_mrs.utils.stats import mh, vb, dist
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 
@@ -296,11 +295,11 @@ def fit_FSLModel(mrs,
     # Prepare baseline
     B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
-    # Results object
-    results = FitRes(model, method, mrs.names, metab_groups, baseline_order, B, ppmlim)
-
     # Constants
-    g = results.g
+    if metab_groups is None:
+        g = 1
+    else:
+        g = max(metab_groups) + 1
     constants = (freq, time, basis, B, metab_groups, g, data, first, last)
 
     if x0 is None:
@@ -313,13 +312,15 @@ def fit_FSLModel(mrs,
         bounds = get_bounds(mrs.numBasis, g, baseline_order, model, method, disableBaseline=disableBaseline)
         res = minimize(err_func, x0, args=constants,
                        method='TNC', jac=grad_func, bounds=bounds)
-        # collect results
-        results.loadResults(mrs, res.x)
+        # Results
+        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'init':
-        results.loadResults(mrs, x0)
+        results = FitRes(mrs, x0, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'MH':
+        from fsl_mrs.utils.stats import mh, dist
+
         def forward_mh(p):
             return forward(p, freq, time, basis, B, metab_groups, g)[first:last]
         numPoints_over_2 = (last - first) / 2.0
@@ -406,9 +407,10 @@ def fit_FSLModel(mrs,
         samples = mcmc.fit(p0, LB=LB, UB=UB, verbose=False, mask=mask)
 
         # collect results
-        results.loadResults(mrs, samples)
+        results = FitRes(mrs, samples, model, method, metab_groups, baseline_order, B, ppmlim)
 
     elif method == 'VB':
+        from fsl_mrs.utils.stats import vb
         import warnings
         warnings.warn('VB method still under development!', UserWarning)
 
@@ -470,7 +472,7 @@ def fit_FSLModel(mrs,
             x = p2x(np.exp(logcon), np.exp(loggamma), np.exp(logsigma), eps, phi0, phi1, b)
 
         # collect results
-        results.loadResults(mrs, x)
+        results = FitRes(mrs, x, model, method, metab_groups, baseline_order, B, ppmlim, vb_optim=res_vb)
 
     else:
         raise Exception('Unknown optimisation method.')

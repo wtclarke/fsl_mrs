@@ -6,7 +6,6 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 
-import scipy.signal as ss
 import numpy as np
 import os
 import re
@@ -28,17 +27,19 @@ def readLCModelRaw(filename, unpack_header=True, conjugate=True):
     header = []
     data   = []
     in_header = False
+    header_done = False
     with open(filename, 'r') as f:
         for line in f:
             if (line.find('$') > 0):
                 in_header = True
             if in_header:
                 header.append(line)
-            else:
+            elif header_done:
                 data.append(list(map(float, line.split())))
 
             if line.find('$END') > 0:
                 in_header = False
+                header_done = True
 
     # Reshape data
     data = np.concatenate([np.array(i) for i in data])
@@ -75,6 +76,12 @@ def read_basis_files(basisfiles, ignore=[]):
      Reads basis files and extracts name of metabolite from file name
      Assumes .RAW files are FIDs (not spectra)
      Comes without any header information unfortunately.
+
+    :param basisfiles: List of path strings to raw files
+    :type basisfiles: list
+    :param ignore: Optionally ignore files, defaults to []
+    :type ignore: list, optional
+    :return: Numpy array of basis spectra and names
     """
     basis = []
     names = []
@@ -128,6 +135,7 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # Resample if necessary? --> should not be allowed actually
     if N is not None:
         if N != data.shape[0]:
+            import scipy.signal as ss
             data = ss.resample(data, N)
 
     # if freq domain --> turn to time domain

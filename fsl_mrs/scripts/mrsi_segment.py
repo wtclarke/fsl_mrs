@@ -11,10 +11,7 @@
 # Quick imports
 import argparse
 from pathlib import Path
-from fsl.wrappers import fsl_anat
-from fsl.wrappers.fnirt import applywarp
-import numpy as np
-from fsl.data.image import Image
+# More imports after argument parsing!
 
 
 def main():
@@ -35,6 +32,12 @@ def main():
     parser.add_argument('-f', '--filename', type=str,
                         help='Output file name', default='mrsi_seg')
     args = parser.parse_args()
+
+    # Imports post argparse:
+    from fsl.wrappers import fsl_anat
+    from fsl.wrappers.fnirt import applywarp
+    import numpy as np
+    from fsl.data.image import Image
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.

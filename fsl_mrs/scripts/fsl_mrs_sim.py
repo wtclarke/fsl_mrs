@@ -12,12 +12,7 @@
 import argparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-import copy
-import numpy as np
-from fsl_mrs.denmatsim import simseq as sim
-from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
-import os
-import datetime
+# Note there are imports after argparse
 
 
 def main():
@@ -98,6 +93,11 @@ def main():
     import json
     from fsl_mrs.denmatsim import utils as simutils
     from fsl_mrs.utils.misc import FIDToSpec
+    import numpy as np
+    from fsl_mrs.denmatsim import simseq as sim
+    from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
+    import os
+    import datetime
     # ######################################################
 
     # Check if output folder exists
@@ -280,6 +280,14 @@ def main():
 
 
 def runSimForMetab(iDx, s, name, seqParams, args):
+    """Run the simulation for a single metabolite"""
+    import copy
+    import numpy as np
+    from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
+    from fsl_mrs.denmatsim import simseq as sim
+    import os
+    import datetime
+
     print(f'Running simulation on {name}.')
     sToSave = copy.deepcopy(s)  # Make a copy here as some bits of s are converted to np.arrays inside simulator.
     # Run simulation

@@ -89,16 +89,17 @@ def main():
     # Generate baseline polynomials (B)
     B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
-    # Add any basisc MM
-    if orig_args['add_MM']:
-        nMM = mrs.add_MM_peaks(gamma=10, sigma=20)
-        G = [i + max(metab_groups) + 1 for i in range(nMM)]
-        metab_groups += G
-
     # Generate results object
-    res = results.FitRes(model, method, mrs.names, metab_groups, baseline_order, B, ppmlim)
-    res.loadResults(mrs, param_df['mean'].to_numpy())
-    # res.params = param_df['mean'].to_numpy()
+    print(metab_groups)
+    res = results.FitRes(
+        mrs,
+        param_df['mean'].to_numpy(),
+        model,
+        method,
+        metab_groups,
+        baseline_order,
+        B,
+        ppmlim)
 
     if orig_args['combine'] is not None:
         res.combine(orig_args['combine'])

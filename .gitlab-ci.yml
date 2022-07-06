@@ -74,7 +74,7 @@ flake8:
 
 pytest:
   <<: *except_releases
-  image: wtclarke/fsl_mrs_tests:1.0
+  image: wtclarke/fsl_mrs_tests:2.0
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: normal
@@ -105,7 +105,7 @@ pages:
   stage: doc
   script:
   - git describe --tag --dirty
-  - pip install -U sphinx sphinx_rtd_theme==0.5.2
+  - pip install -U sphinx sphinx_rtd_theme
   - pip install .
   - sphinx-build -b html ./docs/user_docs public
   artifacts:

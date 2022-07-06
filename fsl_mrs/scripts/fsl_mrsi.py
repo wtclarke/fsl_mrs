@@ -13,8 +13,6 @@ import warnings
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
-from fsl_mrs.utils import fitting, misc, mrs_io, quantify
-
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 
@@ -70,8 +68,6 @@ def main():
                               type=str_or_int_arg,
                               help="metabolite groups: list of groups or list"
                                    " of names for indept groups.")
-    fitting_args.add_argument('--add_MM', action="store_true",
-                              help="include default macromolecule peaks")
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help="Enable purely lorentzian broadening"
                                    " (default is Voigt)")
@@ -146,6 +142,7 @@ def main():
     import nibabel as nib
     from functools import partial
     import multiprocessing as mp
+    from fsl_mrs.utils import misc, mrs_io
     # ######################################################
 
     # Check if output folder exists
@@ -218,10 +215,6 @@ def main():
     # Parse metabolite groups
     metab_groups = misc.parse_metab_groups(mrsi, args.metab_groups)
 
-    if args.add_MM:
-        n_mm = mrsi.add_MM_peaks(gamma=40, sigma=30)
-        metab_groups += [i + max(metab_groups) + 1 for i in range(n_mm)]
-
     # ppmlim for fitting
     ppmlim = args.ppmlim
     if ppmlim is not None:
@@ -276,7 +269,7 @@ def main():
 
     # Create interactive HTML report
     if args.report:
-        report.create_report(
+        report.create_svs_report(
             mrs,
             res_init,
             filename=os.path.join(args.output, 'report.html'),
@@ -526,6 +519,8 @@ def main():
 
 
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
+    from fsl_mrs.utils import fitting, quantify
+
     mrs, index, tissue_seg = mrs_in
 
     res = fitting.fit_FSLModel(mrs, **Fitargs)

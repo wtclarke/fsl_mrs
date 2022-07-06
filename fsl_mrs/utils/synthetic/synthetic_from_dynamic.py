@@ -7,7 +7,7 @@
 # SHBASECOPYRIGHT
 
 from fsl_mrs.core import MRS
-from fsl_mrs.utils import dynamic
+from fsl_mrs import dynamic
 from fsl_mrs.utils.models import getModelFunctions, FSLModel_vars
 from fsl_mrs.utils.synthetic.synthetic_from_basis import prep_mrs_for_synthetic, synthetic_from_fwd_model
 import numpy as np
@@ -47,8 +47,6 @@ def synthetic_spectra_from_model(config_file,
             baseline_order (int, optional): Order of baseline to simulate.
             baseline_ppm (tuple, optional): Specify ppm range over which baseline is calculated.
             defined_vals (dict, optional): Model parameters can be specified by adding a key of the same name.
-                If the value is a single value it will be coppied for all relavent values e.g. each metabolite group.
-                If the value is the same length as the parameter group then then each value will be assigned.
                 If set to one of 'conc', 'gamma', 'sigma', 'eps', 'baseline' then standard values will be used.
             param_noise (dict, optional): Add fixed Gaussian noise to 'conc', 'gamma', 'sigma', 'eps', 'baseline' at
                 each timepoint. Specified as (mean, SD) for each key.
@@ -62,7 +60,7 @@ def synthetic_spectra_from_model(config_file,
 
     Returns:
         mrs_list: Numpy array of synthetic MRS objects at each timepoint.
-        vm: fsl_mrs.utils.dynamic.VariableMapping object.
+        vm: fsl_mrs.dynamic.VariableMapping object.
         syn_free_params: Value of model free parameters used in the simulation.
     """
     empty_mrs, concentrations, mg = prep_mrs_for_synthetic(basis_file,
@@ -71,8 +69,7 @@ def synthetic_spectra_from_model(config_file,
                                                            ignore,
                                                            ind_scaling,
                                                            concentrations,
-                                                           metab_groups,
-                                                           False)
+                                                           metab_groups)
 
     model = 'voigt'
     _, _, forward, x2p, p2x = getModelFunctions(model)
@@ -83,6 +80,8 @@ def synthetic_spectra_from_model(config_file,
 
     vm = dynamic.VariableMapping(param_names=varNames,
                                  param_sizes=sizes,
+                                 metabolite_names=empty_mrs.names,
+                                 metabolite_groups=mg,
                                  time_variable=time_var,
                                  config_file=config_file)
 
@@ -91,7 +90,7 @@ def synthetic_spectra_from_model(config_file,
                 'eps': 0,
                 'gamma': 10,
                 'sigma': 10,
-                'baseline': [0, 0] * (baseline_order + 1),
+                'baseline': 0,
                 'conc': concentrations}
 
     def_vals_int = {}
@@ -105,103 +104,27 @@ def synthetic_spectra_from_model(config_file,
     rng = np.random.default_rng()
 
     syn_free_params = []
-    for index, param in enumerate(vm.mapped_names):
-        beh = vm.Parameters[param]
-        if beh == 'fixed':
-            if param in def_vals_int:
-                if hasattr(def_vals_int[param], "__len__") \
-                        and len(def_vals_int[param]) == vm.mapped_sizes[index]:
-                    syn_free_params.extend(def_vals_int[param])
-                elif hasattr(def_vals_int[param], "__len__"):
-                    raise ValueError('Must be the same length as sizes.')
-                else:
-                    syn_free_params.extend([def_vals_int[param], ] * vm.mapped_sizes[index])
-            elif param in std_vals:
-                if hasattr(std_vals[param], "__len__") \
-                        and len(std_vals[param]) == vm.mapped_sizes[index]:
-                    syn_free_params.extend(std_vals[param])
-                elif hasattr(std_vals[param], "__len__"):
-                    raise ValueError('Must be the same length as sizes.')
-                else:
-                    syn_free_params.extend([std_vals[param], ] * vm.mapped_sizes[index])
-
+    for param in vm._free_params:
+        if param.name in def_vals_int:
+            syn_free_params.append(def_vals_int[param.name])
+        elif param.mapped_category in std_vals:
+            if param.mapped_category == 'conc':
+                for idx, name in enumerate(empty_mrs.names):
+                    if f'_{name}_' in param.name:
+                        syn_free_params.append(std_vals[param.mapped_category][idx])
             else:
-                if vm.defined_bounds is not None \
-                        and param in vm.defined_bounds:
-                    current_bounds = list(vm.defined_bounds[param])
-                    if current_bounds[0] is None:
-                        current_bounds[0] = -1
-                    if current_bounds[1] is None:
-                        current_bounds[1] = 1
-                else:
-                    current_bounds = [-1, 1]
-                syn_free_params.extend(rng.uniform(current_bounds[0], current_bounds[1], size=vm.mapped_sizes[index]))
-        elif beh == 'variable':
-            if param in def_vals_int:
-                if hasattr(def_vals_int[param], "__len__") \
-                        and len(def_vals_int[param]) == (vm.mapped_sizes[index] * vm.ntimes):
-                    syn_free_params.extend(def_vals_int[param])
-                elif hasattr(def_vals_int[param], "__len__"):
-                    raise ValueError('Must be the same length as sizes.')
-                else:
-                    syn_free_params.extend([def_vals_int[param], ] * (vm.mapped_sizes[index] * vm.ntimes))
-            elif param in std_vals:
-                if hasattr(std_vals[param], "__len__") \
-                        and len(std_vals[param]) == (vm.mapped_sizes[index] * vm.ntimes):
-                    syn_free_params.extend(std_vals[param])
-                elif hasattr(std_vals[param], "__len__") \
-                        and not len(std_vals[param]) % vm.mapped_sizes[index]:
-                    syn_free_params.extend(std_vals[param] * vm.ntimes)
-                elif hasattr(std_vals[param], "__len__"):
-                    raise ValueError('Must be the same length as sizes.')
-                else:
-                    syn_free_params.extend([std_vals[param], ] * (vm.mapped_sizes[index] * vm.ntimes))
+                syn_free_params.append(std_vals[param.mapped_category])
+        else:
+            if vm.defined_bounds is not None \
+                    and param in vm.defined_bounds:
+                current_bounds = list(vm.defined_bounds[param])
+                if current_bounds[0] is None:
+                    current_bounds[0] = -1
+                if current_bounds[1] is None:
+                    current_bounds[1] = 1
             else:
-                if vm.defined_bounds is not None \
-                        and param in vm.defined_bounds:
-                    current_bounds = list(vm.defined_bounds[param])
-                    if current_bounds[0] is None:
-                        current_bounds[0] = -1
-                    if current_bounds[1] is None:
-                        current_bounds[1] = 1
-                else:
-                    current_bounds = [-1, 1]
-                syn_free_params.extend(rng.uniform(current_bounds[0],
-                                                   current_bounds[1],
-                                                   size=(vm.mapped_sizes[index] * vm.ntimes)))
-
-        elif 'dynamic' in beh:
-            dyn_name = vm.Parameters[param]['params']
-            for x in range(vm.mapped_sizes[index]):
-                for y in dyn_name:
-                    if y in def_vals_int:
-                        if hasattr(def_vals_int[y], "__len__") \
-                                and len(def_vals_int[y]) == vm.mapped_sizes[index]:
-                            syn_free_params.append(def_vals_int[y][x])
-                        elif hasattr(def_vals_int[y], "__len__"):
-                            raise ValueError('Must be the same length as sizes.')
-                        else:
-                            syn_free_params.append(def_vals_int[y])
-                    elif y in std_vals:
-                        if hasattr(std_vals[y], "__len__") \
-                                and len(def_vals_int[y]) == vm.mapped_sizes[index]:
-                            syn_free_params.append(std_vals[y][x])
-                        elif hasattr(std_vals[y], "__len__"):
-                            raise ValueError('Must be the same length as sizes.')
-                        else:
-                            syn_free_params.append(std_vals[y])
-
-                    else:
-                        if vm.defined_bounds is not None \
-                                and y in vm.defined_bounds:
-                            current_bounds = list(vm.defined_bounds[y])
-                            if current_bounds[0] is None:
-                                current_bounds[0] = -1
-                            if current_bounds[1] is None:
-                                current_bounds[1] = 1
-                        else:
-                            current_bounds = [-1, 1]
-                        syn_free_params.append(rng.uniform(current_bounds[0], current_bounds[1]))
+                current_bounds = [-1, 1]
+            syn_free_params.append(rng.uniform(current_bounds[0], current_bounds[1]))
 
     syn_free_params = np.asarray(syn_free_params)
 
@@ -209,28 +132,25 @@ def synthetic_spectra_from_model(config_file,
 
     # Amount of noise to add to each parameter in each timepoint
     mapped_noise = np.empty(mapped.shape, dtype=object)
-    for idx, _ in enumerate(mapped_noise):
-        for jdx, k in enumerate(varNames):
-            if param_noise is None \
-                    or k not in param_noise:
-                fixed_noise = np.zeros(sizes[jdx])
-            else:
-                fixed_noise = rng.normal(loc=param_noise[k][0],
-                                         scale=param_noise[k][1],
-                                         size=sizes[jdx])
-            if param_rel_noise is None \
-                    or k not in param_rel_noise:
-                rel_noise = np.zeros(sizes[jdx])
-            else:
-                rel_noise = rng.normal(loc=param_rel_noise[k][0],
-                                       scale=param_rel_noise[k][1],
-                                       size=sizes[jdx]) \
-                    * np.asarray(mapped[idx, jdx])
-            mapped_noise[idx, jdx] = fixed_noise + rel_noise
+    for idx, mp_obj in enumerate(vm.mapped_parameters):
+        if param_noise is None \
+                or mp_obj.category not in param_noise:
+            fixed_noise = 0
+        else:
+            fixed_noise = rng.normal(loc=param_noise[mp_obj.category][0],
+                                     scale=param_noise[mp_obj.category][1])
+        if param_rel_noise is None \
+                or mp_obj.category not in param_rel_noise:
+            rel_noise = 0 * np.asarray(mapped[:, idx])
+        else:
+            rel_noise = rng.normal(loc=param_rel_noise[mp_obj.category][0],
+                                   scale=param_rel_noise[mp_obj.category][1]) \
+                * np.asarray(mapped[:, idx])
+        mapped_noise[:, idx] = fixed_noise + rel_noise
 
     mrs_list = []
     for mm, mn in zip(mapped, mapped_noise):
-        x = np.concatenate(mm) + np.concatenate(mn)
+        x = mm + mn
 
         con, gamma, sigma, eps, phi0, phi1, b = x2p(x,
                                                     empty_mrs.numBasis,

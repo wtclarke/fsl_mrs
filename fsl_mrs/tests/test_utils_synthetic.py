@@ -100,14 +100,18 @@ def test_synthetic_spectra_from_model():
     period = 10.0
     time_var = time_var / period
 
-    camp = [0] * len(names)
-    camp[names.index('NAA')] = 2
     defined_vals = {'c_0': 'conc',
-                    'c_amp': camp,
-                    'gamma': (20, 0),
-                    'sigma': (20, 0),
-                    'b_intercept': [1, 1, 1, 1, 1, 1],
-                    'b_slope': [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]}
+                    'gamma_0': 20,
+                    'gamma_1': 0,
+                    'sigma_0': 20,
+                    'sigma_1': 0}
+
+    defined_vals.update({f'conc_{met}_c_amp': 0 for met in names})
+    defined_vals['conc_NAA_c_amp'] = 2
+    defined_vals.update({f'baseline_{i}_b_intercept': 1 for i in range(6)})
+    defined_vals.update({f'baseline_{i}_b_slope': 0.1 for i in range(6)})
+
+    print(defined_vals)
 
     p_noise = {'eps': (0, [0.01])}
     p_rel_noise = {'conc': (0, [0.05])}

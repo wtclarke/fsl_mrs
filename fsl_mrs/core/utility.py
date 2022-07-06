@@ -8,6 +8,7 @@ Copyright (C) 2021 University of Oxford
 '''
 import nibabel as nib
 import numpy as np
+from copy import deepcopy
 import fsl.utils.path as fslpath
 
 from fsl_mrs.utils import mrs_io
@@ -97,3 +98,13 @@ def is_nifti_mrs(file_path):
         return True
     except fslpath.PathError:
         raise NotNIFTI_MRS("File isn't NIFTI-MRS, wrong extension type.")
+
+
+def mrs_from_list(mrs_list, method='mean'):
+    '''Combine mrs Objects to form one single MRS object, e.g. by averaging the FIDs'''
+    from fsl_mrs.utils.preproc.combine import combine_FIDs
+
+    combined_fid = combine_FIDs([mrs.FID for mrs in mrs_list], method)
+    mrs = deepcopy(mrs_list[0])
+    mrs.FID = combined_fid
+    return mrs

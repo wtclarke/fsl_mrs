@@ -71,7 +71,7 @@ def model_fid_hlsvd(FID, dwelltime, centralFrequency, limits=None,
 
 
 def hlsvd(FID, dwelltime, centralFrequency, limits,
-          limitUnits='ppm', numSingularValues=20):
+          limitUnits='ppm', numSingularValues=20, sparse_algo=False):
     """ Run HLSVDPRO on FID
 
     Args:
@@ -93,13 +93,14 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
         centralFrequency,
         limits,
         limitUnits=limitUnits,
-        numSingularValues=numSingularValues)
+        numSingularValues=numSingularValues,
+        sparse_algo=sparse_algo)
 
     return FID - sumFID
 
 
 def _hlsvd(FID, dwelltime, centralFrequency, limits,
-           limitUnits='ppm', numSingularValues=20):
+           limitUnits='ppm', numSingularValues=20, sparse_algo=False):
     """Run hlsvdpro on FID and return spectrum modeled by HLSVD.
 
     :param FID: Time domain data
@@ -120,7 +121,7 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
     :return: HLSVD modeled FID
     """
     m = FID.size // 2
-    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=False)
+    r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=sparse_algo)
     r = hlsvdpropy.convert_hlsvd_result(r, dwelltime)
     nsv_found, singular_values, frequencies, damping_factors, amplitudes, \
         phases = r[0:6]

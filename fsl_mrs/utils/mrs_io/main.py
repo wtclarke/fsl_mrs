@@ -126,7 +126,7 @@ def read_basis(filename):
 
     elif filename.is_dir():
         fslfiles = sorted(list(filename.glob('*.json')))
-        rawfiles = sorted(list(filename.glob('*.RAW')))
+        rawfiles = sorted(list(filename.glob('*.RAW')) + list(filename.glob('*.raw')))
         txtfiles = sorted(list(filename.glob('*.txt')))
         if fslfiles:
             basis, names, header = fsl.readFSLBasisFiles(filename)

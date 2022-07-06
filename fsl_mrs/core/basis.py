@@ -430,6 +430,91 @@ class Basis:
             fid = fid.conj()
         self.add_fid_to_basis(fid, name, width=width)
 
+    def add_default_MM_peaks(self, gamma=0, sigma=0, conj=False):
+        """Add the default MM peaks to the basis set
+        These use the defined shifts and amplitudes
+        ppmlist :  [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
+        amplist : [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        """
+        from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
+        return self.add_MM_peaks(
+            DEFAULT_MM_PPM,
+            DEFAULT_MM_AMP,
+            gamma=gamma,
+            sigma=sigma,
+            conj=conj)
+
+    def add_default_MEGA_MM_peaks(self, gamma=0, sigma=0, conj=False):
+        """Add the default MEGA-PRESS MM peaks to the basis set
+        These use the defined shifts and amplitudes
+        ppmlist : [[0.94, 3.0]]
+        amplist : [[3.0, 2.0]]
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        """
+        from fsl_mrs.utils.constants import DEFAULT_MM_MEGA_AMP, DEFAULT_MM_MEGA_PPM
+        return self.add_MM_peaks(
+            DEFAULT_MM_MEGA_PPM,
+            DEFAULT_MM_MEGA_AMP,
+            gamma=gamma,
+            sigma=sigma,
+            conj=conj)
+
+    def add_MM_peaks(self, ppmlist, amplist, gamma=0, sigma=0, conj=False):
+        """Add extra Gaussian peaks (normal MM spectra) to basis set
+
+        :param ppmlist: List of shifts, nested lists group into single basis.
+        :type ppmlist: List of floats
+        :param amplist: List of amplitudes, nested lists group into single basis.
+        :type amplist: List of floats
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: int, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: int, optional
+        :return: Number of basis sets added
+        :rtype: int
+        """
+        for idx, _ in enumerate(ppmlist):
+            if isinstance(ppmlist[idx], (float, int)):
+                ppmlist[idx] = [float(ppmlist[idx]), ]
+            if isinstance(amplist[idx], (float, int)):
+                amplist[idx] = [float(amplist[idx]), ]
+
+        names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
+
+        for name, ppm, amp in zip(names, ppmlist, amplist):
+            self.add_peak(ppm, amp, name, gamma, sigma, conj=conj)
+
+        return names
+
+    def add_water_peak(self, gamma=0.0, sigma=0.0, ppm=4.65, amp=1.0, name='H2O', conj=False):
+        """Add a peak at 4.65 ppm to capture (residual) water.
+
+        :param gamma: Lorentzian broadening, defaults to 0
+        :type gamma: float, optional
+        :param sigma: Gaussian broadening, defaults to 0
+        :type sigma: float, optional
+        :param ppm: Peak position, defaults to 4.65
+        :type ppm: float, optional
+        :param amp: Peak amplitude, defaults to 1.0
+        :type amp: float, optional
+        :param name: Basis name, defaults to 'H2O'
+        :type name: str, optional
+        :return: Number of basis spectra added (1).
+        :rtype: int
+        """
+
+        self.add_peak(ppm, amp, name, gamma, sigma, conj=conj)
+        return [name, ]
+
     def update_fid(self, new_fid, name):
         """Update a single unformatted basis
 

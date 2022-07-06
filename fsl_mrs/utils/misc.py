@@ -7,8 +7,6 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from scipy.signal import butter, lfilter
-from scipy.interpolate import interp1d
 import itertools as it
 from .constants import H2O_PPM_TO_TMS
 
@@ -167,6 +165,7 @@ def filter(mrs, FID, ppmlim, filter_type='bandpass'):
        -------
        numpy array
     """
+    from scipy.signal import butter, lfilter
 
     # Sampling frequency (Hz)
     fs = 1 / mrs.dwellTime
@@ -199,6 +198,8 @@ def ts_to_ts(old_ts, old_dt, new_dt, new_n):
         new_dt: Output dwelltime
         new_n: Output number of points
     """
+    from scipy.interpolate import interp1d
+
     old_n = old_ts.shape[0]
     old_t = np.linspace(old_dt, old_dt * old_n, old_n) - old_dt
     new_t = np.linspace(new_dt, new_dt * new_n, new_n) - new_dt
@@ -304,8 +305,8 @@ def gradient(x, f):
     gradient = []
     for i in range(N):
         eps = abs(x[i]) * np.finfo(np.float32).eps
-        if eps == 0:
-            eps = 1e-5
+        if eps <= np.finfo(np.float32).eps:
+            eps = np.finfo(np.float32).eps
         xl = np.array(x)
         xu = np.array(x)
         xl[i] -= eps
@@ -429,7 +430,7 @@ def calculate_crlb(x, f, data):
     return crlb
 
 
-def calculate_lap_cov(x, f, data, sig2=None):
+def calculate_lap_cov(x, f, data, grad=None, sig2=None):
     """
       Calculate approximate covariance using
       Fisher information matrix
@@ -440,6 +441,7 @@ def calculate_lap_cov(x, f, data, sig2=None):
        x : array-like
        f : function
        data : array-like
+       grad : optional jacobian matrix
        sig2 : optional noise variance
 
       Returns:
@@ -449,7 +451,8 @@ def calculate_lap_cov(x, f, data, sig2=None):
     N = x.size
     if sig2 is None:
         sig2 = np.var(data - f(x))
-    grad = gradient(x, f)
+    if grad is None:
+        grad = gradient(x, f)
 
     J = np.concatenate((np.real(grad), np.imag(grad)), axis=1)
     P0 = np.diag(np.ones(N) * 1E-5)

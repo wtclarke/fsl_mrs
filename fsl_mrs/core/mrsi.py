@@ -11,7 +11,6 @@
 from copy import deepcopy
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
@@ -262,6 +261,8 @@ class MRSI(object):
 
     def plot(self, mask=True, ppmlim=(0.2, 4.2)):
         '''Plot (masked) grid of spectra.'''
+        import matplotlib.pyplot as plt
+
         if mask:
             mask_indicies = np.where(self.mask)
         else:
@@ -394,45 +395,3 @@ class MRSI(object):
             self.conj_basis = mrs.conj_Basis
         else:
             raise AttributeError('MRSI._basis not populated, add basis.')
-
-    def add_MM_peaks(self, ppmlist=None, amplist=None, gamma=0, sigma=0):
-        """Add default MM spectra to basis set
-
-        By default will use the defined shifts and amplitudes
-        ppmlist :  [0.9,1.2,1.4,1.7,[2.08,2.25,1.95,3.0]]
-        amplist : [3.0,2.0,2.0,2.0,[1.33,0.33,0.33,0.4]]
-        but these can be overridden using the kwargs
-
-        :param ppmlist: List of shifts, nested lists group into single basis, defaults to None
-        :type ppmlist: List of floats, optional
-        :param amplist: List of amplitudes, nested lists group into single basis, defaults to None
-        :type amplist: List of floats, optional
-        :param gamma: Lorentzian broadening, defaults to 0
-        :type gamma: int, optional
-        :param sigma: Gaussian broadening, defaults to 0
-        :type sigma: int, optional
-        :return: Number of basis sets added
-        :rtype: int
-        """
-        if ppmlist is None:
-            from fsl_mrs.utils.constants import DEFAULT_MM_AMP, DEFAULT_MM_PPM
-            ppmlist = DEFAULT_MM_PPM
-            amplist = DEFAULT_MM_AMP
-
-        for idx, _ in enumerate(ppmlist):
-            if isinstance(ppmlist[idx], (float, int)):
-                ppmlist[idx] = [float(ppmlist[idx]), ]
-            if isinstance(amplist[idx], (float, int)):
-                amplist[idx] = [float(amplist[idx]), ]
-
-        names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
-
-        if self.conj_basis is True:
-            conj = True
-        else:
-            conj = False
-
-        for name, ppm, amp in zip(names, ppmlist, amplist):
-            self._basis.add_peak(ppm, amp, name, gamma, sigma, conj=conj)
-
-        return len(ppmlist)

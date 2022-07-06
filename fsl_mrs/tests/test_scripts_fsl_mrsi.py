@@ -12,7 +12,7 @@ from pathlib import Path
 testsPath = Path(__file__).parent
 data = {'metab': testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
         'water': testsPath / 'testdata/fsl_mrsi/FID_ref.nii.gz',
-        'basis': testsPath / 'testdata/fsl_mrsi/3T_slaser_32vespa_1250.BASIS',
+        'basis': testsPath / 'testdata/fsl_mrsi/3T_slaser_32vespa_1250_wmm',
         'mask': testsPath / 'testdata/fsl_mrsi/small_mask.nii.gz',
         'seg_wm': testsPath / 'testdata/fsl_mrsi/mrsi_seg_wm.nii.gz',
         'seg_gm': testsPath / 'testdata/fsl_mrsi/mrsi_seg_gm.nii.gz',
@@ -28,7 +28,6 @@ def test_fsl_mrsi(tmp_path):
                            '--h2o', data['water'],
                            '--TE', '30',
                            '--TR', '2.0',
-                           '--add_MM',
                            '--mask', data['mask'],
                            '--tissue_frac',
                            data['seg_wm'],
@@ -68,7 +67,6 @@ def test_fsl_mrsi_noh2o(tmp_path):
                            '--data', data['metab'],
                            '--basis', data['basis'],
                            '--output', str(tmp_path / 'fit_out'),
-                           '--add_MM',
                            '--mask', data['mask'],
                            '--overwrite',
                            '--combine', 'Cr', 'PCr'])

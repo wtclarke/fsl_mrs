@@ -12,7 +12,6 @@ import nibabel as nib
 import os
 import glob
 import re
-import scipy.signal as ss
 import fsl_mrs.core.nifti_mrs as nifti_mrs
 from pathlib import Path
 from datetime import datetime
@@ -134,6 +133,7 @@ def readFSLBasis(filename, N=None, dofft=False):
             # Resample if necessary? --> should not be allowed actually
             if N is not None:
                 if N != data.shape[0]:
+                    import scipy.signal as ss
                     data = ss.resample(data, N)
 
             header = {'centralFrequency': basis['basis_centre'] * 1E6,
