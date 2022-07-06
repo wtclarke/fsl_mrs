@@ -22,6 +22,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Experimental SVS results dashboard - view the results of multiple SVS fits together in a single summary.
 - New documentation for dynamic fitting and all new features.
 - Refactored imports to improve CLI startup times
+- Conversion of LCModel raw formatted basis sets using basis_tools convert.
 
 1.1.14 (Wednesday 29th June)
 ----------------------------

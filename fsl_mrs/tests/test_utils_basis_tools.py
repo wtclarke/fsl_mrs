@@ -13,10 +13,12 @@ import numpy as np
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils import basis_tools
 from fsl_mrs.utils.mrs_io import fsl_io
+from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
 testsPath = Path(__file__).parent
 fsl_basis_path = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis'
 lcm_basis_path = testsPath / 'testdata' / 'basis_tools' / '3T_slaser_32vespa_1250.BASIS'
+raw_basis_path = testsPath / 'testdata' / 'basis_tools' / 'RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
 extra_basis = testsPath / 'testdata' / 'basis_tools' / 'macSeed.json'
 
 
@@ -33,6 +35,20 @@ def test_convert_lcmodel(tmp_path):
     assert np.allclose(basis.original_basis_array, new_basis.original_basis_array.conj())
     assert np.isclose(basis.original_bw, new_basis.original_bw)
     assert np.isclose(basis.cf, new_basis.cf)
+
+
+def test_convert_raw(tmp_path):
+    out_loc = tmp_path / 'test_basis_raw'
+    basis_tools.convert_lcm_raw_basis(
+        raw_basis_path,
+        4000,
+        3.0 * GYRO_MAG_RATIO['1H'],
+        out_loc)
+
+    new_basis = mrs_io.read_basis(out_loc)
+
+    assert new_basis.names == ['Cr', 'GPC', 'NAA']
+    assert new_basis.original_basis_array.shape == (2048, 3)
 
 
 def test_add_basis():

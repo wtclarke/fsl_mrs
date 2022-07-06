@@ -49,6 +49,43 @@ def convert_lcm_basis(path_to_basis, output_location=None):
         basis.save(output_location, info_str=sim_info)
 
 
+def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None):
+    """Converts an existing LCModel set of .Raw basis files to FSL format (a directory of json files).
+
+    The generated FSL format will only contain a subset of the information that it normaly does
+    (e.g. no sequence info), and won't hold all LCModel fields either.
+
+    :param path_to_basis: Directory containing LCModel .raw files.
+    :type path_to_basis: pathlib.Path
+    :param bandwidth: Spectral bandwidth in Hz
+    :type bandwidth: float
+    :param central_frequency: Spectrometer frequency in MHz
+    :type central_frequency: float
+    :param output_location: path to output location + name, defaults to None
+    :type output_location: _tpathlib.Path or str, optional
+    """
+    from fsl_mrs.utils.mrs_io.lcm_io import read_basis_files
+
+    files = [str(x) for x in path_to_basis.glob('*.raw')]
+
+    basis_array, names = read_basis_files(files)
+    basis_array = basis_array.conj()
+
+    header = {}
+    header['dwelltime'] = 1 / bandwidth
+    header['bandwidth'] = bandwidth
+    header['centralFrequency'] = central_frequency
+    header['fwhm'] = None
+
+    basis = Basis(basis_array, names, [header, ] * len(names))
+
+    sim_info = f'Converted from {str(path_to_basis)}'
+    if output_location is None:
+        basis.save(path_to_basis.stem, info_str=sim_info)
+    else:
+        basis.save(output_location, info_str=sim_info)
+
+
 def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 

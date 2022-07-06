@@ -19,6 +19,7 @@ fsl = testsPath / 'testdata/mrs_io/basisset_FSL'
 mac = testsPath / 'testdata/basis_tools/macSeed.json'
 diff1 = testsPath / 'testdata/basis_tools/low_res_off'
 diff2 = testsPath / 'testdata/basis_tools/low_res_on'
+raw = testsPath / 'testdata/basis_tools/RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
 
 
 def test_info():
@@ -34,13 +35,24 @@ def test_info():
 #                            '--ppmlim', '0.2', '5.2',
 #                            str(jmrui)])
 
-def test_convert(tmp_path):
+def test_convert_lcmbasis(tmp_path):
     subprocess.check_call(['basis_tools', 'convert',
                            str(lcm),
                            str(tmp_path / 'new')])
 
     assert (tmp_path / 'new').is_dir()
     assert (tmp_path / 'new' / 'NAA.json').is_file()
+
+
+def test_convert_raw(tmp_path):
+    subprocess.check_call(['basis_tools', 'convert',
+                           str(raw),
+                           '--bandwidth', '4000',
+                           '--fieldstrength', '3.0',
+                           str(tmp_path / 'new_raw')])
+
+    assert (tmp_path / 'new_raw').is_dir()
+    assert (tmp_path / 'new_raw' / 'NAA.json').is_file()
 
 
 def test_convert_with_remove(tmp_path):

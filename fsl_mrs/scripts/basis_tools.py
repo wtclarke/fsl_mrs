@@ -54,6 +54,10 @@ def main():
                                help='Input basis file or folder')
     convertparser.add_argument('output', type=Path,
                                help='Output fsl formatted folder, will be created if needed.')
+    convertparser.add_argument('--bandwidth', type=float, default=None,
+                               help='Required for LCModel RAW format only: spectral bandwidth in Hz.')
+    convertparser.add_argument('--fieldstrength', type=float, default=None,
+                               help='Required for LCModel RAW format only: field strength in tesla.')
     convertparser.add_argument('--remove_reference', action="store_true",
                                help='Remove LCModel reference peak.')
     convertparser.add_argument('--hlsvd', action="store_true",
@@ -240,7 +244,16 @@ def convert(args):
     """
     from fsl_mrs.utils import basis_tools
     from fsl_mrs.utils.mrs_io import read_basis
-    basis_tools.convert_lcm_basis(args.input, args.output)
+    from fsl_mrs.utils.constants import GYRO_MAG_RATIO
+
+    if args.input.is_file():
+        basis_tools.convert_lcm_basis(args.input, args.output)
+    elif args.input.is_dir():
+        basis_tools.convert_lcm_raw_basis(
+            args.input,
+            args.bandwidth,
+            args.fieldstrength * GYRO_MAG_RATIO['1H'],
+            args.output)
 
     if args.remove_reference:
         # TODO sort this conjugation mess out.

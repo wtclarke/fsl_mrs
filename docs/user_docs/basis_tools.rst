@@ -22,7 +22,8 @@ vis
 convert
 *******
 | *Example* :code:`basis_tools convert path/to/my/lcmbasis.BASIS path/to/my/fslbasis`
-| Convert LCModel (.Basis) or JMRUI format basis sets to FSL-MRS (.json) format.
+| Convert LCModel (.Basis), LCModel (directory of .raw) or JMRUI format basis sets to FSL-MRS (.json) format.
+| Note that the bandwidth and fieldstrength must be supplied manually to the CLI for the .raw format.
 
 add
 ***
