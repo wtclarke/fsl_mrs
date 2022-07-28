@@ -20,6 +20,7 @@ mac = testsPath / 'testdata/basis_tools/macSeed.json'
 diff1 = testsPath / 'testdata/basis_tools/low_res_off'
 diff2 = testsPath / 'testdata/basis_tools/low_res_on'
 raw = testsPath / 'testdata/basis_tools/RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
+jmrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI'
 
 
 def test_info():
@@ -53,6 +54,17 @@ def test_convert_raw(tmp_path):
 
     assert (tmp_path / 'new_raw').is_dir()
     assert (tmp_path / 'new_raw' / 'NAA.json').is_file()
+
+
+def test_convert_jmrui(tmp_path):
+    subprocess.check_call(['basis_tools', 'convert',
+                           str(jmrui_basis_path),
+                           '--bandwidth', '4000',
+                           '--fieldstrength', '3.0',
+                           str(tmp_path / 'new_jmrui')])
+
+    assert (tmp_path / 'new_jmrui').is_dir()
+    assert (tmp_path / 'new_jmrui' / 'NAA.json').is_file()
 
 
 def test_convert_with_remove(tmp_path):

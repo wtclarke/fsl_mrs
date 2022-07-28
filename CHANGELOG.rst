@@ -4,6 +4,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 -------------------------------
 - Fix results list generation from metropolis hastings dynamic optimisation
 - Fix bug in fsl_mrs_summarise that would stop data with a disabled baseline (order = -1) working.
+- Added conversion of jMRUI basis sets to basis_tools convert.
 
 2.0.0 (Wednesday 6th July 2022)
 -------------------------------
