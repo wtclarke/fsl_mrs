@@ -2,7 +2,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 2.0.1 (Thursday 28th July 2022)
 -------------------------------
-- Fix reslist generation from metropolis hastings dynamic optimisation
+- Fix results list generation from metropolis hastings dynamic optimisation
+- Fix bug in fsl_mrs_summarise that would stop data with a disabled baseline (order = -1) working.
 
 2.0.0 (Wednesday 6th July 2022)
 -------------------------------
