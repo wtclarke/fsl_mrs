@@ -36,14 +36,14 @@ def main():
     required.add_argument('--basis',
                           required=True, type=str, metavar='<str>',
                           help='Basis file or folder')
-    required.add_argument('--mask',
-                          required=True, type=str, metavar='<str>',
-                          help='mask volume')
     required.add_argument('--output',
                           required=True, type=str, metavar='<str>',
                           help='output folder')
 
     # FITTING ARGUMENTS
+    fitting_args.add_argument('--mask',
+                              type=str, metavar='<str>',
+                              help='Optional NIfTI binary mask of voxels to fit.')
     fitting_args.add_argument('--algo', default='Newton', type=str,
                               help='algorithm [Newton (fast, default)'
                                    ' or MH (slow)]')

@@ -46,7 +46,7 @@ def main():
         return str(pathlib_path.resolve())
 
     # If not prevented run fsl_anat for fast segmentation
-    if (args.anat is None) and (not args.mask_only):
+    if args.anat is None:
         anat = args.output  / 'fsl_anat'
         fsl_anat(
             str_resolve_path(args.t1),
@@ -60,6 +60,10 @@ def main():
     mrsi_in = Image(args.mrsi)
     tmp_img = np.zeros(mrsi_in.shape[0:3])
     tmp_img = Image(tmp_img, xform=mrsi_in.voxToWorldMat)
+
+    # HACK because applywarp is shite - Paul McCarthy 2022 ;-)
+    tmp_img.header.set_sform(tmp_img.header.get_qform())
+    # Can remove in FSL 6.1.0 when applywarp is fixed
 
     # Register the pvseg to the MRSI data using flirt
     def applywarp_func(i, o):

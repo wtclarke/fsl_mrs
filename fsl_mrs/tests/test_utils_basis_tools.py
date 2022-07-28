@@ -19,6 +19,7 @@ testsPath = Path(__file__).parent
 fsl_basis_path = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis'
 lcm_basis_path = testsPath / 'testdata' / 'basis_tools' / '3T_slaser_32vespa_1250.BASIS'
 raw_basis_path = testsPath / 'testdata' / 'basis_tools' / 'RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
+jmrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI'
 extra_basis = testsPath / 'testdata' / 'basis_tools' / 'macSeed.json'
 
 
@@ -49,6 +50,17 @@ def test_convert_raw(tmp_path):
 
     assert new_basis.names == ['Cr', 'GPC', 'NAA']
     assert new_basis.original_basis_array.shape == (2048, 3)
+
+
+def test_convert_jmrui(tmp_path):
+    out_loc = tmp_path / 'test_basis_jmrui'
+    basis_tools.convert_jmrui_basis(
+        jmrui_basis_path,
+        out_loc)
+
+    new_basis = mrs_io.read_basis(out_loc)
+
+    assert new_basis.original_basis_array.shape == (2048, 21)
 
 
 def test_add_basis():

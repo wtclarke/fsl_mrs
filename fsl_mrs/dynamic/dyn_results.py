@@ -572,7 +572,7 @@ class dynRes_mcmc(dynRes):
         :return: List of FitRes objects.
         :rtype: list
         """
-        return self._dyn.form_FitRes(self.dataframe.to_numpy(), 'MH')
+        return self._dyn.form_FitRes(self.dataframe_free.to_numpy(), 'MH')
 
     @property
     def cov_free(self):

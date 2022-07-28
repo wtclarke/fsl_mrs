@@ -86,6 +86,19 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
         basis.save(output_location, info_str=sim_info)
 
 
+def convert_jmrui_basis(indir, outdir):
+    """Convert a directory of jMRUI formatted basis files (.txt) to FSL-MRS format.
+
+    :param indir: input directory
+    :type indir: pathlib.Path
+    :param outdir: output location
+    :type outdir: pathlib.Path
+    """
+    from fsl_mrs.utils import mrs_io
+    in_basis = mrs_io.read_basis(indir)
+    in_basis.save(outdir)
+
+
 def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 

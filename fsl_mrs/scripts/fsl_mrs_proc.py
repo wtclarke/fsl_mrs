@@ -80,8 +80,9 @@ def main():
     avg_group = avgparser.add_argument_group('average arguments')
     avg_group.add_argument('--file', type=str, required=True,
                            help='MRS file(s)')
-    avg_group.add_argument('--dim', type=str,
-                           help='Select dimension to average across')
+    avg_group.add_argument('--dim', type=str, default='DIM_DYN',
+                           help='Select dimension to average across. '
+                                'Should be a NIfTI-MRS dimension tag, e.g. DIM_DYN (default)')
     avgparser.set_defaults(func=average)
     add_common_args(avgparser)
 

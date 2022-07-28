@@ -248,11 +248,17 @@ def convert(args):
 
     if args.input.is_file():
         basis_tools.convert_lcm_basis(args.input, args.output)
-    elif args.input.is_dir():
+    elif args.input.is_dir()\
+            and (len(list(args.input.glob('*.raw'))) > 0 or len(list(args.input.glob('*.RAW'))) > 0):
         basis_tools.convert_lcm_raw_basis(
             args.input,
             args.bandwidth,
             args.fieldstrength * GYRO_MAG_RATIO['1H'],
+            args.output)
+    elif args.input.is_dir()\
+            and len(list(args.input.glob('*.txt'))) > 0:
+        basis_tools.convert_jmrui_basis(
+            args.input,
             args.output)
 
     if args.remove_reference:
