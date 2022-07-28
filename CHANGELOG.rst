@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.1 (Thursday 28th July 2022)
+-------------------------------
+- Fix reslist generation from metropolis hastings dynamic optimisation
+
 2.0.0 (Wednesday 6th July 2022)
 -------------------------------
 **Major rework of basis and fitting script interaction. First release of dynamic MRS fitting.**  

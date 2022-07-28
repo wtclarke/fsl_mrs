@@ -155,6 +155,9 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
     assert isinstance(res_obj.dataframe_mapped, pd.DataFrame)
     assert res_obj.dataframe_mapped.shape == (2, 8)
 
+    assert isinstance(res_obj.reslist, list)
+    assert len(res_obj.reslist) == 2
+
 
 def test_load_save(fixed_ratio_mrs, tmp_path):
     mrs_list = fixed_ratio_mrs
