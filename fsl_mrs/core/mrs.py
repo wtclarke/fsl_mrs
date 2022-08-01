@@ -498,7 +498,7 @@ class MRS(object):
         """Utility function for generating metabolite groups
 
         Input (metab_grp_str) may be:
-            - A single string : corresponding metab(s) in own group. 
+            - A single string : corresponding metab(s) in own group.
                 Multiple metabs may be combined into one group with '+'.
             - The strings 'separate_all' or 'combine_all'
             - A list of:
