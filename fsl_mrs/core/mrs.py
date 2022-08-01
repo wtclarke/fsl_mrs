@@ -494,6 +494,25 @@ class MRS(object):
         self.ppmAxisShift = self.ppmAxisShift[:, None]
 
     # Other methods
+    def parse_metab_groups(self, metab_grp_str):
+        """Utility function for generating metabolite groups
+
+        Input (metab_grp_str) may be:
+            - A single string : corresponding metab(s) in own group.
+                Multiple metabs may be combined into one group with '+'.
+            - The strings 'separate_all' or 'combine_all'
+            - A list of:
+                * integers : output same as input
+                * strings : each string is interpreted as metab name and has own group
+
+        :param metab_grp_str:metabolite groups
+        :type metab_grp_str: str or list
+        :return: metabolite group indices
+        :rtype: list
+        """
+        from fsl_mrs.utils.misc import parse_metab_groups
+        return parse_metab_groups(self, metab_grp_str)
+
     def ppmlim_to_range(self, ppmlim=None, shift=True):
         """
            turns ppmlim into data range

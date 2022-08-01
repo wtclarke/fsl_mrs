@@ -20,6 +20,7 @@ fsl_basis_path = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis'
 lcm_basis_path = testsPath / 'testdata' / 'basis_tools' / '3T_slaser_32vespa_1250.BASIS'
 raw_basis_path = testsPath / 'testdata' / 'basis_tools' / 'RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
 jmrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI'
+jmrui_vespa_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI_vespa'
 extra_basis = testsPath / 'testdata' / 'basis_tools' / 'macSeed.json'
 
 
@@ -61,6 +62,18 @@ def test_convert_jmrui(tmp_path):
     new_basis = mrs_io.read_basis(out_loc)
 
     assert new_basis.original_basis_array.shape == (2048, 21)
+
+
+def test_convert_jmrui_vespa(tmp_path):
+    out_loc = tmp_path / 'test_basis_jmrui_vespa'
+    basis_tools.convert_jmrui_basis(
+        jmrui_vespa_basis_path,
+        out_loc)
+
+    new_basis = mrs_io.read_basis(out_loc)
+
+    assert new_basis.original_basis_array.shape == (4096, 2)
+    assert new_basis.names == ['creatine', 'n-acetylaspartate']
 
 
 def test_add_basis():

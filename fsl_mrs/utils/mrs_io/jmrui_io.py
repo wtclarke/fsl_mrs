@@ -52,14 +52,21 @@ def read_txtBasis_files(txtfiles):
     names = []
     header = []
     for file in txtfiles:
+        # Special case for the VESPA information file that can be packaged in JMRUI basisets
+        if op.basename(file) == 'jmrui-text_output_summary.txt':
+            continue
+
         b, h = readjMRUItxt(file)
         basis.append(b)
 
-        split_str = h['jmrui']['SignalNames'].split(';')
-        if split_str[-1] == '':
-            split_str.pop()
-        names += split_str
-
+        try:
+            split_str = h['jmrui']['SignalNames'].split(';')
+            if split_str[-1] == '':
+                split_str.pop()
+            names += split_str
+        except KeyError:
+            names.append(
+                op.splitext(h['jmrui']['Filename'])[0])
         header += [h, ] * b.shape[0]
     basis = np.concatenate(basis, axis=0)
     basis = basis.conj().T

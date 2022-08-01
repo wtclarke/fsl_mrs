@@ -244,3 +244,44 @@ def test_process_for_fitting(synth_data):
     mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
     mrs.processForFitting()
+
+
+def test_parse_metab_groups():
+
+    mrs = mrs_from_files(str(svs_metab),
+                         str(svs_basis))
+    # combine all
+    assert mrs.parse_metab_groups('combine_all')\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    # separate all
+    assert mrs.parse_metab_groups('separate_all')\
+        == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+    # One metabolite
+    assert mrs.parse_metab_groups('Mac')\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
+
+    # Two metabolites
+    assert mrs.parse_metab_groups(['Mac', 'NAA'])\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0]
+
+    # Combine two
+    assert mrs.parse_metab_groups('NAA+NAAG')\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]
+
+    # Combine three
+    assert mrs.parse_metab_groups(['NAA+NAAG+Cr'])\
+        == [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]
+
+    # Combine three and separate
+    assert mrs.parse_metab_groups(['Mac', 'NAA+NAAG+Cr'])\
+        == [0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0]
+
+    # Single integer
+    assert mrs.parse_metab_groups(1)\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    # List of integers
+    assert mrs.parse_metab_groups([0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])\
+        == [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]

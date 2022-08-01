@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.2 (Monday 1st August 2022)
+------------------------------
+- Handle jMRUI basis sets generated in VESPA which lack the SignalNames field.
+- Add utility function parse_metab_groups to MRS class.
+
 2.0.1 (Thursday 28th July 2022)
 -------------------------------
 - Fix results list generation from metropolis hastings dynamic optimisation

@@ -62,7 +62,7 @@ flake8:
   stage: style
   before_script:
   - python --version
-  - pip install flake8  
+  - pip install flake8==4.0.1  
   script:
   - flake8 fsl_mrs
   - flake8 fsl_mrs/scripts/*
