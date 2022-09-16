@@ -26,14 +26,9 @@ def simulated(ID=1):
     # Load data and basis
     FID = mrs_io.read_FID(str(datafolder / f'dataset{ID}_WS.txt'))
     FIDW = mrs_io.read_FID(str(datafolder / f'dataset{ID}_nWS.txt'))
-    basis, names, Bheader = mrs_io.read_basis(basisfolder)
+    basis = mrs_io.read_basis(basisfolder)
 
-    MRSArgs = {'basis': basis,
-               'names': names,
-               'basis_hdr': Bheader[0],
-               'H2O': FIDW}
-
-    mrs = FID.mrs(**MRSArgs)
+    mrs = FID.mrs(basis=basis, ref_data=FIDW)
     # Check orientation and rescale for extra robustness
     mrs.processForFitting()
 
