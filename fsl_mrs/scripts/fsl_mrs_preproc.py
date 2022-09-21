@@ -122,6 +122,13 @@ def main():
     supp_data = mrs_io.read_FID(args.data)
     if args.verbose:
         print(f'.... Found data with shape {supp_data.shape}.\n\n')
+    if supp_data.dim_tags == [None, None, None]:
+        print(
+            'This data contains no unaveraged transients or uncombined coils. '
+            'Please carefully ascertain what pre-processing has already taken place, '
+            'before running appropriate individual steps using fsl_mrs_proc. '
+            'Note, no pre-processing may be necessary.')
+        return 1
 
     # Reference data
     ref_data = mrs_io.read_FID(args.reference)

@@ -18,6 +18,10 @@ from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 import numpy as np
 import subprocess
 
+from pathlib import Path
+testsPath = Path(__file__).parent
+test_data = testsPath / 'testdata'
+
 
 # construct some test data using synth
 @pytest.fixture
@@ -291,6 +295,36 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     directRun = preproc.coilcombine(mrsidata)
 
     assert np.allclose(data[:], directRun[:])
+
+
+def test_coilcombine_datachecks(tmp_path):
+
+    # Test unaveraged reference data
+    met_raw = test_data / 'fsl_mrs_preproc' / 'metab_raw.nii.gz'
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'coilcombine',
+             '--file', str(met_raw),
+             '--reference', str(met_raw),
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+    assert exc_info.type is subprocess.CalledProcessError
+
+    # Test already combined data
+    met_proc = test_data / 'fsl_mrs' / 'metab.nii.gz'
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'coilcombine',
+             '--file', str(met_proc),
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+    assert exc_info.type is subprocess.CalledProcessError
 
 
 def test_average(svs_data, mrsi_data, tmp_path):

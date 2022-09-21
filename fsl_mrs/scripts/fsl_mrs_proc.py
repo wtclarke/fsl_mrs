@@ -476,7 +476,14 @@ def coilcombine(dataobj, args):
 
     if 'DIM_COIL' not in dataobj.data.dim_tags:
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no coil dimension.'
-                                     f' Dimensions are is {dataobj.data.dim_tags}.')
+                                     f' Dimensions are {dataobj.data.dim_tags}.')
+
+    if dataobj.reference is not None\
+            and ('DIM_DYN' in dataobj.reference.dim_tags
+                 or 'DIM_EDIT' in dataobj.reference.dim_tags):
+        raise InappropriateDataError(f'Reference data ({dataobj.reference}) has addition dimensions. '
+                                     f'Reduce dimensionality e.g. by averaging before using. '
+                                     f'Dimensions are {dataobj.reference.dim_tags}.')
 
     combined = preproc.coilcombine(dataobj.data,
                                    reference=dataobj.reference,
