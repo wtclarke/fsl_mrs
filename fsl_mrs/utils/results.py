@@ -125,7 +125,7 @@ class FitRes(object):
 
         # Calculate QC metrics
         if runqc:
-            self.FWHM, self.SNR = qc.calcQC(mrs, self, ppmlim=(0.2, 4.2))
+            self.FWHM, self.SNR = qc.calcQC(mrs, self, ppmlim=self.ppmlim)
 
         # Run relative concentration scaling to tCr in 'default' 1H MRS case.
         # Create combined metab at same time to avoid later errors.

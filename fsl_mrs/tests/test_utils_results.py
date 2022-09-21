@@ -17,12 +17,12 @@ import json
 @fixture(scope='module')
 def data():
     noiseCov = 0.001
-    amplitude = np.asarray([0.5, 0.5, 1.0]) * 10
-    chemshift = np.asarray([3.0, 3.05, 2.0]) - 4.65
-    lw = [10, 10, 10]
-    phases = [0, 0, 0]
-    g = [0, 0, 0]
-    basisNames = ['Cr', 'PCr', 'NAA']
+    amplitude = np.asarray([1.0, 0.5, 0.5, 1.0]) * 10
+    chemshift = np.asarray([4.65, 3.0, 3.05, 2.0]) - 4.65
+    lw = [10, 10, 10, 10]
+    phases = [0, 0, 0, 0]
+    g = [0, 0, 0, 0]
+    basisNames = ['h2o', 'Cr', 'PCr', 'NAA']
     begintime = 0.00005
 
     basisFIDs = []
@@ -55,7 +55,7 @@ def data():
                  names=basisNames)
 
     metab_groups = [0] * synMRS.numBasis
-    Fitargs = {'ppmlim': [0.2, 4.2],
+    Fitargs = {'ppmlim': [0.2, 5.2],
                'method': 'MH',
                'baseline_order': -1,
                'metab_groups': metab_groups,
@@ -77,12 +77,12 @@ def test_peakcombination(data):
     fittedconcs = res.getConc()
     fittedRelconcs = res.getConc(scaling='internal')
 
-    amplitudes = np.append(amplitudes, amplitudes[0] + amplitudes[1])
+    amplitudes = np.append(amplitudes, amplitudes[1] + amplitudes[2])
 
     assert 'Cr+PCr' in res.metabs
     assert np.allclose(fittedconcs, amplitudes, atol=2E-1)
     assert np.allclose(fittedRelconcs,
-                       amplitudes / (amplitudes[0] + amplitudes[1]),
+                       amplitudes / (amplitudes[1] + amplitudes[2]),
                        atol=2E-1)
 
 
@@ -112,33 +112,33 @@ def test_qcOutput(data):
     SNR, FWHM = res.getQCParams()
 
     assert np.allclose(FWHM, 10.0, atol=1E0)
-    assert SNR.size == 3
+    assert SNR.size == 4
 
 
 def test_metabs_in_groups(data):
     res = data[0]
     met_g = res.metabs_in_groups()
 
-    assert met_g == [['Cr', 'PCr', 'NAA']]
+    assert met_g == [['h2o', 'Cr', 'PCr', 'NAA']]
 
 
 def test_metabs_in_group(data):
     res = data[0]
     met_g = res.metabs_in_group(0)
 
-    assert met_g == ['Cr', 'PCr', 'NAA']
+    assert met_g == ['h2o', 'Cr', 'PCr', 'NAA']
 
 
 def test_metab_in_group_json(data, tmp_path):
     res = data[0]
     met_g = res.metab_in_group_json()
-    assert json.loads(met_g) == {'0': ['Cr', 'PCr', 'NAA']}
+    assert json.loads(met_g) == {'0': ['h2o', 'Cr', 'PCr', 'NAA']}
 
     met_g2 = res.metab_in_group_json(tmp_path / 'test.json')
-    assert json.loads(met_g2) == {'0': ['Cr', 'PCr', 'NAA']}
+    assert json.loads(met_g2) == {'0': ['h2o', 'Cr', 'PCr', 'NAA']}
     assert (tmp_path / 'test.json').is_file()
     with open(tmp_path / 'test.json') as fp:
-        assert json.load(fp) == {'0': ['Cr', 'PCr', 'NAA']}
+        assert json.load(fp) == {'0': ['h2o', 'Cr', 'PCr', 'NAA']}
 
 
 def test_fit_parameters_json(data, tmp_path):
@@ -147,8 +147,8 @@ def test_fit_parameters_json(data, tmp_path):
     with open(tmp_path / 'params.json') as fp:
         saved_dict = json.load(fp)
     assert saved_dict['parameters'] ==\
-        ['Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0']
+        ['h2o', 'Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0']
     assert saved_dict['parameters_inc_comb'] ==\
-        ['Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0', 'Cr+PCr']
-    assert saved_dict['metabolites'] == ['Cr', 'PCr', 'NAA']
-    assert saved_dict['metabolites_inc_comb'] == ['Cr', 'PCr', 'NAA', 'Cr+PCr']
+        ['h2o', 'Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0', 'Cr+PCr']
+    assert saved_dict['metabolites'] == ['h2o', 'Cr', 'PCr', 'NAA']
+    assert saved_dict['metabolites_inc_comb'] == ['h2o', 'Cr', 'PCr', 'NAA', 'Cr+PCr']

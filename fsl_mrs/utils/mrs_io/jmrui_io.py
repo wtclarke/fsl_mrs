@@ -75,6 +75,9 @@ def read_txtBasis_files(txtfiles):
     for hdr in header:
         hdr['fwhm'] = None
 
+    # Strip any file extensions in the names.
+    names = [name.replace('.txt', '') for name in names]
+
     return basis, names, header
 
 

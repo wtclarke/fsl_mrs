@@ -5,8 +5,8 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-import os
 from pathlib import Path
+import re
 
 import numpy as np
 
@@ -39,20 +39,31 @@ class IncompatibleBasisFormat(Exception):
 # Dwell time
 # central frequency
 def _check_datatype(filename):
-    """
-    If data isn't NIFTI_MRS then
-    identify the file type (.nii(.gz),.RAW/.H2O,.txt)
+    """   
+    Identify the file type (.nii(.gz),.RAW/.H2O,.txt)
     Returns one of: 'NIFTI', 'RAW', 'TXT', 'Unknown'
+
+    :param filename: Path object to file
+    :type filename: patlib.Path
+    :return: type of file
+    :rtype: str
+    :return: extension
+    :rtype: str
     """
-    ext = filename.split(os.extsep, 1)[-1]
-    if 'nii' in ext.lower() or 'nii.gz' in ext.lower():
-        return 'NIFTI'
-    elif ext.lower() == 'raw' or ext.lower() == 'h2o':
-        return 'RAW'
-    elif ext.lower() == 'txt':
-        return 'TXT'
+    ext = ''.join(filename.suffixes)
+
+    ptrn_nii = re.compile(r'\.nii(\.gz)?', flags=re.IGNORECASE)
+    ptrn_lcm = re.compile(r'(\.raw)|(\.h2o)', flags=re.IGNORECASE)
+    ptrn_jmrui = re.compile(r'\.txt', flags=re.IGNORECASE)
+
+    if ptrn_nii.search(ext):
+        return 'NIFTI', ext
+    elif ptrn_lcm.search(ext):
+        return 'RAW', ext
+    elif ptrn_jmrui.search(ext):
+        return 'TXT', ext
     else:
-        return 'Unknown'
+        return 'Unknown', ext
 
 
 def read_FID(filename):
@@ -68,13 +79,14 @@ def read_FID(filename):
      array-like (complex)
      dict (header info)
     """
-    # Handle pathlib Path objects
-    filename = str(filename)
 
     try:
         return nifti_mrs.NIFTI_MRS(filename)
     except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
-        data_type = _check_datatype(filename)
+        data_type, id_ext = _check_datatype(Path(filename))
+
+    # Handle pathlib Path objects for individual loader interfaces
+    filename = str(filename)
 
     if data_type == 'RAW':
         return lcm.read_lcm_raw_h2o(filename)
@@ -83,7 +95,9 @@ def read_FID(filename):
     elif data_type == 'TXT':
         return jmrui.readjMRUItxt_fid(filename)
     else:
-        raise FileNotRecognisedError(f'Cannot read data format {data_type} for file {filename}.')
+        raise FileNotRecognisedError(
+            f'Cannot read data format {data_type} '
+            f'for file {filename} with identified extension {id_ext}.')
 
 
 # Basis reading functions

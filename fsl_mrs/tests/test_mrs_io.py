@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 import numpy as np
 import os.path as op
 import pytest
+from pathlib import Path
 
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
@@ -121,15 +122,19 @@ def test_fslBasisRegen():
 def test_check_datatype():
     '''Check various paths through _check_datatype'''
 
-    assert _check_datatype('fake/path/test.RAW') == 'RAW'
-    assert _check_datatype('fake/path/test.H2O') == 'RAW'
+    assert _check_datatype(Path('fake/path/test.RAW')) == ('RAW', '.RAW')
+    assert _check_datatype(Path('fake/path/test.H2O')) == ('RAW', '.H2O')
+    assert _check_datatype(Path('fake/path/test.raw')) == ('RAW', '.raw')
+    assert _check_datatype(Path('fake/path/test.h2o')) == ('RAW', '.h2o')
 
-    assert _check_datatype('fake/path/test.txt') == 'TXT'
+    assert _check_datatype(Path('fake/path/test.txt')) == ('TXT', '.txt')
 
-    assert _check_datatype('fake/path/test.nii') == 'NIFTI'
-    assert _check_datatype('fake/path/test.nii.gz') == 'NIFTI'
-    assert _check_datatype('fake/path/test.blah.nii.gz') == 'NIFTI'
-    assert _check_datatype('fake/path/test.blah.nii') == 'NIFTI'
+    assert _check_datatype(Path('fake/path/test.nii')) == ('NIFTI', '.nii')
+    assert _check_datatype(Path('fake/path/test.nii.gz')) == ('NIFTI', '.nii.gz')
+    assert _check_datatype(Path('fake/path/test.blah.nii.gz')) == ('NIFTI', '.blah.nii.gz')
+    assert _check_datatype(Path('fake/path/test.blah.nii')) == ('NIFTI', '.blah.nii')
+
+    assert _check_datatype(Path('fake/../../nasty/path/test.nii.gz')) == ('NIFTI', '.nii.gz')
 
 
 def test_fsl_io_save_load_basis(tmp_path):
