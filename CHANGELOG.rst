@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.3 (Wednesday 21st September 2022)
+-------------------------------------
+- Fixed bug in results / QC that only ran QC over default ppm region.
+- Improved loading and ID of file types.
+- Fixed bug in packaged example data loader.
+
 2.0.2 (Monday 1st August 2022)
 ------------------------------
 - Handle jMRUI basis sets generated in VESPA which lack the SignalNames field.
