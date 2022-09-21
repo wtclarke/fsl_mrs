@@ -39,7 +39,7 @@ class IncompatibleBasisFormat(Exception):
 # Dwell time
 # central frequency
 def _check_datatype(filename):
-    """   
+    """
     Identify the file type (.nii(.gz),.RAW/.H2O,.txt)
     Returns one of: 'NIFTI', 'RAW', 'TXT', 'Unknown'
 

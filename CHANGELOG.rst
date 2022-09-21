@@ -5,6 +5,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fixed bug in results / QC that only ran QC over default ppm region.
 - Improved loading and ID of file types.
 - Fixed bug in packaged example data loader.
+- Improved textual help in fsl_mrs_preproc and fsl_mrs_proc for inappropriate data.
 
 2.0.2 (Monday 1st August 2022)
 ------------------------------
