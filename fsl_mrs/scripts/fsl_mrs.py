@@ -181,6 +181,15 @@ def main():
     else:
         os.makedirs(args.output, exist_ok=True)
 
+    # Create symlinks to original data (data, reference) and basis in output location
+    '''Links are relative and should provide a route back to the data not relying on the 
+    possible relative, possible absolute paths stored from the command line.
+    '''
+    misc.create_rel_symlink(args.data, args.output, 'data')
+    misc.create_rel_symlink(args.basis, args.output, 'basis')
+    if args.h2o is not None:
+        misc.create_rel_symlink(args.h2o, args.output, 'h2o')
+
     # Save chosen arguments
     with open(os.path.join(args.output, "options.txt"), "w") as f:
         f.write(json.dumps(vars(args)))

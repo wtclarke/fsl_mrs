@@ -29,12 +29,24 @@ def main():
         description="FSL Magnetic Resonance Spectroscopy"
                     " - Dashboard for SVS results.")
 
-    parser.add_argument('results', type=Path, metavar='DIR',
-                        help='Directory contiaining individual results directories')
+    parser.add_argument(
+        'input_type',
+        choices=['dir', 'list'],
+        help='Select between input type')
+    parser.add_argument(
+        'input',
+        type=Path,
+        metavar='DIR or FILE',
+        help='Directory contiaining individual results directories '
+             'or Text file contiaining line-separated list of results directories.')
 
     # ADDITONAL OPTIONAL ARGUMENTS
     parser.add_argument('-v', '--verbose',
                         required=False, action="store_true")
+    parser.add_argument('-p', '--port',
+                        required=False,
+                        type=int,
+                        default=8050)
 
     # Parse command-line arguments
     args = parser.parse_args()
@@ -54,15 +66,24 @@ def main():
     '''
 
     verbose = args.verbose
-    # 1. Concetration.csv
+    # Deal with the two inputs.
+    res_dir = []
+    if args.input_type == 'dir':
+        for fp in args.input.rglob('concentrations.csv'):
+            res_dir.append(fp.parent)
+    else:
+        with open(args.input) as fp:
+            res_dir = fp.read().splitlines()
+            res_dir = [Path(dir) for dir in res_dir]
+
+    # 1. Concentration.csv
     if verbose:
         print('Loading concentration data.')
-    res_dir = args.results
     all_conc = []
     conc_order = []
-    for fp in res_dir.rglob('concentrations.csv'):
-        all_conc.append(pd.read_csv(fp, index_col=0, header=[0, 1]))
-        conc_order.append(fp.parent.name)
+    for fp in res_dir:
+        all_conc.append(pd.read_csv(fp / 'concentrations.csv', index_col=0, header=[0, 1]))
+        conc_order.append(fp.name)
     conc_df = pd.concat(all_conc, keys=conc_order, names=['dataset', 'Metabolite'])
     col = conc_df.columns
     col.names = [None, None]
@@ -74,9 +95,9 @@ def main():
         print('Loading QC data.')
     all_qc = []
     qc_order = []
-    for fp in res_dir.rglob('qc.csv'):
-        all_qc.append(pd.read_csv(fp, index_col=0, header=0))
-        qc_order.append(fp.parent.name)
+    for fp in res_dir:
+        all_qc.append(pd.read_csv(fp / 'qc.csv', index_col=0, header=0))
+        qc_order.append(fp.name)
     qc_df = pd.concat(all_qc, keys=conc_order, names=['dataset', 'Metabolite'])
     qc_df = qc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
@@ -85,17 +106,21 @@ def main():
         print('Loading data & results.')
     mrs_store = {}
     res_store = {}
-    n_data = len(list(res_dir.rglob('all_parameters.csv')))
-    for idx, fp in enumerate(res_dir.rglob('all_parameters.csv')):
-        param_df = pd.read_csv(fp)
+    n_data = len(res_dir)
+    for idx, fp in enumerate(res_dir):
+        param_df = pd.read_csv(fp / 'all_parameters.csv')
 
         # Read options.txt
-        with open(fp.parent / 'options.txt', "r") as f:
+        with open(fp / 'options.txt', "r") as f:
             orig_args = json.loads(f.readline())
 
         # Load data into mrs object
-        FID = mrs_io.read_FID(orig_args['data'])
-        basis = mrs_io.read_basis(orig_args['basis'])
+        if (fp / 'data').exists():
+            FID = mrs_io.read_FID((fp / 'data').resolve())
+            basis = mrs_io.read_basis((fp / 'basis').resolve())
+        else:  # Use old mechanism for backwards compatibility
+            FID = mrs_io.read_FID(orig_args['data'])
+            basis = mrs_io.read_basis(orig_args['basis'])
         mrs = FID.mrs(basis=basis)
 
         if not orig_args['no_rescale']:
@@ -119,16 +144,16 @@ def main():
         B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
         # Generate results object
-        res_store[fp.parent.name] = results.FitRes(
+        res_store[fp.name] = results.FitRes(
             mrs,
             param_df['mean'].to_numpy(),
             model, method, metab_groups, baseline_order, B, ppmlim,
             runqc=False)
 
         if orig_args['combine'] is not None:
-            res_store[fp.parent.name].combine(orig_args['combine'])
+            res_store[fp.name].combine(orig_args['combine'])
 
-        mrs_store[fp.parent.name] = deepcopy(mrs)
+        mrs_store[fp.name] = deepcopy(mrs)
         if verbose:
             stdout.write(f'\r{idx + 1}/{n_data} data & results loaded.')
             stdout.flush()
@@ -510,7 +535,7 @@ def main():
         dff = pd.DataFrame(data)
         return dff.to_csv(index=False)  # includes headers
 
-    app.run_server(debug=True)
+    app.run(debug=True, port=args.port)
 
 
 if __name__ == '__main__':
