@@ -80,6 +80,10 @@ def read_FID(filename):
      dict (header info)
     """
 
+    # Resolve symlinks
+    if Path(filename).is_symlink():
+        import os
+        filename = Path(os.readlink(filename))
     try:
         return nifti_mrs.NIFTI_MRS(filename)
     except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):

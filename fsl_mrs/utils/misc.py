@@ -6,6 +6,9 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
+import os
+from contextlib import contextmanager
+
 import numpy as np
 import itertools as it
 from .constants import H2O_PPM_TO_TMS
@@ -867,3 +870,40 @@ def smooth_FIDs(FIDlist, window):
         fid = fid / n
         sFIDlist.append(fid)
     return sFIDlist
+
+
+# Path calculations / manipulations
+
+@contextmanager
+def _cd(newdir):
+    prevdir = os.getcwd()
+    os.chdir(os.path.expanduser(newdir))
+    try:
+        yield
+    finally:
+        os.chdir(prevdir)
+
+
+def create_rel_symlink(dst, src, name):
+    """Create a symlink at src to dst.
+
+    Might return OSError on Windows depending on version and 'developer mode'
+
+    :param dst: File to link to
+    :type dst: pathlib.Path
+    :param src: Location of symlink creation
+    :type src: pathlib.Path
+    :param name: symlink name
+    :type name: str
+    """
+    relpath = os.path.relpath(dst, src)
+
+    if os.supports_dir_fd:
+        fd = os.open(src, os.O_RDONLY)
+        try:
+            os.symlink(relpath, name, dir_fd=fd)
+        finally:
+            os.close(fd)
+    else:
+        with _cd(src):
+            os.symlink(relpath, name)

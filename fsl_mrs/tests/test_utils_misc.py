@@ -143,3 +143,11 @@ def test_interpolation():
     # We know the first few points are corrupted in the fft version, but that will appear at edge
     # of the spectrum
     assert np.allclose(interp_ft[10:-10], np.asarray(fid_reduced[0])[10:-10], atol=1E-1)
+
+
+def test_link_creation(tmp_path):
+    misc.create_rel_symlink(data_path, tmp_path, 'test1')
+
+    import os.path as op
+    assert op.islink(tmp_path / 'test1')
+    assert read_FID(tmp_path / 'test1').shape == (1, 1, 1, 4095)

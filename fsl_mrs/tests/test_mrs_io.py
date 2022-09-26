@@ -156,3 +156,12 @@ def test_fsl_io_save_load_basis(tmp_path):
     assert np.allclose(nbasis[:, 0], basis[:, 0])
     assert nnames[0] == names[0]
     assert nhdr[0] == hdrs[0]
+
+
+def test_load_symlink(tmp_path):
+    from fsl_mrs.utils.misc import create_rel_symlink
+    create_rel_symlink(SVSTestData['nifti'], tmp_path, 'test1')
+
+    import os.path as op
+    assert op.islink(tmp_path / 'test1')
+    assert mrsio.read_FID(tmp_path / 'test1').shape == (1, 1, 1, 4096)
