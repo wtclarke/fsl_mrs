@@ -182,7 +182,7 @@ def main():
         os.makedirs(args.output, exist_ok=True)
 
     # Create symlinks to original data (data, reference) and basis in output location
-    '''Links are relative and should provide a route back to the data not relying on the 
+    '''Links are relative and should provide a route back to the data not relying on the
     possible relative, possible absolute paths stored from the command line.
     '''
     misc.create_rel_symlink(args.data, args.output, 'data')
