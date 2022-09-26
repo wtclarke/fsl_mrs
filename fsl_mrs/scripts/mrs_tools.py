@@ -295,12 +295,19 @@ def split(args):
         split_1, split_2 = nmrs_tools.split(to_split, args.dim, args.indices)
 
     # 3. Save the output file
+    if args.index is not None:
+        first_name = '_low'
+        second_name = '_high'
+    elif args.indices:
+        first_name = '_others'
+        second_name = '_selected'
+
     if args.filename:
-        file_out_1 = args.output / (args.filename + '_1')
-        file_out_2 = args.output / (args.filename + '_2')
+        file_out_1 = args.output / (args.filename + first_name)
+        file_out_2 = args.output / (args.filename + second_name)
     else:
-        file_out_1 = args.output / (split_name + '_1')
-        file_out_2 = args.output / (split_name + '_2')
+        file_out_1 = args.output / (split_name + first_name)
+        file_out_2 = args.output / (split_name + second_name)
     split_1.save(file_out_1)
     split_2.save(file_out_2)
 
