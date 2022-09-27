@@ -663,6 +663,28 @@ class MRS(object):
         from fsl_mrs.utils.plotting import plot_mrs_basis
         plot_mrs_basis(self, plot_spec=add_spec, ppmlim=ppmlim)
 
+    # Utility fitting function
+    def fit(self, **kwargs):
+        """Utility method for fitting this mrs object. Basis must be loaded.
+
+        Calls fsl_mrs.utils.fitting.fit_FSLModel
+        :Keyword Arguments:
+            * *method (``str``) -- 'Newton' or 'MH', defaults to 'Newton'
+            * *ppmlim (``tuple``) -- Ppm range over which to fit, defaults to (.2, 4.2)
+            * *baseline_order (``int``) -- Polynomial baseline order, defaults to 2, -1 disables.
+            * *metab_groups (``list``) -- List of metabolite groupings, defaults to None
+            * *model (``str``) -- 'lorentzian' or 'voigt', defaults to 'voigt'
+            * *x0 (``list``) -- Initilisation values, defaults to None
+            * *MHSamples (``int``) -- Number of MH samples to run, defaults to 500
+            * *disable_mh_priors (``bool``) -- If True all priors are disabled for MH fitting, defaults to False
+            * *fit_baseline_mh (``bool``) -- If true baseline parameters are also fit using MH, defaults to False
+
+        :return: Fit results object
+        :rtype: fsl_mrs.utils.FitRes
+        """
+        from fsl_mrs.utils.fitting import fit_FSLModel
+        return fit_FSLModel(self, **kwargs)
+
     # Unused functions
     # def add_expt_MM(self, lw=5):
     #     """

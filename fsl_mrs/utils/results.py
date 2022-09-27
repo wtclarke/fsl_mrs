@@ -783,3 +783,8 @@ class FitRes(object):
             return perc_SD
         else:
             raise ValueError('type must either be "absolute" or "percentage".')
+
+    def plot(self, mrs, **kwargs):
+        """Utility method to plot the results of a fit"""
+        from fsl_mrs.utils.plotting import plot_fit
+        return plot_fit(mrs, self, **kwargs)

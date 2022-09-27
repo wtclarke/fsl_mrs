@@ -536,8 +536,7 @@ def fitting_summary_fig(mrs, res, filename):
     """
     Simple spectrum+fit plot
     """
-    fig = plotting.plot_fit(mrs, pred=res.pred, baseline=res.baseline)
-    fig.savefig(filename)
+    plotting.plot_fit(mrs, res, out=filename)
 
 
 # --------- MRSI reporting
