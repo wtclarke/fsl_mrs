@@ -30,22 +30,33 @@ def FID2Spec(x):
     return x
 
 
-def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
-             out=None, baseline=None, proj='real'):
-    """
-       Main function for plotting a model fit
-       Parameters
-       ----------
-       mrs    : MRS Object
-       pred   : array-like
-              predicted FID. If not provided, tries to get it from mrs object
-       ppmlim : tuple
-              (MIN,MAX)
-       out    : string
-              output figure filename
-       proj   : string
-              one of 'real', 'imag', 'abs', or 'angle'
+def data_proj(x, proj):
+    """Proj is one of 'real', 'imag', 'abs', or 'angle'"""
+    if proj == 'real':
+        return np.real(x)
+    if proj == 'imag':
+        return np.imag(x)
+    if proj == 'abs':
+        return np.abs(x)
+    if proj == 'real':
+        return np.angle(x)
+    else:
+        raise ValueError("proj should be one of 'real', 'imag', 'abs', or 'angle'.")
 
+
+def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
+    """Primary plotting function for FSL-MRS fits
+
+    :param mrs: mrs object which has been fitted
+    :type mrs: fsl_mrs.core.mrs.MRS
+    :param res: Fitting results object
+    :type res: fsl_mrs.utils.results.FitRes
+    :param out: output figure filename, defaults to None
+    :type out: str, optional
+    :param baseline: optionally plot baseline, defaults to True
+    :type baseline: bool, optional
+    :param proj: 'real', 'imag', 'abs', or 'angle', defaults to 'real'
+    :type proj: str, optional
     """
 
     def axes_style(plt, ppmlim, label=None, xticks=None):
@@ -59,35 +70,21 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
 
     def doPlot(data, c='b', linewidth=1, linestyle='-', xticks=None):
         plt.plot(mrs.getAxes(), data, color=c, linewidth=linewidth, linestyle=linestyle)
-        axes_style(plt, ppmlim, label='Chemical shift (ppm)', xticks=xticks)
+        axes_style(plt, res.ppmlim, label='Chemical shift (ppm)', xticks=xticks)
 
     # Prepare data for plotting
     data = FID2Spec(mrs.FID)
-    if pred is None:
-        pred = mrs.pred
-    pred = FID2Spec(pred)
+    pred = FID2Spec(res.pred)
     if baseline is not None:
-        baseline = FID2Spec(baseline)
+        baseline = FID2Spec(res.baseline)
 
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim, shift=True)
+    first, last = mrs.ppmlim_to_range(ppmlim=res.ppmlim, shift=True)
 
     # turn to real numbers
-    if proj == "real":
-        data, pred = np.real(data), np.real(pred)
-        if baseline is not None:
-            baseline = np.real(baseline)
-    elif proj == "imag":
-        data, pred = np.imag(data), np.imag(pred)
-        if baseline is not None:
-            baseline = np.imag(baseline)
-    elif proj == "abs":
-        data, pred = np.abs(data), np.abs(pred)
-        if baseline is not None:
-            baseline = np.abs(baseline)
-    elif proj == "angle":
-        data, pred = np.angle(data), np.angle(pred)
-        if baseline is not None:
-            baseline = np.angle(baseline)
+    data = data_proj(data, proj)
+    pred = data_proj(pred, proj)
+    if baseline is not None:
+        baseline = data_proj(baseline, proj)
 
     if first > last:
         first, last = last, first
@@ -105,9 +102,9 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
 
     plt.subplot(gs[0])
     # Start by plotting error
-    xticks = np.arange(ppmlim[0], ppmlim[1] + .2, .2)
+    xticks = np.arange(res.ppmlim[0], res.ppmlim[1] + .2, .2)
     plt.plot(mrs.getAxes(), data_proj(data - pred, proj), c='k', linewidth=1, linestyle='-')
-    axes_style(plt, ppmlim, xticks=xticks)
+    axes_style(plt, res.ppmlim, xticks=xticks)
     plt.gca().set_xticklabels([])
 
     plt.subplot(gs[1])
@@ -129,74 +126,6 @@ def plot_fit(mrs, pred=None, ppmlim=(0.40, 4.2),
         plt.savefig(out)
 
     return plt.gcf()
-
-
-def plot_fit_new(mrs, ppmlim=(0.40, 4.2)):
-    """
-        plot model fitting plus baseline
-
-        mrs : MRS object
-        ppmlim : tuple
-    """
-    axis = mrs.getAxes()
-    spec = np.flipud(np.fft.fftshift(mrs.get_spec()))
-    pred = FIDToSpec(mrs.pred)
-    pred = np.flipud(np.fft.fftshift(pred))
-
-    if mrs.baseline is not None:
-        B = np.flipud(np.fft.fftshift(mrs.baseline))
-
-    first = np.argmin(np.abs(axis - ppmlim[0]))
-    last = np.argmin(np.abs(axis - ppmlim[1]))
-    if first > last:
-        first, last = last, first
-
-    plt.figure(figsize=(9, 10))
-    plt.plot(axis[first:last], spec[first:last])
-    plt.gca().invert_xaxis()
-    plt.plot(axis[first:last], pred[first:last], 'r')
-    if mrs.baseline is not None:
-        plt.plot(axis[first:last], B[first:last], 'k')
-
-    # style stuff
-    plt.minorticks_on()
-    plt.grid(b=True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
-    plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
-
-    return plt.gcf()
-
-
-def plot_waterfall(mrs, ppmlim=(0.4, 4.2), proj='real', mod=True):
-    """
-       Plot individual metabolit spectra
-
-       Parameters
-       ----------
-
-       ppmlim : tuple
-       proj   : either 'real' or 'imag' or 'abs' or 'angle'
-       mod    : True or False
-                whether to multiply by estimated concentrations or not
-    """
-    gs = gridspec.GridSpec(mrs.numBasis, 1)
-    fig = plt.figure(figsize=(5, 10))
-
-    for i in range(mrs.numBasis):
-        plt.subplot(gs[i])
-        plt.xlim(ppmlim)
-        plt.gca().invert_xaxis()
-        plt.gca().set_xticklabels([])
-        plt.gca().set_yticklabels([])
-        plt.gca().set_ylabel(mrs.names[i], rotation='horizontal')
-        plt.box(False)
-
-        if mod and mrs.con is not None:
-            data = FID2Spec(mrs.con[i] * mrs.basis[:, i])
-        else:
-            data = FID2Spec(mrs.basis[:, i])
-        plt.plot(mrs.getAxes(), data_proj(data, proj), c='r', linewidth=1, linestyle='-')
-
-    return fig
 
 
 def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
@@ -252,20 +181,6 @@ def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
 
     plt.tight_layout()
     return plt.gcf()
-
-
-def data_proj(x, proj):
-    """Proj is one of 'real', 'imag', 'abs', or 'angle'"""
-    if proj == 'real':
-        return np.real(x)
-    if proj == 'imag':
-        return np.imag(x)
-    if proj == 'abs':
-        return np.abs(x)
-    if proj == 'real':
-        return np.angle(x)
-    else:
-        raise ValueError("proj should be one of 'real', 'imag', 'abs', or 'angle'.")
 
 
 def plot_fid(mrs, tlim=None, FID=None, proj='real', c='k'):

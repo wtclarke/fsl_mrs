@@ -285,3 +285,16 @@ def test_parse_metab_groups():
     # List of integers
     assert mrs.parse_metab_groups([0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])\
         == [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0]
+
+
+def test_fit_method():
+    mrs = mrs_from_files(svs_metab, svs_basis)
+
+    fitargs = {
+        'metab_groups': mrs.parse_metab_groups('Mac'),
+        'baseline_order': 1}
+
+    res = mrs.fit(**fitargs)
+
+    import fsl_mrs.utils.results
+    assert isinstance(res, fsl_mrs.utils.results.FitRes)

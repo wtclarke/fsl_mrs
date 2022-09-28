@@ -64,7 +64,7 @@ def data():
 
     res = fit_FSLModel(synMRS, **Fitargs)
 
-    return res, amplitude
+    return res, amplitude, synMRS
 
 
 def test_peakcombination(data):
@@ -152,3 +152,10 @@ def test_fit_parameters_json(data, tmp_path):
         ['h2o', 'Cr', 'PCr', 'NAA', 'gamma_0', 'sigma_0', 'eps_0', 'Phi0', 'Phi1', 'B_real_0', 'B_imag_0', 'Cr+PCr']
     assert saved_dict['metabolites'] == ['h2o', 'Cr', 'PCr', 'NAA']
     assert saved_dict['metabolites_inc_comb'] == ['h2o', 'Cr', 'PCr', 'NAA', 'Cr+PCr']
+
+
+def test_plot_utility_method(data):
+    res, _, mrs = data
+    fig = res.plot(mrs)
+    import matplotlib.pyplot
+    assert isinstance(fig, matplotlib.pyplot.Figure)

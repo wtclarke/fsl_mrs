@@ -1,9 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.4 (Monday 26th September 2022)
+2.0.4 (Wednesday 28th September 2022)
 -------------------------------------
 - fsl_mrs results now create symlinks to original data objects
 - Updated command line interface for fsl_mrs_summarise, a list of results directories can now be passed.
+- mrs_tools split better identifies which file contains which indices.
+- Added fit and plot utility methods to mrs and results objects in python API.
 
 2.0.3 (Wednesday 21st September 2022)
 -------------------------------------

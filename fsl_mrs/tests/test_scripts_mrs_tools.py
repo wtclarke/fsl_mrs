@@ -123,10 +123,10 @@ def test_split(tmp_path):
                            '--filename', 'split_file',
                            '--file', str(test_data_split)])
 
-    assert (tmp_path / 'split_file_1.nii.gz').exists()
-    assert (tmp_path / 'split_file_2.nii.gz').exists()
-    f1 = nib.load(tmp_path / 'split_file_1.nii.gz')
-    f2 = nib.load(tmp_path / 'split_file_2.nii.gz')
+    assert (tmp_path / 'split_file_low.nii.gz').exists()
+    assert (tmp_path / 'split_file_high.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'split_file_low.nii.gz')
+    f2 = nib.load(tmp_path / 'split_file_high.nii.gz')
     assert f1.shape[5] == 32
     assert f2.shape[5] == 32
 
@@ -136,10 +136,10 @@ def test_split(tmp_path):
                            '--output', str(tmp_path),
                            '--file', str(test_data_split)])
 
-    assert (tmp_path / 'metab_raw_1.nii.gz').exists()
-    assert (tmp_path / 'metab_raw_2.nii.gz').exists()
-    f1 = nib.load(tmp_path / 'metab_raw_1.nii.gz')
-    f2 = nib.load(tmp_path / 'metab_raw_2.nii.gz')
+    assert (tmp_path / 'metab_raw_low.nii.gz').exists()
+    assert (tmp_path / 'metab_raw_high.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'metab_raw_low.nii.gz')
+    f2 = nib.load(tmp_path / 'metab_raw_high.nii.gz')
     assert f1.shape[5] == 32
     assert f2.shape[5] == 32
 
@@ -150,10 +150,10 @@ def test_split(tmp_path):
                            '--output', str(tmp_path),
                            '--file', str(test_data_split)])
 
-    assert (tmp_path / 'indicies_select_1.nii.gz').exists()
-    assert (tmp_path / 'indicies_select_2.nii.gz').exists()
-    f1 = nib.load(tmp_path / 'indicies_select_1.nii.gz')
-    f2 = nib.load(tmp_path / 'indicies_select_2.nii.gz')
+    assert (tmp_path / 'indicies_select_others.nii.gz').exists()
+    assert (tmp_path / 'indicies_select_selected.nii.gz').exists()
+    f1 = nib.load(tmp_path / 'indicies_select_others.nii.gz')
+    f2 = nib.load(tmp_path / 'indicies_select_selected.nii.gz')
     assert f1.shape[5] == 61
     assert f2.shape[5] == 3
 
