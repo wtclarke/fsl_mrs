@@ -203,7 +203,16 @@ def test_phase_correct():
 
     assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
     assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
-        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.phase_correct, ppmlim=(4.0, 5.0), hlsvd=False.'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.phase_correct, ppmlim=(4.0, 5.0), hlsvd=False, use_avg=False.'
+
+
+def test_phase_correct_use_avg():
+    nmrs_obj = read_FID(wrefc)
+    phased = nproc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False, use_avg=True)
+
+    assert phased.hdr_ext['ProcessingApplied'][0]['Method'] == 'Phasing'
+    assert phased.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.phase_correct, ppmlim=(4.0, 5.0), hlsvd=False, use_avg=True.'
 
 
 def test_apply_fixed_phase():

@@ -786,12 +786,14 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     return good_out, bad_out
 
 
-def phase_correct(data, ppmlim, hlsvd=False, figure=False, report=None, report_all=False):
+def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report=None, report_all=False):
     '''Zero-order phase correct based on peak maximum
 
     :param NIFTI_MRS data: Data to truncate or pad
     :param float ppmlim: Search for peak between limits
     :param bool hlsvd: Use HLSVD to remove peaks outside the ppmlim
+    :param bool use_avg: If multiple spectra in higher dimensions,
+        use the average of all the higher dimension spectra to calculate phase correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
@@ -800,14 +802,35 @@ def phase_correct(data, ppmlim, hlsvd=False, figure=False, report=None, report_a
     '''
 
     phs_obj = data.copy()
+    if use_avg:
+        # Combine all higher dimensions
+        p0 = np.zeros(data.shape[:3])
+        pos_all = np.zeros(data.shape[:3], int)
+        for dd, idx in data.iterate_over_spatial():
+            comb_data = preproc.combine_FIDs(dd.reshape(dd.shape[0], -1), 'mean')
+            # Run phase correction estimation
+            _, p0[idx[:3]], pos_all[idx[:3]] = preproc.phaseCorrect(
+                comb_data,
+                phs_obj.bandwidth,
+                phs_obj.spectrometer_frequency[0],
+                nucleus=phs_obj.nucleus[0],
+                ppmlim=ppmlim,
+                use_hlsvd=hlsvd)
+
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
-        phs_obj[idx], _, pos = preproc.phaseCorrect(
-            dd,
-            data.bandwidth,
-            data.spectrometer_frequency[0],
-            nucleus=data.nucleus[0],
-            ppmlim=ppmlim,
-            use_hlsvd=hlsvd)
+        if use_avg:
+            phs_obj[idx] = preproc.applyPhase(
+                dd,
+                p0[idx[:3]])
+            pos = pos_all[idx[:3]]
+        else:
+            phs_obj[idx], _, pos = preproc.phaseCorrect(
+                dd,
+                data.bandwidth,
+                data.spectrometer_frequency[0],
+                nucleus=data.nucleus[0],
+                ppmlim=ppmlim,
+                use_hlsvd=hlsvd)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
@@ -825,7 +848,8 @@ def phase_correct(data, ppmlim, hlsvd=False, figure=False, report=None, report_a
     # Update processing prov
     processing_info = f'{__name__}.phase_correct, '
     processing_info += f'ppmlim={ppmlim}, '
-    processing_info += f'hlsvd={hlsvd}.'
+    processing_info += f'hlsvd={hlsvd}, '
+    processing_info += f'use_avg={use_avg}.'
 
     update_processing_prov(phs_obj, 'Phasing', processing_info)
 

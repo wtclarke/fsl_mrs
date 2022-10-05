@@ -275,6 +275,8 @@ def main():
                              help='ppm limits of alignment window')
     phase_group.add_argument('--hlsvd', action="store_true",
                              help='Remove peaks outside the search area')
+    phase_group.add_argument('--use_avg', action="store_true",
+                             help='Use the average of higher dimensions to calculate phase.')
     phaseparser.set_defaults(func=phase)
     add_common_args(phaseparser)
 
@@ -673,6 +675,7 @@ def phase(dataobj, args):
     phased = preproc.phase_correct(dataobj.data,
                                    args['ppm'],
                                    hlsvd=args['hlsvd'],
+                                   use_avg=args['use_avg'],
                                    report=args['generateReports'],
                                    report_all=args['allreports'])
 
