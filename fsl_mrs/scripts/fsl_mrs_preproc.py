@@ -49,7 +49,8 @@ def main():
                           default=None, metavar='<str>',
                           help='Water reference data for eddy'
                                ' current correction (Optional).')
-    # option to not average, this will toggle the average property to False
+    optional.add_argument('--fmrs', action="store_true",
+                          help='Preprocessing for fMRS, automattically sets noremoval and noaverage arguments')
     optional.add_argument('--noremoval', action="store_false", dest='unlike',
                           help='Do not remove unlike averages.')
     optional.add_argument('--noaverage', action="store_false", dest='average',
@@ -74,9 +75,20 @@ def main():
     # Parse command-line arguments
     args = p.parse_args()
 
+    # Shorthand verbose printing
+    def verbose_print(x):
+        if args.verbose:
+            print(x)
+
     # Output kickass splash screen
     if args.verbose:
         splash(logo='mrs')
+
+    if args.fmrs:
+        verbose_print('Running in fMRS mode:')
+        verbose_print('  --noremoval and --noaverage set.')
+        args.average = False
+        args.unlike = False
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
@@ -114,11 +126,6 @@ def main():
     else:
         # Will suppress report generation
         report_dir = None
-
-    # Shorthand verbose printing
-    def verbose_print(x):
-        if args.verbose:
-            print(x)
 
     # ######  Do the work #######
     verbose_print('Load the data....')
@@ -276,10 +283,15 @@ def main():
             quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
 
     # Apply shift to reference
-    verbose_print('... Shifting Cr to 3.027 ...')
-    supp_data = nifti_mrs_proc.shift_to_reference(supp_data, 3.027, (2.9, 3.1), report=report_dir)
+    verbose_print('... Shifting tCr to 3.027 ...')
+    supp_data = nifti_mrs_proc.shift_to_reference(
+        supp_data,
+        3.027,
+        (2.9, 3.1),
+        use_avg=not args.average,
+        report=report_dir)
 
-    # Apply phasing based on a single peak (Cr)
+    # Apply phasing based on a single peak (tCr)
     verbose_print('... Phasing on tCr ...')
     supp_data = nifti_mrs_proc.phase_correct(
         supp_data,

@@ -182,7 +182,19 @@ def test_shift_to_reference():
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
-        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.shift_to_reference, ppm_ref=4.65, peak_search=(4.0, 5.0).'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.shift_to_reference, '\
+           'ppm_ref=4.65, peak_search=(4.0, 5.0), use_avg=False.'
+
+
+def test_shift_to_reference_no_avg():
+    nmrs_obj = read_FID(wrefc)
+
+    shifted = nproc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0), use_avg=True)
+
+    assert shifted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert shifted.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.shift_to_reference, '\
+           'ppm_ref=4.65, peak_search=(4.0, 5.0), use_avg=True.'
 
 
 def test_remove_unlike():

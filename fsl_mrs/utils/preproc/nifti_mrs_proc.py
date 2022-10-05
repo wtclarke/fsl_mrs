@@ -667,11 +667,14 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
     return shift_obj
 
 
-def shift_to_reference(data, ppm_ref, peak_search, figure=False, report=None, report_all=False):
+def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, report=None, report_all=False):
     '''Shift peak to known reference
 
     :param NIFTI_MRS data: Data to truncate or pad
     :param float ppm_ref: Reference shift that peak will be moved to
+    :param tuple peak_search: Search for peak between these ppm limits e.g. (2.8, 3.2) for tCr
+    :param bool use_avg: If multiple spectra in higher dimensions,
+        use the average of all the higher dimension spectra to calculate shift correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
@@ -680,13 +683,34 @@ def shift_to_reference(data, ppm_ref, peak_search, figure=False, report=None, re
     '''
 
     shift_obj = data.copy()
+    if use_avg:
+        # Combine all higher dimensions
+        shift = np.zeros(data.shape[:3])
+        for dd, idx in data.iterate_over_spatial():
+            comb_data = preproc.combine_FIDs(dd.reshape(dd.shape[0], -1), 'mean')
+            # Run shift estimation
+            _, shift[idx[:3]] = preproc.shiftToRef(
+                comb_data,
+                ppm_ref,
+                data.bandwidth,
+                data.spectrometer_frequency[0],
+                nucleus=data.nucleus[0],
+                ppmlim=peak_search)
+
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
-        shift_obj[idx], _ = preproc.shiftToRef(dd,
-                                               ppm_ref,
-                                               data.bandwidth,
-                                               data.spectrometer_frequency[0],
-                                               nucleus=data.nucleus[0],
-                                               ppmlim=peak_search)
+        if use_avg:
+            shift_obj[idx] = preproc.freqshift(
+                dd,
+                data.dwelltime,
+                - shift[idx[:3]] * data.spectrometer_frequency[0])
+        else:
+            shift_obj[idx], _ = preproc.shiftToRef(
+                dd,
+                ppm_ref,
+                data.bandwidth,
+                data.spectrometer_frequency[0],
+                nucleus=data.nucleus[0],
+                ppmlim=peak_search)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
@@ -705,7 +729,8 @@ def shift_to_reference(data, ppm_ref, peak_search, figure=False, report=None, re
     # Update processing prov
     processing_info = f'{__name__}.shift_to_reference, '
     processing_info += f'ppm_ref={ppm_ref}, '
-    processing_info += f'peak_search={peak_search}.'
+    processing_info += f'peak_search={peak_search}, '
+    processing_info += f'use_avg={use_avg}.'
 
     update_processing_prov(shift_obj, 'Frequency and phase correction', processing_info)
 

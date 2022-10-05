@@ -239,6 +239,8 @@ def main():
     fshift_group.add_argument('--target', type=float, default=3.027,
                               help='Target position (must be used with ppm).'
                                    ' Default = 3.027')
+    fshift_group.add_argument('--use_avg', action="store_true",
+                              help='Use the average of higher dimensions to calculate shift.')
     fshiftparser.set_defaults(func=fshift)
     add_common_args(fshiftparser)
 
@@ -643,6 +645,7 @@ def fshift(dataobj, args):
         shifted = preproc.shift_to_reference(dataobj.data,
                                              args['target'],
                                              args['ppm'],
+                                             use_avg=args['use_avg'],
                                              report=args['generateReports'],
                                              report_all=args['allreports'])
 
