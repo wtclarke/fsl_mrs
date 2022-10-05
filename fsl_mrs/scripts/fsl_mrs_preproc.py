@@ -49,7 +49,10 @@ def main():
                           default=None, metavar='<str>',
                           help='Water reference data for eddy'
                                ' current correction (Optional).')
-    # option to not average, this will toggle the average property to False
+    optional.add_argument('--fmrs', action="store_true",
+                          help='Preprocessing for fMRS, automattically sets noremoval and noaverage arguments')
+    optional.add_argument('--noremoval', action="store_false", dest='unlike',
+                          help='Do not remove unlike averages.')
     optional.add_argument('--noaverage', action="store_false", dest='average',
                           help='Do not average repetitions.')
     optional.add_argument('--hlsvd', action="store_true",
@@ -72,9 +75,20 @@ def main():
     # Parse command-line arguments
     args = p.parse_args()
 
+    # Shorthand verbose printing
+    def verbose_print(x):
+        if args.verbose:
+            print(x)
+
     # Output kickass splash screen
     if args.verbose:
         splash(logo='mrs')
+
+    if args.fmrs:
+        verbose_print('Running in fMRS mode:')
+        verbose_print('  --noremoval and --noaverage set.')
+        args.average = False
+        args.unlike = False
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
@@ -114,14 +128,12 @@ def main():
         report_dir = None
 
     # ######  Do the work #######
-    if args.verbose:
-        print('Load the data....')
+    verbose_print('Load the data....')
 
     # Read the data
     # Suppressed data
     supp_data = mrs_io.read_FID(args.data)
-    if args.verbose:
-        print(f'.... Found data with shape {supp_data.shape}.\n\n')
+    verbose_print(f'.... Found data with shape {supp_data.shape}.\n\n')
     if supp_data.dim_tags == [None, None, None]:
         print(
             'This data contains no unaveraged transients or uncombined coils. '
@@ -132,30 +144,26 @@ def main():
 
     # Reference data
     ref_data = mrs_io.read_FID(args.reference)
-    if args.verbose:
-        print(f'.... Found reference with shape {ref_data.shape}.\n\n')
+    verbose_print(f'.... Found reference with shape {ref_data.shape}.\n\n')
 
     if args.quant is not None:
         # Separate quant data
         quant_data = mrs_io.read_FID(args.quant)
-        if args.verbose:
-            print(f'.... Found quant with shape {quant_data.shape}.\n\n')
+        verbose_print(f'.... Found quant with shape {quant_data.shape}.\n\n')
     else:
         quant_data = None
 
     if args.ecc is not None:
         # Separate ecc data
         ecc_data = mrs_io.read_FID(args.ecc)
-        if args.verbose:
-            print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
+        verbose_print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
     else:
         ecc_data = None
 
     # Data conjugation
     if args.conjugate:
-        if args.verbose:
-            print('Conjugation explicitly set,'
-                  'applying conjugation.')
+        verbose_print('Conjugation explicitly set,'
+                      'applying conjugation.')
 
         supp_data = nifti_mrs_proc.conjugate(supp_data)
         ref_data = nifti_mrs_proc.conjugate(ref_data)
@@ -165,24 +173,19 @@ def main():
             ecc_data = nifti_mrs_proc.conjugate(ecc_data)
 
     # Determine if coils have been combined already
-    if args.verbose:
-        print('.... Determine if coil combination is needed')
+    verbose_print('.... Determine if coil combination is needed')
     if 'DIM_COIL' in supp_data.dim_tags:
         do_coil_combine = True
-        if args.verbose:
-            print('  ----> YES.\n')
+        verbose_print('  ----> YES.\n')
     else:
         do_coil_combine = False
-        if args.verbose:
-            print('   ----> NO.\n')
+        verbose_print('   ----> NO.\n')
 
     # Do preproc
-    if args.verbose:
-        print('Begin proprocessing.... ')
+    verbose_print('Begin proprocessing.... ')
 
     if do_coil_combine:
-        if args.verbose:
-            print('... Coil Combination ...')
+        verbose_print('... Coil Combination ...')
 
         if 'DIM_DYN' in ref_data.dim_tags:
             avg_ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
@@ -197,23 +200,31 @@ def main():
         if args.ecc is not None:
             ecc_data = nifti_mrs_proc.coilcombine(ecc_data, reference=avg_ref_data)
 
+    verbose_print('... Align Dynamics (1st iteration) ...')
+    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=(0, 4.2), report=report_dir)
+
     # Bad average removal on the suppressed data
-    if args.verbose:
-        print('... Removing unlike averages (>1.96\u03C3 from mean) ...')
+    if args.unlike:
+        verbose_print('... Removing unlike averages (>2.58\u03C3 from mean) ...')
 
-    supp_data, bd_data = nifti_mrs_proc.remove_unlike(supp_data,
-                                                      sdlimit=1.96,
-                                                      niter=2,
-                                                      ppmlim=(0, 4.2),
-                                                      report=report_dir)
-
-    if args.verbose:
-        print(f'{bd_data.shape[4]}/{supp_data.shape[4] + bd_data.shape[4]}'
-              ' bad averages identified and removed.')
+        supp_data, bd_data = nifti_mrs_proc.remove_unlike(supp_data,
+                                                          sdlimit=2.58,
+                                                          niter=1,
+                                                          ppmlim=(0, 4.2),
+                                                          report=report_dir)
+        if bd_data is None:
+            bd_shape = 0
+        else:
+            bd_shape = bd_data.shape[4]
+        if supp_data is None:
+            supp_shape = 0
+        else:
+            supp_shape = supp_data.shape[4]
+        verbose_print(f'{bd_shape}/{supp_shape + bd_shape} '
+                      'bad averages identified and removed.')
 
     # Frequency and phase align the FIDs
-    if args.verbose:
-        print('... Align Dynamics ...')
+    verbose_print('... Align Dynamics (2nd iteration) ...')
     supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=(0, 4.2), report=report_dir)
 
     if 'DIM_DYN' in ref_data.dim_tags:
@@ -226,8 +237,7 @@ def main():
 
     # Average the data (if asked to do so)
     if args.average:
-        if args.verbose:
-            print('... Average FIDs ...')
+        verbose_print('... Average FIDs ...')
         supp_data = nifti_mrs_proc.average(supp_data, 'DIM_DYN', report=report_dir)
         if 'DIM_DYN' in ref_data.dim_tags:
             ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
@@ -239,8 +249,7 @@ def main():
         ecc_data = nifti_mrs_proc.average(ecc_data, 'DIM_DYN')
 
     # Eddy current correction
-    if args.verbose:
-        print('... ECC correction ...')
+    verbose_print('... ECC correction ...')
     if args.ecc is not None:
         eccRef = ecc_data
     else:
@@ -259,36 +268,43 @@ def main():
 
     # HLSVD
     if args.hlsvd:
-        if args.verbose:
-            print('... Residual water removal ...')
+        if not args.average:
+            print('Warning: Running HLSVD water removal on each unaveraged dynamic might take a long time, '
+                  'and potentially introduce high variance.')
+        verbose_print('... Residual water removal ...')
         hlsvdlimits = [-0.25, 0.25]
         supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, limit_units='ppm', report=report_dir)
 
     if args.leftshift:
-        if args.verbose:
-            print('... Truncation ...')
+        verbose_print('... Truncation ...')
         supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
         ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
         if args.quant is not None:
             quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
 
     # Apply shift to reference
-    if args.verbose:
-        print('... Shift Cr to 3.027 ...')
-    supp_data = nifti_mrs_proc.shift_to_reference(supp_data, 3.027, (2.9, 3.1), report=report_dir)
+    verbose_print('... Shifting tCr to 3.027 ...')
+    supp_data = nifti_mrs_proc.shift_to_reference(
+        supp_data,
+        3.027,
+        (2.9, 3.1),
+        use_avg=not args.average,
+        report=report_dir)
 
-    # Apply phasing based on a single peak (Cr)
-    if args.verbose:
-        print('... Phasing on tCr ...')
-    supp_data = nifti_mrs_proc.phase_correct(supp_data, (2.9, 3.1), report=report_dir)
+    # Apply phasing based on a single peak (tCr)
+    verbose_print('... Phasing on tCr ...')
+    supp_data = nifti_mrs_proc.phase_correct(
+        supp_data,
+        (2.9, 3.1),
+        use_avg=not args.average,
+        report=report_dir)
     if args.quant is not None:
         final_wref = nifti_mrs_proc.phase_correct(quant_data, (4.55, 4.7), hlsvd=False, report=report_dir)
     else:
         final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
     # Save the data
-    if args.verbose:
-        print('... Saving data ...')
+    verbose_print('... Saving data ...')
     supp_data.save(op.join(args.output, 'metab'))
     final_wref.save(op.join(args.output, 'wref'))
 
@@ -296,8 +312,7 @@ def main():
     if args.report:
         import subprocess
         import glob
-        if args.verbose:
-            print('Create report')
+        verbose_print('Create report')
         htmlfiles = glob.glob(op.join(args.output, '*.html'))
         subprocess.call(['merge_mrs_reports', '-d',
                          op.join(args.output, 'metab'),
