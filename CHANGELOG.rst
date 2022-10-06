@@ -1,9 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.4 (Wednesday 5th October 2022)
+2.0.5 (Wednesday 5th October 2022)
 ----------------------------------
 - Added specific `--fmrs` flag to fsl_mrs_preproc. This causes more sensible handling of data that isn't averaged e.g. not using data driven phase correction for each transient.
 - `fsl_mrs_proc phase` and `fsl_mrs_proc fshift` now have the `--use_avg` to mirror the changes in `fsl_mrs_preproc`.
+- Fixed plotting issue in `fsl_dynmrs` report.
+- Updated Windows installation instructions.
 
 2.0.4 (Wednesday 28th September 2022)
 -------------------------------------

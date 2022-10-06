@@ -50,10 +50,14 @@ Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and ex
 
 Windows Operating System
 ~~~~~~~~~~~~~~~~~~~~~~~~
-FSL-MRS has been tested thoroughly on Mac and Linux operating systems but is not currently tested on MS Windows. However there are two routes for using FSL-MRS on Windows.
+FSL-MRS has been tested thoroughly on Mac and Linux operating systems but is not currently tested on MS Windows. However there are three routes for using FSL-MRS on Windows.
 
-The first option is to install (as above) the FSL-MRS or complete FSL package using `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2). This offers an easy way of running a linux environment on a Windows machine. To install the full FSL package in WSL, follow the `instructions online <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_
+Option A: Using WSL (recommended)
+---------------------------------
+The first option is to install (as above)  FSL-MRS and the complete FSL package using `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2). This offers an easy way of running a linux environment on a Windows machine. To install the full FSL package in WSL, follow the `instructions online <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_
 
+Option B: Native windows FSL-MRS + FSL on WSL
+---------------------------------------------
 Alternatively, as of V1.1.13 of FSL-MRS the python-only FSL-MRS package can be run in native Windows alongside a WSL FSL installation. This can be achieved as follows:
 
 1. Enable WSL and install FSL into WSL as described in the `FSL install instructions <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_.
@@ -63,6 +67,11 @@ Alternatively, as of V1.1.13 of FSL-MRS the python-only FSL-MRS package can be r
 3. Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1.
 
 For FSL-MRS to access the FSL scripts installed on the WSL machine, it must be running.
+
+Option C: Native windows FSL-MRS (partial function)
+---------------------------------------------------
+Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1. Certain features which rely on an FSL installation (e.g. the :code:`svs_segment` scripts) won't function.
+
 
 Verifying the installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

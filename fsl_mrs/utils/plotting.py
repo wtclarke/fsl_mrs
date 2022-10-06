@@ -1314,11 +1314,12 @@ def plotly_dynMRS(mrs_list,
     # Add traces, one for each slider step
     for name in ydata:
         for i, t in enumerate(time_var):
+            t_str = np.array2string(t, floatmode='fixed', precision=1)
             fig.add_trace(
                 go.Scatter(
                     visible=False,
                     line=dict(color=colors[name], width=1),
-                    name=f"{name} - {t}",
+                    name=f"{name} - {t_str}",
                     x=xaxis,
                     y=ydata[name][i]))
 
@@ -1347,11 +1348,12 @@ def plotly_dynMRS(mrs_list,
     # Create and add slider steps
     steps = []
     for i in range(n):
+        t_str = np.array2string(time_var[i], floatmode='fixed', precision=1)
         step = dict(
             method="restyle",
-            label=f"t={time_var[i]}",
+            label=f"t={t_str}",
             args=[{"visible": [False] * len(fig.data)},
-                  {"title": f"time_variable : {time_var[i]}"}])
+                  {"title": f"time_variable : {t_str}"}])
 
         for j in range(len(ydata)):
             step["args"][0]["visible"][i + j * n] = True
