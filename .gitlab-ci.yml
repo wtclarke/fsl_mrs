@@ -9,10 +9,13 @@
 #
 #    2. test:      Unit tests
 #
-#    3. doc:       Building user documentation which appears at:
+#    3. validate:  Fitting validation and upload fo test results
+#                  to https://github.com/wtclarke/lcm_validation/
+#
+#    4. doc:       Building user documentation which appears at:
 #                  https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/
 #
-#    4. build
+#    5. build
 #       & deploy:  Build conda package in three stages fsl-ci-pre,
 #                  fsl-ci-build, fsl-ci-deploy (fsl-ci-test is not
 #                  used in this repository).
@@ -38,6 +41,7 @@ include:
 stages:
   - style
   - test
+  - validate
   - doc
   - fsl-ci-pre
   - fsl-ci-build
@@ -47,11 +51,37 @@ stages:
 ####################################
 # These anchors are used to restrict
 # when and where jobs are executed.
+# Copied from the fsl/fsleyes yaml file.
 ####################################
 
 .except_releases: &except_releases
   except:
     - tags
+
+.test_rules: &test_rules
+  rules:
+    # Releases are just tags on a release
+    # branch, so we don't need to test them.
+    - if:   '$CI_COMMIT_TAG != null'
+      when: never
+    # Don't test if  "[skip-tests]"
+    # is in the commit message
+    - if:   '$CI_COMMIT_MESSAGE =~ /\[skip-tests\]/'
+      when: never
+    - if:   '$CI_PIPELINE_SOURCE == "push"'
+      when: on_success
+
+.validate_rules: &validate_rules
+  rules:
+    # Validate on tag / release in upstream (fsl/fsl_mrs) repo
+    - if:   ( $CI_COMMIT_TAG != null ) && ( $CI_PROJECT_PATH == "fsl/fsl_mrs" )
+      when: on_success
+    # if  "[validate]" is in the commit message
+    # AND it is to the forked (wclarke/fsl_mrs) repo
+    # AND the branch isn't master
+    - if:   ($CI_COMMIT_MESSAGE =~ /\[validate\]/ ) && ( $CI_PROJECT_PATH == "wclarke/fsl_mrs" ) && ($CI_COMMIT_BRANCH != "master")
+      when: on_success
+
 
 # ############
 # # 1. style 
@@ -73,7 +103,7 @@ flake8:
 ############
 
 pytest:
-  <<: *except_releases
+  <<: *test_rules
   image: wtclarke/fsl_mrs_tests:2.0
   stage: test
   variables:
@@ -81,7 +111,7 @@ pytest:
   before_script:
   - conda init bash
   - source ~/.bashrc 
-  - conda create -n fsl_mrs -y python=3.7
+  - conda create -n fsl_mrs -c conda-forge -y python=3.8
   - conda activate fsl_mrs
   - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
   - conda install -y -c conda-forge pytest
@@ -91,7 +121,50 @@ pytest:
   - pytest fsl_mrs/denmatsim/tests
 
 ############
-# 3. doc 
+# 3. Validate 
+############
+
+fit-validate:
+  <<: *validate_rules
+  image: wtclarke/fsl_mrs_tests:2.0
+  stage: validate
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+    DEPLOY_CURL_COMMAND_BODY: "'{\"title\":\"New FSL-MRS version\",\"body\":\"Version $CI_COMMIT_TAG \",\"head\":\"fsl_mrs_updates\",\"base\":\"main\"}'"
+    DEPLOY_CURL_COMMAND: 'curl -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_PAT" https://api.github.com/repos/wtclarke/lcm_validation/pulls -d $DEPLOY_CURL_COMMAND_BODY'
+  before_script:
+  - conda init bash
+  - source ~/.bashrc 
+  - conda create -n fsl_mrs -c conda-forge -y python=3.8
+  - conda activate fsl_mrs
+  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
+  - pip install .
+  # Setup ssh communication with the github instance
+  # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor
+  - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - echo "$LCM_VALIDATION_KEY" | tr -d '\r' | ssh-add -
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+  # Install CURL
+  - apt-get -y install curl
+
+  script:
+  - git clone git@github.com:wtclarke/lcm_validation.git
+  - cd lcm_validation
+  - git config --global user.name "wtclarke"
+  - git config --global user.email "william.clarke@ndcn.ox.ac.uk"
+  - git checkout -b fsl_mrs_updates main
+  - cd ..
+  - python validation/mrs_challenge.py --mh_samples 20 lcm_validation/results
+  - cd lcm_validation
+  - git add *
+  - git commit -m "Results for FSL-MRS $CI_COMMIT_TAG"
+  - git push origin fsl_mrs_updates
+  - 'eval "$DEPLOY_CURL_COMMAND"'
+############
+# 4. doc 
 ############
 
 pages:
