@@ -12,7 +12,7 @@ from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
-from fsl_mrs.utils import models
+from fsl_mrs import models
 from pathlib import Path
 
 

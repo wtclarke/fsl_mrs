@@ -8,7 +8,7 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-from fsl_mrs.utils import models
+from fsl_mrs import models
 from fsl_mrs.utils.constants import NOISE_REGION
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
 from fsl_mrs.core import MRS

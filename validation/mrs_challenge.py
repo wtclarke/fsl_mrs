@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pandas as pd
 
-import fsl_mrs
 from fsl_mrs.utils.example import simulated
 from fsl_mrs.utils.quantify import QuantificationInfo
 
@@ -63,6 +62,10 @@ def main():
 
     parser.add_argument('output', type=Path, metavar='DIR',
                         help='Output dir')
+
+    parser.add_argument('version', type=str, metavar='VER',
+                        help='FSL-MRS version')
+
     parser.add_argument('--mh_samples', type=int, default=500,
                         help='Number of MH samples (default = 500')
 
@@ -94,9 +97,10 @@ def main():
     all_res_n = pd.concat(results_n, keys=range(1, to_run), axis=1)
     all_res_mh = pd.concat(results_mh, keys=range(1, to_run), axis=1)
 
-    out_str = fsl_mrs.__version__.replace('.', '_')
+    out_str = args.version.replace('.', '_')
     all_res_n.to_csv(args.output / 'fsl_mrs_newton' / f'{out_str}.gz')
     all_res_mh.to_csv(args.output / 'fsl_mrs_mh' / f'{out_str}.gz')
+
 
 if __name__ == '__main__':
     main()
