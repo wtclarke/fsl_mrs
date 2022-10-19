@@ -1198,10 +1198,17 @@ def plot_table_lineshape_phase(res):
 
     # Get phase params
     p0, p1 = res.getPhaseParams(phi0='degrees', phi1='deg_per_ppm')
+    _, p1_s = res.getPhaseParams(phi0='degrees', phi1='seconds')
+    p1_ms = p1_s * 1000
+    p1_pts = p1_s / (1 / res.bandwidth)
+
     # Fill dataframe
     df2 = pd.DataFrame()
     df2['Static phase (deg)'] = [np.round(p0, decimals=5)]
     df2['Linear phase (deg/ppm)'] = [np.round(p1, decimals=5)]
+    df2['Linear phase (ms)'] = [np.round(p1_ms, decimals=3)]
+    df2['Linear phase (pnts)'] = [np.round(p1_pts, decimals=2)]
+
     # create table
     tab2 = create_table(df2)
 
