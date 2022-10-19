@@ -2,6 +2,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 2.0.7 (Wednesday 19th October 2022)
 -----------------------------------
+- Added linear phase modulation to phasing processing tool, alternative to (interpolated) time domain time-shift
 - Refactored fitting models. 'Freeshift' model added to enable unconstrained frequency shifts.
 
 2.0.6 (Monday 17th October 2022)

@@ -235,7 +235,7 @@ def test_apply_fixed_phase():
 
     assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
     assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
-        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.apply_fixed_phase, p0=180.0, p1=0.001.'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.apply_fixed_phase, p0=180.0, p1=0.001, p1_type=shift.'
 
 
 def test_subtract():

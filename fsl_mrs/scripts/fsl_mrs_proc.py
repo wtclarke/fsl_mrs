@@ -294,6 +294,10 @@ def main():
                               default=0.0,
                               metavar='<seconds>',
                               help='First order phase (seconds)')
+    fphase_group.add_argument('--p1_type', type=str,
+                              choices=['shift', 'linphase'],
+                              default='shift',
+                              help='Apply first order phase as timeshift or linear phase')
     fixphaseparser.set_defaults(func=fixed_phase)
     add_common_args(fixphaseparser)
 
@@ -691,6 +695,7 @@ def fixed_phase(dataobj, args):
     phased = preproc.apply_fixed_phase(dataobj.data,
                                        args['p0'],
                                        p1=args['p1'],
+                                       p1_type=args['p1_type'],
                                        report=args['generateReports'],
                                        report_all=args['allreports'])
 

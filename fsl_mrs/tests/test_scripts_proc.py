@@ -649,6 +649,24 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
 
     assert np.allclose(data[:], directRun[:])
 
+    # Run with linphase
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fixed_phase',
+                           '--file', svsfile,
+                           '--p0', '90',
+                           '--p1', '0.001',
+                           '--p1_type', 'linphase',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.apply_fixed_phase(svsdata, 90, 0.001, p1_type='linphase')
+
+    assert np.allclose(data[:], directRun[:])
+
     # Run coil combination on both sets of data using the command line
     subprocess.check_call(['fsl_mrs_proc',
                            'fixed_phase',

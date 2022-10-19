@@ -881,12 +881,13 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
     return phs_obj
 
 
-def apply_fixed_phase(data, p0, p1=0.0, figure=False, report=None, report_all=False):
+def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=None, report_all=False):
     '''Apply fixed phase correction
 
     :param NIFTI_MRS data: Data to truncate or pad
     :param float p0: Zero order phase correction in degrees
-    :param float p0: First order phase correction in seconds
+    :param float p1: First order phase correction in seconds
+    :param str p1_type: 'shift' for interpolated time-shift, 'linphase' for frequency-domain phasing.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
@@ -899,12 +900,20 @@ def apply_fixed_phase(data, p0, p1=0.0, figure=False, report=None, report_all=Fa
                                           p0 * (np.pi / 180.0))
 
         if p1 != 0.0:
-            phs_obj[idx], _ = preproc.timeshift(
-                phs_obj[idx],
-                data.dwelltime,
-                p1,
-                p1,
-                samples=data.shape[3])
+            if p1_type.lower() == 'shift':
+                phs_obj[idx], _ = preproc.timeshift(
+                    phs_obj[idx],
+                    data.dwelltime,
+                    p1,
+                    p1,
+                    samples=data.shape[3])
+            elif p1_type.lower() == 'linphase':
+                phs_obj[idx] = preproc.applyLinPhase(
+                    phs_obj[idx],
+                    data.mrs()[0].getAxes(axis='freq'),
+                    p1)
+            else:
+                raise ValueError("p1_type kwarg must be 'shift' or 'linphase'.")
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.general import generic_report
@@ -924,7 +933,8 @@ def apply_fixed_phase(data, p0, p1=0.0, figure=False, report=None, report_all=Fa
     # Update processing prov
     processing_info = f'{__name__}.apply_fixed_phase, '
     processing_info += f'p0={p0}, '
-    processing_info += f'p1={p1}.'
+    processing_info += f'p1={p1}, '
+    processing_info += f'p1_type={p1_type}.'
 
     update_processing_prov(phs_obj, 'Phasing', processing_info)
 
