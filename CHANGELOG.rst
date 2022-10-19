@@ -1,5 +1,14 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.7 (Wednesday 19th October 2022)
+-----------------------------------
+- Refactored fitting models. 'Freeshift' model added to enable unconstrained frequency shifts.
+
+2.0.6 (Monday 17th October 2022)
+--------------------------------
+- New CI validation stage that publishes to https://wtclarke.github.io/lcm_validation/index.html
+- Fix bug in simulator code that stopped spatially resolved simulations running.
+
 2.0.5 (Wednesday 5th October 2022)
 ----------------------------------
 - Added specific `--fmrs` flag to fsl_mrs_preproc. This causes more sensible handling of data that isn't averaged e.g. not using data driven phase correction for each transient.

@@ -16,7 +16,8 @@ from pathlib import Path
 import pickle
 import json
 
-from fsl_mrs.utils import models, fitting
+from fsl_mrs.utils import fitting
+from fsl_mrs import models
 from . import variable_mapping as varmap
 from . import dyn_results
 from fsl_mrs.utils.results import FitRes

@@ -19,7 +19,7 @@ from plotly import tools
 from fsl.data.image import Image
 from fsl_mrs.utils import mrs_io
 from fsl.transform.affine import transform
-from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, limit_to_range
+from fsl_mrs.utils.misc import FIDToSpec, limit_to_range
 
 
 def FID2Spec(x):
@@ -430,7 +430,8 @@ def plotly_spectrum(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0
     if metabs is not None:
         preds = []
         for m in metabs:
-            preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
+            # preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
+            preds.append(FID2Spec(res.predictedFID(mrs, mode=m, noBaseline=True)))
         preds = sum(preds)
         preds += FID2Spec(res.baseline)
         resid = data - preds
@@ -548,7 +549,8 @@ def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0))
     if metabs is not None:
         preds = []
         for m in metabs:
-            preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
+            preds.append(FID2Spec(res.predictedFID(mrs, mode=m, noBaseline=True)))
+            # preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
         preds = sum(preds)
         preds += FID2Spec(res.baseline)
         resid = data - preds
@@ -932,41 +934,6 @@ def plot_real_imag(mrs, res, ppmlim=(.2, 4.2)):
     return fig
 
 
-def pred(mrs, res, metab, add_baseline=True):
-    from fsl_mrs.utils import models
-
-    if res.model == 'lorentzian':
-        forward = models.FSLModel_forward      # forward model
-
-        con, gamma, eps, phi0, phi1, b = models.FSLModel_x2param(res.params, mrs.numBasis, res.g)
-        c = con[mrs.names.index(metab)].copy()
-        con = 0 * con
-        con[mrs.names.index(metab)] = c
-        x = models.FSLModel_param2x(con, gamma, eps, phi0, phi1, b)
-
-    elif res.model == 'voigt':
-        forward = models.FSLModel_forward_Voigt  # forward model
-
-        con, gamma, sigma, eps, phi0, phi1, b = models.FSLModel_x2param_Voigt(res.params, mrs.numBasis, res.g)
-        c = con[mrs.names.index(metab)].copy()
-        con = 0 * con
-        con[mrs.names.index(metab)] = c
-        x = models.FSLModel_param2x_Voigt(con, gamma, sigma, eps, phi0, phi1, b)
-    else:
-        raise Exception('Unknown model.')
-
-    if add_baseline:
-        pred = forward(x, mrs.frequencyAxis,
-                       mrs.timeAxis,
-                       mrs.basis, res.base_poly, res.metab_groups, res.g)
-    else:
-        pred = forward(x, mrs.frequencyAxis,
-                       mrs.timeAxis,
-                       mrs.basis, np.zeros(res.base_poly.shape), res.metab_groups, res.g)
-    pred = SpecToFID(pred)  # predict FID not Spec
-    return pred
-
-
 def plot_indiv_stacked(mrs, res, ppmlim=(.2, 4.2)):
 
     colors = dict(data='rgb(67,67,67)',
@@ -983,7 +950,8 @@ def plot_indiv_stacked(mrs, res, ppmlim=(.2, 4.2)):
     fig.add_trace(trace1)
 
     for i, metab in enumerate(mrs.names):
-        y_fit = np.real(FID2Spec(pred(mrs, res, metab)))
+        # y_fit = np.real(FID2Spec(pred(mrs, res, metab)))
+        y_fit = np.real(FID2Spec(res.predictedFID(mrs, mode=metab)))
         trace2 = go.Scatter(x=axis, y=y_fit,
                             mode='lines',
                             name=metab,
@@ -1207,8 +1175,15 @@ def plot_table_lineshape_phase(res):
     header = ['Metab group', 'linewidth (Hz)', 'shift (ppm)']
     values = [[], [], []]
     for g in range(res.g):
-        values[1].append(np.round(lw[g], decimals=3))
-        values[2].append(np.round(shift[g], decimals=5))
+        values[1].append(np.round(lw[g], decimals=5))
+        if res.model == 'free_shift':
+            shift_groups = []
+            for i, _ in enumerate(res.original_metabs):
+                if res.metab_groups[i] == g:
+                    shift_groups.append(str(np.round(shift[i], decimals=3)))
+            values[2].append(', '.join(shift_groups))
+        else:
+            values[2].append(np.round(shift[g], decimals=3))
         metabs = []
         for i, m in enumerate(res.original_metabs):
             if res.metab_groups[i] == g:

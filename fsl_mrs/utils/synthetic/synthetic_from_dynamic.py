@@ -8,7 +8,7 @@
 
 from fsl_mrs.core import MRS
 from fsl_mrs import dynamic
-from fsl_mrs.utils.models import getModelFunctions, FSLModel_vars
+from fsl_mrs.models import getModelFunctions, FSLModel_vars
 from fsl_mrs.utils.synthetic.synthetic_from_basis import prep_mrs_for_synthetic, synthetic_from_fwd_model
 import numpy as np
 

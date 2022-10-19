@@ -12,7 +12,7 @@ import json
 import pandas as pd
 import numpy as np
 
-import fsl_mrs.utils.models as models
+import fsl_mrs.models as models
 import fsl_mrs.utils.quantify as quant
 import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
@@ -373,12 +373,16 @@ class FitRes(object):
 
         for i in range(g):
             self.params_names.append(f'gamma_{i}')
-        if self.model.lower() == 'voigt':
+        if self.model.lower() in ['voigt', 'free_shift']:
             for i in range(g):
                 self.params_names.append(f'sigma_{i}')
 
-        for i in range(g):
-            self.params_names.append(f"eps_{i}")
+        if self.model.lower() == 'free_shift':
+            for i in range(len(names)):
+                self.params_names.append(f"eps_{i}")
+        else:
+            for i in range(g):
+                self.params_names.append(f"eps_{i}")
 
         self.params_names.extend(['Phi0', 'Phi1'])
 
@@ -637,13 +641,17 @@ class FitRes(object):
 
     def getShiftParams(self, units='ppm', function='mean'):
         """ Return shift parameters (eps) in specified units - default = ppm."""
+        if self.model == 'free_shift':
+            iter_range = range(len(self.original_metabs))
+        else:
+            iter_range = range(self.g)
         if function is None:
-            shiftParams = np.zeros([self.fitResults.shape[0], self.g])
-            for g in range(self.g):
+            shiftParams = np.zeros([self.fitResults.shape[0], len(iter_range)])
+            for g in iter_range:
                 shiftParams[:, g] = self.fitResults[f'eps_{g}'].values
         else:
             shiftParams = []
-            for g in range(self.g):
+            for g in iter_range:
                 shiftParams.append(self.fitResults[f'eps_{g}'].apply(function))
             shiftParams = np.asarray(shiftParams)
 
@@ -681,7 +689,7 @@ class FitRes(object):
                 raise ValueError('Units must be Hz, ppm or raw.')
             combined = gamma
             return combined, gamma
-        elif self.model == 'voigt':
+        elif self.model in ['voigt', 'free_shift']:
             if function is None:
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
                 sigma = np.zeros([self.fitResults.shape[0], self.g])
