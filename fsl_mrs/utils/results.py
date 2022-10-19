@@ -122,6 +122,7 @@ class FitRes(object):
             self.vb_corr = self.vb_cov / (std[:, np.newaxis] * std[np.newaxis, :])
 
         self.hzperppm = mrs.centralFrequency / 1E6
+        self.bandwidth = mrs.bandwidth
 
         # Calculate QC metrics
         if runqc:

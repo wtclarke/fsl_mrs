@@ -10,7 +10,7 @@
 
 import numpy as np
 from fsl_mrs.core import MRS
-from fsl_mrs.utils.misc import extract_spectrum, checkCFUnits
+from fsl_mrs.utils.misc import extract_spectrum, checkCFUnits, FIDToSpec, SpecToFID
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
 
@@ -20,6 +20,13 @@ def applyPhase(FID, phaseAngle):
     Multiply FID by constant phase
     """
     return FID * np.exp(1j * phaseAngle)
+
+
+def applyLinPhase(FID, frequency_axis, time):
+    """
+    Multiply spectrum by linear phase
+    """
+    return SpecToFID(FIDToSpec(FID) * np.exp(1j * 2 * np.pi * frequency_axis * time))
 
 
 def phaseCorrect(FID, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True, use_hlsvd=False):
