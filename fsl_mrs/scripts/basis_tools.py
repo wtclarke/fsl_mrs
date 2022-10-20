@@ -99,6 +99,21 @@ def main():
                              help='Output location, can overwrite.')
     shiftparser.set_defaults(func=shift)
 
+    # Shift all peaks based on results
+    shiftparser = sp.add_parser(
+        'shift_all',
+        help='ADVANCED: Frequency shift all basis spectra using fit results. '
+             'This should only be carried out using high SNR population/cohort average data.')
+    shiftparser.add_argument('file', type=Path,
+                             help='Basis file to modify')
+    shiftparser.add_argument('results_dir', type=Path,
+                             help='Path to fit results dir. '
+                                  'Fit model must be free_shift. '
+                                  'Basis set metabolites must be identical.')
+    shiftparser.add_argument('output', type=Path,
+                             help='Output location, can overwrite.')
+    shiftparser.set_defaults(func=all_shift)
+
     # Rescale tool
     scaleparser = sp.add_parser(
         'scale',
@@ -323,6 +338,21 @@ def shift(args):
             basis = basis_tools.shift_basis(basis, name, args.ppm_shift)
     else:
         basis = basis_tools.shift_basis(basis, args.metabolite, args.ppm_shift)
+
+    basis.save(args.output, overwrite=True)
+
+
+def all_shift(args):
+    from fsl_mrs.utils import basis_tools
+    from fsl_mrs.utils.mrs_io import read_basis
+    import pandas as pd
+    import numpy as np
+
+    basis = read_basis(args.file)
+    all_results = pd.read_csv(args.results_dir / 'all_parameters.csv', index_col=0)
+    shift_res = all_results.filter(regex='eps', axis=0)['mean'] / (2 * np.pi * basis.cf)
+    for name, shift in zip(basis.names, shift_res.to_list()):
+        basis = basis_tools.shift_basis(basis, name, shift)
 
     basis.save(args.output, overwrite=True)
 
