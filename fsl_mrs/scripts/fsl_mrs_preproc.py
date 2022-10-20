@@ -214,10 +214,14 @@ def main():
                                                           report=report_dir)
         if bd_data is None:
             bd_shape = 0
+        elif bd_data.ndim == 4:
+            bd_shape = 1
         else:
             bd_shape = bd_data.shape[4]
         if supp_data is None:
             supp_shape = 0
+        elif supp_data.ndim == 4:
+            supp_shape = 1
         else:
             supp_shape = supp_data.shape[4]
         verbose_print(f'{bd_shape}/{supp_shape + bd_shape} '
