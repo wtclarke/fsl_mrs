@@ -1,10 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.7 (Wednesday 19th October 2022)
+2.0.7 (Thursday 20th October 2022)
 -----------------------------------
 - Added linear phase modulation to phasing processing tool, alternative to (interpolated) time domain time-shift
 - Added more linear phase metrics to static fitting report.
 - Refactored fitting models. 'Freeshift' model added to enable unconstrained frequency shifts.
+- Added `basis_tools shift_all` command that can be used to tweak basis set based on a `freeshift` fit on high SNR data.
+- Fix bug introduced in 2.0.5 in `fsl_mrs_preproc` where there was exactly one bad/good transient removed/kept.
 
 2.0.6 (Monday 17th October 2022)
 --------------------------------
