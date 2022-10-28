@@ -154,6 +154,7 @@ def main():
     import shutil
     import json
     import warnings
+    import re
     import matplotlib
     matplotlib.use('agg')
     from fsl_mrs.utils import mrs_io
@@ -214,6 +215,20 @@ def main():
         H2O = mrs_io.read_FID(args.h2o)
     else:
         H2O = None
+
+    # Check for default MM and appropriate use of metabolite groups
+    default_mm_name = re.compile(r'MM\d{2}')
+    default_mm_matches = list(filter(default_mm_name.match, basis.names))
+    if args.metab_groups == 0:
+        default_mm_mgroups = []
+    else:
+        default_mm_mgroups = list(filter(default_mm_name.match, args.metab_groups))
+    if len(default_mm_matches) > 0\
+            and len(default_mm_mgroups) != len(default_mm_matches):
+        print(f'Default macromolecules ({", ".join(default_mm_matches)}) are present in the basis set.')
+        print('However they are not all listed in the --metab_groups.')
+        print('It is recommended that all default MM are assigned their own group.')
+        print(f'E.g. Use --metab_groups {" ".join(default_mm_matches)}')
 
     # Instantiate MRS object
     mrs = FID.mrs(basis=basis,
