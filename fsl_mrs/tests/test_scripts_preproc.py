@@ -32,6 +32,7 @@ def test_preproc(tmp_path):
          '--quant', wrefq,
          '--ecc', ecc,
          '--t1', t1,
+         '--align_limits', '0.5', '4.0',
          '--hlsvd',
          '--leftshift', '1',
          '--overwrite',

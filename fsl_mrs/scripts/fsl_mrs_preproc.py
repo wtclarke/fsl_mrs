@@ -55,6 +55,13 @@ def main():
                           help='Do not remove unlike averages.')
     optional.add_argument('--noaverage', action="store_false", dest='average',
                           help='Do not average repetitions.')
+    optional.add_argument(
+        '--align_limits',
+        type=float,
+        nargs=2,
+        metavar=('<lower-limit>', '<upper-limit>'),
+        default=(0.2, 4.2),
+        help='ppm limits of alignment window (default=0.2->4.2)')
     optional.add_argument('--hlsvd', action="store_true",
                           help='Apply HLSVD for residual water removal.')
     optional.add_argument('--leftshift', type=int, metavar='POINTS',
@@ -201,7 +208,7 @@ def main():
             ecc_data = nifti_mrs_proc.coilcombine(ecc_data, reference=avg_ref_data)
 
     verbose_print('... Align Dynamics (1st iteration) ...')
-    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=(0, 4.2), report=report_dir)
+    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=args.align_limits, report=report_dir)
 
     # Bad average removal on the suppressed data
     if args.unlike:
@@ -229,7 +236,7 @@ def main():
 
     # Frequency and phase align the FIDs
     verbose_print('... Align Dynamics (2nd iteration) ...')
-    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=(0, 4.2), report=report_dir)
+    supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=args.align_limits, report=report_dir)
 
     if 'DIM_DYN' in ref_data.dim_tags:
         ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
