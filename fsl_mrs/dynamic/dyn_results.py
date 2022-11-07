@@ -396,11 +396,18 @@ class dynRes:
         return df_dict
 
     # Plotting
-    def plot_mapped(self, tvals=None, fit_to_init=False):
+    def plot_mapped(self, tvals=None, fit_to_init=False, ground_truth=None):
         """Plot each mapped parameter across time points
 
+        :param tvals: 'time' values on x axis, defaults to None / those stored in results object
+        :type tvals: list, optional
         :param fit_to_init: Plot the mapped parameters as per initilisation, defaults to False
         :type fit_to_init: bool, optional
+        :param ground_truth: If a ground truth exists (from simulation) plot the mapped aprametes 
+            as calculated from this vector, defaults to None
+        :type ground_truth: numpy.array, optional
+        :return: Figure object
+        :rtype: matplotlib.pyplot.figure.Figure
         """
 
         init_params = self.init_mapped_parameters_array
@@ -410,17 +417,30 @@ class dynRes:
         names = self.mapped_names
         if tvals is None:
             tvals = self._time_index_1d()
+        if ground_truth is not None:
+            gtval = self._dyn.vm.free_to_mapped(ground_truth)
+        else:
+            gtval = np.empty(len(names), dtype=object)
 
         # Plot the lot
         row, col = subplot_shape(len(names))
 
         fig, axes = plt.subplots(row, col, figsize=(20, 20))
-        for ax, p_init, p_fit_init, p_dyn, p_dyn_sd, paramname \
-                in zip(axes.flatten(), init_params.T, fitted_init_params.T, dyn_params.T, dyn_params_sd.T, names):
+        for ax, p_init, p_fit_init, p_dyn, p_dyn_sd, gt, paramname \
+                in zip(
+                    axes.flatten(),
+                    init_params.T,
+                    fitted_init_params.T,
+                    dyn_params.T,
+                    dyn_params_sd.T,
+                    gtval.T,
+                    names):
             ax.plot(tvals, p_init, 'o', label='init')
+            ax.errorbar(tvals, p_dyn, yerr=p_dyn_sd, fmt='-', label='dyn')
             if fit_to_init:
                 ax.plot(tvals, p_fit_init, ':', label='fit to init')
-            ax.errorbar(tvals, p_dyn, yerr=p_dyn_sd, fmt='-', label='dyn')
+            if gt is not None:
+                ax.plot(tvals, gt, 'k--', label='Ground Truth')
             ax.set_title(paramname)
             handles, labels = ax.get_legend_handles_labels()
         fig.legend(handles, labels, loc='right')

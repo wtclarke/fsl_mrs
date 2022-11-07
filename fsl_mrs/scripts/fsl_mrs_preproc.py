@@ -277,6 +277,13 @@ def main():
     if args.quant is not None:
         quant_data = nifti_mrs_proc.ecc(quant_data, quant_data)
 
+    if args.leftshift:
+        verbose_print('... Truncation ...')
+        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
+        if args.quant is not None:
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
+
     # HLSVD
     if args.hlsvd:
         if not args.average:
@@ -285,13 +292,6 @@ def main():
         verbose_print('... Residual water removal ...')
         hlsvdlimits = [-0.25, 0.25]
         supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, limit_units='ppm', report=report_dir)
-
-    if args.leftshift:
-        verbose_print('... Truncation ...')
-        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
-        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
-        if args.quant is not None:
-            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
 
     # Apply shift to reference
     verbose_print('... Shifting tCr to 3.027 ...')

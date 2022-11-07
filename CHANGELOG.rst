@@ -1,10 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.8 (WIP)
------------
+2.0.8 (Monday 7th November)
+---------------------------
 - Added check (and printed suggestion) in `fsl_mrs` and `fsl_mrsi` that default MM are added to appropriate metabolite groups.
 - Added ppm range option to `fsl_mrs_preproc` alignment stage. Use option `--align_limits`.
-
+- Added new initialisation options to dynamic fitting based on free (rather than mapped) parameters.
+- Truncation step in `fsl_mrs_preproc` now happens earlier in series.
 
 2.0.7 (Thursday 20th October 2022)
 -----------------------------------

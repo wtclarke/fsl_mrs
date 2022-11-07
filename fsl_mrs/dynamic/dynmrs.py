@@ -230,6 +230,7 @@ class dynMRS(object):
             method='Newton',
             mh_jumps=600,
             init=None,
+            x0=None,
             verbose=False,
             output_opt_sol=False):
         """Fit the dynamic model
@@ -238,8 +239,10 @@ class dynMRS(object):
         :type method: str, optional
         :param mh_jumps: Number of MH jumps, defaults to 600
         :type mh_jumps: int, optional
-        :param init: Initilisation (x0), defaults to None
+        :param init: Initilisation based on independent fitting approach, defaults to None
         :type init: dict, optional
+        :param x0: Initilisation based on free parameters, defaults to None
+        :type x0: np.array, optional
         :param verbose: Verbosity flag, defaults to False
         :param output_opt_sol: Output the scipy solution object (for debugging), defaults to False
         :type output_opt_sol: bool, optional
@@ -251,9 +254,14 @@ class dynMRS(object):
             print('Start fitting')
             start_time = time.time()
 
-        if init is None:
+        if init is None \
+                and x0 is None:
             init = self.initialise(verbose=verbose)
-        x0 = self.vm.mapped_to_free(init['x'])
+
+        if x0 is None:
+            x0 = self.vm.mapped_to_free(init['x'])
+        else:
+            init = {'x': self.vm.free_to_mapped(x0)}
 
         # MCMC or Newton
         if method.lower() == 'newton':
