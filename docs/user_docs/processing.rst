@@ -79,6 +79,7 @@ Optionally the user may specify any of the following:
 - `--ecc`: Data to be used for eddy current correction
 - `--hlsvd`: Apply HLSVD to remove residual water
 - `--leftshift POINTS`: Truncate FID at start by POINTS.
+- `--align_limits`: Select spectral window (in ppm) to run phase/frequency alignment over.
 
 The :code:`--ecc` option should be used to provide water reference data for eddy current correction. I.e. the data has experienced all gradients that the primary water suppressed data has. Conversely the :code:`--quant` option should be used to provide water reference data purely for final water reference scaling. The water reference data provided using the :code:`--reference` option will always be used for coil combination (if required) and if :code:`--quant` or :code:`--ecc` haven't been specified it will be used for quantification and ECC respectively.
 

@@ -135,6 +135,7 @@ def main():
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import os
     import shutil
+    import re
     import numpy as np
     from fsl_mrs.utils import report
     from fsl_mrs.core import NIFTI_MRS
@@ -177,7 +178,23 @@ def main():
     else:
         H2O = None
 
-    mrsi = mrsi_data.mrs(basis_file=args.basis,
+    basis = mrs_io.read_basis(args.basis)
+
+    # Check for default MM and appropriate use of metabolite groups
+    default_mm_name = re.compile(r'MM\d{2}')
+    default_mm_matches = list(filter(default_mm_name.match, basis.names))
+    if args.metab_groups == 0:
+        default_mm_mgroups = []
+    else:
+        default_mm_mgroups = list(filter(default_mm_name.match, args.metab_groups))
+    if len(default_mm_matches) > 0\
+            and len(default_mm_mgroups) != len(default_mm_matches):
+        print(f'Default macromolecules ({", ".join(default_mm_matches)}) are present in the basis set.')
+        print('However they are not all listed in the --metab_groups.')
+        print('It is recommended that all default MM are assigned their own group.')
+        print(f'E.g. Use --metab_groups {" ".join(default_mm_matches)}')
+
+    mrsi = mrsi_data.mrs(basis=basis,
                          ref_data=H2O)
 
     def loadNii(f):

@@ -25,6 +25,7 @@ def test_fsl_mrsi(tmp_path):
                            '--data', data['metab'],
                            '--basis', data['basis'],
                            '--output', str(tmp_path / 'fit_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
                            '--h2o', data['water'],
                            '--TE', '30',
                            '--TR', '2.0',
@@ -59,6 +60,31 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
     assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()
     assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
+
+
+def test_default_mm_warning(tmp_path, capfd):
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_out'),
+                           '--h2o', data['water'],
+                           '--TE', '30',
+                           '--TR', '2.0',
+                           '--mask', data['mask'],
+                           '--tissue_frac',
+                           data['seg_wm'],
+                           data['seg_gm'],
+                           data['seg_csf'],
+                           '--output_correlations',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr'])
+    out, _ = capfd.readouterr()
+    assert out == (
+        'Default macromolecules (MM09, MM12, MM14, MM17, MM21) are present in the '
+        'basis set.\n'
+        'However they are not all listed in the --metab_groups.\n'
+        'It is recommended that all default MM are assigned their own group.\n'
+        'E.g. Use --metab_groups MM09 MM12 MM14 MM17 MM21\n')
 
 
 def test_fsl_mrsi_noh2o(tmp_path):

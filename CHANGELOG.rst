@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.8 (WIP)
+-----------
+- Added check (and printed suggestion) in `fsl_mrs` and `fsl_mrsi` that default MM are added to appropriate metabolite groups.
+- Added ppm range option to `fsl_mrs_preproc` alignment stage. Use option `--align_limits`.
+
+
 2.0.7 (Thursday 20th October 2022)
 -----------------------------------
 - Added linear phase modulation to phasing processing tool, alternative to (interpolated) time domain time-shift
