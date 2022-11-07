@@ -403,7 +403,7 @@ class dynRes:
         :type tvals: list, optional
         :param fit_to_init: Plot the mapped parameters as per initilisation, defaults to False
         :type fit_to_init: bool, optional
-        :param ground_truth: If a ground truth exists (from simulation) plot the mapped aprametes 
+        :param ground_truth: If a ground truth exists (from simulation) plot the mapped parameters
             as calculated from this vector, defaults to None
         :type ground_truth: numpy.array, optional
         :return: Figure object
