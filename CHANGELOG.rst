@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.0.9 (Monday 21st November)
+----------------------------
+- `svs_segment` and `mrsi_segment` now normalise all voxel sums to 1.0
+
+
 2.0.8 (Monday 7th November)
 ---------------------------
 - Added check (and printed suggestion) in `fsl_mrs` and `fsl_mrsi` that default MM are added to appropriate metabolite groups.
