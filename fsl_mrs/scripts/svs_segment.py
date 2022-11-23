@@ -40,6 +40,11 @@ def main():
     parser.add_argument('-m', '--mask_only', action="store_true",
                         help='Only perform masking stage,'
                              ' do not run fsl_anat if only T1 passed.')
+    parser.add_argument(
+        '--no_normalisation',
+        action="store_false",
+        dest='normalise',
+        help='Do not normalise output to 1 in all voxels.')
     args = parser.parse_args()
 
     # Imports post argparse
@@ -117,6 +122,13 @@ def main():
         CSF = fslstats(seg_csf).k(flirt_out).m.run()
         GM = fslstats(seg_gm).k(flirt_out).m.run()
         WM = fslstats(seg_wm).k(flirt_out).m.run()
+
+        if args.normalise:
+            sum_val = CSF + GM + WM
+            CSF /= sum_val
+            GM /= sum_val
+            WM /= sum_val
+
         print(f'CSF: {CSF:0.2f}, GM: {GM:0.2f}, WM: {WM:0.2f}.')
         segresults = {'CSF': CSF, 'GM': GM, 'WM': WM}
 

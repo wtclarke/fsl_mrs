@@ -213,7 +213,7 @@ def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=(0.2, 4.2)):
     """ Identify peaks and calculate FWHM of fitted basis spectra
 
     """
-    spectrum = np.real(mrs.get_spec(ppmlim=ppmlim))
+    spectrum = np.abs(np.real(mrs.get_spec(ppmlim=ppmlim)))
     with np.errstate(divide='ignore', invalid='ignore'):
         spectrum /= np.max(spectrum)
 

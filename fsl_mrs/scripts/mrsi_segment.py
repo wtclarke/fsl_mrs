@@ -31,10 +31,15 @@ def main():
                         help='Output directory', default='.')
     parser.add_argument('-f', '--filename', type=str,
                         help='Output file name', default='mrsi_seg')
+    parser.add_argument(
+        '--no_normalisation',
+        action="store_false",
+        dest='normalise',
+        help='Do not normalise output to 1 in all voxels.')
     args = parser.parse_args()
 
     # Imports post argparse:
-    from fsl.wrappers import fsl_anat
+    from fsl.wrappers import fsl_anat, fslmaths
     from fsl.wrappers.fnirt import applywarp
     import numpy as np
     from fsl.data.image import Image
@@ -76,12 +81,36 @@ def main():
 
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
+    csf_output = args.output / (args.filename + '_csf.nii.gz')
+    gm_output = args.output / (args.filename + '_gm.nii.gz')
+    wm_output = args.output / (args.filename + '_wm.nii.gz')
+
     applywarp_func(anat / 'T1_fast_pve_0.nii.gz',
-                   args.output / (args.filename + '_csf.nii.gz'))
+                   csf_output)
     applywarp_func(anat / 'T1_fast_pve_1.nii.gz',
-                   args.output / (args.filename + '_gm.nii.gz'))
+                   gm_output)
     applywarp_func(anat / 'T1_fast_pve_2.nii.gz',
-                   args.output / (args.filename + '_wm.nii.gz'))
+                   wm_output)
+
+    if args.normalise:
+        fslmaths(csf_output)\
+            .add(gm_output)\
+            .add(wm_output)\
+            .run(args.output / 'tmp_sum')
+
+        fslmaths(csf_output)\
+            .div(args.output / 'tmp_sum')\
+            .run(csf_output)
+
+        fslmaths(gm_output)\
+            .div(args.output / 'tmp_sum')\
+            .run(gm_output)
+
+        fslmaths(wm_output)\
+            .div(args.output / 'tmp_sum')\
+            .run(wm_output)
+
+        (args.output / 'tmp_sum.nii.gz').unlink()
 
 
 if __name__ == '__main__':
