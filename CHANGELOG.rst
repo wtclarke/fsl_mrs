@@ -1,9 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.9 (Monday 21st November)
-----------------------------
+2.0.9 (Wednesday 23rd November)
+-------------------------------
 - `svs_segment` and `mrsi_segment` now normalise all voxel sums to 1.0
-
+- QC now correctly estimates FWHM of inverted peaks.
 
 2.0.8 (Monday 7th November)
 ---------------------------
