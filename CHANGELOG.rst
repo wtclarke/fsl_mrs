@@ -1,12 +1,17 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.0.9 (Wednesday 23rd November)
--------------------------------
+2.1.0 (WIP)
+---------------------------------
+- FSL-MRS now uses the nifti-mrs tools python package. mrs_tools superseded by nifti-mrs implementation.
+- Fixed bug in fmrsstats design/contrast matrix specification
+
+2.0.9 (Wednesday 23rd November 2022)
+------------------------------------
 - `svs_segment` and `mrsi_segment` now normalise all voxel sums to 1.0
 - QC now correctly estimates FWHM of inverted peaks.
 
-2.0.8 (Monday 7th November)
----------------------------
+2.0.8 (Monday 7th November 2022)
+--------------------------------
 - Added check (and printed suggestion) in `fsl_mrs` and `fsl_mrsi` that default MM are added to appropriate metabolite groups.
 - Added ppm range option to `fsl_mrs_preproc` alignment stage. Use option `--align_limits`.
 - Added new initialisation options to dynamic fitting based on free (rather than mapped) parameters.

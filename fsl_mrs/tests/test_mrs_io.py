@@ -34,13 +34,13 @@ def test_read_FID_SVS():
     data_txt = mrsio.read_FID(SVSTestData['txt'])
 
     # Check that the data from each of these matches - it should they are all the same bit of data.
-    datamean = np.mean([data_nifti.data,
-                        data_raw.data,
-                        data_txt.data], axis=0)
+    datamean = np.mean([data_nifti[:],
+                        data_raw[:],
+                        data_txt[:]], axis=0)
 
-    assert np.isclose(data_nifti.data, datamean).all()
-    assert np.isclose(data_raw.data, datamean).all()
-    assert np.isclose(data_txt.data, datamean).all()
+    assert np.isclose(data_nifti[:], datamean).all()
+    assert np.isclose(data_raw[:], datamean).all()
+    assert np.isclose(data_txt[:], datamean).all()
 
     # # Check that the headers each contain the required fields
     # for r in headerReqFields:

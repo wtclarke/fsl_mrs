@@ -231,7 +231,7 @@ def main():
     # Save image of MRS voxel
     location_fig = None
     if args.t1 is not None \
-            and mrslist[0].getXFormCode() > 0:
+            and mrslist[0].image.getXFormCode() > 0:
         fig = plotting.plot_world_orient(args.t1, args.data)
         fig.tight_layout()
         location_fig = args.output / 'voxel_location.png'

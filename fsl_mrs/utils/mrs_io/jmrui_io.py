@@ -8,7 +8,7 @@
 import numpy as np
 import re
 import os.path as op
-from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 
 
 def readjMRUItxt_fid(txtfile):
@@ -36,7 +36,7 @@ def readjMRUItxt_fid(txtfile):
 
     data = data.reshape((1, 1, 1) + data.shape)
 
-    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus, dim_tags=dim_tags)
+    return gen_nifti_mrs(data, header['dwelltime'], header['centralFrequency'], nucleus=nucleus, dim_tags=dim_tags)
 
 
 # Read jMRUI .txt files containing basis

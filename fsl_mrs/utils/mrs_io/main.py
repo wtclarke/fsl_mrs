@@ -10,10 +10,12 @@ import re
 
 import numpy as np
 
+from nifti_mrs.nifti_mrs import NotNIFTI_MRS
+
 from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
-from fsl_mrs.core import nifti_mrs  # import NIFTI_MRS, NotNIFTI_MRS
+from fsl_mrs.core import nifti_mrs as fsl_nmrs
 from fsl_mrs.core import basis as bmod
 import fsl.utils.path as fslpath
 
@@ -85,8 +87,8 @@ def read_FID(filename):
         import os
         filename = Path(os.readlink(filename))
     try:
-        return nifti_mrs.NIFTI_MRS(filename)
-    except (nifti_mrs.NotNIFTI_MRS, fslpath.PathError):
+        return fsl_nmrs.NIFTI_MRS(filename)
+    except (NotNIFTI_MRS, fslpath.PathError):
         data_type, id_ext = _check_datatype(Path(filename))
 
     # Handle pathlib Path objects for individual loader interfaces

@@ -10,7 +10,7 @@ import pytest
 import numpy as np
 
 import fsl_mrs.utils.synthetic as syn
-from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.core import basis
 
 testsPath = Path(__file__).parent
@@ -36,7 +36,7 @@ def fixed_ratio_data(tmp_path):
     data = np.stack((fid1, fid2), axis=-1)
 
     data = np.conj(data)
-    nmrs = gen_new_nifti_mrs(
+    nmrs = gen_nifti_mrs(
         data,
         FID1[1]['dwelltime'],
         FID1[1]['centralFrequency'],

@@ -9,7 +9,7 @@ from pathlib import Path
 from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
 from fsl_mrs.utils.preproc import dyn_based_proc as dproc
 from fsl_mrs.utils.mrs_io import read_FID, read_basis
-from fsl_mrs.utils.nifti_mrs_tools import split
+from fsl_mrs.core.nifti_mrs import split
 from fsl_mrs.utils import basis_tools as btools
 
 
