@@ -47,6 +47,7 @@ def test__comb_value():
 
 def test__combine_params():
 
+    metabolites = ['A', 'B', 'C', 'D']
     params = [
         'conc_A_beta0', 'conc_A_beta1', 'conc_A_beta2',
         'conc_B_beta0', 'conc_B_beta1', 'conc_B_beta2',
@@ -60,7 +61,7 @@ def test__combine_params():
     cov_df = pd.DataFrame(cov, columns=params, index=params)
 
     new_vals, new_cov, new_params = \
-        con._combine_params(val_df, cov_df, [['A', 'B']], [])
+        con._combine_params(val_df, cov_df, [['A', 'B']], [], metabolites)
 
     assert all([x in new_vals.columns for x in new_params])
     assert all([x in new_cov.columns for x in new_params])
@@ -75,7 +76,7 @@ def test__combine_params():
         con.Contrast('0-1', ['beta0', 'beta1'], [1, -1])]
 
     new_vals, new_cov, new_params = \
-        con._combine_params(val_df, cov_df, [], contrasts)
+        con._combine_params(val_df, cov_df, [], contrasts, metabolites)
 
     assert all([x in new_vals.columns for x in new_params])
     assert all([x in new_cov.columns for x in new_params])
@@ -89,7 +90,7 @@ def test__combine_params():
         con.Contrast('mean', ['beta0', 'beta1', 'beta2'], [1 / 3, 1 / 3, 1 / 3])]
 
     new_vals, new_cov, new_params = \
-        con._combine_params(val_df, cov_df, [['A', 'B']], contrasts)
+        con._combine_params(val_df, cov_df, [['A', 'B']], contrasts, metabolites)
 
     assert all([x in new_vals.columns for x in new_params])
     assert all([x in new_cov.columns for x in new_params])

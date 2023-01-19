@@ -4,6 +4,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 ----------------------------------
 - FSL-MRS now uses the nifti-mrs tools python package. mrs_tools superseded by nifti-mrs implementation.
 - Fixed bug in fmrs_stats design/contrast matrix specification
+- Fixed bug in fmrs statistics module for metabolites with an underscore in their name.
 
 2.0.9 (Wednesday 23rd November 2022)
 ------------------------------------
