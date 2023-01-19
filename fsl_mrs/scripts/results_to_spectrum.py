@@ -36,7 +36,7 @@ def main():
 
     from fsl_mrs.utils import results, mrs_io, misc
     from fsl_mrs.utils.baseline import prepare_baseline_regressor
-    from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+    from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 
     # output dir - make if it doesn't exist
     if not args.output.exists():
@@ -107,33 +107,36 @@ def main():
     data_out = res.predictedFID(mrs, mode='Full')
     data_out /= mrs.scaling['FID']
     data_out = data_out.reshape((1, 1, 1) + data_out.shape)
-    out = gen_new_nifti_mrs(data_out,
-                            mrs.dwellTime,
-                            mrs.centralFrequency,
-                            nucleus=mrs.nucleus,
-                            affine=FID.voxToWorldMat)
+    out = gen_nifti_mrs(
+        data_out,
+        mrs.dwellTime,
+        mrs.centralFrequency,
+        nucleus=mrs.nucleus,
+        affine=FID.voxToWorldMat)
     out.save(args.output / args.filename)
 
     if args.export_no_baseline:
         data_out = res.predictedFID(mrs, mode='Full', noBaseline=True)
         data_out /= mrs.scaling['FID']
         data_out = data_out.reshape((1, 1, 1) + data_out.shape)
-        out = gen_new_nifti_mrs(data_out,
-                                mrs.dwellTime,
-                                mrs.centralFrequency,
-                                nucleus=mrs.nucleus,
-                                affine=FID.voxToWorldMat)
+        out = gen_nifti_mrs(
+            data_out,
+            mrs.dwellTime,
+            mrs.centralFrequency,
+            nucleus=mrs.nucleus,
+            affine=FID.voxToWorldMat)
         out.save(args.output / (args.filename + '_no_baseline'))
 
     if args.export_baseline:
         data_out = res.predictedFID(mrs, mode='baseline')
         data_out /= mrs.scaling['FID']
         data_out = data_out.reshape((1, 1, 1) + data_out.shape)
-        out = gen_new_nifti_mrs(data_out,
-                                mrs.dwellTime,
-                                mrs.centralFrequency,
-                                nucleus=mrs.nucleus,
-                                affine=FID.voxToWorldMat)
+        out = gen_nifti_mrs(
+            data_out,
+            mrs.dwellTime,
+            mrs.centralFrequency,
+            nucleus=mrs.nucleus,
+            affine=FID.voxToWorldMat)
         out.save(args.output / (args.filename + '_baseline'))
 
     if args.export_separate:
@@ -141,11 +144,12 @@ def main():
             data_out = res.predictedFID(mrs, mode=metab)
             data_out /= mrs.scaling['FID']
             data_out = data_out.reshape((1, 1, 1) + data_out.shape)
-            out = gen_new_nifti_mrs(data_out,
-                                    mrs.dwellTime,
-                                    mrs.centralFrequency,
-                                    nucleus=mrs.nucleus,
-                                    affine=FID.voxToWorldMat)
+            out = gen_nifti_mrs(
+                data_out,
+                mrs.dwellTime,
+                mrs.centralFrequency,
+                nucleus=mrs.nucleus,
+                affine=FID.voxToWorldMat)
             out.save(args.output / (args.filename + f'_{metab}'))
 
 

@@ -12,3 +12,4 @@ pillow
 spec2nii>=0.3.0
 dill
 dash
+nifti-mrs>=0.1.4

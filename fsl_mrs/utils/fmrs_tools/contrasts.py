@@ -67,7 +67,7 @@ def _comb_value(df, parameters, name, scale=None):
         columns=[name])
 
 
-def _combine_params(values, covariance, metabolite_comb, contrasts):
+def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites):
     """Perform the parameter and variance combinations. Combine GLM betas (contrasts) and/or
     metabolite peaks.
 
@@ -84,6 +84,8 @@ def _combine_params(values, covariance, metabolite_comb, contrasts):
     :type metabolite_comb: List
     :param contrasts: List of contrast objects defining which GLM betas to combine linearly
     :type contrasts: List
+    :param metabolites: List of original metabolite names
+    :type metabolites: List
     :return: An expanded dataframe of values, including the combined values
     :rtype: pandas.DataFrame
     :return: Expanded covariance matrix with only the on-diagonals for the combined values populated
@@ -93,11 +95,6 @@ def _combine_params(values, covariance, metabolite_comb, contrasts):
     """
 
     all_params = values.columns.to_list()
-
-    metab_re = re.compile(r'^conc_(.*?)_',)
-
-    metabolites = np.array([metab_re.match(param)[1] for param in all_params if metab_re.match(param)])
-    metabolites = np.unique(metabolites)
 
     metab_beta_dict = {}
     for metab in metabolites:
@@ -206,6 +203,7 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
     if isinstance(results, (dres.dynRes_mcmc, dres.dynRes_newton)):
         value_df = results.dataframe_free
         cov_df = results.cov_free
+        mapped_params = results.mapped_names
     elif isinstance(results, (str, Path)):
         if isinstance(results, str):
             results = Path(results)
@@ -223,12 +221,19 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
             value_df = pd.read_csv(results / 'dyn_results.csv', index_col=0)
             cov_df = pd.read_csv(results / 'dyn_cov.csv', index_col=0)
 
+        mapped_params = pd.read_csv(results / 'mapped_parameters.csv', index_col=0, header=[0, 1]).index
+
+    # Unambiously identify metabolites
+    metab_re = re.compile(r'^conc_(.*)',)
+    metabolites = np.array([metab_re.match(param)[1] for param in mapped_params if metab_re.match(param)])
+
     # Run the combination
     values_out, covariance_out, new_params = _combine_params(
         value_df,
         cov_df,
         metabolites_to_combine,
-        contrasts)
+        contrasts,
+        metabolites)
 
     # Form the summary df as well
     mean_free = values_out.mean()

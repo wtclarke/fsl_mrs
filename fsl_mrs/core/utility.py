@@ -11,8 +11,10 @@ import numpy as np
 from copy import deepcopy
 import fsl.utils.path as fslpath
 
+from nifti_mrs.nifti_mrs import NotNIFTI_MRS
+
 from fsl_mrs.utils import mrs_io
-from fsl_mrs.core.nifti_mrs import NIFTI_MRS, NotNIFTI_MRS
+from fsl_mrs.core.nifti_mrs import NIFTI_MRS
 
 
 def mrs_from_files(FID_file, Basis_file, H2O_file=None):
@@ -29,7 +31,7 @@ def mrs_from_files(FID_file, Basis_file, H2O_file=None):
     FID = mrs_io.read_FID(FID_file)
     basis = mrs_io.read_basis(Basis_file)
     if H2O_file is not None:
-        H2O = mrs_io.read_FID(H2O_file).data
+        H2O = mrs_io.read_FID(H2O_file)
     else:
         H2O = None
 

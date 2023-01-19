@@ -48,20 +48,27 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariace_
     nsubjects = cope.shape[0]
     nparams   = cope.shape[1]
     mats = {}
+
+    def check_2d(mat):
+        if mat.ndim == 1:
+            return np.atleast_2d(mat).T
+        else:
+            return mat
+
     if design_mat is None:
         mats['desmat'] = np.ones((nsubjects, 1))
     else:
-        mats['desmat'] = design_mat
+        mats['desmat'] = check_2d(design_mat)
 
     if contrast_mat is None:
         mats['conmat'] = np.ones((1, 1))
     else:
-        mats['conmat'] = contrast_mat
+        mats['conmat'] = check_2d(contrast_mat)
 
     if covariace_mat is None:
         mats['covmat'] = np.ones((nsubjects, 1))
     else:
-        mats['covmat'] = covariace_mat
+        mats['covmat'] = check_2d(covariace_mat)
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmp = Path(tmpdirname)
@@ -86,18 +93,23 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariace_
             stdout = None
         else:
             stdout = subprocess.DEVNULL
-        _ = subprocess.check_call([
-            'flameo',
-            f'--ld={str(tmp / "logs")}',
-            f'--cope={str(tmp / "cope")}',
-            f'--varcope={str(tmp / "varcope")}',
-            f'--mask={str(tmp / "mask")}',
-            f'--dm={str(tmp / "desmat")}',  # design matrix file
-            f'--tc={str(tmp / "conmat")}',  # file containing matrix specifying the t contrasts
-            f'--cs={str(tmp / "covmat")}',  # file containing matrix specifying the groups the covariance is split into
-            '--runmode=flame1',  # (mixed effects - FLAME stage 1)
-            '--sdof=-1'],
-            stdout=stdout)
+        try:
+            subprocess.run([
+                'flameo',
+                f'--ld={str(tmp / "logs")}',
+                f'--cope={str(tmp / "cope")}',
+                f'--varcope={str(tmp / "varcope")}',
+                f'--mask={str(tmp / "mask")}',
+                f'--dm={str(tmp / "desmat")}',  # design matrix file
+                f'--tc={str(tmp / "conmat")}',  # file containing matrix specifying the t contrasts
+                f'--cs={str(tmp / "covmat")}',  # file containing matrix specifying the covariance groups
+                '--runmode=flame1',  # (mixed effects - FLAME stage 1)
+                '--sdof=-1'],
+                stdout=stdout,
+                check=True)
+        except subprocess.CalledProcessError as exc:
+            print('Error in FSL flameo.')
+            raise exc
 
         # collect results
         p = []

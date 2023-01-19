@@ -10,7 +10,7 @@ import numpy as np
 import os
 import re
 from fsl_mrs.utils.misc import checkCFUnits
-from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 
 
 # Raw file reading
@@ -67,7 +67,7 @@ def read_lcm_raw_h2o(filename):
     data, header = readLCModelRaw(filename)
     data = data.reshape((1, 1, 1) + data.shape)
 
-    return gen_new_nifti_mrs(data, header['dwelltime'], header['centralFrequency'])
+    return gen_nifti_mrs(data, header['dwelltime'], header['centralFrequency'])
 
 
 # Read .RAW basis files

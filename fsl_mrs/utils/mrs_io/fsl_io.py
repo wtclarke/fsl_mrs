@@ -12,7 +12,7 @@ import nibabel as nib
 import os
 import glob
 import re
-import fsl_mrs.core.nifti_mrs as nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from pathlib import Path
 from datetime import datetime
 
@@ -47,17 +47,18 @@ def readNIFTI(datafile):
         else:
             nucleus = '1H'
 
-    return nifti_mrs.gen_new_nifti_mrs(data, dwelltime, spec_freq, nucleus=nucleus, affine=data_hdr.affine)
+    return gen_nifti_mrs(data, dwelltime, spec_freq, nucleus=nucleus, affine=data_hdr.affine)
 
 
 def saveNIFTI(filepath, data, header, affine=None):
     '''Provide translation layer from old interface to new NIFTI_MRS'''
 
-    nifti_mrs.gen_new_nifti_mrs(data,
-                                1 / header['bandwidth'],
-                                header['centralFrequency'],
-                                nucleus=header['ResonantNucleus'],
-                                affine=affine).save(filepath)
+    gen_nifti_mrs(
+        data,
+        1 / header['bandwidth'],
+        header['centralFrequency'],
+        nucleus=header['ResonantNucleus'],
+        affine=affine).save(filepath)
 
 
 # JSON sidecar I/O

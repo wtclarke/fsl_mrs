@@ -35,8 +35,10 @@ def update_processing_prov(nmrs_obj: NIFTI_MRS, method, details):
     :type details: str
     """
     # 1. Check for ProcessingApplied key and create if not present
-    if 'ProcessingApplied' not in nmrs_obj.hdr_ext:
-        nmrs_obj.add_hdr_field('ProcessingApplied', [])
+    if 'ProcessingApplied' in nmrs_obj.hdr_ext:
+        current_processing = nmrs_obj.hdr_ext['ProcessingApplied']
+    else:
+        current_processing = []
 
     # 2. Form object to append.
     prov_dict = {
@@ -47,7 +49,6 @@ def update_processing_prov(nmrs_obj: NIFTI_MRS, method, details):
         'Details': details}
 
     # 3. Append
-    current_processing = nmrs_obj.hdr_ext['ProcessingApplied']
     current_processing.append(prov_dict)
     nmrs_obj.add_hdr_field('ProcessingApplied', current_processing)
 
@@ -130,7 +131,6 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
     :return: Combined data in NIFTI_MRS format.
     '''
-
     combined_obj = data.copy(remove_dim=dim)
     for dd, idx in data.iterate_over_dims(dim=dim,
                                           iterate_over_space=True,

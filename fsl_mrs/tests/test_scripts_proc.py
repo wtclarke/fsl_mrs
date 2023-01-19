@@ -11,7 +11,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import pytest
 import os.path as op
-from fsl_mrs.core.nifti_mrs import gen_new_nifti_mrs
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
@@ -38,10 +38,11 @@ def svs_data(tmp_path):
     FID = np.asarray(FID).T
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
-    nmrs = gen_new_nifti_mrs(FID,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_DYN', None, None])
+    nmrs = gen_nifti_mrs(
+        FID,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_DYN', None, None])
 
     testname = 'svsdata.nii'
     testfile = op.join(tmp_path, testname)
@@ -65,10 +66,11 @@ def mrsi_data(tmp_path):
     FID = np.asarray(FID).T
     FID = np.tile(FID, (2, 2, 2, 1, 1))
 
-    nmrs = gen_new_nifti_mrs(FID,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_DYN', None, None])
+    nmrs = gen_nifti_mrs(
+        FID,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_DYN', None, None])
 
     testname = 'mrsidata.nii'
     testfile = op.join(tmp_path, testname)
@@ -91,10 +93,11 @@ def svs_data_uncomb(tmp_path):
     FID = np.asarray(FID).T
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
-    nmrs = gen_new_nifti_mrs(FID,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_COIL', None, None])
+    nmrs = gen_nifti_mrs(
+        FID,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_COIL', None, None])
 
     testname = 'svsdata_uncomb.nii'
     testfile = op.join(tmp_path, testname)
@@ -117,10 +120,11 @@ def mrsi_data_uncomb(tmp_path):
     FID = np.asarray(FID).T
     FID = np.tile(FID, (2, 2, 2, 1, 1))
 
-    nmrs = gen_new_nifti_mrs(FID,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_COIL', None, None])
+    nmrs = gen_nifti_mrs(
+        FID,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_COIL', None, None])
 
     testname = 'mrsidata_uncomb.nii'
     testfile = op.join(tmp_path, testname)
@@ -152,10 +156,11 @@ def svs_data_diff(tmp_path):
     FID_comb = np.stack((FID, FID2), axis=2)
     FID_comb = FID_comb.reshape((1, 1, 1) + FID_comb.shape)
 
-    nmrs = gen_new_nifti_mrs(FID_comb,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_DYN', 'DIM_EDIT', None])
+    nmrs = gen_nifti_mrs(
+        FID_comb,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
     testname = 'svsdata_diff.nii'
     testfile = op.join(tmp_path, testname)
@@ -187,10 +192,11 @@ def mrsi_data_diff(tmp_path):
     FID_comb = np.stack((FID, FID2), axis=2)
     FID_comb = np.tile(FID_comb, (2, 2, 2, 1, 1, 1))
 
-    nmrs = gen_new_nifti_mrs(FID_comb,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_DYN', 'DIM_EDIT', None])
+    nmrs = gen_nifti_mrs(
+        FID_comb,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
     testname = 'mrsidata_diff.nii'
     testfile = op.join(tmp_path, testname)
@@ -218,10 +224,11 @@ def svs_data_uncomb_reps(tmp_path):
     FID = np.stack((np.asarray(FID).T, np.asarray(FID2).T), axis=2)
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
-    nmrs = gen_new_nifti_mrs(FID,
-                             hdr['dwelltime'],
-                             hdr['centralFrequency'],
-                             dim_tags=['DIM_COIL', 'DIM_DYN', None])
+    nmrs = gen_nifti_mrs(
+        FID,
+        hdr['dwelltime'],
+        hdr['centralFrequency'],
+        dim_tags=['DIM_COIL', 'DIM_DYN', None])
 
     testname = 'svsdata_uncomb_reps.nii'
     testfile = op.join(tmp_path, testname)
@@ -239,27 +246,27 @@ def test_filecreation(svs_data, mrsi_data, svs_data_uncomb, mrsi_data_uncomb, sv
 
     data = read_FID(svsfile)
     assert data.shape == (1, 1, 1, 512, 3)
-    assert np.allclose(data.data, svsdata.data)
+    assert np.allclose(data[:], svsdata[:])
 
     data = read_FID(mrsifile)
     assert data.shape == (2, 2, 2, 512, 3)
-    assert np.allclose(data.data, mrsidata.data)
+    assert np.allclose(data[:], mrsidata[:])
 
     svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data_uncomb,
                                                      mrsi_data_uncomb)
 
     data = read_FID(svsfile)
     assert data.shape == (1, 1, 1, 512, 4)
-    assert np.allclose(data.data, svsdata.data)
+    assert np.allclose(data[:], svsdata[:])
 
     data = read_FID(mrsifile)
     assert data.shape == (2, 2, 2, 512, 4)
-    assert np.allclose(data.data, mrsidata.data)
+    assert np.allclose(data[:], mrsidata[:])
 
     # Uncombined and reps
     data = read_FID(svs_data_uncomb_reps[0])
     assert data.shape == (1, 1, 1, 512, 2, 2)
-    assert np.allclose(data.data, svs_data_uncomb_reps[1].data)
+    assert np.allclose(data[:], svs_data_uncomb_reps[1][:])
 
 
 def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
@@ -397,7 +404,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     # Run directly
     directRun = preproc.align(mrsidata, 'DIM_DYN', ppmlim=(-10, 10))
 
-    assert np.allclose(data.data, directRun.data, atol=1E-1, rtol=1E-1)
+    assert np.allclose(data[:], directRun[:], atol=1E-1, rtol=1E-1)
 
 
 def test_align_all(svs_data_uncomb_reps, tmp_path):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
 from fsl_mrs.utils.mrs_io import read_FID
-from fsl_mrs.utils.nifti_mrs_tools import split
+from fsl_mrs.core.nifti_mrs import split
 from fsl_mrs import __version__
 
 

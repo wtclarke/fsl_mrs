@@ -92,7 +92,7 @@ def main():
     import numpy as np
     from fsl_mrs.utils.preproc import nifti_mrs_proc
     from fsl_mrs.utils.preproc import dyn_based_proc as dproc
-    from fsl_mrs.utils import nifti_mrs_tools as ntools
+    import fsl_mrs.core.nifti_mrs as ntools
     from fsl_mrs.utils import plotting
     from fsl_mrs.utils import mrs_io
     # ######################################################
