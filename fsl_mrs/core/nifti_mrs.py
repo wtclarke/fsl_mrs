@@ -21,8 +21,8 @@ import fsl_mrs.core as core
 def gen_nifti_mrs(*args, **kwargs):
     """Generate NIfTI-MRS from data and required metadata
 
-    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to 
-    implement additional functionality for FSL-MRS
+    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to
+     implement additional functionality for FSL-MRS
 
     :param data: Complex-typed numpy array of at least 4 dimensions (max 7)
     :type data: numpy.array

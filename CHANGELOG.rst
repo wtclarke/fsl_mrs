@@ -1,9 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.1.0 (WIP)
----------------------------------
+2.1.0 (Thursday 19th January 2023)
+----------------------------------
 - FSL-MRS now uses the nifti-mrs tools python package. mrs_tools superseded by nifti-mrs implementation.
-- Fixed bug in fmrsstats design/contrast matrix specification
+- Fixed bug in fmrs_stats design/contrast matrix specification
 
 2.0.9 (Wednesday 23rd November 2022)
 ------------------------------------
