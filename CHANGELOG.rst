@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.1 (WIP March 2023)
+----------------------------------
+- Better handling of x-nuclei, including specific constants, ppm ranges, offsets etc.
+
 2.1.0 (Thursday 19th January 2023)
 ----------------------------------
 - FSL-MRS now uses the nifti-mrs tools python package. mrs_tools superseded by nifti-mrs implementation.

@@ -54,10 +54,11 @@ def main():
     fitting_args.add_argument('--combine', type=str, nargs='+',
                               action='append', metavar='METAB',
                               help='combine certain metabolites [repeatable]')
-    fitting_args.add_argument('--ppmlim', default=(.2, 4.2), type=float,
+    fitting_args.add_argument('--ppmlim', default=None, type=float,
                               nargs=2, metavar=('LOW', 'HIGH'),
-                              help='limit the fit to a freq range'
-                                   ' (default=(.2, 4.2))')
+                              help='limit the fit optimisation to a chemical shift range. '
+                                   'Defaults to a nucleus-specific range. '
+                                   'For 1H default=(.2,4.2).')
     fitting_args.add_argument('--h2o', default=None, type=str, metavar='H2O',
                               help='input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order', default=2, type=int,
@@ -232,13 +233,9 @@ def main():
     # Parse metabolite groups
     metab_groups = misc.parse_metab_groups(mrsi, args.metab_groups)
 
-    # ppmlim for fitting
-    ppmlim = args.ppmlim
-    if ppmlim is not None:
-        ppmlim = (ppmlim[0], ppmlim[1])
-
     # Store info in dictionaries to be passed to MRS and fitting
-    Fitargs = {'ppmlim': ppmlim, 'method': args.algo,
+    Fitargs = {'ppmlim': args.ppmlim,
+               'method': args.algo,
                'baseline_order': args.baseline_order,
                'metab_groups': metab_groups}
     if args.lorentzian:

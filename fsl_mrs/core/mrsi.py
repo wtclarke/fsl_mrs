@@ -259,9 +259,12 @@ class MRSI(object):
         if self.rescale:
             mrs.rescaleForFitting(ind_scaling=self.ind_scaling)
 
-    def plot(self, mask=True, ppmlim=(0.2, 4.2)):
+    def plot(self, mask=True, ppmlim=None):
         '''Plot (masked) grid of spectra.'''
         import matplotlib.pyplot as plt
+
+        if ppmlim is None:
+            ppmlim = self.mrs_from_average().default_ppm_range
 
         if mask:
             mask_indicies = np.where(self.mask)
@@ -383,10 +386,10 @@ class MRSI(object):
 
         return data
 
-    def check_basis(self, ppmlim=(.2, 4.2)):
+    def check_basis(self, ppmlim=None):
         """Check orientation of basis using a single generated mrs object.
 
-        :param ppmlim: Region of expected signal, defaults to (.2, 4.2)
+        :param ppmlim: Region of expected signal, defaults to nucleus standard
         :type ppmlim: tuple, optional
         """
         if self._basis is not None:

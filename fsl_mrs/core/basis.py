@@ -34,7 +34,7 @@ class Basis:
 
         :param fid_array: 2D array of basis FIDs (time x metabs)
         :type fid_array: numpy.ndarray
-        :param names: List of maetabolite names corresponding to second dimension of fid_array
+        :param names: List of metabolite names corresponding to second dimension of fid_array
         :type names: List of str
         :param headers: List of basis headers for each column of fid_array
         :type headers: List of dict

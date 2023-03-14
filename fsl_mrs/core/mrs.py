@@ -12,7 +12,7 @@ import warnings
 from copy import deepcopy
 
 from fsl_mrs.utils import misc
-from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT, PPM_RANGE
+from fsl_mrs.utils.constants import nucleus_constants, GYRO_MAG_RATIO
 from fsl_mrs.core.basis import Basis
 
 import numpy as np
@@ -448,9 +448,19 @@ class MRS(object):
             self._nucleus = self.infer_nucleus(self.centralFrequency)
 
         # Set associated parameters
-        self.gyromagnetic_ratio = GYRO_MAG_RATIO[self.nucleus]
-        self.default_ppm_shift = PPM_SHIFT[self.nucleus]
-        self.default_ppm_range = PPM_RANGE[self.nucleus]
+        self._nuc_info = nucleus_constants(self.nucleus)
+
+    @property
+    def gyromagnetic_ratio(self):
+        return self._nuc_info.gamma
+
+    @property
+    def default_ppm_shift(self):
+        return self._nuc_info.ppm_shift
+
+    @property
+    def default_ppm_range(self):
+        return self._nuc_info.ppm_range
 
     @staticmethod
     def infer_nucleus(cf):
@@ -533,8 +543,11 @@ class MRS(object):
         else:
             return misc.limit_to_range(self.ppmAxis, ppmlim)
 
-    def processForFitting(self, ppmlim=(.2, 4.2), ind_scaling=None):
+    def processForFitting(self, ppmlim=None, ind_scaling=None):
         """ Apply rescaling and run the conjugation checks"""
+        if ppmlim is None:
+            ppmlim = self.default_ppm_range
+
         self.check_FID(ppmlim=ppmlim, repair=True)
         self.check_Basis(ppmlim=ppmlim, repair=True)
         self.rescaleForFitting(ind_scaling=ind_scaling)
@@ -556,7 +569,7 @@ class MRS(object):
         self._scaling_factor = scale
         self._indept_scale = ind_scaling
 
-    def check_FID(self, ppmlim=(.2, 4.2), repair=False):
+    def check_FID(self, ppmlim=None, repair=False):
         """
            Check if FID needs to be conjugated
            by looking at total power within ppmlim range
@@ -571,6 +584,9 @@ class MRS(object):
         0 if check successful and -1 if not (also issues warning)
 
         """
+        if ppmlim is None:
+            ppmlim = self.default_ppm_range
+
         first, last = self.ppmlim_to_range(ppmlim)
         Spec1 = np.real(misc.FIDToSpec(self.FID))[first:last]
         Spec2 = np.real(misc.FIDToSpec(np.conj(self.FID)))[first:last]
@@ -586,7 +602,7 @@ class MRS(object):
 
         return 0
 
-    def check_Basis(self, ppmlim=(.2, 4.2), repair=False):
+    def check_Basis(self, ppmlim=None, repair=False):
         """
            Check if Basis needs to be conjugated
            by looking at total power within ppmlim range
@@ -601,6 +617,9 @@ class MRS(object):
         0 if check successful and -1 if not (also issues warning)
 
         """
+        if ppmlim is None:
+            ppmlim = self.default_ppm_range
+
         first, last = self.ppmlim_to_range(ppmlim)
 
         conjOrNot = []
@@ -625,13 +644,15 @@ class MRS(object):
         return 0
 
     # Plotting functions
-    def plot(self, ppmlim=(0.2, 4.2)):
+    def plot(self, ppmlim=None):
         """Plot the spectrum in the mrs object
 
-        :param ppmlim: Plot range, defaults to (0.2, 4.2)
+        :param ppmlim: Plot range, defaults to nucleus standard
         :type ppmlim: tuple, optional
         """
         from fsl_mrs.utils.plotting import plot_spectrum
+        if ppmlim is None:
+            ppmlim = self.default_ppm_range
         plot_spectrum(self, ppmlim=ppmlim)
 
     def plot_ref(self, ppmlim=(2.65, 6.65)):
@@ -652,15 +673,17 @@ class MRS(object):
         from fsl_mrs.utils.plotting import plot_fid
         plot_fid(self, tlim)
 
-    def plot_basis(self, add_spec=False, ppmlim=(0.2, 4.2)):
-        """Plot the formatted basis in the mrs object. Opptionally add the spectrum.
+    def plot_basis(self, add_spec=False, ppmlim=None):
+        """Plot the formatted basis in the mrs object. Optionally add the spectrum.
 
         :param add_spec: Add spectrum to the plot, defaults to False
         :type add_spec: bool, optional
-        :param ppmlim: Plot range, defaults to (0.2, 4.2)
+        :param ppmlim: Plot range, defaults to nucleus standard
         :type ppmlim: tuple, optional
         """
         from fsl_mrs.utils.plotting import plot_mrs_basis
+        if ppmlim is None:
+            ppmlim = self.default_ppm_range
         plot_mrs_basis(self, plot_spec=add_spec, ppmlim=ppmlim)
 
     # Utility fitting function
@@ -670,11 +693,13 @@ class MRS(object):
         Calls fsl_mrs.utils.fitting.fit_FSLModel
         :Keyword Arguments:
             * *method (``str``) -- 'Newton' or 'MH', defaults to 'Newton'
-            * *ppmlim (``tuple``) -- Ppm range over which to fit, defaults to (.2, 4.2)
+            * *ppmlim (``tuple``) -- Ppm range over which to fit,
+                defaults to ppm range over which to fit,
+                defaults to nucleus standard (via None) e.g. (.2, 4.2) for 1H.
             * *baseline_order (``int``) -- Polynomial baseline order, defaults to 2, -1 disables.
             * *metab_groups (``list``) -- List of metabolite groupings, defaults to None
             * *model (``str``) -- 'lorentzian' or 'voigt', defaults to 'voigt'
-            * *x0 (``list``) -- Initilisation values, defaults to None
+            * *x0 (``list``) -- Initialisation values, defaults to None
             * *MHSamples (``int``) -- Number of MH samples to run, defaults to 500
             * *disable_mh_priors (``bool``) -- If True all priors are disabled for MH fitting, defaults to False
             * *fit_baseline_mh (``bool``) -- If true baseline parameters are also fit using MH, defaults to False

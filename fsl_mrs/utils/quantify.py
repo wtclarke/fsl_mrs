@@ -13,7 +13,7 @@ from scipy.optimize import minimize
 
 from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY,\
-    STANDARD_T1, STANDARD_T2, H1_gamma,\
+    STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO,\
     H2O_PROTONS, WATER_SCALING_METAB,\
     WATER_SCALING_METAB_PROTONS,\
     WATER_SCALING_DEFAULT_LIMITS
@@ -209,7 +209,7 @@ class QuantificationInfo(object):
                 raise ValueError(f'Specified T1 values must contain entries for all of {required}.')
             self.t1 = specified
         else:
-            field = cf / H1_gamma
+            field = cf / GYRO_MAG_RATIO['1H']
             if field > 6.5 and field < 7.5:
                 self.t1 = STANDARD_T1['7T']
             elif field > 2.5 and field < 3.5:
@@ -225,7 +225,7 @@ class QuantificationInfo(object):
                 raise ValueError(f'Specified T1 values must contain entries for all of {required}.')
             self.t2 = specified
         else:
-            field = cf / H1_gamma
+            field = cf / GYRO_MAG_RATIO['1H']
             if field > 6.5 and field < 7.5:
                 self.t2 = STANDARD_T2['7T']
             elif field > 2.5 and field < 3.5:

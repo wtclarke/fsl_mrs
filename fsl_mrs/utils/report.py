@@ -79,7 +79,7 @@ def svs_posteriors(res):
 
 def svs_real_imag_plot(mrs, res):
     """View of real and imaginary components with fit"""
-    fig = plotting.plot_real_imag(mrs, res, ppmlim=(.2, 4.2))
+    fig = plotting.plot_real_imag(mrs, res, ppmlim=res.ppmlim)
     return to_div(fig)
 
 

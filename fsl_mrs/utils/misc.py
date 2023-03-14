@@ -11,7 +11,8 @@ from contextlib import contextmanager
 
 import numpy as np
 import itertools as it
-from .constants import H2O_PPM_TO_TMS
+from .constants import PPM_SHIFT
+H2O_PPM_TO_TMS = PPM_SHIFT['1H']
 
 
 def ppm2hz(cf, ppm, shift=True, shift_amount=H2O_PPM_TO_TMS):
@@ -598,7 +599,7 @@ def create_peak(time_axis, cf, ppm, amp, gamma=0, sigma=0):
     return out
 
 
-def extract_spectrum(mrs, FID, ppmlim=(0.2, 4.2), shift=True):
+def extract_spectrum(mrs, FID, ppmlim=None, shift=True):
     """
        Extracts spectral interval
 
@@ -610,6 +611,8 @@ def extract_spectrum(mrs, FID, ppmlim=(0.2, 4.2), shift=True):
     Returns:
        array-like
     """
+    if ppmlim is None:
+        ppmlim = mrs.default_ppm_range
     spec = FIDToSpec(FID)
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim, shift=shift)
     spec = spec[first:last]
@@ -730,14 +733,14 @@ def parse_metab_groups(mrs, metab_groups):
             out[mrs.names.index(entry)] = 1
         elif isinstance(entry, list):
             for n in entry:
-                assert(isinstance(n, str))
+                assert isinstance(n, str)
                 out[mrs.names.index(n)] = 1
 
         return out
 
     if isinstance(metab_groups, list):
         if isinstance(metab_groups[0], int):
-            assert(len(metab_groups) == mrs.numBasis)
+            assert len(metab_groups) == mrs.numBasis
             return metab_groups
 
         grpcounter = 0
@@ -749,10 +752,10 @@ def parse_metab_groups(mrs, metab_groups):
                 out[mrs.names.index(entry)] = grpcounter
             elif isinstance(entry, list):
                 for n in entry:
-                    assert(isinstance(n, str))
+                    assert isinstance(n, str)
                     out[mrs.names.index(n)] = grpcounter
             else:
-                raise(Exception('entry must be string or list of strings'))
+                raise Exception('entry must be string or list of strings')
 
     m = min(out)
     if m > 0:

@@ -26,10 +26,13 @@ class NoiseNotFoundError(ValueError):
     pass
 
 
-def calcQC(mrs, res, ppmlim=(0.2, 4.2)):
+def calcQC(mrs, res, ppmlim=None):
     """ Calculate SNR and FWHM on fitted data
 
     """
+    if ppmlim is None:
+        ppmlim = res.ppmlim
+
     if res.method == 'MH':
         MCMCUsed = True
     else:
@@ -209,7 +212,7 @@ def idNoiseRegion(mrs, debug=False):
         return noise_mask
 
 
-def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=(0.2, 4.2)):
+def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=None):
     """ Identify peaks and calculate FWHM of fitted basis spectra
 
     """

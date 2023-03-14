@@ -40,7 +40,7 @@ class dynMRS(object):
             time_var,
             config_file,
             model='voigt',
-            ppmlim=(.2, 4.2),
+            ppmlim=None,
             baseline_order=2,
             metab_groups=None,
             rescale=True):
@@ -54,7 +54,7 @@ class dynMRS(object):
         :type config_file: str
         :param model: 'voigt' or 'lorentzian', defaults to 'voigt'
         :type model: str, optional
-        :param ppmlim: Chemical shift fitting limits, defaults to (.2, 4.2)
+        :param ppmlim: Chemical shift fitting limits, defaults to nucleus standard (via None) e.g. (.2, 4.2) for 1H.
         :type ppmlim: tuple, optional
         :param baseline_order: Plynomial baseline fitting order, defaults to 2
         :type baseline_order: int, optional
@@ -79,6 +79,9 @@ class dynMRS(object):
         else:
             self.time_var = np.asarray(time_var)
             self._t_steps = self.time_var.shape[0]
+
+        if ppmlim is None:
+            ppmlim = mrs_list[0].default_ppm_range
 
         self.mrs_list = mrs_list
         if rescale:
