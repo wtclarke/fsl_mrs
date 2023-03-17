@@ -14,11 +14,12 @@ from scipy.optimize import minimize
 from fsl_mrs import models
 from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.baseline import prepare_baseline_regressor
+from fsl_mrs.utils.constants import nucleus_constants
 
 
 def fit_FSLModel(mrs,
                  method='Newton',
-                 ppmlim=(.2, 4.2),
+                 ppmlim=None,
                  baseline_order=2,
                  metab_groups=None,
                  model='voigt',
@@ -35,7 +36,7 @@ def fit_FSLModel(mrs,
     :type mrs: fsl_mrs.core.MRS
     :param method: 'Newton' or 'MH', defaults to 'Newton'
     :type method: str, optional
-    :param ppmlim: Ppm range over which to fit, defaults to (.2, 4.2)
+    :param ppmlim: ppm range over which to fit, defaults to nucleus standard (via None) e.g. (.2, 4.2) for 1H.
     :type ppmlim: tuple, optional
     :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
     :type baseline_order: int, optional
@@ -43,7 +44,7 @@ def fit_FSLModel(mrs,
     :type metab_groups: List, optional
     :param model: 'lorentzian' or 'voigt', defaults to 'voigt'
     :type model: str, optional
-    :param x0: Initilisation values, defaults to None
+    :param x0: Initialisation values, defaults to None
     :type x0: [List, optional
     :param MHSamples: Number of MH samples to run, defaults to 500
     :type MHSamples: int, optional
@@ -62,6 +63,15 @@ def fit_FSLModel(mrs,
     init_func = models.getInit(model)         # initialisation of params
 
     data = mrs.get_spec().copy()              # data copied to keep it safe
+
+    # Find appropriate ppm limit for nucleus
+    if ppmlim is None:
+        ppmlim = nucleus_constants(mrs.nucleus).ppm_range
+    if ppmlim is None:
+        raise ValueError(
+            'Please specify a fitting range (ppmlim): '
+            f'No ppmlim specified and no default found for nucleus {mrs.nucleus}.')
+
     first, last = mrs.ppmlim_to_range(ppmlim)  # data range
 
     if metab_groups is None:

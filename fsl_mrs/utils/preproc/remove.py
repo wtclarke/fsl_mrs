@@ -9,7 +9,8 @@
 import numpy as np
 import hlsvdpropy
 from fsl_mrs.utils.misc import checkCFUnits, limit_to_range, calculateAxes, FIDToSpec, SpecToFID
-from fsl_mrs.utils.constants import H2O_PPM_TO_TMS
+from fsl_mrs.utils.constants import PPM_SHIFT
+H2O_PPM_TO_TMS = PPM_SHIFT['1H']
 
 
 def zero_spectrum(FID, dwelltime, centralFrequency, limits, limitUnits='ppmshift'):

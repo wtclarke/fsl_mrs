@@ -148,6 +148,18 @@ def test_interpolation():
 def test_link_creation(tmp_path):
     misc.create_rel_symlink(data_path, tmp_path, 'test1')
 
-    import os.path as op
-    assert op.islink(tmp_path / 'test1')
-    assert read_FID(tmp_path / 'test1').shape == (1, 1, 1, 4095)
+    assert (tmp_path / 'test1.nii.gz').is_symlink()
+    assert read_FID(tmp_path / 'test1.nii.gz').shape == (1, 1, 1, 4095)
+
+    misc.create_rel_symlink(data_path, tmp_path, 'test2', match_ext=False)
+    assert (tmp_path / 'test2').is_symlink()
+
+    dummy = Path(tmp_path / 'dummy.nii')
+    dummy.touch()
+    misc.create_rel_symlink(dummy, tmp_path, 'test3')
+    assert (tmp_path / 'test3.nii').is_symlink()
+
+    dummy_dir = Path(tmp_path / 'dummy_dir')
+    dummy_dir.mkdir()
+    misc.create_rel_symlink(dummy_dir, tmp_path, 'test4')
+    assert (tmp_path / 'test4').is_symlink()

@@ -48,9 +48,9 @@ def test_fsl_mrs(tmp_path):
     assert op.exists(op.join(tmp_path, 'qc.csv'))
     assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
     assert op.exists(op.join(tmp_path, 'options.txt'))
-    assert op.exists(op.join(tmp_path, 'data'))
+    assert op.exists(op.join(tmp_path, 'data.nii.gz'))
     assert op.exists(op.join(tmp_path, 'basis'))
-    assert op.exists(op.join(tmp_path, 'h2o'))
+    assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))
 
 
 def test_no_ref(tmp_path):
@@ -131,6 +131,6 @@ def test_fsl_mrs_default_mm(tmp_path, capfd):
     assert op.exists(op.join(tmp_path, 'qc.csv'))
     assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
     assert op.exists(op.join(tmp_path, 'options.txt'))
-    assert op.exists(op.join(tmp_path, 'data'))
+    assert op.exists(op.join(tmp_path, 'data.nii.gz'))
     assert op.exists(op.join(tmp_path, 'basis'))
-    assert op.exists(op.join(tmp_path, 'h2o'))
+    assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))

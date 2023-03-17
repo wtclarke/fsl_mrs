@@ -102,7 +102,10 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
 
     plt.subplot(gs[0])
     # Start by plotting error
-    xticks = np.arange(res.ppmlim[0], res.ppmlim[1] + .2, .2)
+    if mrs.nucleus == '1H':
+        xticks = np.arange(res.ppmlim[0], res.ppmlim[1], .2)
+    else:
+        xticks = np.round(np.linspace(res.ppmlim[0], res.ppmlim[1], 10), decimals=1)
     plt.plot(mrs.getAxes(), data_proj(data - pred, proj), c='k', linewidth=1, linestyle='-')
     axes_style(plt, res.ppmlim, xticks=xticks)
     plt.gca().set_xticklabels([])
@@ -395,7 +398,7 @@ def plot_fit_pretty(mrs, pred=None, ppmlim=(0.40, 4.2), proj='real'):
 
 
 # plotly imports
-def plotly_spectrum(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0)):
+def plotly_spectrum(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
     """
          plot model fitting plus baseline
 
@@ -514,7 +517,7 @@ def plotly_spectrum(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0
     return fig
 
 
-def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0)):
+def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
     """
          plot model fitting plus baseline
 
@@ -655,7 +658,10 @@ def plotly_fit(mrs, res, ppmlim=(.2, 4.2), proj='real', metabs=None, phs=(0, 0))
     return fig
 
 
-def plotly_avg_fit(mrs_list, res_list, ppmlim=(.2, 4.2)):
+def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
+
+    if ppmlim is None:
+        ppmlim = res_list[0].ppmlim
 
     all_specs = []
     all_pred = []
@@ -846,7 +852,7 @@ def plot_dist_mcmc(res, refname='Cr'):
     return fig
 
 
-def plot_real_imag(mrs, res, ppmlim=(.2, 4.2)):
+def plot_real_imag(mrs, res, ppmlim=None):
     """
          plot model fitting plus baseline
 
@@ -867,6 +873,9 @@ def plot_real_imag(mrs, res, ppmlim=(.2, 4.2)):
             return np.angle(x)
         else:
             return np.abs(x)
+
+    if ppmlim is None:
+        ppmlim = mrs.default_ppm_range
 
     # Prepare the data
     axis = mrs.getAxes()
@@ -934,7 +943,10 @@ def plot_real_imag(mrs, res, ppmlim=(.2, 4.2)):
     return fig
 
 
-def plot_indiv_stacked(mrs, res, ppmlim=(.2, 4.2)):
+def plot_indiv_stacked(mrs, res, ppmlim=None):
+
+    if ppmlim is None:
+        ppmlim = res.ppmlim
 
     colors = dict(data='rgb(67,67,67)',
                   indiv='rgb(253,59,59)')
@@ -975,7 +987,10 @@ def plot_indiv_stacked(mrs, res, ppmlim=(.2, 4.2)):
     return fig
 
 
-def plot_indiv(mrs, res, ppmlim=(.2, 4.2)):
+def plot_indiv(mrs, res, ppmlim=None):
+
+    if ppmlim is None:
+        ppmlim = res.ppmlim
 
     colors = dict(data='rgb(67,67,67)',
                   pred='rgb(253,59,59)')
@@ -1251,7 +1266,7 @@ def plot_table_qc(res):
 def plotly_dynMRS(mrs_list,
                   res_list=None,
                   time_var=None,
-                  ppmlim=(.2, 4.2),
+                  ppmlim=None,
                   proj='real'):
     """
     Plot dynamic MRS data with a slider though time
@@ -1259,12 +1274,17 @@ def plotly_dynMRS(mrs_list,
         mrs_list: list of MRS objects
         res_list : list of Results objects
         time_var: list of time variable (or bvals for dwMRS)
-        ppmlim: list
+        ppmlim: tuple (low, high) in ppm
         proj : string (one of 'real','imag','abs','angle')
 
     Returns:
         plotly Figure
     """
+    if ppmlim is None and res_list is None:
+        ppmlim = mrs_list[0].default_ppm_range
+    elif ppmlim is None:
+        ppmlim = res_list[0].ppmlim
+
     # number of dyn time points
     n = len(mrs_list)
     if time_var is None:

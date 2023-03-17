@@ -45,10 +45,11 @@ def main():
                           help='time variable files (e.g. bvals, bvecs, design.mat, etc.)')
 
     # FITTING ARGUMENTS
-    fitting_args.add_argument('--ppmlim', default=(.2, 4.2), type=float,
+    fitting_args.add_argument('--ppmlim', default=None, type=float,
                               nargs=2, metavar=('LOW', 'HIGH'),
-                              help='limit the fit to a freq range'
-                                   ' (default=(.2,4.2))')
+                              help='limit the fit optimisation to a chemical shift range. '
+                                   'Defaults to a nucleus-specific range. '
+                                   'For 1H default=(.2,4.2).')
     fitting_args.add_argument('--h2o', default=None, type=str, metavar='H2O',
                               help='NOT IMPLEMENTED YET - input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order', default=2, type=int,

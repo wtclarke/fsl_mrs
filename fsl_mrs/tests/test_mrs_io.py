@@ -163,5 +163,5 @@ def test_load_symlink(tmp_path):
     create_rel_symlink(SVSTestData['nifti'], tmp_path, 'test1')
 
     import os.path as op
-    assert op.islink(tmp_path / 'test1')
-    assert mrsio.read_FID(tmp_path / 'test1').shape == (1, 1, 1, 4096)
+    assert op.islink(tmp_path / 'test1.nii')
+    assert mrsio.read_FID(tmp_path / 'test1.nii').shape == (1, 1, 1, 4096)
