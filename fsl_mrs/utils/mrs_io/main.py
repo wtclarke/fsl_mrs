@@ -83,9 +83,10 @@ def read_FID(filename):
     """
 
     # Resolve symlinks
+    # Once this is done for fslpy's Image class then this can be removed from here.
     if Path(filename).is_symlink():
-        import os
-        filename = Path(os.readlink(filename))
+        filename = Path(filename).resolve()
+
     try:
         return fsl_nmrs.NIFTI_MRS(filename)
     except (NotNIFTI_MRS, fslpath.PathError):

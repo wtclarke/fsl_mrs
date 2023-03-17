@@ -102,7 +102,10 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
 
     plt.subplot(gs[0])
     # Start by plotting error
-    xticks = np.arange(res.ppmlim[0], res.ppmlim[1] + .2, .2)
+    if mrs.nucleus == '1H':
+        xticks = np.arange(res.ppmlim[0], res.ppmlim[1], .2)
+    else:
+        xticks = np.round(np.linspace(res.ppmlim[0], res.ppmlim[1], 10), decimals=1)
     plt.plot(mrs.getAxes(), data_proj(data - pred, proj), c='k', linewidth=1, linestyle='-')
     axes_style(plt, res.ppmlim, xticks=xticks)
     plt.gca().set_xticklabels([])
@@ -658,7 +661,7 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
 def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
 
     if ppmlim is None:
-        ppmlim = res_list.ppmlim
+        ppmlim = res_list[0].ppmlim
 
     all_specs = []
     all_pred = []

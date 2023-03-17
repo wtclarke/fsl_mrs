@@ -11,6 +11,9 @@ from contextlib import contextmanager
 
 import numpy as np
 import itertools as it
+
+from fsl.data.image import getExt
+
 from .constants import PPM_SHIFT
 H2O_PPM_TO_TMS = PPM_SHIFT['1H']
 
@@ -887,7 +890,7 @@ def _cd(newdir):
         os.chdir(prevdir)
 
 
-def create_rel_symlink(dst, src, name):
+def create_rel_symlink(dst, src, name, match_ext=True):
     """Create a symlink at src to dst.
 
     Might return OSError on Windows depending on version and 'developer mode'
@@ -898,7 +901,13 @@ def create_rel_symlink(dst, src, name):
     :type src: pathlib.Path
     :param name: symlink name
     :type name: str
+    :param match_ext: Ensure the symlink generated has the same extension as the dst file, defaults to True
+    :type match_ext: bool, optional
     """
+    if match_ext:
+        ext = getExt(dst)
+        name += ext
+
     relpath = os.path.relpath(dst, src)
 
     if os.supports_dir_fd:

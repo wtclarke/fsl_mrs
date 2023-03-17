@@ -3,6 +3,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.1.1 (WIP March 2023)
 ----------------------------------
 - Better handling of x-nuclei, including specific constants, ppm ranges, offsets etc.
+- More appropriate xlabels for x-nuclei
+- Fix issues around resolving symlinks, `fsl_mrs` results generate symlinks with appropriate extensions.
 
 2.1.0 (Thursday 19th January 2023)
 ----------------------------------
