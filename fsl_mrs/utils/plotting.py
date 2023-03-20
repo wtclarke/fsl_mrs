@@ -65,8 +65,8 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
         plt.xlabel(label)
         plt.gca().set_xticks(xticks)
         plt.minorticks_on()
-        plt.grid(b=True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
-        plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
+        plt.grid(True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
+        plt.grid(True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
 
     def doPlot(data, c='b', linewidth=1, linestyle='-', xticks=None):
         plt.plot(mrs.getAxes(), data, color=c, linewidth=linewidth, linestyle=linestyle)
@@ -153,8 +153,8 @@ def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
         plt.xlabel(label)
         plt.gca().set_xticks(xticks)
         plt.minorticks_on()
-        plt.grid(b=True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
-        plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
+        plt.grid(True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
+        plt.grid(True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
 
     def doPlot(data, c='b', linewidth=1, linestyle='-', xticks=None):
         plt.plot(ppmAxisShift, data, color=c, linewidth=linewidth, linestyle=linestyle)
@@ -204,8 +204,8 @@ def plot_fid(mrs, tlim=None, FID=None, proj='real', c='k'):
         plt.xlim(tlim)
     plt.xlabel('Time (s)')
     plt.minorticks_on()
-    plt.grid(b=True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
-    plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
+    plt.grid(True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
+    plt.grid(True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
 
     plt.tight_layout()
     return plt.gcf()
@@ -292,8 +292,8 @@ def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True):
     plt.xlim(ppmlim)
     plt.gca().invert_xaxis()
     plt.minorticks_on()
-    plt.grid(b=True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
-    plt.grid(b=True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
+    plt.grid(True, axis='x', which='major', color='k', linestyle='--', linewidth=.3)
+    plt.grid(True, axis='x', which='minor', color='k', linestyle=':', linewidth=.3)
 
     plt.autoscale(enable=True, axis='y', tight=True)
 
