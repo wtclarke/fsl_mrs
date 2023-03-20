@@ -5,6 +5,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Better handling of x-nuclei, including specific constants, ppm ranges, offsets etc.
 - More appropriate xlabels for x-nuclei
 - Fix issues around resolving symlinks, `fsl_mrs` results generate symlinks with appropriate extensions.
+- Fixed plotting bug (depreciation of grid_b parameter in matplotlib).
 
 2.1.0 (Thursday 19th January 2023)
 ----------------------------------
