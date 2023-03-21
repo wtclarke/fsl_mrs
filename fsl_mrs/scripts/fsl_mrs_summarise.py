@@ -123,6 +123,12 @@ def main():
             basis = mrs_io.read_basis(orig_args['basis'])
         mrs = FID.mrs(basis=basis)
 
+        if orig_args['conjbasis'] is not None:
+            if orig_args['conjbasis']:
+                mrs.conj_Basis = True
+        else:
+            _ = mrs.check_Basis(repair=True)
+
         if not orig_args['no_rescale']:
             mrs.rescaleForFitting(ind_scaling=orig_args['ind_scale'])
         mrs.keep = orig_args['keep']
