@@ -83,6 +83,12 @@ def svs_real_imag_plot(mrs, res):
     return to_div(fig)
 
 
+def svs_basis_plot(mrs, res):
+    """View of basis spectrum with data"""
+    fig = plotting.plotly_basis(mrs, ppmlim=res.ppmlim)
+    return to_div(fig)
+
+
 def svs_indiv_plot(mrs, res):
     """View of each individual scaled metabolite basis spectrum."""
     fig = plotting.plot_indiv_stacked(mrs, res, ppmlim=res.ppmlim)
@@ -286,14 +292,14 @@ def create_svs_sections(mrs, res, location_fig):
 
     sections.append(
         f"""
-        <h1><a name="realimag">Fitting summary (real/imag)</a></h1>
-        {svs_real_imag_plot(mrs, res)}
+        <h1><a name="basis">Basis spectra summary</a></h1>
+        {svs_basis_plot(mrs, res)}
         <hr>
         """)
 
     sections.append(
         f"""
-        <h1><a name="metabs">Individual metabolite spectra</a></h1>
+        <h1><a name="metabs">Individual metabolite estimates</a></h1>
         {svs_indiv_plot(mrs, res)}
         <hr>
         """)
@@ -326,7 +332,7 @@ def create_svs_sections(mrs, res, location_fig):
         'nuisance': 'Nuisance',
         'qc': 'QC',
         'uncertainty': 'Uncertainty',
-        'realimag': 'Real/Imag',
+        'basis': 'Basis Spectra',
         'metabs': 'Metabs',
         'quantification': 'Quantification',
         'methods': 'Methods'}

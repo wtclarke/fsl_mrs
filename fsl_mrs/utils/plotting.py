@@ -211,7 +211,7 @@ def plot_fid(mrs, tlim=None, FID=None, proj='real', c='k'):
     return plt.gcf()
 
 
-def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5)):
+def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
     """Plot the formatted basis and optionally the FID from an mrs object
 
     :param mrs: MRS object
@@ -220,19 +220,38 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5)):
     :type plot_spec: bool, optional
     :param ppmlim: Chemical shift plotting range, defaults to (0.0, 4.5)
     :type ppmlim: tuple, optional
+    :param normalise: If True normalise spectrum to max of basis, defaults to False
+    :type normalise: bool, optional
     :return: Figure object
     """
     first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
 
+    n_met = len(mrs.names)
+    if n_met <= 10:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_met))
+    elif n_met <= 20:
+        colors = plt.cm.tab20(np.linspace(0, 1, n_met))
+    elif n_met > 20:
+        colors = plt.cm.nipy_spectral(np.linspace(0, 1, n_met))
+
+    ax = plt.gca()
+    ax.set_prop_cycle('color', colors)
+
+    max_basis = []
     for idx, n in enumerate(mrs.names):
-        plt.plot(mrs.getAxes(ppmlim=ppmlim),
-                 np.real(FID2Spec(mrs.basis[:, idx]))[first:last],
-                 label=n)
+        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[first:last]
+        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+                toplot,
+                label=n)
+        max_basis.append(toplot.max())
 
     if plot_spec:
-        plt.plot(mrs.getAxes(ppmlim=ppmlim),
-                 np.real(mrs.get_spec(ppmlim=ppmlim)),
-                 'k', label='Data')
+        spec = np.real(mrs.get_spec(ppmlim=ppmlim))
+        if normalise:
+            spec *= np.max(max_basis) / spec.max()
+        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+                spec,
+                'k', label='Data')
 
     plt.gca().invert_xaxis()
     plt.xlabel('Chemical shift (ppm)')
@@ -948,13 +967,27 @@ def plot_indiv_stacked(mrs, res, ppmlim=None):
     if ppmlim is None:
         ppmlim = res.ppmlim
 
-    colors = dict(data='rgb(67,67,67)',
-                  indiv='rgb(253,59,59)')
+    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+
+    n_met = len(mrs.names)
+    if n_met <= 10:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_met))
+    elif n_met <= 20:
+        colors = plt.cm.tab20(np.linspace(0, 1, n_met))
+    elif n_met > 20:
+        colors = plt.cm.nipy_spectral(np.linspace(0, 1, n_met))
+
+    def format_c_string(colour):
+        return f'rgb({colour[0] * 255},{colour[1] * 255},{colour[2] * 255})'
+
+    colors = {met: format_c_string(color) for met, color in zip(mrs.names, colors)}
+    colors.update({'data': 'rgb(67,67,67)'})
+
     line_size = dict(data=.5,
                      indiv=2)
     fig = go.Figure()
-    axis = mrs.getAxes()
-    y_data = np.real(FID2Spec(mrs.FID))
+    axis = mrs.getAxes()[first:last]
+    y_data = np.real(FID2Spec(mrs.FID))[first:last]
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='data',
@@ -963,11 +996,11 @@ def plot_indiv_stacked(mrs, res, ppmlim=None):
 
     for i, metab in enumerate(mrs.names):
         # y_fit = np.real(FID2Spec(pred(mrs, res, metab)))
-        y_fit = np.real(FID2Spec(res.predictedFID(mrs, mode=metab)))
+        y_fit = np.real(FID2Spec(res.predictedFID(mrs, mode=metab)))[first:last]
         trace2 = go.Scatter(x=axis, y=y_fit,
                             mode='lines',
                             name=metab,
-                            line=dict(color=colors['indiv'], width=line_size['indiv']))
+                            line=dict(color=colors[metab], width=line_size['indiv']))
         fig.add_trace(trace2)
 
     fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
@@ -1110,6 +1143,71 @@ def plot_references(mrs, res):
                             zerolinewidth=1,
                             zerolinecolor='Gray',
                             showgrid=False)
+    return fig
+
+
+def plotly_basis(mrs, ppmlim=None):
+    """Plotly formatted plot of data + basis spectra for fitting report
+
+    :param mrs: MRS object with basis loaded
+    :type mrs: fsl_mrs.core.mrs.MRS
+    :param ppmlim: Optional ppm limits, defaults to None
+    :type ppmlim: tuple, optional
+    :return: Figure
+    :rtype: go.Figure
+    """
+    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+
+    n_met = len(mrs.names)
+    if n_met <= 10:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_met))
+    elif n_met <= 20:
+        colors = plt.cm.tab20(np.linspace(0, 1, n_met))
+    elif n_met > 20:
+        colors = plt.cm.nipy_spectral(np.linspace(0, 1, n_met))
+
+    def format_c_string(colour):
+        return f'rgb({colour[0] * 255},{colour[1] * 255},{colour[2] * 255})'
+
+    colors = {met: format_c_string(color) for met, color in zip(mrs.names, colors)}
+    colors.update({'data': 'rgb(67,67,67)'})
+
+    line_size = dict(data=.5,
+                     basis=2)
+    fig = go.Figure()
+    axis = mrs.getAxes()[first:last]
+    max_vals = []
+    for idx, metab in enumerate(mrs.names):
+        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[first:last]
+        trace2 = go.Scatter(x=axis, y=toplot,
+                            mode='lines',
+                            name=metab,
+                            line=dict(color=colors[metab], width=line_size['basis']))
+        fig.add_trace(trace2)
+        max_vals.append(toplot.max())
+
+    y_data = np.real(FID2Spec(mrs.FID))[first:last]
+    y_data *= np.max(max_vals) / y_data.max()
+    trace1 = go.Scatter(x=axis, y=y_data,
+                        mode='lines',
+                        name='data',
+                        line=dict(color=colors['data'], width=line_size['data']))
+    fig.add_trace(trace1)
+
+    fig.layout.xaxis.update(title_text='Chemical shift (ppm)',
+                            tick0=2, dtick=.5,
+                            range=[ppmlim[1], ppmlim[0]])
+    fig.layout.yaxis.update(zeroline=True,
+                            zerolinewidth=1,
+                            zerolinecolor='Gray',
+                            showgrid=False, showticklabels=False)
+
+    # Update the margins to add a title and see graph x-labels.
+    # fig.layout.margin.update({'t':50, 'b':100})
+    # fig.layout.update({'title': 'Individual Fitting summary'})
+    fig.update_layout(template='plotly_white')
+    # fig.layout.update({'height':800,'width':1000})
+
     return fig
 
 
