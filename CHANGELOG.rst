@@ -1,10 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.1.2 (WIP)
-------------------------------
+2.1.2 (Tuesday 21st March 2023)
+-------------------------------
 - Fixed bug in `fsl_mrs_summarise` showing some fits inverted along x.
 - Updated installation instructions.
-
+- Updated `fsl_mrs` report to include basis spectra (removed real/imag view).
 
 2.1.1 (Monday 20th March 2023)
 ------------------------------
