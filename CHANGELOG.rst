@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.2 (WIP)
+------------------------------
+- Fixed bug in `fsl_mrs_summarise` showing some fits inverted along x.
+- Updated installation instructions.
+
+
 2.1.1 (Monday 20th March 2023)
 ------------------------------
 - Better handling of x-nuclei, including specific constants, ppm ranges, offsets etc.
