@@ -12,4 +12,5 @@ pillow
 spec2nii>=0.3.0
 dill
 dash
+flask>=2.2
 nifti-mrs>=0.1.4
