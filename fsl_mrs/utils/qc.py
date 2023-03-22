@@ -8,6 +8,8 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
+import warnings
+
 from fsl_mrs import models
 from fsl_mrs.utils.constants import NOISE_REGION
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
@@ -134,7 +136,15 @@ class NucleusQCNotImplemented(Exception):
 
 def _detrend_noise(spec, axis):
     '''Polynomial fit to remove trend from noise region'''
-    coefs = poly.polyfit(axis, spec, 4)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', r'The fit may be poorly conditioned')
+        if spec.size <= 2:
+            return spec
+        elif spec.size <= 20:
+            coefs = poly.polyfit(axis, spec, 1)
+        else:
+            coefs = poly.polyfit(axis, spec, 4)
     fit = poly.polyval(axis, coefs)
     return spec - fit
 

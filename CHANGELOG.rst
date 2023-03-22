@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.3 (Wednesday 22nd March 2023)
+---------------------------------
+- Improved noise baseline de-trending in QC estimation.
+- Resolved dash/flask dependency issues for python 3.7.
+
 2.1.2 (Tuesday 21st March 2023)
 -------------------------------
 - Fixed bug in `fsl_mrs_summarise` showing some fits inverted along x.
