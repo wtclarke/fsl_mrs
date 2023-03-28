@@ -76,6 +76,21 @@ def main():
             res_dir = fp.read().splitlines()
             res_dir = [Path(dir) for dir in res_dir]
 
+    # Check for duplicate names
+    # list(dict.fromkeys(x)) finds unique values preserving order
+    if len(list(dict.fromkeys(res_dir))) < len(res_dir):
+        raise ValueError('Input directories must not be duplicated.')
+
+    res_dir_for_names = [fp for fp in res_dir]
+    fit_names = [fp.name for fp in res_dir_for_names]
+    while len(list(dict.fromkeys(fit_names))) < len(res_dir):
+        res_dir_for_names = [fp.parent for fp in res_dir_for_names]
+
+        if res_dir_for_names[0] == Path('/'):
+            raise ValueError('Inputs must be uniquely identifiable at single level.')
+
+        fit_names = [fp.name for fp in res_dir_for_names]
+
     # 1. Concentration.csv
     if verbose:
         print('Loading concentration data.')
