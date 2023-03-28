@@ -95,11 +95,9 @@ def main():
     if verbose:
         print('Loading concentration data.')
     all_conc = []
-    conc_order = []
     for fp in res_dir:
         all_conc.append(pd.read_csv(fp / 'concentrations.csv', index_col=0, header=[0, 1]))
-        conc_order.append(fp.name)
-    conc_df = pd.concat(all_conc, keys=conc_order, names=['dataset', 'Metabolite'])
+    conc_df = pd.concat(all_conc, keys=fit_names, names=['dataset', 'Metabolite'])
     col = conc_df.columns
     col.names = [None, None]
     conc_df.columns = col
@@ -109,11 +107,9 @@ def main():
     if verbose:
         print('Loading QC data.')
     all_qc = []
-    qc_order = []
     for fp in res_dir:
         all_qc.append(pd.read_csv(fp / 'qc.csv', index_col=0, header=0))
-        qc_order.append(fp.name)
-    qc_df = pd.concat(all_qc, keys=conc_order, names=['dataset', 'Metabolite'])
+    qc_df = pd.concat(all_qc, keys=fit_names, names=['dataset', 'Metabolite'])
     qc_df = qc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
     # 3. Load the all_parameters.csv and regenerate mrs/results objects
