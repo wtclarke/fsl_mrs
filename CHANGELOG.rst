@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.4 (WIP)
+---------------------------------
+- Improved `fsl_mrs_summarise` identification of dataset names.
+
 2.1.3 (Wednesday 22nd March 2023)
 ---------------------------------
 - Improved noise baseline de-trending in QC estimation.
