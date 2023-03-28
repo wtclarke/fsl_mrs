@@ -118,7 +118,7 @@ def main():
     mrs_store = {}
     res_store = {}
     n_data = len(res_dir)
-    for idx, fp in enumerate(res_dir):
+    for idx, (fp, name) in enumerate(zip(res_dir, fit_names)):
         param_df = pd.read_csv(fp / 'all_parameters.csv')
 
         # Read options.txt
@@ -161,16 +161,16 @@ def main():
         B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 
         # Generate results object
-        res_store[fp.name] = results.FitRes(
+        res_store[name] = results.FitRes(
             mrs,
             param_df['mean'].to_numpy(),
             model, method, metab_groups, baseline_order, B, ppmlim,
             runqc=False)
 
         if orig_args['combine'] is not None:
-            res_store[fp.name].combine(orig_args['combine'])
+            res_store[name].combine(orig_args['combine'])
 
-        mrs_store[fp.name] = deepcopy(mrs)
+        mrs_store[name] = deepcopy(mrs)
         if verbose:
             stdout.write(f'\r{idx + 1}/{n_data} data & results loaded.')
             stdout.flush()
