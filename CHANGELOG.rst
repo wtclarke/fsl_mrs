@@ -3,7 +3,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.1.4 (Thursday 30th March 2023)
 --------------------------------
 - Improved `fsl_mrs_summarise` identification of dataset names.
-- Fixed bug in `fsl_mrs_proc apodise`
+- Fixed bug in `fsl_mrs_proc apodize`
 
 2.1.3 (Wednesday 22nd March 2023)
 ---------------------------------
