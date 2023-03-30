@@ -690,3 +690,42 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     directRun = preproc.apply_fixed_phase(mrsidata, 90, 0.001)
 
     assert np.allclose(data[:], directRun[:])
+
+
+def test_apodize(svs_data, mrsi_data, tmp_path):
+    """ Test fsl_mrs_proc apodize"""
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run remove on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'apodize',
+                           '--file', svsfile,
+                           '--filter', 'exp',
+                           '--amount', '10',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.apodize(svsdata, (10,))
+
+    assert np.allclose(data[:], directRun[:])
+
+    # Run coil combination on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'apodize',
+                           '--file', mrsifile,
+                           '--filter', 'l2g',
+                           '--amount', '10', '1',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.apodize(mrsidata, (10, 1), filter='l2g')
+
+    assert np.allclose(data[:], directRun[:])

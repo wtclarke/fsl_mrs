@@ -616,11 +616,11 @@ def truncate(dataobj, args):
 def apodize(dataobj, args):
     from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 
-    apodized = preproc.truncate_or_pad(dataobj.data,
-                                       args['amount'],
-                                       filter=args['filter'],
-                                       report=args['generateReports'],
-                                       report_all=args['allreports'])
+    apodized = preproc.apodize(dataobj.data,
+                               args['amount'],
+                               filter=args['filter'],
+                               report=args['generateReports'],
+                               report_all=args['allreports'])
 
     return datacontainer(apodized, dataobj.datafilename)
 
