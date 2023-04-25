@@ -70,7 +70,7 @@ def main():
                           help='Uncombined coil data file(s)')
     cc_group.add_argument('--reference', type=str, required=False,
                           help='Water unsuppressed reference data')
-    cc_group.add_argument('--no_prewhiten', action="store_false",
+    cc_group.add_argument('--no_prewhiten', action="store_true",
                           help="Don't prewhiten data before coil combination")
     ccparser.set_defaults(func=coilcombine)
     add_common_args(ccparser)

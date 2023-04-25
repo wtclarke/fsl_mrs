@@ -17,29 +17,62 @@ def dephase(FIDlist):
     return [fid * np.exp(-1j * np.angle(fid[0])) for fid in FIDlist]
 
 
-def prewhiten(FIDlist, prop=.1, C=None):
+class CovarianceEstimationError(Exception):
+    """Raised when coil covariance can't be estimated from the data.
     """
-       Uses noise covariance to prewhiten data
+    pass
 
-    Parameters:
-    -----------
-    FIDlist : list of FIDs
-    prop    : proportion of data used to estimate noise covariance
-    C       : noise covariance matrix, if provided it is not measured from data.
 
-    Returns :
-    list of FIDs
-    pre-whitening matrix
-    noise covariance matrix
+def estimate_noise_cov(FIDs, prop=.1):
+    """Estimate noise covariance from the noise points at the end of a FID
+
+    Covariance is calculated across the last dimension of the input FID array.
+
+    :param FIDs: Array of FIDs ((optional) repeats * timepoints x N coils/FIDS)
+    :type FIDs: numpy.array
+    :param prop: proportion of FID used to estimate covariance, defaults to .1
+    :type prop: float, optional
+    :return: covariance matrix
+    :rtype: np.ndarray
+    """
+    # Estimate noise covariance
+    start = int((1 - prop) * FIDs.shape[-2])
+    selected_points = FIDs[..., start:, :].reshape(-1, FIDs.shape[-1])
+    # Raise warning if not enough samples
+    if selected_points.shape[0] < 10 * FIDs.shape[-1]:
+        raise CovarianceEstimationError(
+            f'You have far too few points ({selected_points.shape[0]}) '
+            f'to calculate an {FIDs.shape[-1]} element covariance.')
+    elif selected_points.shape[0] < 1E5:
+        import warnings
+        warnings.warn(
+            'You may not have enough samples to accurately estimate the noise covariance, '
+            '10^5 samples recommended.')
+    return np.cov(selected_points, rowvar=False)
+
+
+def prewhiten(FIDlist, prop=.1, C=None):
+    """Pre-whiten data (remove inter-coil covariances)
+
+    Either using supplied covariance matrix (C)
+    or by estimating covariance from noise points at the end of the FID.
+
+    :param FIDs: Array of FIDs ((optional) repeats * timepoints x N coils/FIDS)
+    :type FIDs: numpy.array
+    :param prop: proportion of FID used to estimate covariance, defaults to .1
+    :type prop: float, optional
+    :param C: Supplied covariance matrix, defaults to None
+    :type C: np.array, optional
+    :return FIDs: Pre-whitened data
+    :rtype: numpy.array
+    :return W: Pre-whitening matrix
+    :rtype: numpy.array
+    :return C: Estimated covariance matrix
+    :rtype: numpy.array
     """
     FIDs = np.asarray(FIDlist, dtype=complex)
     if C is None:
-        # Estimate noise covariance
-        start = int((1 - prop) * FIDs.shape[0])
-        # Raise warning if not enough samples
-        if (FIDs.shape[0] - start) < 1.5 * FIDs.shape[1]:
-            raise(Warning('You may not have enough samples to robustly estimate the noise covariance'))
-        C     = np.cov(FIDs[start:, :], rowvar=False)
+        C = estimate_noise_cov(FIDs, prop)
 
     D, V = np.linalg.eigh(C, UPLO='U')  # UPLO = 'U' to match matlab implementation
     # Pre-whitening matrix
@@ -50,20 +83,24 @@ def prewhiten(FIDlist, prop=.1, C=None):
 
 
 def svd_reduce(FIDlist, W=None, C=None, return_alpha=False):
-    """
-    Combine different channels by SVD method
-    Based on C.T. Rodgers and M.D. Robson, Magn Reson Med 63:881–891, 2010
+    """Combine different channels by the wSVD method
 
-    Parameters:
-    -----------
-    FIDlist      : list of FIDs
-    W            : pre-whitening matrix (only used to calculate sensitivities)
-    return_alpha : return sensitivities?
+    Based on C.T. Rodgers and M.D. Robson, Magn Reson Med 63:881-891, 2010
 
-    Returns:
-    --------
-    array-like (FID)
-    array-like (sensitivities) - optional
+    :param FIDlist: Array of FIDs (timepoints x N coils)
+    :type FIDlist: np.array or list
+    :param W: Pre-whitening matrix, defaults to None
+    :type W: np.array, optional
+    :param C: Coil covariance matrix, defaults to None
+    :type C: np.array, optional
+    :param return_alpha: Optionally return the coil combination weights, defaults to False
+    :type return_alpha: bool, optional
+    :return FID: Coil combined FID
+    :rtype: np.array
+    :return alpha: Coil combination weights incorporating prewhitening, only returned if return_alpha=True
+    :rtype: np.array
+    :return scaledAmps: Coil combination weights (no prewhitening), only returned if return_alpha=True
+    :rtype: np.array
     """
     FIDs  = np.asarray(FIDlist)
     U, S, V = np.linalg.svd(FIDs, full_matrices=False)
@@ -93,7 +130,7 @@ def svd_reduce(FIDlist, W=None, C=None, return_alpha=False):
             C = np.eye(FIDs.shape[1])
         scaledAmps = (amp / svdRescale).conj().T
         alpha = np.linalg.inv(C) @ scaledAmps * svdRescale.conj() * svdRescale
-        return FID, alpha
+        return FID, alpha, scaledAmps
     else:
         return FID
 
@@ -121,31 +158,32 @@ def weightedCombination(FIDlist, weights):
     return FID
 
 
-def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=None):
-    """
-       Combine FIDs (either from multiple coils or multiple averages)
+def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=None, cov=None):
+    """Combine FIDs (either from multiple coils or multiple averages)
 
-    Parameters:
-    -----------
-    FIDlist   : list of FIDs or array with time dimension first
-    method    : one of 'mean', 'svd', 'svd_weights', 'weighted'
-    prewhiten : bool
-    dephase   : bool
-
-    Returns:
-    --------
-    array-like
-
+    :param FIDlist: list of FIDs or array with time dimension first
+    :type FIDlist: list
+    :param method: one of 'mean', 'svd', 'svd_weights', 'weighted'
+    :type method: str
+    :param do_prewhiten: If true noise whitening is performed before combination, defaults to False
+    :type do_prewhiten: bool, optional
+    :param do_dephase: Phase is removed before combination, defaults to False
+    :type do_dephase: bool, optional
+    :param weights: Combine using supplied complex weights,  method must = weighted, defaults to None
+    :type weights: list or np.array, optional
+    :param cov: covariance matrix for noise correlation between FIDs, defaults to None
+    :type cov: np.ndarray, optional
+    :return: Combined FID signal
+    :rtype: numpy.array
     """
 
     if isinstance(FIDlist, list):
         FIDlist = np.asarray(FIDlist).T
 
     # Pre-whitening
-    W = None
-    C = None
+    pre_w_mat = None
     if do_prewhiten:
-        FIDlist, W, C = prewhiten(FIDlist)
+        FIDlist, pre_w_mat, cov = prewhiten(FIDlist, C=cov)
 
     # Dephasing
     if do_dephase:
@@ -155,13 +193,15 @@ def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=
     if method == 'mean':
         return np.mean(FIDlist, axis=-1).T
     elif method == 'svd':
-        return svd_reduce(FIDlist, W)
+        return svd_reduce(FIDlist, pre_w_mat)
     elif method == 'svd_weights':
-        return svd_reduce(FIDlist, W, C, return_alpha=True)
+        return svd_reduce(FIDlist, pre_w_mat, cov, return_alpha=True)
     elif method == 'weighted':
         return weightedCombination(FIDlist, weights)
     else:
-        raise(Exception("Unknown method '{}'. Should be either 'mean' or 'svd'".format(method)))
+        raise ValueError(
+            f"Unknown method '{method}'. "
+            "Should be either 'mean', 'svd', 'svd_weights', or 'weighted'.")
 
 
 def combine_FIDs_report(inFIDs,

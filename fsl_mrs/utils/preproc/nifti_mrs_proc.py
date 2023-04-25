@@ -57,10 +57,18 @@ def first_index(idx):
     return all([ii == slice(None, None, None) or ii == 0 for ii in idx])
 
 
-def coilcombine(data, reference=None, no_prewhiten=False, figure=False, report=None, report_all=False):
+def coilcombine(
+        data,
+        reference=None,
+        noise=None, covariance=None, no_prewhiten=False,
+        figure=False,
+        report=None,
+        report_all=False):
     '''Coil combine data optionally using reference data.
     :param NIFTI_MRS data: Data to coil combine
     :param NIFTI_MRS reference: reference dataset to calculate weights
+    :param noise: Supply noise (NCoils x M) to estimate coil covariance (overridden by no_prewhiten)
+    :param covariance: Supply coil-covariance for prewhitening (overridden by noise or no_prewhiten)
     :param no_prewhiten: True to disable prewhitening
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
@@ -73,36 +81,104 @@ def coilcombine(data, reference=None, no_prewhiten=False, figure=False, report=N
             raise DimensionsDoNotMatch('Reference and data coil dimension does not match.')
 
     combinedc_obj = data.copy(remove_dim='DIM_COIL')
-    for main, idx in data.iterate_over_dims(dim='DIM_COIL',
-                                            iterate_over_space=True,
-                                            reduce_dim_index=True):
-        if reference is None:
+    coil_dim = data.dim_position('DIM_COIL')
+    ncoils = data.shape[coil_dim]
+
+    if noise is not None:
+        if noise.shape[0] != ncoils:
+            raise ValueError(
+                f'Noise must have a first dimension (currently {noise.shape[0] }) = NCoils {ncoils}')
+
+        coil_cov = np.cov(noise)
+
+    elif covariance is not None:
+        if covariance.shape[0] != ncoils\
+                or covariance.shape[1] != ncoils:
+            raise ValueError(
+                f'Covariance must be square and equal to the number of coils {ncoils}, '
+                f'it is currently {covariance.shape}')
+        coil_cov = covariance
+    elif np.prod(data.shape[0:3]) > 1:
+        # Use multiple voxels to estimate the covariance
+        from fsl_mrs.utils.preproc.combine import estimate_noise_cov
+        data_array = np.moveaxis(
+            data[:],
+            (coil_dim, 3),
+            (-1, -2))
+        data_array = data_array.reshape((-1, ) + data_array.shape[-2:])
+        coil_cov = estimate_noise_cov(data_array)
+    else:
+        coil_cov = None
+
+    if reference is not None:
+        weights_shape = reference.shape[:3] + reference.shape[4:]
+        ref_weights = np.zeros(weights_shape, dtype=complex)
+        # Run wSVD on the reference data storing up weights
+        for ref, idx in reference.iterate_over_dims(dim='DIM_COIL',
+                                                    iterate_over_space=True,
+                                                    reduce_dim_index=True):
+            # breakpoint()
+            _, ref_weights[idx] = preproc.combine_FIDs(
+                ref,
+                'svd_weights',
+                do_prewhiten=not no_prewhiten,
+                cov=coil_cov)
+
+        # Axes swapping fun for broadcasting along multiple dimensions.
+        weighted_data = np.moveaxis(data[:], 3, -1).T * ref_weights.T
+        weighted_data = np.moveaxis(weighted_data.T, -1, 3)
+
+        combinedc_obj[:] = np.sum(weighted_data, axis=coil_dim)
+
+        if (figure or report):
+            from fsl_mrs.utils.preproc.combine import combine_FIDs_report
+            for main, idx in data.iterate_over_dims(dim='DIM_COIL',
+                                                    iterate_over_space=True,
+                                                    reduce_dim_index=True):
+
+                if (report_all or first_index(idx)):
+                    fig = combine_FIDs_report(
+                        main,
+                        combinedc_obj[idx],
+                        data.bandwidth,
+                        data.spectrometer_frequency[0],
+                        data.nucleus[0],
+                        ncha=data.shape[data.dim_position('DIM_COIL')],
+                        ppmlim=(0.0, 6.0),
+                        method='svd',
+                        dim='DIM_COIL',
+                        html=report)
+                    if figure:
+                        fig.show()
+                if first_index(idx):
+                    break
+
+    else:
+        # If there is no reference data (or [TODO] supplied weights) then have to run
+        # per-voxel wSVD. This is slow for high-res MRSI data
+        for main, idx in data.iterate_over_dims(dim='DIM_COIL',
+                                                iterate_over_space=True,
+                                                reduce_dim_index=True):
+
             combinedc_obj[idx] = preproc.combine_FIDs(
                 list(main.T),
                 'svd',
-                do_prewhiten=~no_prewhiten)
-        else:
-            _, refWeights = preproc.combine_FIDs(
-                list(reference[idx[:4]].T),
-                'svd_weights',
-                do_prewhiten=~no_prewhiten)
-            combinedc_obj[idx] = preproc.combine_FIDs(
-                list(main.T),
-                'weighted',
-                weights=refWeights)
+                do_prewhiten=not no_prewhiten,
+                cov=coil_cov)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            fig = combine_FIDs_report(main,
-                                      combinedc_obj[idx],
-                                      data.bandwidth,
-                                      data.spectrometer_frequency[0],
-                                      data.nucleus[0],
-                                      ncha=data.shape[data.dim_position('DIM_COIL')],
-                                      ppmlim=(0.0, 6.0),
-                                      method='svd',
-                                      dim='DIM_COIL',
-                                      html=report)
+            fig = combine_FIDs_report(
+                main,
+                combinedc_obj[idx],
+                data.bandwidth,
+                data.spectrometer_frequency[0],
+                data.nucleus[0],
+                ncha=data.shape[data.dim_position('DIM_COIL')],
+                ppmlim=(0.0, 6.0),
+                method='svd',
+                dim='DIM_COIL',
+                html=report)
             if figure:
                 fig.show()
 
@@ -910,7 +986,7 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
             elif p1_type.lower() == 'linphase':
                 phs_obj[idx] = preproc.applyLinPhase(
                     phs_obj[idx],
-                    data.mrs()[0].getAxes(axis='freq'),
+                    data.mrs().getAxes(axis='freq'),
                     p1)
             else:
                 raise ValueError("p1_type kwarg must be 'shift' or 'linphase'.")

@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.5 (Monday 17th April 2023)
+------------------------------
+- Improved performance of coil combination for MRSI
+- Noise or covariance matrix may be supplied directly for coil combination.
+- More robust tests fro coil combination.
+- Fix 1D projection method for simulation of edited sequences
+
 2.1.4 (Thursday 30th March 2023)
 --------------------------------
 - Improved `fsl_mrs_summarise` identification of dataset names.

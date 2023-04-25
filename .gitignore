@@ -20,3 +20,4 @@ example_usage/fsl_mrs_proc/
 example_usage/report.html
 *.egg-info
 .idea
+/test_*
