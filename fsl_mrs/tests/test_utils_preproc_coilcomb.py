@@ -4,6 +4,7 @@ Test utils.preproc.combine functions and
 the implementation in nifti_mrs_proc in depth.
 
 Copyright Will Clarke, University of Oxford, 2023'''
+import warnings
 
 import numpy as np
 import pytest
@@ -208,10 +209,40 @@ def test_nifti_mrs_coilcomb():
     comb_test_v1 = combine.combine_FIDs(data[0, 0, 0, :, :, 0], 'svd', cov=cov, do_prewhiten=True)
     comb_test_v2 = combine.combine_FIDs(data[1, 0, 0, :, :, 0], 'svd', cov=cov, do_prewhiten=True)
 
-    combined_wcov = coilcombine(data, covariance=cov)
-    combined_wnoise = coilcombine(data, noise=noise.T)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        combined_wcov = coilcombine(data, covariance=cov)
+        combined_wnoise = coilcombine(data, noise=noise.T)
 
-    combined_wocov = coilcombine(data)
+        combined_wocov = coilcombine(data)
+
+    assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
+    assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
+
+    assert np.allclose(combined_wnoise[0, 0, 0, :, 0], comb_test_v1, atol=1E-4)
+    assert np.allclose(combined_wnoise[1, 0, 0, :, 0], comb_test_v2, atol=1E-4)
+
+    assert np.allclose(combined_wocov[0, 0, 0, :, 0], comb_test_v1, atol=1E-2)
+    assert np.allclose(combined_wocov[1, 0, 0, :, 0], comb_test_v2, atol=1E-2)
+
+    # Repeat with different dimension ordering to make sure of implementation
+    all_fids = np.swapaxes(all_fids, -1, -2)
+    data = create_nmrs.gen_nifti_mrs(
+        all_fids,
+        1 / 1000,
+        123.2,
+        dim_tags=['DIM_DYN', 'DIM_COIL', None]
+    )
+
+    comb_test_v1 = combine.combine_FIDs(data[0, 0, 0, :, 0, :], 'svd', cov=cov, do_prewhiten=True)
+    comb_test_v2 = combine.combine_FIDs(data[1, 0, 0, :, 0, :], 'svd', cov=cov, do_prewhiten=True)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        combined_wcov = coilcombine(data, covariance=cov)
+        combined_wnoise = coilcombine(data, noise=noise.T)
+
+        combined_wocov = coilcombine(data)
 
     assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
