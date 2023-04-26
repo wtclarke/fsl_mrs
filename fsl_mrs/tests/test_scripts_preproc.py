@@ -49,6 +49,43 @@ def test_preproc(tmp_path):
     assert proc_nii.shape == (1, 1, 1, 4095)
 
 
+def test_preproc_wnoise(tmp_path):
+
+    from fsl_mrs.core.nifti_mrs import create_nmrs
+    import numpy as np
+    cov = np.eye(32) / 2
+    mean = np.zeros((32,))
+    rng = np.random.default_rng(seed=1)
+    noise = rng.multivariate_normal(mean, cov, (20000,))\
+        + 1j * rng.multivariate_normal(mean, cov, (20000,))
+
+    create_nmrs.gen_nifti_mrs(
+        noise.reshape((1, 1, 1, ) + noise.shape),
+        1 / 1000,
+        123.2,
+        dim_tags=['DIM_COIL', None, None]
+    ).save(tmp_path / 'noise.nii.gz')
+
+    metab = str(data / 'metab_raw.nii.gz')
+    wrefc = str(data / 'wref_raw.nii.gz')
+    out = tmp_path / 'out'
+    retcode = subprocess.check_call(
+        ['fsl_mrs_preproc',
+         '--output', str(out),
+         '--data', metab,
+         '--reference', wrefc,
+         '--noise', str(tmp_path / 'noise.nii.gz'),
+         '--overwrite',
+         '--verbose'])
+
+    assert retcode == 0
+    assert (out / 'metab.nii.gz').exists()
+    assert (out / 'wref.nii.gz').exists()
+
+    proc_nii = mrs_io.read_FID(out / 'metab.nii.gz')
+    assert proc_nii.shape == (1, 1, 1, 4096)
+
+
 def test_preproc_fmrs(tmp_path):
 
     metab = str(data / 'metab_raw.nii.gz')

@@ -49,6 +49,10 @@ def main():
                           default=None, metavar='<str>',
                           help='Water reference data for eddy'
                                ' current correction (Optional).')
+    optional.add_argument('--noise', type=str,
+                          default=None, metavar='<str>',
+                          help='Noise data data for estimating coil covariance'
+                               ' (used during coil combination, optional).')
     optional.add_argument('--fmrs', action="store_true",
                           help='Preprocessing for fMRS, automattically sets noremoval and noaverage arguments')
     optional.add_argument('--noremoval', action="store_false", dest='unlike',
@@ -199,8 +203,19 @@ def main():
         else:
             avg_ref_data = ref_data
 
-        supp_data = nifti_mrs_proc.coilcombine(supp_data, reference=avg_ref_data, report=report_dir)
-        ref_data = nifti_mrs_proc.coilcombine(ref_data, reference=avg_ref_data)
+        if args.noise is not None:
+            import numpy as np
+            noise = mrs_io.read_FID(args.noise)
+            noise = np.swapaxes(
+                noise[:],
+                noise.dim_position('DIM_COIL'),
+                -1)
+            noise = noise.reshape(-1, noise.shape[-1]).T
+        else:
+            noise = None
+
+        supp_data = nifti_mrs_proc.coilcombine(supp_data, reference=avg_ref_data, report=report_dir, noise=noise)
+        ref_data = nifti_mrs_proc.coilcombine(ref_data, reference=avg_ref_data, noise=noise)
 
         if args.quant is not None:
             quant_data = nifti_mrs_proc.coilcombine(quant_data, reference=avg_ref_data)

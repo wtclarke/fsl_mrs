@@ -98,6 +98,7 @@ def coilcombine(
                 f'Covariance must be square and equal to the number of coils {ncoils}, '
                 f'it is currently {covariance.shape}')
         coil_cov = covariance
+
     elif np.prod(data.shape[0:3]) > 1:
         # Use multiple voxels to estimate the covariance
         from fsl_mrs.utils.preproc.combine import estimate_noise_cov
@@ -116,9 +117,10 @@ def coilcombine(
         # Run wSVD on the reference data storing up weights
         for ref, idx in reference.iterate_over_dims(dim='DIM_COIL',
                                                     iterate_over_space=True,
-                                                    reduce_dim_index=True):
-            # breakpoint()
-            _, ref_weights[idx] = preproc.combine_FIDs(
+                                                    reduce_dim_index=False):
+            # TODO make this without_time an kwarg in iterate_over_dims
+            idx_no_t = idx[:3] + idx[4:]
+            _, ref_weights[idx_no_t], _ = preproc.combine_FIDs(
                 ref,
                 'svd_weights',
                 do_prewhiten=not no_prewhiten,

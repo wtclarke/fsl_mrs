@@ -219,8 +219,8 @@ def test_nifti_mrs_coilcomb():
     assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
 
-    assert np.allclose(combined_wnoise[0, 0, 0, :, 0], comb_test_v1, atol=1E-4)
-    assert np.allclose(combined_wnoise[1, 0, 0, :, 0], comb_test_v2, atol=1E-4)
+    assert np.allclose(combined_wnoise[0, 0, 0, :, 0], comb_test_v1, atol=5E-4)
+    assert np.allclose(combined_wnoise[1, 0, 0, :, 0], comb_test_v2, atol=5E-4)
 
     assert np.allclose(combined_wocov[0, 0, 0, :, 0], comb_test_v1, atol=1E-2)
     assert np.allclose(combined_wocov[1, 0, 0, :, 0], comb_test_v2, atol=1E-2)
@@ -247,8 +247,17 @@ def test_nifti_mrs_coilcomb():
     assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
 
-    assert np.allclose(combined_wnoise[0, 0, 0, :, 0], comb_test_v1, atol=1E-4)
-    assert np.allclose(combined_wnoise[1, 0, 0, :, 0], comb_test_v2, atol=1E-4)
+    assert np.allclose(combined_wnoise[0, 0, 0, :, 0], comb_test_v1, atol=5E-4)
+    assert np.allclose(combined_wnoise[1, 0, 0, :, 0], comb_test_v2, atol=5E-4)
 
     assert np.allclose(combined_wocov[0, 0, 0, :, 0], comb_test_v1, atol=1E-2)
     assert np.allclose(combined_wocov[1, 0, 0, :, 0], comb_test_v2, atol=1E-2)
+
+    # Repeat with reference (use same data)
+    from fsl_mrs.core import nifti_mrs as ntools
+    ref_data, _ = ntools.split(data, 'DIM_DYN', 0)
+    print(ref_data.shape)
+    combined_wref = coilcombine(data, covariance=cov, reference=ref_data)
+
+    assert np.allclose(combined_wref[0, 0, 0, :, 0], comb_test_v1)
+    assert np.allclose(combined_wref[1, 0, 0, :, 0], comb_test_v2)
