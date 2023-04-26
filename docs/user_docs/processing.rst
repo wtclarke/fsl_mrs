@@ -97,7 +97,7 @@ fsl_mrs_proc subcommand specifics
 ---------------------------------
 
 1. coilcombine (Coil combination) 
-        Takes a list of files (:code:`--file`) and runs a weighted SVD [RODG10]_ coil combination on them optionally using a single water reference dataset (:code:`--reference`) to calculate the complex weightings of each coil. The function expects data to be stored as 5D data, with the last dimension storing individual coil data. Each file is treated separately. Pre-whitening can be disabled (:code:`--noprewhiten`). 
+        Takes a list of files (:code:`--file`) and runs a weighted SVD [RODG10]_ coil combination on them optionally using a single water reference dataset (:code:`--reference`) to calculate the complex weightings of each coil. The function expects data to be stored as 5D data, with the last dimension storing individual coil data. Each file is treated separately. Pre-whitening is carried out by supplying a covariance matrix (:code:`--covariance`), noise samples (:code:`--noise`), or estimated from the data (default). Pre-whitening can be disabled (:code:`--noprewhiten`). 
 
 2. average (averaging) 
         Takes a file as input (:code:`--file`) and takes the mean across across a certain dimension (:code:`--dim`, either a NIfTI-MRS tag or dim index (5, 6, 7).

@@ -16,7 +16,7 @@ from os import makedirs
 from shutil import rmtree
 import os.path as op
 from dataclasses import dataclass
-
+from pathlib import Path
 
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
@@ -70,8 +70,21 @@ def main():
                           help='Uncombined coil data file(s)')
     cc_group.add_argument('--reference', type=str, required=False,
                           help='Water unsuppressed reference data')
-    cc_group.add_argument('--no_prewhiten', action="store_false",
-                          help="Don't prewhiten data before coil combination")
+    cc_group.add_argument('--no_prewhiten', action="store_true",
+                          help="Don't pre-whiten data before coil combination")
+    cc_cov_group = cc_group.add_mutually_exclusive_group(required=False)
+    cc_cov_group.add_argument(
+        '--covariance',
+        type=Path,
+        default=None,
+        help='Path to coil covariance matrix (for pre-whitening). '
+             'Stored as space/line delimited text file. ')
+    cc_cov_group.add_argument(
+        '--noise',
+        type=Path,
+        default=None,
+        help='Path to noise samples to calculate coil covariance matrix (for pre-whitening). '
+             'Stored as ??. ')
     ccparser.set_defaults(func=coilcombine)
     add_common_args(ccparser)
 
@@ -493,8 +506,29 @@ def coilcombine(dataobj, args):
                                      f'Reduce dimensionality e.g. by averaging before using. '
                                      f'Dimensions are {dataobj.reference.dim_tags}.')
 
+    # Covariance/noise inputs
+    if args['covariance'] is not None:
+        import numpy as np
+        cov = np.loadtxt(args['covariance'])
+        noise = None
+    elif args['noise'] is not None:
+        import numpy as np
+        from fsl_mrs.core import NIFTI_MRS
+        cov = None
+        noise = NIFTI_MRS(args['noise'])
+        noise = np.swapaxes(
+            noise[:],
+            noise.dim_position('DIM_COIL'),
+            -1)
+        noise = noise.reshape(-1, noise.shape[-1]).T
+    else:
+        cov = None
+        noise = None
+
     combined = preproc.coilcombine(dataobj.data,
                                    reference=dataobj.reference,
+                                   covariance=cov,
+                                   noise=noise,
                                    no_prewhiten=args['no_prewhiten'],
                                    report=args['generateReports'],
                                    report_all=args['allreports'])

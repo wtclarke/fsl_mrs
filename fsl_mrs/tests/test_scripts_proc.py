@@ -17,6 +17,7 @@ from fsl_mrs.utils.mrs_io import read_FID
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 import numpy as np
 import subprocess
+import warnings
 
 from pathlib import Path
 testsPath = Path(__file__).parent
@@ -284,7 +285,9 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.coilcombine(svsdata)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        directRun = preproc.coilcombine(svsdata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -299,7 +302,57 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.coilcombine(mrsidata)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        directRun = preproc.coilcombine(mrsidata)
+
+    assert np.allclose(data[:], directRun[:])
+
+    # Test with covariance matrix.
+    np.savetxt(tmp_path / 'cov.txt', 0.1 * np.eye(4))
+
+    subprocess.check_call(['fsl_mrs_proc',
+                           'coilcombine',
+                           '--file', svsfile,
+                           '--covariance', str(tmp_path / 'cov.txt'),
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.coilcombine(svsdata, covariance=0.1 * np.eye(4))
+
+    assert np.allclose(data[:], directRun[:])
+
+    # Test with noise.
+    from fsl_mrs.core.nifti_mrs import create_nmrs
+    cov = 0.1 * np.eye(4) / 2
+    mean = np.zeros((4,))
+    rng = np.random.default_rng(seed=1)
+    noise = rng.multivariate_normal(mean, cov, (20000,))\
+        + 1j * rng.multivariate_normal(mean, cov, (20000,))
+
+    create_nmrs.gen_nifti_mrs(
+        noise.reshape((1, 1, 1, ) + noise.shape),
+        1 / 1000,
+        123.2,
+        dim_tags=['DIM_COIL', None, None]
+    ).save(tmp_path / 'noise.nii.gz')
+
+    subprocess.check_call(['fsl_mrs_proc',
+                           'coilcombine',
+                           '--file', svsfile,
+                           '--noise', str(tmp_path / 'noise.nii.gz'),
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.coilcombine(svsdata, noise=noise.T)
 
     assert np.allclose(data[:], directRun[:])
 
