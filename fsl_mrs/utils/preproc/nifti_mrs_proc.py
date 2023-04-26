@@ -986,9 +986,15 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
                     p1,
                     samples=data.shape[3])
             elif p1_type.lower() == 'linphase':
+                from fsl_mrs.utils.misc import calculateAxes
+                faxis = calculateAxes(
+                    data.spectralwidth,
+                    data.spectrometer_frequency[0],
+                    data.shape[3],
+                    0.0)['freq']
                 phs_obj[idx] = preproc.applyLinPhase(
                     phs_obj[idx],
-                    data.mrs().getAxes(axis='freq'),
+                    faxis,
                     p1)
             else:
                 raise ValueError("p1_type kwarg must be 'shift' or 'linphase'.")
