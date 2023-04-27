@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.6 (WIP 2023)
+---------------------------------
+- Add model performance outputs to dynamic fitting.
+
 2.1.5 (Wednesday 26th April 2023)
 ---------------------------------
 - Improved speed of coil combination for MRSI

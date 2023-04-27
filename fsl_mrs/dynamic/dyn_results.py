@@ -6,6 +6,7 @@
 # Copyright (C) 2021 University of Oxford
 import copy
 import warnings
+import json
 
 import pandas as pd
 import numpy as np
@@ -129,7 +130,7 @@ class dynRes:
         # Everything else can be derived from these
         self._data.to_csv(save_dir / 'dyn_results.csv')
         self._init_x.to_csv(save_dir / 'init_results.csv')
-        # Also save the free parameter covariances, which cannont be reconstructed without the data load.
+        # Also save the free parameter covariances, which cannot be reconstructed without the data load.
         # But these are needed for peak combinations in 2nd level group analysis
         self.cov_free.to_csv(save_dir / 'dyn_cov.csv')
 
@@ -143,6 +144,10 @@ class dynRes:
             .reorder_levels([1, 0], axis=1)\
             .sort_index(axis=1, level=0)\
             .to_csv(save_dir / 'mapped_parameters.csv')
+
+        # Save model information
+        with open(save_dir / 'model_information.json', 'w') as fp:
+            json.dump(self.model_parameters, fp)
 
         # If selected save the dynamic object to a nested directory
         if save_dyn_obj:
@@ -316,6 +321,28 @@ class dynRes:
         :rtype: pandas.DataFrame
         """
         return pd.DataFrame(self.init_mapped_parameters_fitted_array, columns=self.mapped_names)
+
+    @property
+    def model_parameters(self):
+        """Model performance parameters e.g. log-likelihood
+
+        :return: Dictionary containing model performance parameters
+        :rtype: dict
+        """
+
+        n_obs = self._dyn.data[0].shape[0] * self._dyn.vm.ntimes
+        n_params = len(self.free_names)
+        ll = self._dyn.dyn_loglik(self.x)
+        aic = 2 * n_params + 2 * ll
+        bic = np.log(n_obs) * n_params + 2 * ll
+
+        return {
+            'dynamic log-likelihood': ll,
+            'init log-likelihood': self._dyn.dyn_loglik(self.init_free_parameters),
+            'number of parameters': n_obs,
+            'number of observations': n_params,
+            'AIC': aic,
+            'BIC': bic}
 
     '''Methods for collecting results for presentation.'''
 
