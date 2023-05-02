@@ -73,7 +73,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 
     Three cases to identify groupings:
     1. metabolites to combine - this is the sum of two or more metabolites. Applied to all betas in turn
-    2. Linear combination of betas - apply to all metabolites in turn
+    2. Linear combination of betas - apply to all metabolites and other parameter groups (sigma, gamma, etc) in turn
     3. The combination of 1 & 2 which should be performed in a single step to capture all covariances
 
     :param values: Main results dataframe with columns for each parameter
@@ -94,14 +94,54 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
     :rtype: List
     """
 
+    # First step: Identify all possible betas for the parameter combinations
     all_params = values.columns.to_list()
 
+    # What betas exist for each metabolite?
     metab_beta_dict = {}
     for metab in metabolites:
         beta_re = re.compile(rf'^conc_{metab}_(.*)$',)
         betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
         metab_beta_dict[metab] = betas
-    metab_beta_dict
+
+    # What betas exist for grouped parameter sets (sigma, gamma, eps)
+    # a. unambiguously identify number of metabolite groups and if sigma exists
+    any_sigma = [x.startswith('sigma') for x in all_params]
+    contains_sigma = True if any(any_sigma) else False
+
+    group_nums = []
+    for param in all_params:
+        matchobj = re.match(r'gamma_(\d+).*', param)
+        if matchobj is not None:
+            group_nums.append(int(matchobj[1]))
+    group_nums = np.unique(group_nums)
+
+    # b. Find betas
+    group_param_used = ['gamma', 'eps']
+    if contains_sigma:
+        group_param_used += ['sigma']
+    grouped_beta_dict = {}
+    for num in group_nums:
+        for gparam in group_param_used:
+            beta_re = re.compile(rf'^{gparam}_{num}_(.*)$',)
+            betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
+            grouped_beta_dict[f'{gparam}_{num}'] = betas
+
+    # What betas exist for the other parameters?
+    other_param_used = ['phi_0', 'phi_1', 'baseline']
+    other_beta_dict = {}
+    for param in other_param_used:
+        if param == 'baseline':
+            beta_re = re.compile(rf'^{param}_\d+_(.*)$',)
+        else:
+            beta_re = re.compile(rf'^{param}_(.*)$',)
+        betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
+        other_beta_dict[param] = betas
+
+    print('Betas identified:')
+    print(metab_beta_dict)
+    print(grouped_beta_dict)
+    print(other_beta_dict)
 
     new_params = []
     new_var = {}
@@ -130,7 +170,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 
     # 2. Linear combination of betas - apply to all metabolites in turn
     for con in contrasts:
-        # Loop over metabolites
+        # A. Contrasts applied to metabolites: Loop over metabolites
         for met in metabolites:
             if not all([x in metab_beta_dict[met] for x in con.betas]):
                 print(
@@ -142,6 +182,46 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
             parameters = [f'conc_{met}_{beta}' for beta in con.betas]
 
             new_param_name = f'conc_{met}_{con.name}'
+            # Parameter value (sum)
+            new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
+
+            # Parameter variance
+            new_var[new_param_name] = _comb_variance(covariance.loc[parameters, parameters], con.scale)
+
+        # B. Contrasts applied to grouped parameters: Loop over group numbers
+        for num in group_nums:
+            for gparam in group_param_used:
+                curr_name = f'{gparam}_{num}'
+                if not all([x in grouped_beta_dict[curr_name] for x in con.betas]):
+                    if len(grouped_beta_dict[curr_name]) > 0:
+                        print(
+                            f'Contrast {con.name} requires betas {con.betas}, '
+                            f'but {curr_name} has different betas: {grouped_beta_dict[curr_name]}. '
+                            f'Skipping {curr_name}.'
+                        )
+                    continue
+                parameters = [f'{curr_name}_{beta}' for beta in con.betas]
+
+                new_param_name = f'{curr_name}_{con.name}'
+                # Parameter value (sum)
+                new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
+
+                # Parameter variance
+                new_var[new_param_name] = _comb_variance(covariance.loc[parameters, parameters], con.scale)
+
+        # C. Contrasts applied to groupe parameters: Loop over group numbers
+        for param in other_param_used:
+            if not all([x in other_beta_dict[param] for x in con.betas]):
+                if len(other_beta_dict[param]) > 0:
+                    print(
+                        f'Contrast {con.name} requires betas {con.betas}, '
+                        f'but {param} has different betas: {other_beta_dict[param]}. '
+                        f'Skipping {param}.'
+                    )
+                continue
+            parameters = [f'{param}_{beta}' for beta in con.betas]
+
+            new_param_name = f'{param}_{con.name}'
             # Parameter value (sum)
             new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
 
@@ -208,7 +288,7 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
         if isinstance(results, str):
             results = Path(results)
 
-        # Either load full results object (if data availible) or just the key dataframes
+        # Either load full results object (if data available) or just the key dataframes
         if full_load:
             try:
                 obj = dres.load_dyn_result(results)
@@ -223,7 +303,7 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
 
         mapped_params = pd.read_csv(results / 'mapped_parameters.csv', index_col=0, header=[0, 1]).index
 
-    # Unambiously identify metabolites
+    # Unambiguously identify metabolites
     metab_re = re.compile(r'^conc_(.*)',)
     metabolites = np.array([metab_re.match(param)[1] for param in mapped_params if metab_re.match(param)])
 

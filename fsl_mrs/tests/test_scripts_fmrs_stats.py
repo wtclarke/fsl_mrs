@@ -70,6 +70,11 @@ def test_fmrs_stats_first_level(tmp_path):
     assert 'conc_Cr+PCr_mean_activation' in df.index
     assert 'conc_PCh+GPC_mean_activation' in df.index
 
+    assert 'sigma_0_mean_activation' in df.index
+    assert 'sigma_1_mean_activation' in df.index
+    assert 'gamma_1_mean_activation' not in df.index
+    assert 'gamma_1' in df.index
+
 
 def test_fmrs_stats_group_mean(tmp_path):
 

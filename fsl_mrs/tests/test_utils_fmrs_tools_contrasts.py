@@ -53,8 +53,13 @@ def test__combine_params():
         'conc_B_beta0', 'conc_B_beta1', 'conc_B_beta2',
         'conc_C_beta0', 'conc_C_beta1', 'conc_C_beta2',
         'conc_D_betaA', 'conc_D_betaB',
-        'gamma_0',
-        'sigma_beta0', 'sigma_beta1']
+        'gamma_0', 'gamma_1', 'gamma_2',
+        'eps_0', 'eps_1', 'eps_2',
+        'sigma_0_beta0', 'sigma_0_beta1', 'sigma_0_beta2',
+        'sigma_1_beta0', 'sigma_1_beta1',
+        'sigma_2_beta1', 'sigma_2_beta2',
+        'phi_0',
+        'phi_1_betaA', 'phi_1_betaB']
 
     val_df = pd.DataFrame(np.ones(len(params)), index=params).T
     cov = 0.9E-3 * np.eye(len(params)) + 1E-4 * np.ones((len(params), len(params)))
@@ -70,10 +75,10 @@ def test__combine_params():
     assert np.isclose(new_cov.loc['conc_A+B_beta0', 'conc_A+B_beta0'], 2.2E-3)
 
     # Test contrasts
-    # Currently only works for metabolites / conc_ parameters.
     contrasts = [
         con.Contrast('mean', ['beta0', 'beta1', 'beta2'], [1 / 3, 1 / 3, 1 / 3]),
-        con.Contrast('0-1', ['beta0', 'beta1'], [1, -1])]
+        con.Contrast('0-1', ['beta0', 'beta1'], [1, -1]),
+        con.Contrast('sum', ['betaA', 'betaB'], [1, 1])]
 
     new_vals, new_cov, new_params = \
         con._combine_params(val_df, cov_df, [], contrasts, metabolites)
@@ -84,6 +89,14 @@ def test__combine_params():
                 ['conc_A_mean', 'conc_B_mean', 'conc_C_mean', 'conc_A_0-1', 'conc_B_0-1', 'conc_C_0-1']])
     assert np.isclose(new_vals['conc_A_mean'], 1.0)
     assert np.isclose(new_cov.loc['conc_A_mean', 'conc_A_mean'], (3 / 9 + 6 / 90) * 1E-3)
+
+    assert all([x in new_vals.columns for x in
+                ['sigma_0_mean', 'sigma_0_0-1', 'sigma_1_0-1']])
+    assert np.isclose(new_vals['sigma_0_mean'], 1.0)
+    assert np.isclose(new_cov.loc['sigma_0_mean', 'sigma_0_mean'], (3 / 9 + 6 / 90) * 1E-3)
+
+    assert 'phi_1_sum' in new_vals.columns
+    assert np.isclose(new_vals['phi_1_sum'], 2.0)
 
     # Test contrast + metabs
     contrasts = [
