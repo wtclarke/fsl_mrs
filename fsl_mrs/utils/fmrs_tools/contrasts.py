@@ -138,11 +138,6 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
         betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
         other_beta_dict[param] = betas
 
-    print('Betas identified:')
-    print(metab_beta_dict)
-    print(grouped_beta_dict)
-    print(other_beta_dict)
-
     new_params = []
     new_var = {}
 
