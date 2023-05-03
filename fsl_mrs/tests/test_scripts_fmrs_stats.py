@@ -76,6 +76,74 @@ def test_fmrs_stats_first_level(tmp_path):
     assert 'gamma_1' in df.index
 
 
+def test_fmrs_stats_first_level_shortcut(tmp_path):
+
+    with open(tmp_path / 'results_list', 'w') as fp:
+        fp.writelines([str(x) + '\n' for x in sim_results])
+
+    subprocess.check_call([
+        'fmrs_stats',
+        '--data', str(tmp_path / 'results_list'),
+        '--output', str(tmp_path / 'out'),
+        '--mean-contrasts', 'beta0', 'beta1',
+        '--mean-contrasts', 'beta2', 'beta3',
+        '--combine', 'NAA', 'NAAG',
+        '--combine', 'Cr', 'PCr',
+        '--combine', 'PCh', 'GPC',
+        '--overwrite'])
+
+    assert (tmp_path / 'out' / 'group_stats.csv').is_file()
+    assert (tmp_path / 'out' / '0_stim').is_dir()
+    assert (tmp_path / 'out' / '1_stim').is_dir()
+    assert (tmp_path / 'out' / '2_ctrl').is_dir()
+    assert (tmp_path / 'out' / '3_ctrl').is_dir()
+    assert (tmp_path / 'out' / '0_stim' / 'free_parameters.csv').is_file()
+
+    df = pd.read_csv(tmp_path / 'out' / 'group_stats.csv', index_col=0, header=[0])
+    assert 'COPE' in df.columns
+    assert 'conc_NAA+NAAG_beta0' in df.index
+    assert 'conc_NAA+NAAG_mean_0_beta0_beta1' in df.index
+    assert 'conc_sigma_1_mean_1_beta2_beta3' in df.index
+
+
+def test_fmrs_stats_scaling(tmp_path):
+    with open(tmp_path / 'results_list', 'w') as fp:
+        fp.writelines([str(x) + '\n' for x in sim_results])
+
+    subprocess.check_call([
+        'fmrs_stats',
+        '--data', str(tmp_path / 'results_list'),
+        '--output', str(tmp_path / 'out_noscale'),
+        '--fl-contrasts', str(fl_contrasts),
+        '--combine', 'NAA', 'NAAG',
+        '--combine', 'Cr', 'PCr',
+        '--combine', 'PCh', 'GPC',
+        '--overwrite'])
+
+    subprocess.check_call([
+        'fmrs_stats',
+        '--data', str(tmp_path / 'results_list'),
+        '--output', str(tmp_path / 'out_scaled'),
+        '--fl-contrasts', str(fl_contrasts),
+        '--reference-contrast', 'conc_Cr+PCr_beta3',
+        '--combine', 'NAA', 'NAAG',
+        '--combine', 'Cr', 'PCr',
+        '--combine', 'PCh', 'GPC',
+        '--overwrite'])
+
+    df_no_scale = pd.read_csv(tmp_path / 'out_noscale' / 'group_stats.csv', index_col=0, header=[0])
+    df_scaled = pd.read_csv(tmp_path / 'out_scaled' / 'group_stats.csv', index_col=0, header=[0])
+
+    assert np.isclose(
+        df_scaled.loc['conc_NAA_beta3', 'COPE'],
+        df_no_scale.loc['conc_NAA_beta3', 'COPE'] / df_no_scale.loc['conc_Cr+PCr_beta3', 'COPE'],
+        atol=1E-1)
+
+    assert np.isclose(
+        df_scaled.loc['sigma_0_beta3', 'COPE'],
+        df_no_scale.loc['sigma_0_beta3', 'COPE'])
+
+
 def test_fmrs_stats_group_mean(tmp_path):
 
     with open(tmp_path / 'results_list', 'w') as fp:

@@ -46,8 +46,11 @@ def main():
     fl_contrast_args.add_argument('--fl-contrasts', type=Path, metavar='<FILE>',
                                   help='File defining first-level single-subject contrasts in json format.')
     fl_contrast_args.add_argument('--mean-contrasts', type=str, nargs='+',
-                                  action='append', metavar='METAB',
+                                  action='append', metavar='betas',
                                   help='Shortcut to specify betas to average into first-level contrasts [repeatable]')
+    fl_contrast_args.add_argument('--reference-contrast', type=str,
+                                  help='Divide all concentration betas and contrasts by this contrast. '
+                                       'Applied after custom first level contrasts created.')
 
     # HIGHER-LEVEL / GROUP CONTRAST ARGUMENTS
     ga_contrast_args.add_argument('--hl-design', type=Path, metavar='<FILE>',
@@ -132,12 +135,11 @@ def main():
 
     # fmrs.Contrast
     if args.verbose:
-        print('Idenfitifed contrasts:')
+        print('Identified contrasts:')
         for con in contrasts:
             print(con.name)
 
     # Do the work
-    # 1. Form contrasts and peak combination
     copes = []
     varcopes = []
     for idx, dd in enumerate(args.data):
@@ -145,11 +147,20 @@ def main():
             print(f'Processing {str(dd)}')
         current_output = args.output / f'{idx}_{dd.name}'
         current_output.mkdir(parents=True, exist_ok=False)
+
+        # 1. Form contrasts and peak combination
         _, _, df, _ = fmrs.create_contrasts(
             dd,
             contrasts=contrasts,
             metabolites_to_combine=args.combine,
             output_dir=current_output)
+
+        # 2. Concentration parameter scaling
+        if args.reference_contrast is not None:
+            _, _, df, _ = fmrs.fmrs_internal_reference(
+                current_output,
+                args.reference_contrast,
+                output_dir=current_output)
 
         copes.append(df['mean'].to_numpy())
         varcopes.append(df['sd'].pow(2).to_numpy())
@@ -158,9 +169,9 @@ def main():
     copes = np.stack(copes)
     varcopes = np.stack(varcopes)
 
-    # 2. Pass to the FLAMEO wrapper
+    # 3. Pass to the FLAMEO wrapper
 
-    # Process second level matricies.
+    # Process second level matrices.
     if args.hl_design is not None:
         design_mat = loadVestFile(args.hl_design)
     else:

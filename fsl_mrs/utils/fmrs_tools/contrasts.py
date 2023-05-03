@@ -7,14 +7,13 @@ Copyright (C) 2022 University of Oxford
 # SHBASECOPYRIGHT
 """
 
-from pathlib import Path
 from dataclasses import dataclass
 import re
 
 import pandas as pd
 import numpy as np
 
-import fsl_mrs.dynamic.dyn_results as dres
+from fsl_mrs.utils.fmrs_tools import utils
 
 
 class MismatchedBetasError():
@@ -253,7 +252,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_dir=None, full_load=False):
     """Generate contrasts from dynamic fMRS fit.
 
-    _extended_summary_
+    Contrasts are (scaled) linear combinations of GLM betas. Applied at the first level.
 
     :param results: FSL-MRS dynamic results object, or path to saved results
     :type results: fsl_mrs.dynamic.dyn_results.dynRes or str or pathlib.Path
@@ -274,33 +273,7 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
     :return new_params: List of parameter names added by function
     :rtype: list
     """
-    # Load data
-    if isinstance(results, (dres.dynRes_mcmc, dres.dynRes_newton)):
-        value_df = results.dataframe_free
-        cov_df = results.cov_free
-        mapped_params = results.mapped_names
-    elif isinstance(results, (str, Path)):
-        if isinstance(results, str):
-            results = Path(results)
-
-        # Either load full results object (if data available) or just the key dataframes
-        if full_load:
-            try:
-                obj = dres.load_dyn_result(results)
-                value_df = obj.dataframe_free
-                cov_df = obj.cov_free
-            except dres.ResultLoadError:
-                value_df = pd.read_csv(results / 'dyn_results.csv', index_col=0)
-                cov_df = pd.read_csv(results / 'dyn_cov.csv', index_col=0)
-        else:
-            value_df = pd.read_csv(results / 'dyn_results.csv', index_col=0)
-            cov_df = pd.read_csv(results / 'dyn_cov.csv', index_col=0)
-
-        mapped_params = pd.read_csv(results / 'mapped_parameters.csv', index_col=0, header=[0, 1]).index
-
-    # Unambiguously identify metabolites
-    metab_re = re.compile(r'^conc_(.*)',)
-    metabolites = np.array([metab_re.match(param)[1] for param in mapped_params if metab_re.match(param)])
+    value_df, cov_df, metabolites = utils.load_dyn_res(results)
 
     # Run the combination
     values_out, covariance_out, new_params = _combine_params(
@@ -310,19 +283,8 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
         contrasts,
         metabolites)
 
-    # Form the summary df as well
-    mean_free = values_out.mean()
-    std_free = pd.Series(np.sqrt(np.diag(covariance_out)), index=covariance_out.index)
-    summary_df = pd.concat((mean_free, std_free), axis=1, keys=['mean', 'sd'])
-
-    # Optionally output to file and return key dataframes
-    if output_dir:
-        if isinstance(output_dir, str):
-            output_dir = Path(output_dir)
-        values_out.to_csv(output_dir / 'dyn_results.csv')
-        covariance_out.to_csv(output_dir / 'dyn_cov.csv')
-        summary_df.to_csv(output_dir / 'free_parameters.csv')
-
-        return values_out, covariance_out, summary_df, new_params
-    else:
-        return values_out, covariance_out, summary_df, new_params
+    return utils.save_and_return_new_res(
+        values_out,
+        covariance_out,
+        new_params,
+        output_dir=output_dir)
