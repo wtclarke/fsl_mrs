@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.1.6 (WIP 2023)
----------------------------------
+2.1.6 (Friday 5th May 2023)
+---------------------------
 - Add model performance outputs to dynamic fitting.
 - Refined parameter-derived linewidth estimates of (default) voigt model. Previously the width of the Gaussian component was overestimated (by 50%), this did not affect per-metabolite QC measurement of FWHM reported in the main HTML remport and results CSV.
 - fMRS contrasts formed from individual betas (e.g. using `fmrs_stats`) now operate over all parameter classes, not just concentrations (i.e. sigma, gamma, eps, baseline, phase, and concentrations).
