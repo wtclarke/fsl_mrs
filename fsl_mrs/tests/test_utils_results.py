@@ -6,11 +6,13 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 from fsl_mrs.utils.synthetic import syntheticFID
+from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.fitting import fit_FSLModel
 from pytest import fixture
 import numpy as np
 import json
+from pathlib import Path
 
 
 # Set up some synthetic data to use
@@ -159,3 +161,75 @@ def test_plot_utility_method(data):
     fig = res.plot(mrs)
     import matplotlib.pyplot
     assert isinstance(fig, matplotlib.pyplot.Figure)
+
+
+testsPath = Path(__file__).parent
+basis = testsPath / 'testdata/results/no_lw_basis'
+
+
+def gen_one_spec(broadening):
+    data, mrs, _ = syn.syntheticFromBasisFile(
+        basis,
+        concentrations={'MM20': 1},
+        broadening=broadening,
+        noisecovariance=[[1E-5]],
+        baseline=(0, 0),
+    )
+
+    mrs.FID = data
+    return mrs
+
+
+def test_lorentzian_lw_estimates():
+    qc_out = []
+    combined_out = []
+    single_out = []
+    gamma_vec = np.arange(3, 60, 6, dtype=float)
+
+    for gamma in gamma_vec:
+        mrs_out = gen_one_spec((gamma, 0))
+        res = mrs_out.fit(baseline_order=-1)
+        single_out.append(res.getLineShapeParams()[1][0])
+        combined_out.append(res.getLineShapeParams()[0][0])
+        qc_out.append(res.getQCParams()[1]['fwhm_MM20'])
+
+    gamma_vec /= np.pi
+
+    assert np.allclose(single_out, gamma_vec, atol=1E-1)
+    assert np.allclose(single_out, qc_out, atol=2E1)
+    assert np.allclose(combined_out, qc_out, atol=2E1)
+
+
+def test_gaussian_lw_estimates():
+    qc_out = []
+    combined_out = []
+    single_out = []
+    sigma_vec = np.arange(3, 60, 6, dtype=float)
+
+    for sigma in sigma_vec:
+        mrs_out = gen_one_spec((0, sigma))
+        res = mrs_out.fit(baseline_order=-1)
+        single_out.append(res.getLineShapeParams()[2][0])
+        combined_out.append(res.getLineShapeParams()[0][0])
+        qc_out.append(res.getQCParams()[1]['fwhm_MM20'])
+
+    sigma_vec = 2.335 / (2 * np.pi * (np.sqrt(0.5) / sigma_vec))
+
+    assert np.allclose(single_out, sigma_vec, atol=1E-1)
+    assert np.allclose(single_out, qc_out, atol=2E1)
+    assert np.allclose(combined_out, qc_out, atol=2E1)
+
+
+def test_combined_lw_estimates():
+
+    qc_out = []
+    combined_out = []
+    rng = np.random.default_rng(1)
+
+    for _ in range(0, 10):
+        mrs_out = gen_one_spec(rng.random(2) * 100)
+        res = mrs_out.fit(baseline_order=-1)
+        combined_out.append(res.getLineShapeParams()[0][0])
+        qc_out.append(res.getQCParams()[1]['fwhm_MM20'])
+
+    assert np.allclose(combined_out, qc_out, atol=2E1)

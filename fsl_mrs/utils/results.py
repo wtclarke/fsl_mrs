@@ -668,7 +668,19 @@ class FitRes(object):
         return shiftParams
 
     def getLineShapeParams(self, units='Hz', function='mean'):
-        """ Return line broadening parameters (gamma and sigma) in specified units - default = Hz."""
+        """Return line broadening parameters (gamma and sigma) in specified units.
+
+        Note/warning: Does not incorporate any implicit linewidth already in the basis set
+
+        :param units: Output units, defaults to 'Hz'. Can be 'ppm' or 'raw'.
+        :type units: str, optional
+        :param function: Point statistic for MCMC approach, defaults to 'mean'
+        :type function: str, optional
+        :return: Tuple containing combined, lorentzian, and gaussian broadening terms.
+            Nested tuples used for multiple metabolite groups.
+            Combined is undefined for units=raw.
+        :rtype: tuple
+        """
         if self.model == 'lorentzian':
             if function is None:
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
@@ -708,16 +720,29 @@ class FitRes(object):
 
             if units.lower() == 'hz':
                 gamma *= 1 / (np.pi)
-                sigma *= 1 / (np.pi)
+                # Equation for image space FWHM of Gaussian
+                # https://www.cmrr.umn.edu/stimulate/frame/fwhm/node1.html Eq 7
+                with np.errstate(divide='ignore'):
+                    sigma = 2.335 / (2 * np.pi * (np.sqrt(0.5) / sigma))
             elif units.lower() == 'ppm':
                 gamma *= 1 / (np.pi * self.hzperppm)
-                sigma *= 1 / (np.pi * self.hzperppm)
+                # Equation for image space FWHM of Gaussian
+                # https://www.cmrr.umn.edu/stimulate/frame/fwhm/node1.html Eq 7
+                with np.errstate(divide='ignore'):
+                    sigma = 2.335 / (2 * np.pi * (np.sqrt(0.5) / sigma))
+                sigma /= self.hzperppm
             elif units.lower() == 'raw':
                 pass
             else:
                 raise ValueError('Units must be Hz, ppm or raw.')
 
-            combined = gamma / 2 + np.sqrt((gamma**2 / 4.0) + (sigma * 2 * np.log(2))**2)
+            if units.lower() == 'raw':
+                # Combining the values in raw units doesn't make sense
+                combined = None
+            else:
+                # For ppm or Hz
+                # https://en.wikipedia.org/wiki/Voigt_profile#The_width_of_the_Voigt_profile
+                combined = 0.5346 * gamma + np.sqrt(0.2166 * gamma**2 + sigma**2)
             return combined, gamma, sigma
 
     def getBaselineParams(self, complex=True, normalise=True):

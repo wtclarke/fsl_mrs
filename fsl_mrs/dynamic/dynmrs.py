@@ -27,7 +27,15 @@ from fsl_mrs.utils.misc import rescale_FID
 conc_index_re = re.compile(r'^(conc_.*?_)(\d+)$')
 
 
-class dynMRSLoadError(Exception):
+class dynMRSError(Exception):
+    pass
+
+
+class dynMRSArgumentError(dynMRSError):
+    pass
+
+
+class dynMRSLoadError(dynMRSError):
     pass
 
 
@@ -75,10 +83,15 @@ class dynMRS(object):
             if np.all(np.isclose(t_size, t_size[0])):
                 self._t_steps = t_size[0]
             else:
-                raise ValueError('All values in time_var dict must hav ethe same first diemension shape.')
+                raise dynMRSArgumentError('All values in time_var dict must have the same first dimension shape.')
         else:
             self.time_var = np.asarray(time_var)
             self._t_steps = self.time_var.shape[0]
+
+        # Check suitability of arguments
+        if self._t_steps != len(mrs_list):
+            raise dynMRSArgumentError(
+                f'Number of time steps (currently {self._t_steps}) must match mrs_list length ({len(mrs_list)})')
 
         if ppmlim is None:
             ppmlim = mrs_list[0].default_ppm_range

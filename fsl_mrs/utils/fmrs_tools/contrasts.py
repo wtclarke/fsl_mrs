@@ -7,14 +7,13 @@ Copyright (C) 2022 University of Oxford
 # SHBASECOPYRIGHT
 """
 
-from pathlib import Path
 from dataclasses import dataclass
 import re
 
 import pandas as pd
 import numpy as np
 
-import fsl_mrs.dynamic.dyn_results as dres
+from fsl_mrs.utils.fmrs_tools import utils
 
 
 class MismatchedBetasError():
@@ -73,7 +72,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 
     Three cases to identify groupings:
     1. metabolites to combine - this is the sum of two or more metabolites. Applied to all betas in turn
-    2. Linear combination of betas - apply to all metabolites in turn
+    2. Linear combination of betas - apply to all metabolites and other parameter groups (sigma, gamma, etc) in turn
     3. The combination of 1 & 2 which should be performed in a single step to capture all covariances
 
     :param values: Main results dataframe with columns for each parameter
@@ -94,14 +93,49 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
     :rtype: List
     """
 
+    # First step: Identify all possible betas for the parameter combinations
     all_params = values.columns.to_list()
 
+    # What betas exist for each metabolite?
     metab_beta_dict = {}
     for metab in metabolites:
         beta_re = re.compile(rf'^conc_{metab}_(.*)$',)
         betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
         metab_beta_dict[metab] = betas
-    metab_beta_dict
+
+    # What betas exist for grouped parameter sets (sigma, gamma, eps)
+    # a. unambiguously identify number of metabolite groups and if sigma exists
+    any_sigma = [x.startswith('sigma') for x in all_params]
+    contains_sigma = True if any(any_sigma) else False
+
+    group_nums = []
+    for param in all_params:
+        matchobj = re.match(r'gamma_(\d+).*', param)
+        if matchobj is not None:
+            group_nums.append(int(matchobj[1]))
+    group_nums = np.unique(group_nums)
+
+    # b. Find betas
+    group_param_used = ['gamma', 'eps']
+    if contains_sigma:
+        group_param_used += ['sigma']
+    grouped_beta_dict = {}
+    for num in group_nums:
+        for gparam in group_param_used:
+            beta_re = re.compile(rf'^{gparam}_{num}_(.*)$',)
+            betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
+            grouped_beta_dict[f'{gparam}_{num}'] = betas
+
+    # What betas exist for the other parameters?
+    other_param_used = ['phi_0', 'phi_1', 'baseline']
+    other_beta_dict = {}
+    for param in other_param_used:
+        if param == 'baseline':
+            beta_re = re.compile(rf'^{param}_\d+_(.*)$',)
+        else:
+            beta_re = re.compile(rf'^{param}_(.*)$',)
+        betas = [beta_re.match(param)[1] for param in all_params if beta_re.match(param)]
+        other_beta_dict[param] = betas
 
     new_params = []
     new_var = {}
@@ -130,7 +164,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 
     # 2. Linear combination of betas - apply to all metabolites in turn
     for con in contrasts:
-        # Loop over metabolites
+        # A. Contrasts applied to metabolites: Loop over metabolites
         for met in metabolites:
             if not all([x in metab_beta_dict[met] for x in con.betas]):
                 print(
@@ -142,6 +176,46 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
             parameters = [f'conc_{met}_{beta}' for beta in con.betas]
 
             new_param_name = f'conc_{met}_{con.name}'
+            # Parameter value (sum)
+            new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
+
+            # Parameter variance
+            new_var[new_param_name] = _comb_variance(covariance.loc[parameters, parameters], con.scale)
+
+        # B. Contrasts applied to grouped parameters: Loop over group numbers
+        for num in group_nums:
+            for gparam in group_param_used:
+                curr_name = f'{gparam}_{num}'
+                if not all([x in grouped_beta_dict[curr_name] for x in con.betas]):
+                    if len(grouped_beta_dict[curr_name]) > 0:
+                        print(
+                            f'Contrast {con.name} requires betas {con.betas}, '
+                            f'but {curr_name} has different betas: {grouped_beta_dict[curr_name]}. '
+                            f'Skipping {curr_name}.'
+                        )
+                    continue
+                parameters = [f'{curr_name}_{beta}' for beta in con.betas]
+
+                new_param_name = f'{curr_name}_{con.name}'
+                # Parameter value (sum)
+                new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
+
+                # Parameter variance
+                new_var[new_param_name] = _comb_variance(covariance.loc[parameters, parameters], con.scale)
+
+        # C. Contrasts applied to groupe parameters: Loop over group numbers
+        for param in other_param_used:
+            if not all([x in other_beta_dict[param] for x in con.betas]):
+                if len(other_beta_dict[param]) > 0:
+                    print(
+                        f'Contrast {con.name} requires betas {con.betas}, '
+                        f'but {param} has different betas: {other_beta_dict[param]}. '
+                        f'Skipping {param}.'
+                    )
+                continue
+            parameters = [f'{param}_{beta}' for beta in con.betas]
+
+            new_param_name = f'{param}_{con.name}'
             # Parameter value (sum)
             new_params.append(_comb_value(values, parameters, new_param_name, scale=con.scale))
 
@@ -178,7 +252,7 @@ def _combine_params(values, covariance, metabolite_comb, contrasts, metabolites)
 def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_dir=None, full_load=False):
     """Generate contrasts from dynamic fMRS fit.
 
-    _extended_summary_
+    Contrasts are (scaled) linear combinations of GLM betas. Applied at the first level.
 
     :param results: FSL-MRS dynamic results object, or path to saved results
     :type results: fsl_mrs.dynamic.dyn_results.dynRes or str or pathlib.Path
@@ -199,33 +273,7 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
     :return new_params: List of parameter names added by function
     :rtype: list
     """
-    # Load data
-    if isinstance(results, (dres.dynRes_mcmc, dres.dynRes_newton)):
-        value_df = results.dataframe_free
-        cov_df = results.cov_free
-        mapped_params = results.mapped_names
-    elif isinstance(results, (str, Path)):
-        if isinstance(results, str):
-            results = Path(results)
-
-        # Either load full results object (if data availible) or just the key dataframes
-        if full_load:
-            try:
-                obj = dres.load_dyn_result(results)
-                value_df = obj.dataframe_free
-                cov_df = obj.cov_free
-            except dres.ResultLoadError:
-                value_df = pd.read_csv(results / 'dyn_results.csv', index_col=0)
-                cov_df = pd.read_csv(results / 'dyn_cov.csv', index_col=0)
-        else:
-            value_df = pd.read_csv(results / 'dyn_results.csv', index_col=0)
-            cov_df = pd.read_csv(results / 'dyn_cov.csv', index_col=0)
-
-        mapped_params = pd.read_csv(results / 'mapped_parameters.csv', index_col=0, header=[0, 1]).index
-
-    # Unambiously identify metabolites
-    metab_re = re.compile(r'^conc_(.*)',)
-    metabolites = np.array([metab_re.match(param)[1] for param in mapped_params if metab_re.match(param)])
+    value_df, cov_df, metabolites = utils.load_dyn_res(results)
 
     # Run the combination
     values_out, covariance_out, new_params = _combine_params(
@@ -235,19 +283,8 @@ def create_contrasts(results, contrasts=[], metabolites_to_combine=[], output_di
         contrasts,
         metabolites)
 
-    # Form the summary df as well
-    mean_free = values_out.mean()
-    std_free = pd.Series(np.sqrt(np.diag(covariance_out)), index=covariance_out.index)
-    summary_df = pd.concat((mean_free, std_free), axis=1, keys=['mean', 'sd'])
-
-    # Optionally output to file and return key dataframes
-    if output_dir:
-        if isinstance(output_dir, str):
-            output_dir = Path(output_dir)
-        values_out.to_csv(output_dir / 'dyn_results.csv')
-        covariance_out.to_csv(output_dir / 'dyn_cov.csv')
-        summary_df.to_csv(output_dir / 'free_parameters.csv')
-
-        return values_out, covariance_out, summary_df, new_params
-    else:
-        return values_out, covariance_out, summary_df, new_params
+    return utils.save_and_return_new_res(
+        values_out,
+        covariance_out,
+        new_params,
+        output_dir=output_dir)
