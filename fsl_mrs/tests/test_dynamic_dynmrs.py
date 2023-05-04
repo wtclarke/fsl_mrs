@@ -6,9 +6,12 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import pytest
 import numpy as np
+
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.core import MRS, basis
 import fsl_mrs.dynamic as dyn
+from fsl_mrs.dynamic.dynmrs import dynMRSArgumentError
+from fsl_mrs.dynamic.variable_mapping import ConfigFileError
 
 
 @pytest.fixture
@@ -233,3 +236,116 @@ def test_save_load(tmp_path, fixed_ratio_mrs):
     assert dyn_obj.mapped_names == dyn_obj_load2.mapped_names
     assert dyn_obj.vm.fcns.keys() == dyn_obj_load2.vm.fcns.keys()
     assert np.allclose(dyn_obj.time_var, dyn_obj_load2.time_var)
+
+
+def test_errors(fixed_ratio_mrs):
+    mrs_list = fixed_ratio_mrs
+
+    # Wrong number of MRS objects in list
+    with pytest.raises(
+            dynMRSArgumentError,
+            match=r'Number of time steps \(currently \d+\) must match mrs_list length \(\d+\)'):
+        _ = dyn.dynMRS(
+            mrs_list[0:1],
+            [0, 1],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Wrong length time variables
+    with pytest.raises(
+            dynMRSArgumentError,
+            match=r'Number of time steps \(currently \d+\) must match mrs_list length \(\d+\)'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            [0, ],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Wonky time variable definition
+    with pytest.raises(
+            dynMRSArgumentError,
+            match=r'All values in time_var dict must have the same first dimension shape.'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            {'param1': [0, 1], 'param2': [0, ]},
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Wrong length time variables (dict format)
+    with pytest.raises(
+            dynMRSArgumentError,
+            match=r'Number of time steps \(currently \d+\) must match mrs_list length \(\d+\)'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            {'param1': [0, ], 'param2': [0, ]},
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+
+# This should be moved to the (non-existant) Variable mapping test function
+def test_vm_errors(fixed_ratio_mrs):
+    mrs_list = fixed_ratio_mrs
+
+    # Bad config: bounds name
+    with pytest.raises(
+            ConfigFileError,
+            match=r'Not all bounds are used, remove or rename. Extra bounds:.+'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            [0, 1],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badbounds.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Bad config: mode
+    with pytest.raises(
+            ConfigFileError,
+            match=r'Unknown parameter mode \([a-z]+\) in configuration.*'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            [0, 1],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badmode.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Bad config: no function
+    with pytest.raises(
+            ConfigFileError,
+            match=r'\w+ for type \w+ \(parameter: .+\) not found in config file'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            [0, 1],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badfunc.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)
+
+    # Bad config: no grad function
+    with pytest.raises(
+            ConfigFileError,
+            match=r'Could not find gradient function \w+ for parameter .+ / function \w+'):
+        _ = dyn.dynMRS(
+            mrs_list,
+            [0, 1],
+            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badgrad.py',
+            model='lorentzian',
+            baseline_order=0,
+            metab_groups=[0, 0],
+            rescale=False)

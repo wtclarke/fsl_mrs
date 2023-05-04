@@ -1,4 +1,4 @@
-"""Test thecontrast manipulation functions used for fMRS second level group analysis
+"""Test the contrast manipulation functions used for fMRS second level group analysis
 
 Test functions that appear in utils.fmrs_tools.contrasts module
 

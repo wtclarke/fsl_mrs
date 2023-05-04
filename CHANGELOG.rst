@@ -6,6 +6,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Refined parameter-derived linewidth estimates of (default) voigt model. Previously the width of the Gaussian component was overestimated (by 50%), this did not affect per-metabolite QC measurement of FWHM reported in the main HTML remport and results CSV.
 - fMRS contrasts formed from individual betas (e.g. using `fmrs_stats`) now operate over all parameter classes, not just concentrations (i.e. sigma, gamma, eps, baseline, phase, and concentrations).
 - `fmrs_stats` can now be used to express metabolite concentrations as ratios to another contrast (e.g. for scaling to another metabolite, for example tCr).
+- Added better help and error text for `fsl_dyn_mrs`.
 
 2.1.5 (Wednesday 26th April 2023)
 ---------------------------------

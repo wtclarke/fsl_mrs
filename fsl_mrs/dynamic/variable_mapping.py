@@ -14,6 +14,10 @@ import numpy as np
 from scipy.optimize import minimize
 
 
+class ConfigFileError(Exception):
+    pass
+
+
 class VariableMapping(object):
     def __init__(self,
                  param_names,
@@ -50,7 +54,7 @@ class VariableMapping(object):
             if np.all(np.isclose(t_size, t_size[0])):
                 self._ntimes = t_size[0]
             else:
-                raise ValueError('All values in time_variable dict must have the same first diemension shape.')
+                raise ValueError('All values in time_variable dict must have the same first dimension shape.')
         else:
             self._time_variable = np.asarray(time_variable)
             self._ntimes = self._time_variable.shape[0]
@@ -88,6 +92,17 @@ class VariableMapping(object):
         # Form view of free and mapped parameter relations, and store
         self._free_params = self._calculate_free_params()
         self._mapped_params = self._calculate_mapped_parameters()
+
+        # Check bounds by calling (and discarding) bound property
+        _ = self.Bounds
+        # Check functions and gradient functions exist
+        for mp_obj in self._mapped_params:
+            if mp_obj.param_type == 'dynamic':
+                if mp_obj.function_name not in self.fcns:
+                    raise ConfigFileError(
+                        f'{mp_obj.function_name} for type {mp_obj.category}'
+                        f' (parameter: {mp_obj.name}) not found in config file.')
+                _ = self.get_gradient_fcn(mp_obj)
 
     def __str__(self):
         OUT  = '-----------------------\n'
@@ -316,7 +331,9 @@ class VariableMapping(object):
                                             gen_mapped(f'{cat}_{x}'), x, ptype['dynamic'])
                         for x in group_or_mets for y in dyn_name]
             else:
-                raise ValueError(f'Unrecognised parameter name {ptype}')
+                raise ConfigFileError(
+                    f"Unknown parameter mode ({ptype}) in configuration "
+                    "- should be one of 'fixed', 'variable', {'dynamic'}")
 
         fparams = []
         for index, param in enumerate(self.mapped_categories):
@@ -332,7 +349,10 @@ class VariableMapping(object):
                         elif key == 'other':
                             fparams.extend(process_param(self._Parameters[param]['other'], param, other_metabs))
                         else:
-                            raise ValueError(f'Key in nested "conc" must be a metabolite name or "other", not {key}')
+                            raise ConfigFileError(
+                                f'Key in nested dynamic "conc" definition must be a known metabolite name or "other",'
+                                f' not {key}.'
+                                f' Known metabolites: {self._metabolites}.')
                 else:
                     fparams.extend(process_param(self._Parameters[param], param, self._metabolites))
 
@@ -348,8 +368,9 @@ class VariableMapping(object):
                         elif key == 'other':
                             fparams.extend(process_param(self._Parameters[param][key], param, other_groups))
                         else:
-                            raise ValueError(f'Key in nested {param} must be a group index'
-                                             f' (below {self._mapped_sizes[index]}) or "other", not {key}.')
+                            raise ConfigFileError(
+                                f'Key in nested {param} must be a group index '
+                                f'(below {self._mapped_sizes[index]}) or "other", not {key}.')
                 else:
                     group_list = list(range(self._mapped_sizes[index]))
                     fparams.extend(process_param(self._Parameters[param], param, group_list))
@@ -387,17 +408,22 @@ class VariableMapping(object):
         if not isinstance(self.defined_bounds, dict):
             raise TypeError('defined_bounds should either be a dict or None')
 
-        b = []  # list of bounds
+        # Keep track of which bounds are used for error checking at end
+        used_bounds = []
+        # Form list of bounds
+        b = []  
         for free_p, free_t in zip(self.free_names, self.free_types):
             # First look for an exact match, i.e. a bound on the precise parameter
             if free_p in self.defined_bounds:
                 b.append(self.defined_bounds[free_p])
+                used_bounds.append(free_p)
             else:
                 # If a dynamic function look for a bound specific to the dynamic function
                 if free_t == 'dynamic':
                     mod_p_name = '_'.join(free_p.split('_')[2:])
                     if mod_p_name in self.defined_bounds:
                         b.append(self.defined_bounds[mod_p_name])
+                        used_bounds.append(mod_p_name)
                     else:
                         b.append((None, None))
                 # If fixed or variable look for a bound on the generic form
@@ -405,8 +431,17 @@ class VariableMapping(object):
                     mod_p_name = free_p.split('_')[0]
                     if mod_p_name in self.defined_bounds:
                         b.append(self.defined_bounds[mod_p_name])
+                        used_bounds.append(mod_p_name)
                     else:
                         b.append((None, None))
+
+        # Check for unused bounds and raise error
+        used_bounds = set(np.unique(used_bounds))
+        all_bounds = self.defined_bounds.keys()
+        if len(all_bounds - used_bounds) > 0:
+            bounds_str = ', '.join(list(all_bounds - used_bounds))
+            raise ConfigFileError(f'Not all bounds are used, remove or rename. Extra bounds: {bounds_str}.')
+
         return np.asarray(b)
 
     def free_to_mapped(self, p):
@@ -426,8 +461,9 @@ class VariableMapping(object):
         """
         # Check input
         if (p.size != self.nfree):
-            raise(Exception('Input free params does not have expected number of entries.'
-                            f' Found {p.size}, expected {self.nfree}'))
+            raise ValueError(
+                'Input free params does not have expected number of entries.'
+                f' Found {p.size}, expected {self.nfree}')
 
         # Mapped params is time X nparams (each param is an array of params)
         mapped_params = np.zeros((self.ntimes, self.nmapped))
@@ -443,7 +479,9 @@ class VariableMapping(object):
                 params = p[mp_obj.free_indices]
                 mapped_params[:, index] = self.fcns[func_name](params, self.time_variable)
             else:
-                raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
+                raise ConfigFileError(
+                    f"Unknown parameter mode ({mp_obj.param_type}) in configuration "
+                    "- should be one of 'fixed', 'variable', {'dynamic'}")
 
         return mapped_params
 
@@ -490,8 +528,8 @@ class VariableMapping(object):
             p = np.asarray(p)
 
         if (p.shape != (self.ntimes, self.nmapped)):
-            raise(Exception(f'Input mapped params does not have expected number of entries.'
-                            f' Found {p.shape}, expected {(self.ntimes,self.nmapped)}'))
+            raise ValueError('Input mapped params does not have expected number of entries.'
+                             f' Found {p.shape}, expected {(self.ntimes,self.nmapped)}')
 
         free_params = np.zeros(self.nfree)
         for index, mp_obj in enumerate(self._mapped_params):
@@ -526,7 +564,9 @@ class VariableMapping(object):
                 free_params[mp_obj.free_indices] = vals
 
             else:
-                raise ValueError("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}")
+                raise ConfigFileError(
+                    f"Unknown parameter mode ({mp_obj.param_type}) in configuration "
+                    "- should be one of 'fixed', 'variable', {'dynamic'}")
 
         return free_params
 
@@ -541,10 +581,14 @@ class VariableMapping(object):
         elif mp_param_obj.param_type == 'dynamic':
             grad_name = mp_param_obj.grad_function()
             if grad_name not in self.fcns:
-                raise ValueError(f"Could not find gradient for parameter {mp_param_obj.name}")
+                raise ConfigFileError(
+                    f"Could not find gradient function {grad_name} for parameter {mp_param_obj.name}"
+                    f" / function {mp_param_obj.function_name}")
             return self.fcns[grad_name]
         else:
-            raise (Exception("Unknown Parameter type - should be one of 'fixed', 'variable', {'dynamic'}"))
+            raise ConfigFileError(
+                f"Unknown parameter mode ({mp_param_obj.param_type}) in configuration "
+                "- should be one of 'fixed', 'variable', {'dynamic'}")
 
     def mapped_to_dict(self, params):
         """
