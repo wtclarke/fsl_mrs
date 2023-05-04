@@ -411,7 +411,7 @@ class VariableMapping(object):
         # Keep track of which bounds are used for error checking at end
         used_bounds = []
         # Form list of bounds
-        b = []  
+        b = []
         for free_p, free_t in zip(self.free_names, self.free_types):
             # First look for an exact match, i.e. a bound on the precise parameter
             if free_p in self.defined_bounds:
