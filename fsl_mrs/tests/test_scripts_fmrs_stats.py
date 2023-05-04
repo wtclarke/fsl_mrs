@@ -103,7 +103,7 @@ def test_fmrs_stats_first_level_shortcut(tmp_path):
     assert 'COPE' in df.columns
     assert 'conc_NAA+NAAG_beta0' in df.index
     assert 'conc_NAA+NAAG_mean_0_beta0_beta1' in df.index
-    assert 'conc_sigma_1_mean_1_beta2_beta3' in df.index
+    assert 'sigma_1_mean_1_beta2_beta3' in df.index
 
 
 def test_fmrs_stats_scaling(tmp_path):
