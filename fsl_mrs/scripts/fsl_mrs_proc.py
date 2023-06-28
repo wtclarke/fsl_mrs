@@ -245,7 +245,7 @@ def main():
     fshift_group.add_argument('--shiftRef', action="store_true",
                               help='Shift to reference (default = Cr)')
     fshift_group.add_argument('--ppm', type=float, nargs=2,
-                              metavar='<lower-limit upper-limit>',
+                              metavar=('<lower-limit', 'upper-limit>'),
                               default=(2.8, 3.2),
                               help='Shift maximum point in this range'
                                    ' to target (must specify --target).')
