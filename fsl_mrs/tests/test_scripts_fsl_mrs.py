@@ -53,6 +53,36 @@ def test_fsl_mrs(tmp_path):
     assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))
 
 
+def test_no_fractions(tmp_path):
+
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--h2o', data['water'],
+                           '--TE', '11',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report'])
+
+    assert op.exists(op.join(tmp_path, 'report.html'))
+    assert op.exists(op.join(tmp_path, 'summary.csv'))
+    assert op.exists(op.join(tmp_path, 'concentrations.csv'))
+    assert op.exists(op.join(tmp_path, 'qc.csv'))
+    assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
+    assert op.exists(op.join(tmp_path, 'options.txt'))
+    assert op.exists(op.join(tmp_path, 'data.nii.gz'))
+    assert op.exists(op.join(tmp_path, 'basis'))
+    assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))
+
+    # Check quantification section included
+    from bs4 import BeautifulSoup
+    with open(op.join(tmp_path, 'report.html')) as fp:
+        soup = BeautifulSoup(fp, features="html.parser")
+    assert soup.find_all("a", attrs={'name': "quantification"}) is not None
+
+
 def test_no_ref(tmp_path):
     subprocess.check_call(['fsl_mrs',
                            '--data', data['metab'],
