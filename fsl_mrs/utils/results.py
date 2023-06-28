@@ -200,6 +200,9 @@ class FitRes(object):
             perc_SD[np.isnan(perc_SD)] = 999
         return perc_SD
 
+    class QuantificationError(Exception):
+        pass
+
     def calculateConcScaling(self,
                              mrs,
                              quant_info=None,
@@ -211,7 +214,7 @@ class FitRes(object):
         :type mrs: fsl_mrs.core.mrs.MRS
         :param quant_info: Quantification information for water scaling, defaults to None
         :type quant_info: fsl_mrs.utils.quantify.QuantificationInfo, optional
-        :param internal_reference: Internal referencing emtabolite, defaults to ['Cr', 'PCr'] i.e. tCr
+        :param internal_reference: Internal referencing metabolite, defaults to ['Cr', 'PCr'] i.e. tCr
         :type internal_reference: list, optional
         :param verbose: Enable for verbose output, defaults to False
         :type verbose: bool, optional
@@ -227,6 +230,14 @@ class FitRes(object):
                                                                              self,
                                                                              quant_info,
                                                                              verbose=verbose)
+
+            if ref_info['metab_ref'].integral == 0.0:
+                raise self.QuantificationError(
+                    f'Metabolite reference {quant_info.ref_metab} has not been fit (conc=0). '
+                    'Please choose another or refine fit first.')
+            elif ref_info['water_ref'].integral == 0.0:
+                raise self.QuantificationError(
+                    'Water reference has zero integral. Please check water reference data.')
 
             self.concScalings = {
                 'internal': internalRefScaling,

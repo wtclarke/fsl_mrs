@@ -9,14 +9,17 @@ from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.core import MRS
 from fsl_mrs.utils.fitting import fit_FSLModel
-from pytest import fixture
+import fsl_mrs.utils.mrs_io as mrsio
+
+import pytest
 import numpy as np
 import json
 from pathlib import Path
+import os.path as op
 
 
 # Set up some synthetic data to use
-@fixture(scope='module')
+@pytest.fixture(scope='module')
 def data():
     noiseCov = 0.001
     amplitude = np.asarray([1.0, 0.5, 0.5, 1.0]) * 10
@@ -233,3 +236,81 @@ def test_combined_lw_estimates():
         qc_out.append(res.getQCParams()[1]['fwhm_MM20'])
 
     assert np.allclose(combined_out, qc_out, atol=2E1)
+
+
+# Use real data to test the water quantification
+metabfile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_WS.txt')
+h2ofile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_nWS.txt')
+basisfile = op.join(op.dirname(__file__), 'testdata/quantify/basisset_JMRUI')
+
+
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value")
+def test_calculateConcScaling():
+    basis = mrsio.read_basis(basisfile)
+    data = mrsio.read_FID(metabfile)
+    dataw = mrsio.read_FID(h2ofile)
+
+    basis.add_peak(7.0, 0.1, 'fake', gamma=6.0)
+
+    mrs = data.mrs(basis=basis,
+                   ref_data=dataw)
+    mrs.check_FID(repair=True)
+    mrs.check_Basis(repair=True)
+
+    dataw_zero = dataw.copy()
+    dataw_zero[:] = dataw_zero[:] * 0
+    mrs_zero_water = dataw_zero.mrs(
+        basis=basis,
+        ref_data=dataw)
+    mrs_zero_water.check_FID(repair=True)
+    mrs_zero_water.check_Basis(repair=True)
+
+    Fitargs = {'ppmlim': [0.2, 5.2],
+               'baseline_order': 0,
+               'metab_groups': [0]}
+
+    res = mrs.fit(**Fitargs)
+    res_zero_water = mrs_zero_water.fit(**Fitargs)
+
+    from fsl_mrs.utils import quantify
+
+    q_info = quantify.QuantificationInfo(
+        30E-3,
+        1.0,
+        mrs.names,
+        mrs.centralFrequency / 1E6,
+        water_ref_metab='Cr',
+        water_ref_metab_protons=5,
+        water_ref_metab_limits=(2, 5))
+
+    q_info_bad = quantify.QuantificationInfo(
+        30E-3,
+        1.0,
+        mrs.names,
+        mrs.centralFrequency / 1E6,
+        water_ref_metab='fake',
+        water_ref_metab_protons=5,
+        water_ref_metab_limits=(2, 5))
+
+    res.calculateConcScaling(
+        mrs,
+        quant_info=q_info,
+        internal_reference='Cr',
+        verbose=False)
+
+    with pytest.raises(res.QuantificationError):
+        res.calculateConcScaling(
+            mrs,
+            quant_info=q_info_bad,
+            internal_reference='Cr',
+            verbose=False)
+
+    with pytest.raises(res.QuantificationError) as exc:
+        res_zero_water.calculateConcScaling(
+            mrs,
+            quant_info=q_info,
+            internal_reference='Cr',
+            verbose=False)
+
+        assert exc.message == 'Water reference has zero integral. Please check water reference data.'

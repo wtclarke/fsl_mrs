@@ -6,6 +6,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Improved interface and potions for dynamic fitting driven preprocessing.
 - Fixed minor bug in `fsl_mrs_summarise`
 - Fixed bug where quantification information wasn't generated if no tissue fractions were given.
+- Added warnings when quantification reference or water has zero integral.
 
 2.1.6 (Friday 5th May 2023)
 ---------------------------
