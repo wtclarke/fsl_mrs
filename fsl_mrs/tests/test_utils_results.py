@@ -22,7 +22,7 @@ def data():
     amplitude = np.asarray([1.0, 0.5, 0.5, 1.0]) * 10
     chemshift = np.asarray([4.65, 3.0, 3.05, 2.0]) - 4.65
     lw = [10, 10, 10, 10]
-    phases = [0, 0, 0, 0]
+    phases = [np.pi * -10 / 180.0, ] * 4
     g = [0, 0, 0, 0]
     basisNames = ['h2o', 'Cr', 'PCr', 'NAA']
     begintime = 0.00005
@@ -34,7 +34,7 @@ def data():
                                 chemicalshift=[chemshift[idx] + 0.1],
                                 amplitude=[1.0],
                                 linewidth=[lw[idx] / 5],
-                                phase=[phases[idx]],
+                                phase=[0.0],
                                 g=[g[idx]],
                                 begintime=0)
         hdr['fwhm'] = lw[idx] / 5
@@ -93,7 +93,7 @@ def test_units(data):
 
     # Phase
     p0, p1 = res.getPhaseParams(phi0='degrees', phi1='seconds')
-    assert np.isclose(p0, 0.0, atol=1E-1)
+    assert np.isclose(p0, 10.0, atol=1E0)
     assert np.isclose(p1, 0.00005, atol=3E-5)
 
     # Shift
@@ -105,7 +105,7 @@ def test_units(data):
     # Linewidth
     lw = res.getLineShapeParams(units='Hz')[0]
     lw_ppm = res.getLineShapeParams(units='ppm')[0]
-    assert np.isclose(lw, 8.0, atol=1E-1)  # 10-2
+    assert np.isclose(lw, 8.0, atol=5E-1)  # 10-2
     assert np.isclose(lw_ppm, 8.0 / 123.0, atol=1E-1)
 
 

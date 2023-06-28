@@ -621,7 +621,7 @@ class FitRes(object):
             p1 = self.fitResults['Phi1'].apply(function)
 
         if phi0.lower() == 'degrees':
-            p0 *= np.pi / 180.0
+            p0 *= 180.0 / np.pi
         elif (phi0.lower() == 'radians') or (phi0.lower() == 'raw'):
             pass
         else:

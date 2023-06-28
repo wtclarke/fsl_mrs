@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.7 (WIP)
+---------------------------
+- Fixed bug with incorrectly calculated zero order phase when given in degrees.
+- Improved interface and potions for dynamic fitting driven preprocessing.
+- Fixed minor bug in `fsl_mrs_summarise`
+
+
 2.1.6 (Friday 5th May 2023)
 ---------------------------
 - Add model performance outputs to dynamic fitting.
