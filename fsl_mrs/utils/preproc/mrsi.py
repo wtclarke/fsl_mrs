@@ -30,17 +30,19 @@ def mrsi_phase_corr(data, mask=None, ppmlim=None):
     :rtype: NIFTI_MRS, Image
     """
     if mask is None:
-        mask = Image(np.ones(data.shape[:3]))
+        mask = np.ones(data.shape[:3]).astype(bool)
+    else:
+        mask = mask[:].astype(bool)
 
     fids, phases = phase_corr_max_real(
-        data[:][mask[:], :],
-        limits=data.mrs()[0].ppmlim_to_range(ppmlim, shift=True))
+        data[:][mask, :],
+        limits=data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True))
 
     new_array = data[:].copy()
     new_array[mask, :] = fids
 
     phase_array = np.zeros(data.shape[:3])
-    phase_array[mask] = phases * 180 / np.pi
+    phase_array[mask] = phases.ravel() * 180 / np.pi
 
     return NIFTI_MRS(new_array, header=data.header), Image(phase_array, xform=data.voxToWorldMat)
 
@@ -56,11 +58,15 @@ def phase_corr_max_real(fids, limits=None):
     :return: Phased FIDs, array of applied phases
     :rtype: (np.array, np.array)
     """
+
+    if limits is None:
+        limits = (0, fids.shape[1])
+
     phases = []
     for fid in fids:
         def phase_fun(x):
             return -np.sum(FIDToSpec(fid * np.exp(1j * x))[limits[0]:limits[1]].real)
-        phases.append(minimize(phase_fun, 0).x)
+        phases.append(minimize(phase_fun, 1E-3).x[0])  # Init with non-zero
 
     return np.stack([fid * np.exp(1j * x) for fid, x in zip(fids, phases)]), np.asarray(phases)
 
@@ -78,10 +84,12 @@ def mrsi_freq_align(data, mask=None, zpad_factor=1):
     :rtype: NIFTI_MRS, Image
     """
     if mask is None:
-        mask = Image(np.ones(data.shape[:3]))
+        mask = np.ones(data.shape[:3]).astype(bool)
+    else:
+        mask = mask[:].astype(bool)
 
     fids_shifted, shifts = xcorr_align(
-        data[:][mask[:], :],
+        data[:][mask, :],
         data.dwelltime,
         zpad_factor=zpad_factor)
 
