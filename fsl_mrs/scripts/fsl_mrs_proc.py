@@ -348,6 +348,31 @@ def main():
     conj_group.set_defaults(func=conj)
     add_common_args(conj_group)
 
+    # mrsi-align - mrsi alignment across voxels
+    malignparser = sp.add_parser(
+        'mrsi-align',
+        add_help=False,
+        help='Phase and/or frequency align across voxels.')
+    ma_group = malignparser.add_argument_group('MRSI alignment arguments')
+    ma_group.add_argument('--file', type=str, required=True,
+                          help='File to align.')
+    ma_group.add_argument('--mask', type=str, required=False,
+                          help='Mask file, NIfTI formated, only align on voxels selected.')
+    ma_group.add_argument('--freq-align', action="store_true",
+                          help='Run crosscorrelation frequency alignment.')
+    ma_group.add_argument('--zpad', type=int, default=1,
+                          help='Frequency alignment zero pading factor. 1 = double, 0 disables')
+    ma_group.add_argument('--phase-correct', action="store_true",
+                          help='Run phase correction.')
+    ma_group.add_argument('--ppm', type=float, nargs=2,
+                          metavar=('<lower-limit', 'upper-limit>'),
+                          default=None,
+                          help='ppm limits of phase correction window, default = no limits')
+    ma_group.add_argument('--save-params', action="store_true",
+                          help='Save shfits and/or phases to nifti format files.')
+    ma_group.set_defaults(func=mrsi_align)
+    add_common_args(malignparser)
+
     # Parse command-line arguments
     args = p.parse_args()
 
@@ -782,6 +807,44 @@ def conj(dataobj, args):
                                    report_all=args['allreports'])
 
     return datacontainer(conjugated, dataobj.datafilename)
+
+
+def mrsi_align(dataobj, args):
+    '''Function that applys frequency and/or phase correction to mrsi.'''
+    from fsl_mrs.utils.preproc import mrsi
+
+    if dataobj.data.shape[:3] == (1, 1, 1):
+        raise ValueError('mrsi-align is not suitable for single voxel data.')
+
+    if args['mask'] is not None:
+        from fsl.data.image import Image
+        mask = Image(args['mask'])
+    else:
+        mask = None
+
+    if args['filename'] is None:
+        fname = dataobj.datafilename
+    else:
+        fname = args['filename']
+
+    data = dataobj.data
+    if args['freq_align']:
+        data, shifts = mrsi.mrsi_freq_align(
+            data,
+            mask=mask,
+            zpad_factor=args['zpad'])
+        if args['save_params']:
+            shifts.save(op.join(args['output'], fname + '_shifts_hz.nii.gz'))
+
+    if args['phase_correct']:
+        data, phs = mrsi.mrsi_phase_corr(
+            data,
+            mask=mask,
+            ppmlim=args['ppm'])
+        if args['save_params']:
+            phs.save(op.join(args['output'], fname + '_phase_deg.nii.gz'))
+
+    return datacontainer(data, dataobj.datafilename)
 
 
 if __name__ == '__main__':

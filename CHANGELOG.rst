@@ -2,6 +2,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 2.1.7 (WIP)
 ---------------------------
+- Added `fsl_mrs_proc mrsi-align` which can perform frequency and phase alignment across voxels using cross correlation.
 - Fixed bug with incorrectly calculated zero order phase when given in degrees.
 - Improved interface and potions for dynamic fitting driven preprocessing.
 - Fixed minor bug in `fsl_mrs_summarise`

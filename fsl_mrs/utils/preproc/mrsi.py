@@ -14,7 +14,6 @@ from fsl.data.image import Image
 
 from fsl_mrs.utils.preproc import freqshift, pad
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.core.nifti_mrs import NIFTI_MRS
 
 
 def mrsi_phase_corr(data, mask=None, ppmlim=None):
@@ -34,17 +33,23 @@ def mrsi_phase_corr(data, mask=None, ppmlim=None):
     else:
         mask = mask[:].astype(bool)
 
-    fids, phases = phase_corr_max_real(
-        data[:][mask, :],
-        limits=data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True))
+    if data.ndim > 4:
+        limits = data.mrs()[0].mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
+    else:
+        limits = data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
 
-    new_array = data[:].copy()
-    new_array[mask, :] = fids
+    phs_array = np.zeros(data.shape[:3] + data.shape[4:])
+    phs = np.zeros(data.shape[:3])
+    out = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=False):
+        dd[mask, :], phs[mask] = phase_corr_max_real(
+            dd[mask, :],
+            limits=limits)
 
-    phase_array = np.zeros(data.shape[:3])
-    phase_array[mask] = phases.ravel() * 180 / np.pi
+        out[idx] = dd
+        phs_array[idx[:3] + idx[4:]] = phs * 180 / np.pi
 
-    return NIFTI_MRS(new_array, header=data.header), Image(phase_array, xform=data.voxToWorldMat)
+    return out, Image(phs_array, xform=data.voxToWorldMat)
 
 
 def phase_corr_max_real(fids, limits=None):
@@ -88,18 +93,19 @@ def mrsi_freq_align(data, mask=None, zpad_factor=1):
     else:
         mask = mask[:].astype(bool)
 
-    fids_shifted, shifts = xcorr_align(
-        data[:][mask, :],
-        data.dwelltime,
-        zpad_factor=zpad_factor)
+    shift_array = np.zeros(data.shape[:3] + data.shape[4:])
+    shifts = np.zeros(data.shape[:3])
+    out = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=False):
+        dd[mask, :], shifts[mask] = xcorr_align(
+            dd[mask, :],
+            data.dwelltime,
+            zpad_factor=zpad_factor)
 
-    new_array = data[:].copy()
-    new_array[mask, :] = fids_shifted
+        out[idx] = dd
+        shift_array[idx[:3] + idx[4:]] = shifts
 
-    shift_array = np.zeros(data.shape[:3])
-    shift_array[mask] = shifts
-
-    return NIFTI_MRS(new_array, header=data.header), Image(shift_array, xform=data.voxToWorldMat)
+    return out, Image(shift_array, xform=data.voxToWorldMat)
 
 
 def xcorr_align(fids_in, dwelltime, zpad_factor=1):

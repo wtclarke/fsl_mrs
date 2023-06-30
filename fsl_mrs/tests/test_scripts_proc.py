@@ -11,15 +11,19 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import pytest
 import os.path as op
+import subprocess
+import warnings
+from pathlib import Path
+
+import numpy as np
+
+from fsl.data.image import Image
+
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
-import numpy as np
-import subprocess
-import warnings
 
-from pathlib import Path
 testsPath = Path(__file__).parent
 test_data = testsPath / 'testdata'
 
@@ -782,3 +786,44 @@ def test_apodize(svs_data, mrsi_data, tmp_path):
     directRun = preproc.apodize(mrsidata, (10, 1), filter='l2g')
 
     assert np.allclose(data[:], directRun[:])
+
+
+def test_mrsi_align(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'mrsi-align',
+             '--file', svsfile,
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+            'mrsi-align',
+            '--file', mrsifile,
+            '--freq-align',
+            '--phase-correct',
+            '--save-params',
+            '--zpad', '1',
+            '--ppm', '0.2', '4.0',
+            '--output', tmp_path,
+            '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'tmp.nii.gz').exists()
+    assert (tmp_path / 'tmp_shifts_hz.nii.gz').exists()
+    assert (tmp_path / 'tmp_phase_deg.nii.gz').exists()
+
+    proc_data = read_FID(tmp_path / 'tmp.nii.gz')
+    assert proc_data.shape == mrsidata.shape
+
+    shifts = Image(tmp_path / 'tmp_shifts_hz.nii.gz')
+    phs = Image(tmp_path / 'tmp_phase_deg.nii.gz')
+
+    assert shifts.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
+    assert phs.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
