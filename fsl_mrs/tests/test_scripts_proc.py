@@ -654,7 +654,41 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     directRun = preproc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
 
     assert np.allclose(data[:], directRun[:])
-    # TODO: finish MRSI test
+
+    # MRSI test with single shift
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fshift',
+                           '--file', mrsifile,
+                           '--shifthz', '10.0',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.fshift(mrsidata, 10.0)
+
+    assert np.allclose(data[:], directRun[:])
+
+    # MRSI test with multiple shift
+    shifts = np.ones(mrsidata.shape[:3] + mrsidata.shape[4:])
+    from fsl.data.image import Image
+    Image(shifts).save(tmp_path / 'multi_shift.nii.gz')
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fshift',
+                           '--file', mrsifile,
+                           '--shifthz', str(tmp_path / 'multi_shift.nii.gz'),
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.fshift(mrsidata, shifts)
+
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_conj(svs_data, mrsi_data, tmp_path):

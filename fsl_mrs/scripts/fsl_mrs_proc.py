@@ -238,10 +238,14 @@ def main():
     fshift_group = fshiftparser.add_argument_group('Frequency shift arguments')
     fshift_group.add_argument('--file', type=str, required=True,
                               help='Data file(s) to shift')
-    fshift_group.add_argument('--shiftppm', type=float,
-                              help='Apply fixed shift (ppm scale)')
-    fshift_group.add_argument('--shifthz', type=float,
-                              help='Apply fixed shift (Hz scale)')
+    fshift_group.add_argument('--shiftppm', type=_float_or_array_arg,
+                              metavar='Value | Image',
+                              help='Apply fixed shift (ppm scale). '
+                                   'Can be a nifti image of matched size for per-voxel shift')
+    fshift_group.add_argument('--shifthz', type=_float_or_array_arg,
+                              metavar='Value | Image',
+                              help='Apply fixed shift (Hz scale). '
+                                   'Can be a nifti image of matched size for per-voxel shift')
     fshift_group.add_argument('--shiftRef', action="store_true",
                               help='Shift to reference (default = Cr)')
     fshift_group.add_argument('--ppm', type=float, nargs=2,
@@ -845,6 +849,22 @@ def mrsi_align(dataobj, args):
             phs.save(op.join(args['output'], fname + '_phase_deg.nii.gz'))
 
     return datacontainer(data, dataobj.datafilename)
+
+
+def _float_or_array_arg(x):
+    '''Return either a float or array loaded from a nifti image'''
+    try:
+        return float(x)
+    except ValueError:
+        try:
+            from fsl.data.image import Image
+            x = Path(x)
+            assert x.exists()
+            return Image(x)[:]
+        except TypeError:
+            raise ArgumentError('Argument must be a valid file path or float.')
+        except AssertionError:
+            raise ArgumentError(f'{x} does not exist as a path.')
 
 
 if __name__ == '__main__':
