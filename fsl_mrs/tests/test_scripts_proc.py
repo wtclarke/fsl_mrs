@@ -861,3 +861,41 @@ def test_mrsi_align(svs_data, mrsi_data, tmp_path):
 
     assert shifts.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
     assert phs.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
+
+
+def test_mrsi_lipid(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+    mask = Image(np.ones(mrsidata.shape[:3], dtype=np.int16))
+    mask.save(tmp_path / 'mask.nii.gz')
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'mrsi-lipid',
+             '--file', svsfile,
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+
+    _ = subprocess.run(
+        ['mrs_tools',
+         'split',
+         '--file', mrsifile,
+         '--dim', 'DIM_DYN',
+         '--index', '0',
+         '--output', tmp_path,
+         '--filename', 'split'])
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+            'mrsi-lipid',
+            '--file', tmp_path / 'split_low.nii.gz',
+            '--mask', tmp_path / 'mask.nii.gz',
+            '--beta', '0.0001',
+            '--output', tmp_path,
+            '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'tmp.nii.gz').exists()

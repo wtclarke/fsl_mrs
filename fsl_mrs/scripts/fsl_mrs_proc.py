@@ -18,6 +18,8 @@ import os.path as op
 from dataclasses import dataclass
 from pathlib import Path
 
+from fsl.data.image import Image
+
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
@@ -376,6 +378,21 @@ def main():
                           help='Save shfits and/or phases to nifti format files.')
     ma_group.set_defaults(func=mrsi_align)
     add_common_args(malignparser)
+
+    # mrsi-lipid - mrsi lipid removal
+    mlipidparser = sp.add_parser(
+        'mrsi-lipid',
+        add_help=False,
+        help='Remove lipids from MRSI by L2 regularisation.')
+    ml_group = mlipidparser.add_argument_group('MRSI alignment arguments')
+    ml_group.add_argument('--file', type=str, required=True,
+                          help='File to align.')
+    ml_group.add_argument('--mask', type=Image, required=False,
+                          help='Mask file, NIfTI formated, only align on voxels selected.')
+    ml_group.add_argument('--beta', type=float, default=1E-5,
+                          help='Regularisation scaling, default = 1E-5. Adjust to scale lipid removal strength')
+    ml_group.set_defaults(func=mrsi_lipid)
+    add_common_args(mlipidparser)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -851,13 +868,27 @@ def mrsi_align(dataobj, args):
     return datacontainer(data, dataobj.datafilename)
 
 
+def mrsi_lipid(dataobj, args):
+    '''Apply lipid removel (L2 regularised) to MRSI'''
+    from fsl_mrs.utils.preproc import mrsi
+
+    if dataobj.data.shape[:3] == (1, 1, 1):
+        raise ValueError('mrsi-align is not suitable for single voxel data.')
+
+    return datacontainer(
+        mrsi.lipid_removal_l2(
+            dataobj.data,
+            args['beta'],
+            lipid_mask=args['mask']),
+        dataobj.datafilename)
+
+
 def _float_or_array_arg(x):
     '''Return either a float or array loaded from a nifti image'''
     try:
         return float(x)
     except ValueError:
         try:
-            from fsl.data.image import Image
             x = Path(x)
             assert x.exists()
             return Image(x)[:]
