@@ -137,3 +137,56 @@ def xcorr_align(fids_in, dwelltime, zpad_factor=1):
     shifts_hz = - shifts.astype(float) * bandwidth / (fids_in.shape[1] * (1 + zpad_factor))
 
     return np.stack([freqshift(fid, dwelltime, s) for fid, s in zip(fids_in, shifts_hz)]), shifts_hz
+
+
+def lipid_removal_l2(data, beta=1E-5, lipid_mask=None, lipid_basis=None):
+    """Lipid removal using the L2-regularised 'reconstruction' approach.
+
+    The user must specify one of lipid_mask or lipid_basis.
+    Currently only implemented for MRSI data with no higher NIfTI dimensions.
+
+    Originally published by Bilgic et al in jMRI 2014 doi: 10.1002/jmri.24365
+    The code is broadly a port of the matlab demo hosted by the original authors at
+    https://martinos.org/~berkin/software.html
+
+    :param data: MRSI data
+    :type data: fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    :param beta: regularisation scaling parameter, defaults to 1E-5
+    :type beta: float, optional
+    :param lipid_mask: Mask to select voxels only containing lipid signals, defaults to None
+    :type lipid_mask: fsl.data.image.Image, optional
+    :param lipid_basis: Array of lipid FIDS, fist dim should be time, defaults to None
+    :type lipid_basis: np.array, optional
+    :return: Data with lipids removed
+    :rtype: fsl_mrs.core.nifti_mrs.NIFTI_MRS
+    """
+    if data.ndim > 4:
+        raise ValueError('Data cannot have higher NIfTI dimensions.')
+
+    # Assemble a lipid basis from masked region or the direct input
+    if lipid_basis is not None:
+        if lipid_basis.shape[0] != data.shape[3]:
+            raise ValueError(
+                'Lipid basis must have a first dimension size equal to the spectral dimension. '
+                f'Current size = {lipid_basis.shape[0]}, expected = data.shape[3]')
+    elif lipid_mask is not None:
+        if not isinstance(lipid_mask, Image):
+            raise TypeError('lipid_mask should be an fslpy Image object.')
+        lipid_mask = lipid_mask[:].astype(bool)
+        if not any(lipid_mask.ravel()):
+            raise ValueError('Mask image must contain some selected voxels.')
+
+        lipid_basis = data[:][lipid_mask, :].T
+        assert lipid_basis.shape[0] == data.shape[3]
+    else:
+        raise TypeError('One of lipid_mask or lipid_basis must be specified. Both are set to None.')
+
+    # Calculate the inverted matrix
+    lipid_inv = np.linalg.inv(np.eye(lipid_basis.shape[0]) + beta * (lipid_basis @ lipid_basis.T.conj()))
+
+    # Apply voxel-wise
+    reduced_lipid_img = data.copy()
+    for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        reduced_lipid_img[idx] = lipid_inv @ dd
+
+    return reduced_lipid_img
