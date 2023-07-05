@@ -157,6 +157,10 @@ def main():
         if baseline_order < 0:
             baseline_order = 0  # Required to make prepare_baseline_regressor run.
         ppmlim = orig_args['ppmlim']
+        if ppmlim is None:
+            from fsl_mrs.utils.constants import nucleus_constants
+            ppmlim = nucleus_constants(mrs.nucleus).ppm_range
+
         # Generate baseline polynomials (B)
         B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
 

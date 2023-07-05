@@ -12,12 +12,12 @@ from fsl_mrs.dynamic import dynMRS
 from fsl_mrs.utils import preproc as proc
 from fsl_mrs.core import NIFTI_MRS
 from fsl_mrs.utils.preproc.align import phase_freq_align_report
-from fsl_mrs.utils.preproc.nifti_mrs_proc import update_processing_prov
+from fsl_mrs.utils.preproc.nifti_mrs_proc import update_processing_prov, apodize
 
 config_file_path = op.dirname(__file__)
 
 
-def align_by_dynamic_fit(data, basis, fitargs={}):
+def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     """Phase and frequency alignment based on dynamic fitting
 
     This function performs phase and frequency alignment based on the fsl-mrs
@@ -37,24 +37,34 @@ def align_by_dynamic_fit(data, basis, fitargs={}):
     :type basis: fsl_mrs.core.basis.Basis or list
     :param fitargs: kw arguments to pass to fitting, defaults to {}
     :type fitargs: dict, optional
+    :param verbose: Verbose output, defaults to False
+    :type verbose: bool, optional
     :return: Tuple with the aligned data, shift, and phase
     :rtype: tuple
     """
     if not isinstance(data, NIFTI_MRS):
         raise TypeError('Data must be a NIFTI_MRS object.')
     if data.ndim < 5:
-        raise ValueError('Data must have at leaset one higher diemnsion.')
+        raise ValueError('Data must have at least one higher dimension.')
     if not np.isclose(np.prod(data.shape[4:]), data.shape[4:]).any():
         raise ValueError('This function can only handle one non-singleton higher dimension.')
 
+    if apodize_hz > 0:
+        data_to_fit = apodize(data, (apodize_hz, ))
+    else:
+        data_to_fit = data
+
     if not isinstance(basis, list) or len(basis) == 1:
-        mrslist = data.mrs(basis=basis)
+        mrslist = data_to_fit.mrs(basis=basis)
     elif len(basis) == len(data.mrs()):
-        mrslist = data.mrs()
+        mrslist = data_to_fit.mrs()
         for mrs, bb in zip(mrslist, basis):
             mrs.basis = bb
     else:
         raise TypeError('basis must either be a single Basis object or a list the length of the alignment dim.')
+
+    for mrs in mrslist:
+        mrs.check_Basis(repair=True)
 
     tval = np.arange(0, len(mrslist))
 
@@ -64,8 +74,8 @@ def align_by_dynamic_fit(data, basis, fitargs={}):
         config_file=op.join(config_file_path, 'align_model.py'),
         **fitargs)
 
-    init = dyn.initialise(indiv_init='mean', verbose=False)
-    dyn_res = dyn.fit(init=init, verbose=False)
+    init = dyn.initialise(indiv_init='mean', verbose=verbose)
+    dyn_res = dyn.fit(init=init, verbose=verbose)
 
     def correctfid(fid, eps, phi):
         hz = eps * 1 / (2 * np.pi)

@@ -5,6 +5,10 @@ Test NIfTI-MRS processing
 Copyright Will Clarke, University of Oxford, 2021
 '''
 from pathlib import Path
+from re import escape
+
+from pytest import raises
+import numpy as np
 
 from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
 from fsl_mrs.utils.mrs_io import read_FID
@@ -165,8 +169,25 @@ def test_apodize():
 
 def test_fshift():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
 
+    print(nmrs_obj.shape)
+    # Test shift per FID
+    with raises(
+        ValueError,
+        match=escape(
+            'Shift map must be the same size as the NIfTI-MRS spatial + higher dimensions. '
+            'Current size = (32, 1), required shape = (1, 1, 1, 32, 2).')):
+        shifted = nproc.fshift(nmrs_obj, np.ones((32, 1)))
+
+    shifted = nproc.fshift(nmrs_obj, np.ones((1, 1, 1, 32, 2)))
+
+    assert shifted.shape == nmrs_obj.shape
+    assert shifted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert shifted.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.fshift, amount=per-voxel shifts specified.'
+
+    # Test a single value shift
+    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
     shifted = nproc.fshift(nmrs_obj, 10.0)
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'

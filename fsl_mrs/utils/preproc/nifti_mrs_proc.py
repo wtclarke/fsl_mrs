@@ -705,22 +705,38 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
 
 
 def fshift(data, amount, figure=False, report=None, report_all=False):
-    '''Apply frequency shift
+    '''Apply frequency shift.
 
-    :param NIFTI_MRS data: Data to truncate or pad
-    :param float amount: Shift amount in Hz
+    Two modes of operation:
+    1) Specify a single shift which is applied to all FIDs/spectra - amount has float type
+    2) Specify a shift per FID/spectra - amount is numpy array matching data shape
+
+    :param NIFTI_MRS data: Data to frequency shift
+    :param amount: Shift amount in Hz, can be array matching data size
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
 
     :return: Shifted data in NIFTI_MRS format.
     '''
+    if not isinstance(amount, float) and amount.size > 1:
+        required_shape = data.shape[:3] + data.shape[4:]
+        if amount.shape != required_shape:
+            raise ValueError(
+                'Shift map must be the same size as the NIfTI-MRS spatial + higher dimensions. '
+                f'Current size = {amount.shape}, required shape = {required_shape}.')
+        shift_map = True
+    else:
+        shift_map = False
+        toshift = amount
 
     shift_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
+        if shift_map:
+            toshift = amount[idx[:3] + idx[4:]]
         shift_obj[idx] = preproc.freqshift(dd,
                                            data.dwelltime,
-                                           amount)
+                                           toshift)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
@@ -738,7 +754,10 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
 
     # Update processing prov
     processing_info = f'{__name__}.fshift, '
-    processing_info += f'amount={amount}.'
+    if shift_map:
+        processing_info += 'amount=per-voxel shifts specified.'
+    else:
+        processing_info += f'amount={amount}.'
 
     update_processing_prov(shift_obj, 'Frequency and phase correction', processing_info)
 

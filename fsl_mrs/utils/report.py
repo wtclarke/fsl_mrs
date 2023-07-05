@@ -172,7 +172,6 @@ def svs_table_quant(res):
         """
     else:
         table = f"""
-        <h1><a name="quantification">Quantification information</a></h1>
         <table>
             <tr>
                 <td class="titles">Water T<sub>2</sub></td>
@@ -304,7 +303,7 @@ def create_svs_sections(mrs, res, location_fig):
         <hr>
         """)
 
-    if (res.concScalings['molality'] is not None) and res.concScalings['quant_info'].f_GM is not None:
+    if res.concScalings['molality'] is not None:
         sections.append(
             f"""
             <h1><a name="quantification">Quantification information</a></h1>

@@ -5,7 +5,7 @@ Copyright (C) 2021 University of Oxford
 """
 
 Parameters = {
-    'Phi_0': 'variable',
+    'Phi_0': 'fixed',
     'Phi_1': 'fixed',
     'conc': 'fixed',
     'eps': 'variable',
@@ -16,5 +16,6 @@ Parameters = {
 
 Bounds = {
     'gamma': (0, None),
-    'sigma': (0, None)
+    'sigma': (0, None),
+    'conc': (0, None)
 }

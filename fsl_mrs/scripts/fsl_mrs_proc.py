@@ -18,6 +18,8 @@ import os.path as op
 from dataclasses import dataclass
 from pathlib import Path
 
+from fsl.data.image import Image
+
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
@@ -238,14 +240,18 @@ def main():
     fshift_group = fshiftparser.add_argument_group('Frequency shift arguments')
     fshift_group.add_argument('--file', type=str, required=True,
                               help='Data file(s) to shift')
-    fshift_group.add_argument('--shiftppm', type=float,
-                              help='Apply fixed shift (ppm scale)')
-    fshift_group.add_argument('--shifthz', type=float,
-                              help='Apply fixed shift (Hz scale)')
+    fshift_group.add_argument('--shiftppm', type=_float_or_array_arg,
+                              metavar='Value | Image',
+                              help='Apply fixed shift (ppm scale). '
+                                   'Can be a nifti image of matched size for per-voxel shift')
+    fshift_group.add_argument('--shifthz', type=_float_or_array_arg,
+                              metavar='Value | Image',
+                              help='Apply fixed shift (Hz scale). '
+                                   'Can be a nifti image of matched size for per-voxel shift')
     fshift_group.add_argument('--shiftRef', action="store_true",
                               help='Shift to reference (default = Cr)')
     fshift_group.add_argument('--ppm', type=float, nargs=2,
-                              metavar='<lower-limit upper-limit>',
+                              metavar=('<lower-limit', 'upper-limit>'),
                               default=(2.8, 3.2),
                               help='Shift maximum point in this range'
                                    ' to target (must specify --target).')
@@ -347,6 +353,46 @@ def main():
                             help='Data file(s) to conjugate')
     conj_group.set_defaults(func=conj)
     add_common_args(conj_group)
+
+    # mrsi-align - mrsi alignment across voxels
+    malignparser = sp.add_parser(
+        'mrsi-align',
+        add_help=False,
+        help='Phase and/or frequency align across voxels.')
+    ma_group = malignparser.add_argument_group('MRSI alignment arguments')
+    ma_group.add_argument('--file', type=str, required=True,
+                          help='File to align.')
+    ma_group.add_argument('--mask', type=str, required=False,
+                          help='Mask file, NIfTI formated, only align on voxels selected.')
+    ma_group.add_argument('--freq-align', action="store_true",
+                          help='Run crosscorrelation frequency alignment.')
+    ma_group.add_argument('--zpad', type=int, default=1,
+                          help='Frequency alignment zero pading factor. 1 = double, 0 disables')
+    ma_group.add_argument('--phase-correct', action="store_true",
+                          help='Run phase correction.')
+    ma_group.add_argument('--ppm', type=float, nargs=2,
+                          metavar=('<lower-limit', 'upper-limit>'),
+                          default=None,
+                          help='ppm limits of phase correction window, default = no limits')
+    ma_group.add_argument('--save-params', action="store_true",
+                          help='Save shfits and/or phases to nifti format files.')
+    ma_group.set_defaults(func=mrsi_align)
+    add_common_args(malignparser)
+
+    # mrsi-lipid - mrsi lipid removal
+    mlipidparser = sp.add_parser(
+        'mrsi-lipid',
+        add_help=False,
+        help='Remove lipids from MRSI by L2 regularisation.')
+    ml_group = mlipidparser.add_argument_group('MRSI alignment arguments')
+    ml_group.add_argument('--file', type=str, required=True,
+                          help='File to align.')
+    ml_group.add_argument('--mask', type=Image, required=False,
+                          help='Mask file, NIfTI formated, only align on voxels selected.')
+    ml_group.add_argument('--beta', type=float, default=1E-5,
+                          help='Regularisation scaling, default = 1E-5. Adjust to scale lipid removal strength')
+    ml_group.set_defaults(func=mrsi_lipid)
+    add_common_args(mlipidparser)
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -782,6 +828,74 @@ def conj(dataobj, args):
                                    report_all=args['allreports'])
 
     return datacontainer(conjugated, dataobj.datafilename)
+
+
+def mrsi_align(dataobj, args):
+    '''Function that applys frequency and/or phase correction to mrsi.'''
+    from fsl_mrs.utils.preproc import mrsi
+
+    if dataobj.data.shape[:3] == (1, 1, 1):
+        raise ValueError('mrsi-align is not suitable for single voxel data.')
+
+    if args['mask'] is not None:
+        from fsl.data.image import Image
+        mask = Image(args['mask'])
+    else:
+        mask = None
+
+    if args['filename'] is None:
+        fname = dataobj.datafilename
+    else:
+        fname = args['filename']
+
+    data = dataobj.data
+    if args['freq_align']:
+        data, shifts = mrsi.mrsi_freq_align(
+            data,
+            mask=mask,
+            zpad_factor=args['zpad'])
+        if args['save_params']:
+            shifts.save(op.join(args['output'], fname + '_shifts_hz.nii.gz'))
+
+    if args['phase_correct']:
+        data, phs = mrsi.mrsi_phase_corr(
+            data,
+            mask=mask,
+            ppmlim=args['ppm'])
+        if args['save_params']:
+            phs.save(op.join(args['output'], fname + '_phase_deg.nii.gz'))
+
+    return datacontainer(data, dataobj.datafilename)
+
+
+def mrsi_lipid(dataobj, args):
+    '''Apply lipid removel (L2 regularised) to MRSI'''
+    from fsl_mrs.utils.preproc import mrsi
+
+    if dataobj.data.shape[:3] == (1, 1, 1):
+        raise ValueError('mrsi-align is not suitable for single voxel data.')
+
+    return datacontainer(
+        mrsi.lipid_removal_l2(
+            dataobj.data,
+            args['beta'],
+            lipid_mask=args['mask']),
+        dataobj.datafilename)
+
+
+def _float_or_array_arg(x):
+    '''Return either a float or array loaded from a nifti image'''
+    try:
+        return float(x)
+    except ValueError:
+        try:
+            x = Path(x)
+            assert x.exists()
+            return Image(x)[:]
+        except TypeError:
+            raise ArgumentError('Argument must be a valid file path or float.')
+        except AssertionError:
+            raise ArgumentError(f'{x} does not exist as a path.')
 
 
 if __name__ == '__main__':

@@ -11,15 +11,19 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import pytest
 import os.path as op
+import subprocess
+import warnings
+from pathlib import Path
+
+import numpy as np
+
+from fsl.data.image import Image
+
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
 from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
-import numpy as np
-import subprocess
-import warnings
 
-from pathlib import Path
 testsPath = Path(__file__).parent
 test_data = testsPath / 'testdata'
 
@@ -650,7 +654,41 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     directRun = preproc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
 
     assert np.allclose(data[:], directRun[:])
-    # TODO: finish MRSI test
+
+    # MRSI test with single shift
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fshift',
+                           '--file', mrsifile,
+                           '--shifthz', '10.0',
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.fshift(mrsidata, 10.0)
+
+    assert np.allclose(data[:], directRun[:])
+
+    # MRSI test with multiple shift
+    shifts = np.ones(mrsidata.shape[:3] + mrsidata.shape[4:])
+    from fsl.data.image import Image
+    Image(shifts).save(tmp_path / 'multi_shift.nii.gz')
+    subprocess.check_call(['fsl_mrs_proc',
+                           'fshift',
+                           '--file', mrsifile,
+                           '--shifthz', str(tmp_path / 'multi_shift.nii.gz'),
+                           '--output', tmp_path,
+                           '--filename', 'tmp'])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.fshift(mrsidata, shifts)
+
+    assert np.allclose(data[:], directRun[:])
 
 
 def test_conj(svs_data, mrsi_data, tmp_path):
@@ -782,3 +820,82 @@ def test_apodize(svs_data, mrsi_data, tmp_path):
     directRun = preproc.apodize(mrsidata, (10, 1), filter='l2g')
 
     assert np.allclose(data[:], directRun[:])
+
+
+def test_mrsi_align(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'mrsi-align',
+             '--file', svsfile,
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+            'mrsi-align',
+            '--file', mrsifile,
+            '--freq-align',
+            '--phase-correct',
+            '--save-params',
+            '--zpad', '1',
+            '--ppm', '0.2', '4.0',
+            '--output', tmp_path,
+            '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'tmp.nii.gz').exists()
+    assert (tmp_path / 'tmp_shifts_hz.nii.gz').exists()
+    assert (tmp_path / 'tmp_phase_deg.nii.gz').exists()
+
+    proc_data = read_FID(tmp_path / 'tmp.nii.gz')
+    assert proc_data.shape == mrsidata.shape
+
+    shifts = Image(tmp_path / 'tmp_shifts_hz.nii.gz')
+    phs = Image(tmp_path / 'tmp_phase_deg.nii.gz')
+
+    assert shifts.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
+    assert phs.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
+
+
+def test_mrsi_lipid(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+    mask = Image(np.ones(mrsidata.shape[:3], dtype=np.int16))
+    mask.save(tmp_path / 'mask.nii.gz')
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'mrsi-lipid',
+             '--file', svsfile,
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+
+    _ = subprocess.run(
+        ['mrs_tools',
+         'split',
+         '--file', mrsifile,
+         '--dim', 'DIM_DYN',
+         '--index', '0',
+         '--output', tmp_path,
+         '--filename', 'split'])
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+            'mrsi-lipid',
+            '--file', tmp_path / 'split_low.nii.gz',
+            '--mask', tmp_path / 'mask.nii.gz',
+            '--beta', '0.0001',
+            '--output', tmp_path,
+            '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'tmp.nii.gz').exists()

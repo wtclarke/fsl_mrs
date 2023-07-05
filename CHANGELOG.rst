@@ -1,5 +1,16 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.7 (WIP)
+---------------------------
+- Added `fsl_mrs_proc mrsi-align` which can perform frequency and phase alignment across voxels using cross correlation.
+- Added `fsl_mrs_proc mrsi-lipid` which can perform lipid removal using Bilgic et al's L2-regularised method.
+- `fsl_mrs_proc fshift` can now take NIfTI images of matched shape witht he `--shifthz` anf `--shiftppm` to apply per-voxel shifts.
+- Fixed bug with incorrectly calculated zero order phase when given in degrees.
+- Improved interface and options for dynamic fitting driven preprocessing.
+- Fixed minor bug in `fsl_mrs_summarise`
+- Fixed bug where quantification information wasn't generated if no tissue fractions were given.
+- Added warnings when quantification reference or water has zero integral.
+
 2.1.6 (Friday 5th May 2023)
 ---------------------------
 - Add model performance outputs to dynamic fitting.
