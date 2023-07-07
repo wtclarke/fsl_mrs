@@ -160,7 +160,7 @@ def lipid_removal_l2(data, beta=1E-5, lipid_mask=None, lipid_basis=None):
     :return: Data with lipids removed
     :rtype: fsl_mrs.core.nifti_mrs.NIFTI_MRS
     """
-    if data.ndim > 4:
+    if data.ndim > 4 and np.prod(data.shape[4:]) > 1.0:
         raise ValueError('Data cannot have higher NIfTI dimensions.')
 
     # Assemble a lipid basis from masked region or the direct input
