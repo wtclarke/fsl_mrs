@@ -10,6 +10,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fixed minor bug in `fsl_mrs_summarise`
 - Fixed bug where quantification information wasn't generated if no tissue fractions were given.
 - Added warnings when quantification reference or water has zero integral.
+- Moved to nifti-mrs 1.0.0 API
 
 2.1.6 (Friday 5th May 2023)
 ---------------------------

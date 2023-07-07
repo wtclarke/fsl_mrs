@@ -12,7 +12,9 @@ For a complete overview of pre-processing we recommend [NEAR20]_. In short, the 
 
 MRSI comprises an “image” of spectroscopy data, each voxel contains time or frequency domain data. MRSI data will require reconstruction from the raw (k-space) data collected by the scanner. This may be carried out either online (on the scanner) or offline. Typically, this reconstruction incorporates some of the steps described above for SVS data (e.g. coil combination or averaging). Other steps used for SVS processing would not be commonly used for MRSI data (e.g. bad average removal). However, the majority of the fsl_mrs_proc commands can be run on MRSI data stored in NIfTI format where the processing will be applied independently per-voxel. 
 
-Due to the complexity and specialism of MRSI reconstruction FSL-MRS does not provide MRSI reconstruction. Nor do we advise application of pre-processing beyond that the data should be coil-combined and repetitions averaged before fitting. 
+Due to the complexity and specialism of MRSI reconstruction FSL-MRS does not provide MRSI reconstruction tools. 
+For preprocessing we advise that the data should be coil-combined and repetitions averaged before fitting.
+In addition we provide a few specific preprocessing tools for MRSI: inter voxel alignment, phase correction, and lipid removal.
 
 
 fsl_mrs_proc
@@ -31,14 +33,19 @@ align               	 Phase and frequency align FIDs using spectral registration
 align-diff	         Phase and frequency align sub-spectra for differencing.
 ecc  	                 Eddy current correction using a water phase reference scan.
 remove	                 Remove peak (typically residual water) using HLSVD.
+model                    Model peaks with HLSVD.
 tshift	                 shift/re-sample in time domain.	
 truncate            	 Truncate/pad time-domain data by an integer number of points.	
 apodize             	 Apply choice of apodization function to the data.	
-fshift              	 Frequency domain shift.	
+fshift              	 Frequency domain shift.
 unlike              	 Identify outlier FIDs and remove.	
-phase               	 Zero-order phase spectrum by phase of maximum point in range	
+phase               	 Zero-order phase spectrum by phase of maximum point in range.
+fixed_phase              Apply fixed phase to spectrum	
 subtract            	 Subtract two FIDs	
-add                 	 Add two FIDs	
+add                 	 Add two FIDs
+conj                     Conjugate fids
+mrsi-align               Phase and/or frequency align across voxels.
+mrsi-lipid               Remove lipids from MRSI by L2 regularisation.
 ======================= ==============================================================
 
 Specific help for each subcommand can be accessed using :code:`fsl_mrs_proc <subcmd> --help`
@@ -111,6 +118,9 @@ fsl_mrs_proc subcommand specifics
 5. remove (residual water removal - HLSVD) 
         Takes either a single file or list of files (:code:`--file`) and applies HLSVD peak removal ([LAUD02]_) over the specified ppm limits (:code:`--ppm`, default = 4.5->4.8 ppm) 
 
+5. model (model peaks from data using HLSVD)
+        Takes either a single file (:code:`--file`) and applies HLSVD to model peaks within a ppm range (:code:`--ppm`). Returns noiseless representation of these peaks as a NIfTI-MRS file.
+
 6. tshift (time domain resampling) 
         Takes either a single file or list of files (:code:`--file`) and resamples in the time domain to achieve a different number of points (:code:`--samples`), and/or a different start time (:code:`--tshiftStart`, in ms), and/or a different end time (:code:`--tshiftEnd`, in ms). 
 
@@ -129,7 +139,23 @@ fsl_mrs_proc subcommand specifics
 11. phase (zero order phasing) 
         Takes either a single file or list of files (:code:`--file`) and applies zero-order phase to the FID/spectrum based on the phase at the maximum in a specified chemical shift range (:code:`--ppm`) 
 
+12. fixed_phase (Apply fixed phase to spectrum)
+        Applies a fixed phase to data, either zero order (in degrees) (:code:`--p0`), or first order (in seconds) (:code:`--p1`). Can be applied as a timeshift in the time domain or linear phase int he frequency domain :code:`--p1_type {shift,linphase}`.
 
+13. subtract (Subtract two FIDs)
+        Subtracts two elements in a :code:`--dim` of one :code:`--file`, or subtracts a :code:`--reference` file.
+
+14. add (Add two FIDs)
+        Adds elements in a :code:`--dim` of one :code:`--file`, or adds a :code:`--reference` file.
+
+15. conj (Conjugate fids)
+        Applied conjugation (reverses frequency flip) to :code:`--file`.
+
+16. mrsi-align (Phase and/or frequency align across voxels)
+        Can frequency align voxels :code:`--freq-align` and/or perform zero-order phase correction :code:`--phase-correct`. Phase correction can be limited to peaks in a range :code:`--ppm`. THe detected shifts and phases can be output into NIfTI files :code:`--save-params`.
+
+17. mrsi-lipid (Remove lipids from MRSI by L2 regularisation)
+        Uses a NIfTI :code:`--mask` file to identify lipid source voxels to remove lipids from other voxels using L2 regularisation method ([BILG13]_). :code:`--beta` must be adjusted for different cases.
 
 References
 ----------
@@ -139,3 +165,5 @@ References
 .. [RODG10] `Rodgers CT, Robson MD. Receive array magnetic resonance spectroscopy: Whitened singular value decomposition (WSVD) gives optimal Bayesian solution. Magn Reson Med 2010. <https://pubmed.ncbi.nlm.nih.gov/20373389>`_
 
 .. [LAUD02] `Laudadio T et al. Improved Lanczos Algorithms for Blackbox MRS Data Quantitation. J Magn Reson 2010. <https://pubmed.ncbi.nlm.nih.gov/12323148/>`_
+
+.. [BILG13]  `Bilgic B et al. Fast image reconstruction with L2-regularization. jMRI 2013. <https://doi.org/10.1002/jmri.24365>_`
