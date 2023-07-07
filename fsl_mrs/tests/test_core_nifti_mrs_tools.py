@@ -11,7 +11,7 @@ import numpy as np
 
 from fsl_mrs.utils import mrs_io
 import fsl_mrs.core.nifti_mrs as nmrs_tools
-from nifti_mrs.tools.split_merge import NIfTI_MRSIncompatible
+from nifti_mrs.utils import NIfTI_MRSIncompatible
 
 testsPath = Path(__file__).parent
 test_data_split = testsPath / 'testdata' / 'fsl_mrs_preproc' / 'metab_raw.nii.gz'
@@ -188,7 +188,7 @@ def test_merge():
         nmrs_tools.merge((nmrs_1, nmrs_bad_shape), 'DIM_DYN')
 
     assert exc_info.type is NIfTI_MRSIncompatible
-    assert exc_info.value.args[0] == "The shape of all concatentated objects must match. "\
+    assert exc_info.value.args[0] == "The shape of all concatenated objects must match. "\
                                      "The shape ((1, 1, 1, 4096, 4, 2)) of the 1 object does "\
                                      "not match that of the first ((1, 1, 1, 4096, 32, 2))."
 
@@ -197,7 +197,7 @@ def test_merge():
         nmrs_tools.merge((nmrs_1, nmrs_no_tag), 'DIM_DYN')
 
     assert exc_info.type is NIfTI_MRSIncompatible
-    assert exc_info.value.args[0] == "The tags of all concatentated objects must match. "\
+    assert exc_info.value.args[0] == "The tags of all concatenated objects must match. "\
                                      "The tags (['DIM_COIL', None, None]) of the 1 object does "\
                                      "not match that of the first (['DIM_COIL', 'DIM_DYN', None])."
 
@@ -254,13 +254,13 @@ def test_merge():
 
     nhdr_1_e.set_dim_tag('DIM_DYN', 'DIM_DYN', header={'RepetitionTime': {'start': 1, 'increment': 1}})
     nhdr_2_e.set_dim_tag('DIM_DYN', 'DIM_DYN', header={'RepetitionTime': {'start': 1, 'increment': 1}})
-    nhdr_1_e.set_dim_tag('DIM_EDIT', 'DIM_EDIT', header={'OtherTime': [0.1, ]})
-    nhdr_2_e.set_dim_tag('DIM_EDIT', 'DIM_EDIT', header={'OtherTime': [0.2, ]})
+    nhdr_1_e.set_dim_tag('DIM_EDIT', 'DIM_EDIT', header={'OtherTime': {'Value': [0.1, ], 'Description': 'test'}})
+    nhdr_2_e.set_dim_tag('DIM_EDIT', 'DIM_EDIT', header={'OtherTime': {'Value': [0.2, ], 'Description': 'test'}})
 
     out = nmrs_tools.merge((nhdr_1_e, nhdr_2_e), 'DIM_EDIT')
     assert out[:].shape == (1, 1, 1, 10, 4, 2)
     assert out.hdr_ext['dim_6'] == 'DIM_EDIT'
-    assert out.hdr_ext['dim_6_header'] == {'OtherTime': [0.1, 0.2, ]}
+    assert out.hdr_ext['dim_6_header'] == {'OtherTime': {'Description': 'test', 'Value': [0.1, 0.2]}}
 
 
 def test_reorder():

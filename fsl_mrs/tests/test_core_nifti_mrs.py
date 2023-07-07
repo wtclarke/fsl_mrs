@@ -32,7 +32,7 @@ def test_nifti_mrs():
     copy_obj = obj.copy(remove_dim='DIM_DYN')
     assert copy_obj.shape == (1, 1, 1, 4096, 32)
     assert copy_obj.dim_tags == ['DIM_COIL', None, None]
-    assert copy_obj.hdr_ext.dimensions == 5
+    assert copy_obj.hdr_ext.ndim == 5
     assert isinstance(copy_obj, NIFTI_MRS)
 
 
