@@ -109,7 +109,7 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         """
         return NIFTI_MRS(super().copy(remove_dim=remove_dim))
 
-    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None):
+    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None, spatial_index=None):
         """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
 
         :param dim: Dimension to generate over, dimension index (4, 5, 6) or tag. None iterates over all indices,
@@ -121,6 +121,9 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         :type basis: fsl_mrs.core.basis.Basis, optional
         :param ref_data: Reference data as a path string, NIfTI-MRS object or ndarray, defaults to None
         :type ref_data: Str or fsl_mrs.core.NIFTI_MRS or numpy.ndarray, optional
+        :param spatial_index: x,y,z spatial voxel coordinates for MRSI.
+            If given returns MRS rather than MRSI object. Defaults to None.
+        :type spatial_index: tuple of ints, optional
         :yield: MRS or MRSI object
         :rtype: fsl_mrs.core.MRS or fsl_mrs.core.MRSI
         """
@@ -140,7 +143,7 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                 raise TypeError('ref_data must be a path to a NIFTI-MRS file,'
                                 'a NIFTI_MRS object, or a numpy array.')
 
-        for data, _ in self.iterate_over_dims(dim=dim):
+        for data, _ in self.iterate_over_dims(dim=dim, voxel_index=spatial_index):
             if np.prod(data.shape[:3]) > 1:
                 # Generate MRSI objects
                 if data.ndim > 4:

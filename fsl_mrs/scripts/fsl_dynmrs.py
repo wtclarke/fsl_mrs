@@ -30,7 +30,7 @@ def main():
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
                           required=True, type=Path, metavar='<FILE>',
-                          help='input NIfTI-MRS file (should be 5D NIFTI)')
+                          help='input NIfTI-MRS file (should be 5D NIfTI)')
     required.add_argument('--basis',
                           required=True, type=Path, metavar='<FILE>',
                           help='Basis folder containing basis spectra')
@@ -75,11 +75,29 @@ def main():
                           help='overwrite existing output folder')
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis/H2O.')
+    optional.add_argument(
+        '--spatial-mask',
+        type=str,
+        help='Optional NIfTI binary mask of voxels to fit.')
+    optional.add_argument(
+        '--spatial-index',
+        type=int,
+        nargs=3,
+        metavar=('X', 'Y', 'Z'),
+        help='Spatial index to fit. Ignored if single voxel. Defaults to all voxels.')
+    optional.add_argument(
+        '--merge_spatial',
+        action="store_true",
+        help=configargparse.SUPPRESS)
     optional.add('--config', required=False, is_config_file=True,
                  help='configuration file')
 
     # Parse command-line arguments
     args = p.parse_args()
+
+    if args.merge_spatial:
+        merge_mrsi_results(args)
+        return
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
@@ -102,9 +120,15 @@ def main():
 
     # Check if output folder exists
     overwrite = args.overwrite
-    if args.output.is_dir():
+    if args.spatial_index is not None:
+        vox_idx_str = f'{args.spatial_index[0]}_{args.spatial_index[1]}_{args.spatial_index[2]}'
+        out_dir = args.output / 'voxels' / vox_idx_str
+    else:
+        out_dir = args.output
+
+    if out_dir.is_dir():
         if not overwrite:
-            print(f"Folder '{args.output}' exists."
+            print(f"Folder '{out_dir}' exists."
                   " Are you sure you want to delete it? [Y,N]")
             response = input()
             overwrite = response.upper() == "Y"
@@ -113,30 +137,70 @@ def main():
             print('Please specify a different output folder name.')
             exit()
         else:
-            shutil.rmtree(args.output)
-            args.output.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(out_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
     else:
-        args.output.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
     # Do the work
+    def verbose_print(x):
+        if args.verbose:
+            print(x)
 
     # Read data
-    if args.verbose:
-        print('--->> Read input data\n')
-        print(f'  {args.data}')
-
+    verbose_print('--->> Read input data\n')
+    verbose_print(f'  {args.data}')
     data = mrs_io.read_FID(args.data)
 
+    if data.ndim < 5:
+        raise ValueError('Data must contain a dynamic data dimension in dimension 5.')
+
     # Display information about the data
-    if args.verbose:
-        print(f'data shape : {data.shape}')
-        print(f'data tags  : {data.dim_tags}')
+    verbose_print(f'data shape : {data.shape}')
+    verbose_print(f'data tags  : {data.dim_tags}')
+
+    is_mrsi = np.prod(data.shape[:3]) > 1
+    if is_mrsi and args.spatial_index is None:
+        # MRSI and no index specified
+        verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
+        from fsl.wrappers import fsl_sub
+        from fsl.data.image import Image
+        import sys
+
+        tmp_mrsi = data.mrs()[0]
+        if args.spatial_mask is not None:
+            tmp_mrsi.set_mask(
+                Image(args.spatial_mask)[:])
+
+        input_args = sys.argv
+
+        log_dir = args.output / 'logs'
+        log_dir.mkdir(exist_ok=True)
+
+        for idx in tmp_mrsi.get_indicies_in_order():
+            sidx = ' '.join(str(x) for x in idx)
+            curr_args = input_args + ['--spatial-index', sidx]
+            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx)
+
+        # Finally launch process to reassemble the individual voxels
+        verbose_print('\n\n Assemble MRSI data.')
+        fsl_sub(' '.join(input_args + ['--merge_spatial']), logdir=log_dir, name='merge')
+
+        return
+
+    elif is_mrsi:
+        # MRSI and spatial index defined, treat as a single voxel
+        mrslist = data.mrs(
+            basis_file=args.basis,
+            spatial_index=args.spatial_index)
+    else:
+        # Single voxel
+        mrslist = data.mrs(basis_file=args.basis)
 
     if args.h2o is not None:
         raise NotImplementedError("H2O referencing not yet implemented for dynamic fitting.")
 
     # Create a MRS list
-    mrslist = data.mrs(basis_file=args.basis)
     for mrs in mrslist:
         mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
@@ -154,8 +218,7 @@ def main():
         time_variables = [load_tvar_file(v) for v in args.time_variables]
 
     # Do the fitting here
-    if args.verbose:
-        print('--->> Start fitting\n\n')
+    verbose_print('--->> Start fitting\n\n')
     start = time.time()
 
     # Parse metabolite groups
@@ -174,9 +237,8 @@ def main():
     # This is the main class that knows how to map between
     # the parameters of the MRS model and the parameters
     # of the dynamic model
-    if args.verbose:
-        print('Creating dynmrs object.')
-        print(time_variables)
+    verbose_print('Creating dynmrs object.')
+    verbose_print(time_variables)
 
     dyn = dynMRS(
         mrslist,
@@ -185,9 +247,8 @@ def main():
         rescale=not args.no_rescale,
         **Fitargs)
 
-    if args.verbose:
-        print('Fitting args:')
-        print(Fitargs)
+    verbose_print('Fitting args:')
+    verbose_print(Fitargs)
 
     # Initialise the fit
     init = dyn.initialise(verbose=args.verbose)
@@ -203,16 +264,14 @@ def main():
     stop = time.time()
 
     # Report on the fitting
-    if args.verbose:
-        duration = stop - start
-        print(f'    Fitting lasted          : {duration:.3f} secs.\n')
+    duration = stop - start
+    verbose_print(f'    Fitting lasted          : {duration:.3f} secs.\n')
 
     # Save output files
-    if args.verbose:
-        print('--->> Saving output files to {}\n'.format(args.output))
+    verbose_print(f'--->> Saving output files to {str(out_dir)}\n')
 
     # Save chosen arguments
-    with open(args.output / "options.txt", "w") as f:
+    with open(out_dir / "options.txt", "w") as f:
         # Deal with stupid non-serialisability of pathlib path objects
         var_print = {}
         for key in vars(args):
@@ -227,7 +286,7 @@ def main():
         f.write(p.format_values())
 
     # dump output to folder
-    dyn_res.save(args.output, save_dyn_obj=True)
+    dyn_res.save(out_dir, save_dyn_obj=True)
 
     # Save image of MRS voxel
     location_fig = None
@@ -235,7 +294,7 @@ def main():
             and mrslist[0].image.getXFormCode() > 0:
         fig = plotting.plot_world_orient(args.t1, args.data)
         fig.tight_layout()
-        location_fig = args.output / 'voxel_location.png'
+        location_fig = out_dir / 'voxel_location.png'
         fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
 
     # Create interactive HTML report
@@ -243,7 +302,7 @@ def main():
         t_varFiles = '\n'.join([str(tfile) for tfile in args.time_variables])
         report.create_dynmrs_report(
             dyn_res,
-            filename=args.output / 'report.html',
+            filename=out_dir / 'report.html',
             fidfile=args.data,
             basisfile=args.basis,
             configfile=args.dyn_config,
@@ -251,8 +310,63 @@ def main():
             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             location_fig=location_fig)
 
-    if args.verbose:
-        print('\n\n\nDone.')
+    verbose_print('\n\n\nDone.')
+
+
+def merge_mrsi_results(args):
+    """Auxiliary function to reassemble MRSI data into image results
+
+    :param args: Argparse arguments object
+    """
+    from fsl_mrs.utils import mrs_io
+    from fsl.data.image import Image
+    import numpy as np
+    import pandas as pd
+
+    original_data = mrs_io.read_FID(args.data)
+    if np.prod(original_data.shape[:3]) == 1:
+        raise ValueError('--merge_spatial cannot be used with svs data.')
+
+    indiv_path = Path(args.output / 'voxels')
+    if not indiv_path.exists():
+        raise ValueError('--merge_spatial can only be used with a directory of already generated results.')
+
+    # loop to load the data from each voxel
+    mean_data = {}
+    var_data = {}
+    for pp in indiv_path.rglob('free_parameters.csv'):
+        index = pp.parent.stem
+        df = pd.read_csv(pp, index_col=0, header=0)
+        mean_data[index] = df['mean']
+        var_data[index] = df['sd'].pow(2)
+
+    # Form dataframes for mean and variance of each free parameter
+    mean_df = pd.DataFrame.from_dict(mean_data).T
+    var_df = pd.DataFrame.from_dict(var_data).T
+
+    # Now save to nifti images
+    def empty_img():
+        return Image(
+            np.zeros(original_data.shape[:3], dtype=float),
+            xform=original_data.voxToWorldMat)
+
+    def form_img(df, key):
+        cimg = empty_img()
+        for idx, val in df[key].items():
+            idx = [int(x) for x in idx.split('_')]
+            cimg[idx[0], idx[1], idx[2]] = val
+
+        return cimg
+
+    out_dir_mean = indiv_path / '..' / 'mean'
+    out_dir_mean.mkdir(exist_ok=True)
+    for param in mean_df:
+        form_img(mean_df, param).save(out_dir_mean / f'{param}.nii.gz')
+
+    out_dir_var = indiv_path / '..' / 'var'
+    out_dir_var.mkdir(exist_ok=True)
+    for param in var_df:
+        form_img(var_df, param).save(out_dir_var / f'{param}.nii.gz')
 
 
 def str_or_int_arg(x):

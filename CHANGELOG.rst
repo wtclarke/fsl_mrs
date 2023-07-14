@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.2.0 (WIP)
+-----------------------------
+- `fsl_dynmrs` can now handle MRSI data.
+
 2.1.7 (Friday 7th July 2023)
 ----------------------------
 - Added `fsl_mrs_proc mrsi-align` which can perform frequency and phase alignment across voxels using cross correlation.
