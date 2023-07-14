@@ -255,12 +255,12 @@ class dynMRS(object):
         :type method: str, optional
         :param mh_jumps: Number of MH jumps, defaults to 600
         :type mh_jumps: int, optional
-        :param init: Initilisation based on independent fitting approach, defaults to None
+        :param init: Initialisation based on independent fitting approach, defaults to None
         :type init: dict, optional
-        :param x0: Initilisation based on free parameters, defaults to None
+        :param x0: Initialisation based on free parameters, defaults to None
         :type x0: np.array, optional
         :param verbose: Verbosity flag, defaults to False
-        :param output_opt_sol: Output the scipy solution object (for debugging), defaults to False
+        :param output_opt_sol: Output the Scipy solution object (for debugging), defaults to False
         :type output_opt_sol: bool, optional
         :type verbose: bool, optional
         :return: Tuple containing dedicated results object, and optimisation output (Newton only)

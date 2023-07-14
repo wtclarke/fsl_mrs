@@ -76,10 +76,6 @@ def main():
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis/H2O.')
     optional.add_argument(
-        '--x0',
-        type=Path,
-        help='Provide free parameter initial values as a pandas .csv')
-    optional.add_argument(
         '--spatial-mask',
         type=str,
         help='Optional NIfTI binary mask of voxels to fit.')
@@ -156,6 +152,9 @@ def main():
     verbose_print(f'  {args.data}')
     data = mrs_io.read_FID(args.data)
 
+    if data.ndim < 5:
+        raise ValueError('Data must contain a dynamic data dimension in dimension 5.')
+
     # Display information about the data
     verbose_print(f'data shape : {data.shape}')
     verbose_print(f'data tags  : {data.dim_tags}')
@@ -175,12 +174,20 @@ def main():
 
         input_args = sys.argv
 
+        log_dir = args.output / 'logs'
+        log_dir.mkdir(exist_ok=True)
+
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
-            fsl_sub(' '.join(curr_args))
+            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx)
+
+        # Finally launch process to reassemble the individual voxels
+        verbose_print('\n\n Assemble MRSI data.')
+        fsl_sub(' '.join(input_args + ['--merge_spatial']), logdir=log_dir, name='merge')
 
         return
+
     elif is_mrsi:
         # MRSI and spatial index defined, treat as a single voxel
         mrslist = data.mrs(
@@ -302,16 +309,6 @@ def main():
             tvarfiles=t_varFiles,
             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             location_fig=location_fig)
-
-    # Finally launch process to reassemble the individual voxels 
-    if is_mrsi and args.spatial_index is None:
-        verbose_print('\n\n Assemble MRSI data.')
-        from fsl.wrappers import fsl_sub
-        import sys
-
-        input_args = sys.argv + ['--merge_spatial']
-
-        fsl_sub(' '.join(curr_args))
 
     verbose_print('\n\n\nDone.')
 
