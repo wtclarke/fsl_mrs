@@ -190,6 +190,11 @@ def main():
 
     elif is_mrsi:
         # MRSI and spatial index defined, treat as a single voxel
+
+        # First ensure that rescaling is consistent
+        data[:] *= 100.0 / np.linalg.norm(data[:])
+        args.no_rescale = True
+
         mrslist = data.mrs(
             basis_file=args.basis,
             spatial_index=args.spatial_index)
