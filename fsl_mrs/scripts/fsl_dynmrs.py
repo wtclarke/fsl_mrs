@@ -187,12 +187,13 @@ def main():
         jids = []
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
+            name = 'vox' + ''.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
             jids.append(
                 fsl_sub.submit(
                     ' '.join(curr_args),
                     logdir=log_dir,
-                    name=sidx,
+                    name=name,
                     queue=args.fslsub_queue))
 
         # Finally launch process to reassemble the individual voxels
