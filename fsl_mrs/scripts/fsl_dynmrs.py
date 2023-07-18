@@ -29,20 +29,21 @@ def main():
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True, type=Path, metavar='<FILE>',
+                          required=True, type=Path, metavar='<NIfTI-MRS FILE>',
                           help='input NIfTI-MRS file (should be 5D NIfTI)')
     required.add_argument('--basis',
-                          required=True, type=Path, metavar='<FILE>',
-                          help='Basis folder containing basis spectra')
+                          required=True, type=Path, metavar='<BASIS DIR>',
+                          help='FSL-MRS formatted basis folder containing basis spectra')
     required.add_argument('--output',
-                          required=True, type=Path, metavar='<str>',
-                          help='output folder')
+                          required=True, type=Path, metavar='<PATH>',
+                          help='Output folder')
     required.add_argument('--dyn_config',
                           required=True, type=Path, metavar='<FILE>',
-                          help='configuration file for dynamic fitting')
+                          help='Python configuration file for dynamic fitting')
     required.add_argument('--time_variables',
                           required=True, type=Path, metavar='<FILE>', nargs='+',
-                          help='time variable files (e.g. bvals, bvecs, design.mat, etc.)')
+                          help='Time variable files (e.g. bvals, bvecs, design.mat, etc.). '
+                               'Must be a .csv or Numpy readable text file.')
 
     # FITTING ARGUMENTS
     fitting_args.add_argument('--ppmlim', default=None, type=float,
@@ -50,16 +51,13 @@ def main():
                               help='limit the fit optimisation to a chemical shift range. '
                                    'Defaults to a nucleus-specific range. '
                                    'For 1H default=(.2,4.2).')
-    fitting_args.add_argument('--h2o', default=None, type=str, metavar='H2O',
-                              help='NOT IMPLEMENTED YET - input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order', default=2, type=int,
                               metavar=('ORDER'),
-                              help='order of baseline polynomial'
-                                   ' (default=2, -1 disables)')
+                              help='order of baseline polynomial (default=2).')
     fitting_args.add_argument('--metab_groups', default=0, nargs='+',
                               type=str_or_int_arg,
                               help='metabolite groups: list of groups'
-                                   ' or list of names for indept groups.')
+                                   ' or list of names for independent groups.')
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
@@ -70,21 +68,25 @@ def main():
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
-                          help='spit out verbose info')
+                          help='Print verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis/H2O.')
+                          help='Forbid rescaling of FID/basis.')
+    optional.add_argument('--full-save', action="store_true",
+                          help='Save the full data to reconstruct the '
+                               'dynamic fitting object in memory. '
+                               'Useful for in depth debugging and model exploration.')
     optional.add_argument(
         '--spatial-mask',
         type=str,
-        help='Optional NIfTI binary mask of voxels to fit.')
+        help='Optional NIfTI binary mask indicating MRSI voxels to fit. Ignored if single voxel.')
     optional.add_argument(
         '--spatial-index',
         type=int,
         nargs=3,
         metavar=('X', 'Y', 'Z'),
-        help='Spatial index to fit. Ignored if single voxel. Defaults to all voxels.')
+        help='Spatial index of an MRSI grid to fit. Ignored if single voxel. Defaults to all voxels.')
     optional.add_argument(
         '--fslsub-queue',
         type=str,
@@ -215,9 +217,6 @@ def main():
         # Single voxel
         mrslist = data.mrs(basis_file=args.basis)
 
-    if args.h2o is not None:
-        raise NotImplementedError("H2O referencing not yet implemented for dynamic fitting.")
-
     # Create a MRS list
     for mrs in mrslist:
         mrs.check_Basis(repair=True)
@@ -274,10 +273,9 @@ def main():
     dyn_res = dyn.fit(init=init, verbose=args.verbose)
 
     # QUANTITATION SKIPPED
+    # Combine metabolites SKIPPED
+    # Both skipped as highly model dependent actions required.
 
-    # # Combine metabolites. SKIPPED
-    # if args.combine is not None:
-    #     res.combine(args.combine)
     stop = time.time()
 
     # Report on the fitting
@@ -303,7 +301,7 @@ def main():
         f.write(p.format_values())
 
     # dump output to folder
-    dyn_res.save(out_dir, save_dyn_obj=True)
+    dyn_res.save(out_dir, save_dyn_obj=args.full_save)
 
     # Save image of MRS voxel
     location_fig = None
