@@ -117,7 +117,10 @@ def mrsi_freq_align(data, mask=None, zpad_factor=1, separate_higher_dim=False):
             zpad_factor=zpad_factor)
 
         out[mask, :] = np.moveaxis(tmp.reshape((np.sum(mask),) + data.shape[4:] + (data.shape[3],)), -1, 1)
-        shift_array[mask, :] = shifts.reshape((np.sum(mask),) + data.shape[4:])
+        if shift_array.ndim == 3:
+            shift_array[mask] = shifts.reshape((np.sum(mask),) + data.shape[4:])
+        else:
+            shift_array[mask, :] = shifts.reshape((np.sum(mask),) + data.shape[4:])
         return NIFTI_MRS(out, header=data.header), Image(shift_array, xform=data.voxToWorldMat)
 
 

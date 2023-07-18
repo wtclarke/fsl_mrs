@@ -86,6 +86,11 @@ def main():
         metavar=('X', 'Y', 'Z'),
         help='Spatial index to fit. Ignored if single voxel. Defaults to all voxels.')
     optional.add_argument(
+        '--fslsub-queue',
+        type=str,
+        default=None,
+        help='Specify the queue that MRSI subtasks should be submitted to.')
+    optional.add_argument(
         '--merge_spatial',
         action="store_true",
         help=configargparse.SUPPRESS)
@@ -180,7 +185,7 @@ def main():
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
-            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx)
+            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx, queue=args.fslsub_queue)
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
