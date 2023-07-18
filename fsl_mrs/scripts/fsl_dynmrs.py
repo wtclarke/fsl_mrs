@@ -193,11 +193,10 @@ def main():
                     ' '.join(curr_args),
                     logdir=log_dir,
                     name=sidx,
-                    queue=args.fslsub_queue)[0])
+                    queue=args.fslsub_queue))
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
-        jids = [int(jid.rstrip()) for jid in jids]
         verbose_print(f'\nMerge job will be held for jobs: {jids}')
         fsl_sub.submit(
             ' '.join(input_args + ['--merge_spatial']),
