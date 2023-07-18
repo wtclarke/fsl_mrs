@@ -170,7 +170,7 @@ def main():
     if is_mrsi and args.spatial_index is None:
         # MRSI and no index specified
         verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
-        from fsl.wrappers import fsl_sub
+        import fsl_sub
         from fsl.data.image import Image
         import sys
 
@@ -189,7 +189,7 @@ def main():
             sidx = ' '.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
             jids.append(
-                fsl_sub(
+                fsl_sub.submit(
                     ' '.join(curr_args),
                     logdir=log_dir,
                     name=sidx,
@@ -197,10 +197,9 @@ def main():
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
-        jids = [jid.rstrip() for jid in jids]
-        jids = ','.join(jids)
+        jids = [int(jid.rstrip()) for jid in jids]
         verbose_print(f'\nMerge job will be held for jobs: {jids}')
-        fsl_sub(
+        fsl_sub.submit(
             ' '.join(input_args + ['--merge_spatial']),
             logdir=log_dir,
             name='merge',
