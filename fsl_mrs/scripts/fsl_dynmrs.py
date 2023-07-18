@@ -207,7 +207,6 @@ def main():
 
     # Create a MRS list
     for mrs in mrslist:
-        mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
 
     # Get dynmrs time variables

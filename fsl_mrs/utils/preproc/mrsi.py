@@ -14,6 +14,7 @@ from fsl.data.image import Image
 
 from fsl_mrs.utils.preproc import freqshift, pad
 from fsl_mrs.utils.misc import FIDToSpec
+from fsl_mrs.core.nifti_mrs import NIFTI_MRS
 
 
 def mrsi_phase_corr(data, mask=None, ppmlim=None):
@@ -76,15 +77,17 @@ def phase_corr_max_real(fids, limits=None):
     return np.stack([fid * np.exp(1j * x) for fid, x in zip(fids, phases)]), np.asarray(phases)
 
 
-def mrsi_freq_align(data, mask=None, zpad_factor=1):
-    """Frequency align MRSI data uing cross correlation to mean FID.
+def mrsi_freq_align(data, mask=None, zpad_factor=1, separate_higher_dim=False):
+    """Frequency align MRSI data using cross correlation to mean FID.
 
     :param data: MRSI data
     :type data: fsl_mrs.core.nifti_mrs.NIFTI_MRS
     :param mask: Mask to select certain fids to include, defaults to None
     :type mask: fsl.data.image.Image, optional
-    :param zpad_factor: Zeropadding applied to fid before xcorrelation, defaults to 1, 0 disables
+    :param zpad_factor: Zero-padding applied to fid before cross correlation, defaults to 1, 0 disables
     :type zpad_factor: int, optional
+    :param separate_higher_dim: Align each higher dimension element independently across space.
+    :type separate_higher_dim: Bool, optional
     :return: Returns shifted MRSI data and Image containing shifts applied in Hz
     :rtype: NIFTI_MRS, Image
     """
@@ -94,18 +97,28 @@ def mrsi_freq_align(data, mask=None, zpad_factor=1):
         mask = mask[:].astype(bool)
 
     shift_array = np.zeros(data.shape[:3] + data.shape[4:])
-    shifts = np.zeros(data.shape[:3])
-    out = data.copy()
-    for dd, idx in data.iterate_over_dims(iterate_over_space=False):
-        dd[mask, :], shifts[mask] = xcorr_align(
-            dd[mask, :],
+    if separate_higher_dim:
+        out = data.copy()
+        shifts = np.zeros(data.shape[:3])
+        for dd, idx in data.iterate_over_dims(iterate_over_space=False):
+            dd[mask, :], shifts[mask] = xcorr_align(
+                dd[mask, :],
+                data.dwelltime,
+                zpad_factor=zpad_factor)
+
+            out[idx] = dd
+            shift_array[idx[:3] + idx[4:]] = shifts
+        return out, Image(shift_array, xform=data.voxToWorldMat)
+    else:
+        out = data[:].copy()
+        tmp, shifts = xcorr_align(
+            np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]),
             data.dwelltime,
             zpad_factor=zpad_factor)
 
-        out[idx] = dd
-        shift_array[idx[:3] + idx[4:]] = shifts
-
-    return out, Image(shift_array, xform=data.voxToWorldMat)
+        out[mask, :] = np.moveaxis(tmp.reshape((np.sum(mask),) + data.shape[4:] + (data.shape[3],)), -1, 1)
+        shift_array[mask, :] = shifts.reshape((np.sum(mask),) + data.shape[4:])
+        return NIFTI_MRS(out, header=data.header), Image(shift_array, xform=data.voxToWorldMat)
 
 
 def xcorr_align(fids_in, dwelltime, zpad_factor=1):
