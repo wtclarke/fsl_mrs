@@ -185,11 +185,19 @@ def main():
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
-            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx, queue=args.fslsub_queue)
+            fsl_sub(
+                ' '.join(curr_args),
+                logdir=log_dir,
+                name=sidx,
+                queue=args.fslsub_queue)
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
-        fsl_sub(' '.join(input_args + ['--merge_spatial']), logdir=log_dir, name='merge')
+        fsl_sub(
+            ' '.join(input_args + ['--merge_spatial']),
+            logdir=log_dir,
+            name='merge',
+            queue=args.fslsub_queue)
 
         return
 
