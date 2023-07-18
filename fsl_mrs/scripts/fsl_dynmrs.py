@@ -184,22 +184,28 @@ def main():
         log_dir = args.output / 'logs'
         log_dir.mkdir(exist_ok=True)
 
+        jids = []
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
-            fsl_sub(
-                ' '.join(curr_args),
-                logdir=log_dir,
-                name=sidx,
-                queue=args.fslsub_queue)
+            jids.append(
+                fsl_sub(
+                    ' '.join(curr_args),
+                    logdir=log_dir,
+                    name=sidx,
+                    queue=args.fslsub_queue)[0])
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
+        jids = [jid.rstrip() for jid in jids]
+        jids = ','.join(jids)
+        verbose_print(f'\nMerge job will be held for jobs: {jids}')
         fsl_sub(
             ' '.join(input_args + ['--merge_spatial']),
             logdir=log_dir,
             name='merge',
-            queue=args.fslsub_queue)
+            queue=args.fslsub_queue,
+            jobhold=jids)
 
         return
 
