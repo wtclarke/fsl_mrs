@@ -322,8 +322,8 @@ def main():
         pred = create_nmrs.gen_nifti_mrs(
             pred_data,
             data.dwelltime,
-            data.spectrometer_frequency,
-            nucleus=data.nucleus,
+            data.spectrometer_frequency[0],
+            nucleus=data.nucleus[0],
             dim_tags=data.dim_tags,
             affine=affine)
         pred.save(out_dir / 'fit.nii.gz')
@@ -421,8 +421,8 @@ def merge_mrsi_results(args):
         pred = create_nmrs.gen_nifti_mrs(
             pred_data,
             original_data.dwelltime,
-            original_data.spectrometer_frequency,
-            nucleus=original_data.nucleus,
+            original_data.spectrometer_frequency[0],
+            nucleus=original_data.nucleus[0],
             dim_tags=original_data.dim_tags,
             affine=original_data.voxToWorldMat)
         pred.save(args.output / 'fit.nii.gz')
