@@ -214,7 +214,8 @@ def main():
         # MRSI and spatial index defined, treat as a single voxel
 
         # First ensure that rescaling is consistent
-        data[:] *= 100.0 / np.linalg.norm(data[:])
+        mrsi_data_scale_factor = 100.0 / np.linalg.norm(data[:])
+        data[:] *= mrsi_data_scale_factor
         args.no_rescale = True
 
         mrslist = data.mrs(
@@ -312,9 +313,20 @@ def main():
 
     # Save predicted FID
     if args.save_fit:
-        from fsl_mrs.core.nifti_mrs import create_nmrs
-        pred_data = np.stack([reslist.pred for reslist in dyn_res.reslist])
+        # Get the predicted fit from the results list.
+        pred_data = np.stack([reslist.pred for reslist in dyn_res.reslist]).T
+
+        # Reapply the scaling factor to ensure prediction has the same overall scale
+        if is_mrsi:
+            pred_data /= mrsi_data_scale_factor
+        else:
+            pred_data /= mrslist[0].scaling['FID']
+        # Shape as SVS data
         pred_data = pred_data.reshape((1, 1, 1) + pred_data.shape)
+
+        # Create NIfTI-MRS
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        # If this is going to be merged don't worry about getting the affine right.
         if is_mrsi:
             affine = None
         else:
@@ -415,7 +427,7 @@ def merge_mrsi_results(args):
         for pp in indiv_path.rglob('fit.nii.gz'):
             cdata = mrs_io.read_FID(pp)
             idx_str = pp.parent.stem
-            idx = [int(x) for x in idx_str.split('_')] + [slice(None), slice(None)]
+            idx = tuple([int(x) for x in idx_str.split('_')]) + (Ellipsis, )
             pred_data[idx] = cdata[0, 0, 0, :, :]
 
         pred = create_nmrs.gen_nifti_mrs(
