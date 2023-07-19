@@ -73,6 +73,8 @@ def main():
                           help='overwrite existing output folder')
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis.')
+    optional.add_argument('--save-fit', action="store_true",
+                          help='Save the predicted fit as a NIfTI-MRS file.')
     optional.add_argument('--full-save', action="store_true",
                           help='Save the full data to reconstruct the '
                                'dynamic fitting object in memory. '
@@ -187,7 +189,7 @@ def main():
         jids = []
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
-            name = 'vox' + ''.join(str(x) for x in idx)
+            name = 'vox' + '_'.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
             jids.append(
                 fsl_sub.submit(
@@ -308,6 +310,24 @@ def main():
     # dump output to folder
     dyn_res.save(out_dir, save_dyn_obj=args.full_save)
 
+    # Save predicted FID
+    if args.save_fit:
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        pred_data = np.stack([reslist.pred for reslist in dyn_res.reslist])
+        pred_data = pred_data.reshape((1, 1, 1) + pred_data.shape)
+        if is_mrsi:
+            affine = None
+        else:
+            affine = data.voxToWorldMat
+        pred = create_nmrs.gen_nifti_mrs(
+            pred_data,
+            data.dwelltime,
+            data.spectrometer_frequency,
+            nucleus=data.nucleus,
+            dim_tags=data.dim_tags,
+            affine=affine)
+        pred.save(out_dir / 'fit.nii.gz')
+
     # Save image of MRS voxel
     location_fig = None
     if args.t1 is not None \
@@ -364,7 +384,7 @@ def merge_mrsi_results(args):
     mean_df = pd.DataFrame.from_dict(mean_data).T
     var_df = pd.DataFrame.from_dict(var_data).T
 
-    # Now save to nifti images
+    # Now save to NIfTI images
     def empty_img():
         return Image(
             np.zeros(original_data.shape[:3], dtype=float),
@@ -387,6 +407,25 @@ def merge_mrsi_results(args):
     out_dir_var.mkdir(exist_ok=True)
     for param in var_df:
         form_img(var_df, param).save(out_dir_var / f'{param}.nii.gz')
+
+    # Combine the fits to a single MRSI object
+    if args.save_fit:
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        pred_data = np.zeros_like(original_data[:])
+        for pp in indiv_path.rglob('fit.nii.gz'):
+            cdata = mrs_io.read_FID(pp)
+            idx_str = pp.parent.stem
+            idx = [int(x) for x in idx_str.split('_')] + [slice(None), slice(None)]
+            pred_data[idx] = cdata[0, 0, 0, :, :]
+
+        pred = create_nmrs.gen_nifti_mrs(
+            pred_data,
+            original_data.dwelltime,
+            original_data.spectrometer_frequency,
+            nucleus=original_data.nucleus,
+            dim_tags=original_data.dim_tags,
+            affine=original_data.voxToWorldMat)
+        pred.save(args.output / 'fit.nii.gz')
 
 
 def str_or_int_arg(x):

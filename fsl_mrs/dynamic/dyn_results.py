@@ -119,7 +119,7 @@ class dynRes:
 
         :param save_dir: Location to save to, created if neccesary.
         :type save_dir: str or pathlib.Path
-        :param save_dyn_obj: Save _dyn dynMRS object nested directory, defaults to False
+        :param save_dyn_obj: Save dynMRS object nested directory, defaults to False
         :type save_dyn_obj: bool, optional
         """
         if not isinstance(save_dir, Path):
