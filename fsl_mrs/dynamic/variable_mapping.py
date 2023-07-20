@@ -182,6 +182,10 @@ class VariableMapping(object):
             """Return gradient function name"""
             return self.function_name + '_grad'
 
+        def init_function(self):
+            """Return initialisation function name"""
+            return self.function_name + '_init'
+
     @property
     def mapped_parameters(self):
         """Return view of all mapped parameter objects
@@ -533,40 +537,9 @@ class VariableMapping(object):
 
         free_params = np.zeros(self.nfree)
         for index, mp_obj in enumerate(self._mapped_params):
-            if mp_obj.param_type == 'fixed':
-                free_params[mp_obj.free_indices] = np.median(np.stack(p[:, index]), axis=0)
-            elif mp_obj.param_type == 'variable':
-                free_params[mp_obj.free_indices] = p[:, index]
-            elif mp_obj.param_type == 'dynamic':
-                time_var  = self.time_variable
-                func      = partial(self.fcns[mp_obj.function_name], t=time_var)
-                gradfunc  = partial(self.get_gradient_fcn(mp_obj), t=time_var)
+            init_function = self.get_init_fcn(mp_obj)
 
-                def loss(x):
-                    pred = func(x)
-                    return np.mean((p[:, index] - pred)**2)
-
-                def loss_grad(x):
-                    jac_out = []
-                    S = func(x)
-                    for ds in gradfunc(x):
-                        jac_out.append(np.sum((2 * S * ds)
-                                              - (2 * p[:, index] * ds)))
-                    return np.asarray(jac_out)
-
-                bounds = self.Bounds[mp_obj.free_indices].tolist()
-                vals = minimize(loss,
-                                np.zeros(len(mp_obj.free_indices)),
-                                jac=loss_grad,
-                                method='TNC',
-                                bounds=bounds).x
-
-                free_params[mp_obj.free_indices] = vals
-
-            else:
-                raise ConfigFileError(
-                    f"Unknown parameter mode ({mp_obj.param_type}) in configuration "
-                    "- should be one of 'fixed', 'variable', {'dynamic'}")
+            free_params[mp_obj.free_indices] = init_function(p[:, index], self.time_variable)
 
         return free_params
 
@@ -585,6 +558,57 @@ class VariableMapping(object):
                     f"Could not find gradient function {grad_name} for parameter {mp_param_obj.name}"
                     f" / function {mp_param_obj.function_name}")
             return self.fcns[grad_name]
+        else:
+            raise ConfigFileError(
+                f"Unknown parameter mode ({mp_param_obj.param_type}) in configuration "
+                "- should be one of 'fixed', 'variable', {'dynamic'}")
+
+    def get_default_init(self, mp_obj):
+        """Fetch a default initialisation function if no _init function is defined in the model .py file.
+
+        :param mp_obj: Object containing mapped parameter information.
+        :type mp_obj: VariableMapping._MappedParameter object
+        """
+        def default_init(params, tvar):
+            func      = partial(self.fcns[mp_obj.function_name], t=tvar)
+            gradfunc  = partial(self.get_gradient_fcn(mp_obj), t=tvar)
+
+            def loss(x):
+                pred = func(x)
+                return np.mean((params - pred)**2)
+
+            def loss_grad(x):
+                jac_out = []
+                S = func(x)
+                for ds in gradfunc(x):
+                    jac_out.append(np.sum((2 * S * ds) - (2 * params * ds)))
+                return np.asarray(jac_out)
+
+            bounds = self.Bounds[mp_obj.free_indices].tolist()
+            return minimize(loss,
+                            np.zeros(len(mp_obj.free_indices)),
+                            jac=loss_grad,
+                            method='TNC',
+                            bounds=bounds).x
+        return default_init
+
+    def get_init_fcn(self, mp_param_obj):
+        """
+        Get the initialisation function for a given parameter
+        Returns:
+        function
+        """
+        if mp_param_obj.param_type == 'fixed':
+            return lambda x, t: np.median(np.stack(x), axis=0)
+        elif mp_param_obj.param_type  == 'variable':
+            return lambda x, t: x
+        elif mp_param_obj.param_type == 'dynamic':
+            init_name = mp_param_obj.init_function()
+            if init_name in self.fcns:
+                return self.fcns[init_name]
+            else:
+                # This is allowed as init functions are optional
+                return self.default_init(mp_param_obj)
         else:
             raise ConfigFileError(
                 f"Unknown parameter mode ({mp_param_obj.param_type}) in configuration "
