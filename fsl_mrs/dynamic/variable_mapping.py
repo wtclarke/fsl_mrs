@@ -608,7 +608,7 @@ class VariableMapping(object):
                 return self.fcns[init_name]
             else:
                 # This is allowed as init functions are optional
-                return self.default_init(mp_param_obj)
+                return self.get_default_init(mp_param_obj)
         else:
             raise ConfigFileError(
                 f"Unknown parameter mode ({mp_param_obj.param_type}) in configuration "

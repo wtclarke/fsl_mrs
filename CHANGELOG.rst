@@ -3,6 +3,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.2.0 (WIP)
 -----------------------------
 - `fsl_dynmrs` can now handle MRSI data. This requires the use of `fsl_sub`, which is now a dependency.
+- Custom initialisation functions can now be defined in dynamic fitting configuration files.
 
 2.1.7 (Friday 7th July 2023)
 ----------------------------
