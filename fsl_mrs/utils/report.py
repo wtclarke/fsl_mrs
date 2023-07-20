@@ -371,7 +371,7 @@ def dyn_summary_div(dynres):
 
 def dyn_mapped_div(dynres):
     """Models compared to independent fitting"""
-    fig = dynres.plot_mapped()
+    fig = dynres.plot_mapped(fit_to_init=True)
 
     return to_div(static_image(fig))
 
