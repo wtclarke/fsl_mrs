@@ -15,3 +15,5 @@ dash
 flask>=2.2
 nifti-mrs>=1.0.0
 fsl_sub
+fsl_sub_plugin_sge
+fsl_sub_plugin_slurm
