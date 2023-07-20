@@ -29,20 +29,21 @@ def main():
 
     # REQUIRED ARGUMENTS
     required.add_argument('--data',
-                          required=True, type=Path, metavar='<FILE>',
+                          required=True, type=Path, metavar='<NIfTI-MRS FILE>',
                           help='input NIfTI-MRS file (should be 5D NIfTI)')
     required.add_argument('--basis',
-                          required=True, type=Path, metavar='<FILE>',
-                          help='Basis folder containing basis spectra')
+                          required=True, type=Path, metavar='<BASIS DIR>',
+                          help='FSL-MRS formatted basis folder containing basis spectra')
     required.add_argument('--output',
-                          required=True, type=Path, metavar='<str>',
-                          help='output folder')
+                          required=True, type=Path, metavar='<PATH>',
+                          help='Output folder')
     required.add_argument('--dyn_config',
                           required=True, type=Path, metavar='<FILE>',
-                          help='configuration file for dynamic fitting')
+                          help='Python configuration file for dynamic fitting')
     required.add_argument('--time_variables',
                           required=True, type=Path, metavar='<FILE>', nargs='+',
-                          help='time variable files (e.g. bvals, bvecs, design.mat, etc.)')
+                          help='Time variable files (e.g. bvals, bvecs, design.mat, etc.). '
+                               'Must be a .csv or Numpy readable text file.')
 
     # FITTING ARGUMENTS
     fitting_args.add_argument('--ppmlim', default=None, type=float,
@@ -50,16 +51,13 @@ def main():
                               help='limit the fit optimisation to a chemical shift range. '
                                    'Defaults to a nucleus-specific range. '
                                    'For 1H default=(.2,4.2).')
-    fitting_args.add_argument('--h2o', default=None, type=str, metavar='H2O',
-                              help='NOT IMPLEMENTED YET - input .H2O file for quantification')
     fitting_args.add_argument('--baseline_order', default=2, type=int,
                               metavar=('ORDER'),
-                              help='order of baseline polynomial'
-                                   ' (default=2, -1 disables)')
+                              help='order of baseline polynomial (default=2).')
     fitting_args.add_argument('--metab_groups', default=0, nargs='+',
                               type=str_or_int_arg,
                               help='metabolite groups: list of groups'
-                                   ' or list of names for indept groups.')
+                                   ' or list of names for independent groups.')
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
@@ -70,21 +68,32 @@ def main():
     optional.add_argument('--report', action="store_true",
                           help='output html report')
     optional.add_argument('--verbose', action="store_true",
-                          help='spit out verbose info')
+                          help='Print verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis/H2O.')
+                          help='Forbid rescaling of FID/basis.')
+    optional.add_argument('--save-fit', action="store_true",
+                          help='Save the predicted fit as a NIfTI-MRS file.')
+    optional.add_argument('--full-save', action="store_true",
+                          help='Save the full data to reconstruct the '
+                               'dynamic fitting object in memory. '
+                               'Useful for in depth debugging and model exploration.')
     optional.add_argument(
         '--spatial-mask',
         type=str,
-        help='Optional NIfTI binary mask of voxels to fit.')
+        help='Optional NIfTI binary mask indicating MRSI voxels to fit. Ignored if single voxel.')
     optional.add_argument(
         '--spatial-index',
         type=int,
         nargs=3,
         metavar=('X', 'Y', 'Z'),
-        help='Spatial index to fit. Ignored if single voxel. Defaults to all voxels.')
+        help='Spatial index of an MRSI grid to fit. Ignored if single voxel. Defaults to all voxels.')
+    optional.add_argument(
+        '--fslsub-queue',
+        type=str,
+        default=None,
+        help='Specify the queue that MRSI subtasks should be submitted to.')
     optional.add_argument(
         '--merge_spatial',
         action="store_true",
@@ -163,7 +172,7 @@ def main():
     if is_mrsi and args.spatial_index is None:
         # MRSI and no index specified
         verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
-        from fsl.wrappers import fsl_sub
+        import fsl_sub
         from fsl.data.image import Image
         import sys
 
@@ -177,19 +186,38 @@ def main():
         log_dir = args.output / 'logs'
         log_dir.mkdir(exist_ok=True)
 
+        jids = []
         for idx in tmp_mrsi.get_indicies_in_order():
             sidx = ' '.join(str(x) for x in idx)
+            name = 'vox' + '_'.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]
-            fsl_sub(' '.join(curr_args), logdir=log_dir, name=sidx)
+            jids.append(
+                fsl_sub.submit(
+                    ' '.join(curr_args),
+                    logdir=log_dir,
+                    name=name,
+                    queue=args.fslsub_queue))
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
-        fsl_sub(' '.join(input_args + ['--merge_spatial']), logdir=log_dir, name='merge')
+        verbose_print(f'\nMerge job will be held for jobs: {jids}')
+        fsl_sub.submit(
+            ' '.join(input_args + ['--merge_spatial']),
+            logdir=log_dir,
+            name='merge',
+            queue=args.fslsub_queue,
+            jobhold=jids)
 
         return
 
     elif is_mrsi:
         # MRSI and spatial index defined, treat as a single voxel
+
+        # First ensure that rescaling is consistent
+        mrsi_data_scale_factor = 100.0 / np.linalg.norm(data[:])
+        data[:] *= mrsi_data_scale_factor
+        args.no_rescale = True
+
         mrslist = data.mrs(
             basis_file=args.basis,
             spatial_index=args.spatial_index)
@@ -197,12 +225,8 @@ def main():
         # Single voxel
         mrslist = data.mrs(basis_file=args.basis)
 
-    if args.h2o is not None:
-        raise NotImplementedError("H2O referencing not yet implemented for dynamic fitting.")
-
     # Create a MRS list
     for mrs in mrslist:
-        mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
 
     # Get dynmrs time variables
@@ -257,10 +281,9 @@ def main():
     dyn_res = dyn.fit(init=init, verbose=args.verbose)
 
     # QUANTITATION SKIPPED
+    # Combine metabolites SKIPPED
+    # Both skipped as highly model dependent actions required.
 
-    # # Combine metabolites. SKIPPED
-    # if args.combine is not None:
-    #     res.combine(args.combine)
     stop = time.time()
 
     # Report on the fitting
@@ -286,7 +309,36 @@ def main():
         f.write(p.format_values())
 
     # dump output to folder
-    dyn_res.save(out_dir, save_dyn_obj=True)
+    dyn_res.save(out_dir, save_dyn_obj=args.full_save)
+
+    # Save predicted FID
+    if args.save_fit:
+        # Get the predicted fit from the results list.
+        pred_data = np.stack([reslist.pred for reslist in dyn_res.reslist]).T
+
+        # Reapply the scaling factor to ensure prediction has the same overall scale
+        if is_mrsi:
+            pred_data /= mrsi_data_scale_factor
+        else:
+            pred_data /= mrslist[0].scaling['FID']
+        # Shape as SVS data
+        pred_data = pred_data.reshape((1, 1, 1) + pred_data.shape)
+
+        # Create NIfTI-MRS
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        # If this is going to be merged don't worry about getting the affine right.
+        if is_mrsi:
+            affine = None
+        else:
+            affine = data.voxToWorldMat
+        pred = create_nmrs.gen_nifti_mrs(
+            pred_data,
+            data.dwelltime,
+            data.spectrometer_frequency[0],
+            nucleus=data.nucleus[0],
+            dim_tags=data.dim_tags,
+            affine=affine)
+        pred.save(out_dir / 'fit.nii.gz')
 
     # Save image of MRS voxel
     location_fig = None
@@ -344,7 +396,7 @@ def merge_mrsi_results(args):
     mean_df = pd.DataFrame.from_dict(mean_data).T
     var_df = pd.DataFrame.from_dict(var_data).T
 
-    # Now save to nifti images
+    # Now save to NIfTI images
     def empty_img():
         return Image(
             np.zeros(original_data.shape[:3], dtype=float),
@@ -367,6 +419,25 @@ def merge_mrsi_results(args):
     out_dir_var.mkdir(exist_ok=True)
     for param in var_df:
         form_img(var_df, param).save(out_dir_var / f'{param}.nii.gz')
+
+    # Combine the fits to a single MRSI object
+    if args.save_fit:
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        pred_data = np.zeros_like(original_data[:])
+        for pp in indiv_path.rglob('fit.nii.gz'):
+            cdata = mrs_io.read_FID(pp)
+            idx_str = pp.parent.stem
+            idx = tuple([int(x) for x in idx_str.split('_')]) + (Ellipsis, )
+            pred_data[idx] = cdata[0, 0, 0, :, :]
+
+        pred = create_nmrs.gen_nifti_mrs(
+            pred_data,
+            original_data.dwelltime,
+            original_data.spectrometer_frequency[0],
+            nucleus=original_data.nucleus[0],
+            dim_tags=original_data.dim_tags,
+            affine=original_data.voxToWorldMat)
+        pred.save(args.output / 'fit.nii.gz')
 
 
 def str_or_int_arg(x):
