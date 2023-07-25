@@ -57,10 +57,13 @@ The file come in three parts:
 :code:`Bounds` variable - :code:`dict`:
     This dictionary provides lower and upper bounds for free parameters. 
 
-Dynamic models and gradients variable - function definitions:
+Dynamic models and gradients - function definitions:
     If a mapped parameter has been identified as `dynamic` then a functional relationship between the mapped parameter and the time variable and free parameters must be given.
 
-    These relationships are described using python functions. Each function listed in the `Parameters` dict must be defined. In addition a function providing the gradient of that function must be defined.
+    These relationships are described using python functions.
+    Each function listed in the `Parameters` dict must be defined.
+    In addition a function providing the gradient of that function must be defined with a name suffix :code:`_grad`.
+    Custom initialisation functions can be defined for each dynamic function. These must return estimates of the free parameters and named with a suffix :code:`_init`.
 
 Example Syntax
 **************

@@ -400,7 +400,14 @@ def dyn_methods_summary(res):
     """Text summary of the methods used."""
     from fsl_mrs import __version__
 
-    return f"<p>Fitting was performed using FSL-MRS's dynamic model fitting tool as described in [1] and as implemented in FSL-MRS version {__version__}, part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). <p><h3>References</h3><p>[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."
+    return "<p>Fitting was performed using FSL-MRS's dynamic model fitting tool "\
+           f"as described in [1] and [2] and as implemented in FSL-MRS version {__version__}, "\
+           "part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). "\
+           "<p><h3>References</h3><p>"\
+           "[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. "\
+           "Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."\
+           "[2] Clarke WT, Ligneul C, Cottaar M, Ip IB, Jbabdi S. Universal Dynamic Fitting of Magnetic Resonance Spectroscopy. "\
+           "BioRxiv 2013. https://doi.org/10.1101/2023.06.15.544935."
 
 
 def create_dyn_sections(dynres, location_fig):
