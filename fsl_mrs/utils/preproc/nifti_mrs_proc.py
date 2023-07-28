@@ -108,6 +108,16 @@ def coilcombine(
             (-1, -2))
         data_array = data_array.reshape((-1, ) + data_array.shape[-2:])
         coil_cov = estimate_noise_cov(data_array)
+    elif data.ndim > 5:
+        # Use multiple dynamics to estimate the covariance
+        from fsl_mrs.utils.preproc.combine import estimate_noise_cov
+        stacked_data = []
+        for dd, idx in data.iterate_over_dims(dim='DIM_COIL',
+                                              iterate_over_space=True,
+                                              reduce_dim_index=True):
+            stacked_data.append(dd)
+        stacked_data = np.asarray(stacked_data)
+        coil_cov = estimate_noise_cov(stacked_data)
     else:
         coil_cov = None
 
