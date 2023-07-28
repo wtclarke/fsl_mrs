@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.9 (Friday 28th July 2023)
+-----------------------------
+- Coil covariance estimation can now use multiple spectra held in higher NIfTI-MRS dimensions.
+
 2.1.8 (Tuesday 25th July 2023)
 ------------------------------
 - `fsl_dynmrs` can now handle MRSI data. This requires the use of `fsl_sub`, which is now a dependency.
