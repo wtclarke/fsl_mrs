@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.10 (Tuesday 1st August 2023)
+--------------------------------
+- Coil covariance estimation is now common across all inputs to `fsl_mrs_preproc` and `fsl_mrs_preproc_edit`.
+- Fallback option to disable coil pre-whitening when it isn't possible to calculate.
+
 2.1.9 (Friday 28th July 2023)
 -----------------------------
 - Coil covariance estimation can now use multiple spectra held in higher NIfTI-MRS dimensions.

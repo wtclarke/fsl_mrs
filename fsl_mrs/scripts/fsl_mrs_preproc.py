@@ -40,7 +40,7 @@ def main():
                           required=True, type=str, metavar='<str>',
                           help='output folder')
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--quant', type=str,
                           default=None, metavar='<str>',
                           help='Water reference data for'
@@ -54,7 +54,7 @@ def main():
                           help='Noise data data for estimating coil covariance'
                                ' (used during coil combination, optional).')
     optional.add_argument('--fmrs', action="store_true",
-                          help='Preprocessing for fMRS, automattically sets noremoval and noaverage arguments')
+                          help='Preprocessing for fMRS, automatically sets noremoval and noaverage arguments')
     optional.add_argument('--noremoval', action="store_false", dest='unlike',
                           help='Do not remove unlike averages.')
     optional.add_argument('--noaverage', action="store_false", dest='average',
@@ -193,7 +193,7 @@ def main():
         verbose_print('   ----> NO.\n')
 
     # Do preproc
-    verbose_print('Begin proprocessing.... ')
+    verbose_print('Begin pre-processing.... ')
 
     if do_coil_combine:
         verbose_print('... Coil Combination ...')
@@ -203,6 +203,7 @@ def main():
         else:
             avg_ref_data = ref_data
 
+        no_prewhiten = False
         if args.noise is not None:
             import numpy as np
             noise = mrs_io.read_FID(args.noise)
@@ -211,16 +212,55 @@ def main():
                 noise.dim_position('DIM_COIL'),
                 -1)
             noise = noise.reshape(-1, noise.shape[-1]).T
+            covariance = None
         else:
+            # No noise input, but estimate a single coil covariance from the suppressed data
+            # (more likely to have more data).
             noise = None
+            from fsl_mrs.utils.preproc.combine import estimate_noise_cov, CovarianceEstimationError
+            import numpy as np
+            stacked_data = []
+            for dd, _ in supp_data.iterate_over_dims(
+                    dim='DIM_COIL',
+                    iterate_over_space=True,
+                    reduce_dim_index=True):
+                stacked_data.append(dd)
+            try:
+                covariance = estimate_noise_cov(np.asarray(stacked_data))
+            except CovarianceEstimationError as exc:
+                # If the attempt to form a covariance fails, disable prewhitening
+                verbose_print(str(exc))
+                verbose_print("Disabling prewhitening in coil combination.")
+                no_prewhiten = True
 
-        supp_data = nifti_mrs_proc.coilcombine(supp_data, reference=avg_ref_data, report=report_dir, noise=noise)
-        ref_data = nifti_mrs_proc.coilcombine(ref_data, reference=avg_ref_data, noise=noise)
+        supp_data = nifti_mrs_proc.coilcombine(
+            supp_data,
+            reference=avg_ref_data,
+            report=report_dir,
+            noise=noise,
+            covariance=covariance,
+            no_prewhiten=no_prewhiten)
+        ref_data = nifti_mrs_proc.coilcombine(
+            ref_data,
+            reference=avg_ref_data,
+            noise=noise,
+            covariance=covariance,
+            no_prewhiten=no_prewhiten)
 
         if args.quant is not None:
-            quant_data = nifti_mrs_proc.coilcombine(quant_data, reference=avg_ref_data)
+            quant_data = nifti_mrs_proc.coilcombine(
+                quant_data,
+                reference=avg_ref_data,
+                noise=noise,
+                covariance=covariance,
+                no_prewhiten=no_prewhiten)
         if args.ecc is not None:
-            ecc_data = nifti_mrs_proc.coilcombine(ecc_data, reference=avg_ref_data)
+            ecc_data = nifti_mrs_proc.coilcombine(
+                ecc_data,
+                reference=avg_ref_data,
+                noise=noise,
+                covariance=covariance,
+                no_prewhiten=no_prewhiten)
 
     verbose_print('... Align Dynamics (1st iteration) ...')
     supp_data = nifti_mrs_proc.align(supp_data, 'DIM_DYN', ppmlim=args.align_limits, report=report_dir)
