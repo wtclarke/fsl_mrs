@@ -8,6 +8,7 @@ algorithms in nifti_mrs_proc.py
 
 Copyright Will Clarke, University of Oxford, 2021'''
 
+# TODO: Add tests for tshift, truncate, phase, add, subtract
 
 import pytest
 import os.path as op
