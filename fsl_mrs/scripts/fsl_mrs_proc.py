@@ -743,11 +743,12 @@ def unlike(dataobj, args):
         raise InappropriateDataError('unlike subcommand only works on single voxel data.'
                                      ' It is unclear what should happen with MRSI data.')
 
-    good, bad = preproc.shift_to_reference(dataobj.data,
-                                           ppmlim=args['ppm'],
-                                           sdlimit=args['sd'],
-                                           iterations=args['iter'],
-                                           report=args['generateReports'])
+    good, bad = preproc.remove_unlike(
+        dataobj.data,
+        ppmlim=args['ppm'],
+        sdlimit=args['sd'],
+        niter=args['iter'],
+        report=args['generateReports'])
 
     if args['outputbad']:
         # Save bad results here - bit of a hack!

@@ -8,6 +8,7 @@ algorithms in nifti_mrs_proc.py
 
 Copyright Will Clarke, University of Oxford, 2021'''
 
+# TODO: Add tests for tshift, truncate, phase, add, subtract
 
 import pytest
 import os.path as op
@@ -818,6 +819,37 @@ def test_apodize(svs_data, mrsi_data, tmp_path):
 
     # Run directly
     directRun = preproc.apodize(mrsidata, (10, 1), filter='l2g')
+
+    assert np.allclose(data[:], directRun[:])
+
+
+def test_unlike(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, _ = splitdata(svs_data, mrsi_data)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _ = subprocess.run(
+            ['fsl_mrs_proc',
+             'unlike',
+             '--file', mrsifile,
+             '--output', tmp_path,
+             '--filename', 'tmp'],
+            check=True,
+            capture_output=True)
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'unlike',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun, _ = preproc.remove_unlike(svsdata)
 
     assert np.allclose(data[:], directRun[:])
 
