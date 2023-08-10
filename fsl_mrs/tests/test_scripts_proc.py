@@ -8,8 +8,6 @@ algorithms in nifti_mrs_proc.py
 
 Copyright Will Clarke, University of Oxford, 2021'''
 
-# TODO: Add tests for tshift, truncate, phase, add, subtract
-
 import pytest
 import os.path as op
 import subprocess
@@ -841,17 +839,286 @@ def test_unlike(svs_data, mrsi_data, tmp_path):
          'unlike',
          '--file', svsfile,
          '--output', tmp_path,
+         '--sd', '1.0',
+         '--iter', '3',
+         '--outputbad',
+         '-r',
+         '--verbose',
          '--filename', 'tmp'],
         check=True,
         capture_output=True)
+
+    assert (tmp_path / 'tmp_FAIL.nii.gz').is_file()
+    assert len(list(tmp_path.glob('report*.html'))) == 1
 
     # Load result for comparison
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun, _ = preproc.remove_unlike(svsdata)
+    directRun, _ = preproc.remove_unlike(svsdata, sdlimit=1.0, niter=3)
 
     assert np.allclose(data[:], directRun[:])
+
+    # Check results if no filename provided
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'unlike',
+         '--file', svsfile,
+         '--output', tmp_path / 'nofname',
+         '--sd', '1.0',
+         '--iter', '3',
+         '--outputbad',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'nofname' / 'svsdata.nii').is_file()
+    assert (tmp_path / 'nofname' / 'svsdata_FAIL.nii.gz').is_file()
+
+    # Check that the process doesn't crash if no bad transients
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'unlike',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--sd', '10.0',
+         '--iter', '1',
+         '--outputbad',
+         '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
+
+
+def test_tshift(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'tshift',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--tshiftStart', '10.0',
+         '--tshiftEnd', '10.0',
+         '--samples', '1024',
+         '--filename', 'tmp0',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
+    directRun = preproc.tshift(svsdata, tshiftStart=10.0, tshiftEnd=10.0, samples=1024)
+    assert np.allclose(data[:], directRun[:])
+    assert len(list(tmp_path.glob('report*.html'))) == 1
+
+    # Alternative inputs
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'tshift',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--tshiftStart', '-10.0',
+         '--tshiftEnd', '-10.0',
+         '--samples', '512',
+         '--filename', 'tmp1',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
+    directRun = preproc.tshift(svsdata, tshiftStart=-10.0, tshiftEnd=-10.0, samples=512)
+    assert np.allclose(data[:], directRun[:])
+
+
+def test_truncate(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+    # Add points
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'truncate',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--points', '10',
+         '--pos', 'first',
+         '--filename', 'tmp0',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
+    directRun = preproc.truncate_or_pad(svsdata, 10, position='first')
+    assert np.allclose(data[:], directRun[:])
+    assert len(list(tmp_path.glob('report*.html'))) == 1
+
+    # Remove points
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'truncate',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--points', '-10',
+         '--pos', 'first',
+         '--filename', 'tmp1',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
+    directRun = preproc.truncate_or_pad(svsdata, -10, position='first')
+    assert np.allclose(data[:], directRun[:])
+
+    # Remove points at end
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'truncate',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--points', '-10',
+         '--pos', 'last',
+         '--filename', 'tmp2',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
+    directRun = preproc.truncate_or_pad(svsdata, -10, position='last')
+    assert np.allclose(data[:], directRun[:])
+
+
+def test_phase(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'phase',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--ppm', '0', '4',
+         '--filename', 'tmp0',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
+    directRun = preproc.phase_correct(svsdata, (0, 4))
+    assert np.allclose(data[:], directRun[:])
+    assert len(list(tmp_path.glob('report*.html'))) == 1
+
+    # With hlsvd
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'phase',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--ppm', '0', '4',
+         '--hlsvd',
+         '--filename', 'tmp1',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
+    directRun = preproc.phase_correct(svsdata, (0, 4), hlsvd=True)
+    assert np.allclose(data[:], directRun[:])
+
+    # With avg
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'phase',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--ppm', '0', '4',
+         '--use_avg',
+         '--filename', 'tmp2',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    # Load result for comparison against direct run
+    data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
+    directRun = preproc.phase_correct(svsdata, (0, 4), use_avg=True)
+    assert np.allclose(data[:], directRun[:])
+
+
+def test_add(svs_data_uncomb_reps, tmp_path):
+    svsfile, svsdata = svs_data_uncomb_reps
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'add',
+         '--file', svsfile,
+         '--reference', svsfile,
+         '--output', tmp_path,
+         '--filename', 'tmp0',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
+    directRun = preproc.add(svsdata, svsdata)
+    assert np.allclose(data[:], directRun[:])
+
+    # Single file add across dim
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'add',
+         '--file', svsfile,
+         '--dim', 'DIM_DYN',
+         '--output', tmp_path,
+         '--filename', 'tmp1',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
+    directRun = preproc.add(svsdata, dim='DIM_DYN')
+    assert np.allclose(data[:], directRun[:])
+    assert len(list(tmp_path.glob('report*.html'))) == 1
+
+
+def test_subtract(svs_data_uncomb_reps, tmp_path):
+    svsfile, svsdata = svs_data_uncomb_reps
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'subtract',
+         '--file', svsfile,
+         '--reference', svsfile,
+         '--output', tmp_path,
+         '--filename', 'tmp0',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
+    directRun = preproc.subtract(svsdata, svsdata)
+    assert np.allclose(data[:], directRun[:])
+
+    # Single file subtract across dim
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'subtract',
+         '--file', svsfile,
+         '--dim', 'DIM_DYN',
+         '--output', tmp_path,
+         '--filename', 'tmp1',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
+    directRun = preproc.subtract(svsdata, dim='DIM_DYN')
+    assert np.allclose(data[:], directRun[:])
+    assert len(list(tmp_path.glob('report*.html'))) == 1
 
 
 def test_mrsi_align(svs_data, mrsi_data, tmp_path):

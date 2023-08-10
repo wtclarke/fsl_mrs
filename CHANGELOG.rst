@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.12 (Thursday 10th August 2023)
+----------------------------------
+- Implemented more testing of `fsl_mrs_proc` routines.
+- Fixed further bugs in `fsl_mrs_proc unlike`.
+
 2.1.11 (Tuesday 8th August 2023)
 --------------------------------
 - Fixed bug in `fsl_mrs_proc unlike`.

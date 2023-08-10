@@ -750,9 +750,14 @@ def unlike(dataobj, args):
         niter=args['iter'],
         report=args['generateReports'])
 
-    if args['outputbad']:
+    if args['outputbad'] and bad is not None:
         # Save bad results here - bit of a hack!
-        bad.save(op.join(args.output, dataobj.datafilename + '_FAIL'))
+        if args['filename'] is None:
+            badname = op.splitext(op.splitext(dataobj.datafilename)[0])[0] + '_FAIL'
+        else:
+            badname = args['filename'] + '_FAIL'
+
+        bad.save(op.join(args['output'], badname))
 
     return datacontainer(good, dataobj.datafilename)
 
