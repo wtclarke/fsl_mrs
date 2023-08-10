@@ -841,17 +841,55 @@ def test_unlike(svs_data, mrsi_data, tmp_path):
          'unlike',
          '--file', svsfile,
          '--output', tmp_path,
+         '--sd', '1.0',
+         '--iter', '3',
+         '--outputbad',
+         '-r',
+         '--verbose',
          '--filename', 'tmp'],
         check=True,
         capture_output=True)
+
+    assert (tmp_path / 'tmp_FAIL.nii.gz').is_file()
+    assert len(list(tmp_path.glob('report*.html'))) == 1
 
     # Load result for comparison
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun, _ = preproc.remove_unlike(svsdata)
+    directRun, _ = preproc.remove_unlike(svsdata, sdlimit=1.0, niter=3)
 
     assert np.allclose(data[:], directRun[:])
+
+    # Check results if no filename provided
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'unlike',
+         '--file', svsfile,
+         '--output', tmp_path / 'nofname',
+         '--sd', '1.0',
+         '--iter', '3',
+         '--outputbad',
+         '-r',
+         '--verbose'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'nofname' / 'svsdata.nii').is_file()
+    assert (tmp_path / 'nofname' / 'svsdata_FAIL.nii.gz').is_file()
+
+    # Check that the process doesn't crash if no bad transients
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+         'unlike',
+         '--file', svsfile,
+         '--output', tmp_path,
+         '--sd', '10.0',
+         '--iter', '1',
+         '--outputbad',
+         '--filename', 'tmp'],
+        check=True,
+        capture_output=True)
 
 
 def test_mrsi_align(svs_data, mrsi_data, tmp_path):
