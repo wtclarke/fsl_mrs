@@ -88,7 +88,7 @@ def read_FID(filename):
         filename = Path(filename).resolve()
 
     try:
-        return fsl_nmrs.NIFTI_MRS(filename)
+        return fsl_nmrs.NIFTI_MRS(filename, validate_on_creation=False)
     except (NotNIFTI_MRS, fslpath.PathError):
         data_type, id_ext = _check_datatype(Path(filename))
 

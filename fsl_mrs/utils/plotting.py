@@ -1387,6 +1387,9 @@ def plotly_dynMRS(mrs_list,
     n = len(mrs_list)
     if time_var is None:
         time_var = np.arange(n)
+    else:
+        time_var = np.asarray(time_var)
+
     # how to represent the complex data
     proj_funcs = {'real': np.real,
                   'imag': np.imag,
@@ -1414,7 +1417,10 @@ def plotly_dynMRS(mrs_list,
     # Add traces, one for each slider step
     for name in ydata:
         for i, t in enumerate(time_var):
-            t_str = np.array2string(t, floatmode='fixed', precision=1)
+            if isinstance(t, (int, float)):
+                t_str = str(t)
+            else:
+                t_str = np.array2string(t, floatmode='fixed', precision=1)
             fig.add_trace(
                 go.Scatter(
                     visible=False,
