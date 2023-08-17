@@ -61,6 +61,8 @@ def main():
                                   help='FSL VEST file defining higher-level/group covariance groups')
     ga_contrast_args.add_argument('--hl-contrast-names', type=str, nargs='+', default=None,
                                   help='Names assigned to each contrast specified by hl-contrasts option')
+    ga_contrast_args.add_argument('--hl-ftests', type=Path, metavar='<FILE>',
+                                  help='FSL VEST file defining higher-level/group f-tests')
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--report', action="store_true",
@@ -183,16 +185,22 @@ def main():
         contrast_mat = None
 
     if args.hl_covariance is not None:
-        covariace_mat = loadVestFile(args.hl_covariance)
+        covariance_mat = loadVestFile(args.hl_covariance)
     else:
-        covariace_mat = None
+        covariance_mat = None
 
-    p, z, out_cope, out_varcope = fmrs.flameo_wrapper(
+    if args.hl_ftests is not None:
+        ftests_mat = loadVestFile(args.hl_ftests)
+    else:
+        ftests_mat = None
+
+    p, z, out_cope, out_varcope, f = fmrs.flameo_wrapper(
         copes,
         varcopes,
         design_mat=design_mat,
         contrast_mat=contrast_mat,
-        covariace_mat=covariace_mat,
+        covariance_mat=covariance_mat,
+        ftests=ftests_mat,
         verbose=args.verbose)
 
     # Save main results
