@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.13 (Tuesday 5th August 2023)
+--------------------------------
+- Add group level f-tests to the `fmrs_stats` tool. First level f-contrasts are not yet implemented.
+
 2.1.12 (Thursday 10th August 2023)
 ----------------------------------
 - Implemented more testing of `fsl_mrs_proc` routines.
