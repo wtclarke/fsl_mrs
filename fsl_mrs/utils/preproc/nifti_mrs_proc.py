@@ -894,6 +894,10 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     good_out = NIFTI_MRS(
         goodFIDs,
         header=data.header)
+    good_out.add_hdr_field(
+        'DIM_DYN Indices',
+        gIndicies,
+        doc="Data's original index values in the DIM_DYN dimension")
 
     if len(badFIDs) > 0:
         badFIDs = np.asarray(badFIDs).T
@@ -901,6 +905,10 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         bad_out = NIFTI_MRS(
             badFIDs,
             header=data.header)
+        bad_out.add_hdr_field(
+            'DIM_DYN Indices',
+            bIndicies,
+            doc="Data's original index values in the DIM_DYN dimension")
     else:
         bad_out = None
 
