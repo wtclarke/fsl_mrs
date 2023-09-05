@@ -53,9 +53,12 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance
     nparams   = cope.shape[1]
     mats = {}
 
-    def check_2d(mat):
+    def check_2d(mat, T=True):
         if mat.ndim == 1:
-            return np.atleast_2d(mat).T
+            if T:
+                return np.atleast_2d(mat).T
+            else:
+                return np.atleast_2d(mat)
         else:
             return mat
 
@@ -75,11 +78,13 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance
         mats['covmat'] = check_2d(covariance_mat)
 
     if ftests is not None:
-        mats['fmat'] = check_2d(ftests)
+        mats['fmat'] = check_2d(ftests, T=False)
+        print(mats['fmat'])
         ncontrasts = mats['conmat'].shape[0]
         if mats['fmat'].shape[1] != ncontrasts:
             raise ValueError(
-                f'The ftests matrix second dim (shape[1]) must match the number of contrasts ({ncontrasts}).')
+                f'The ftests matrix second dim ({mats["fmat"].shape[1]}) '
+                f'must match the number of contrasts ({ncontrasts}).')
 
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmp = Path(tmpdirname)

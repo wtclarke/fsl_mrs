@@ -17,6 +17,9 @@ con_file_gm = testsPath / 'testdata/fmrs_tools/design_groupmean.con'
 design_file_paired = testsPath / 'testdata/fmrs_tools/design.mat'
 con_file_paired = testsPath / 'testdata/fmrs_tools/design.con'
 
+ftest_file = testsPath / 'testdata/fmrs_tools/design.fts'
+ftests_file = testsPath / 'testdata/fmrs_tools/design2.fts'
+
 
 def test_fmrs_stats_default(tmp_path):
 
@@ -205,3 +208,47 @@ def test_fmrs_stats_pairedttest(tmp_path):
     df = pd.read_csv(tmp_path / 'out' / 'group_stats.csv', index_col=0, header=[0, 1])
     assert ('COPE', "STIM>CTRL") in df.columns
     assert 'conc_NAA+NAAG_mean_activation' in df.index
+
+
+def test_fmrs_stats_pairedttest_ftest(tmp_path):
+    # Single f contrast
+    with open(tmp_path / 'results_list', 'w') as fp:
+        fp.writelines([str(x) + '\n' for x in sim_results])
+
+    subprocess.check_call([
+        'fmrs_stats',
+        '--data', str(tmp_path / 'results_list'),
+        '--output', str(tmp_path / 'out'),
+        '--fl-contrasts', str(fl_contrasts),
+        '--combine', 'NAA', 'NAAG',
+        '--combine', 'Cr', 'PCr',
+        '--combine', 'PCh', 'GPC',
+        '--hl-design', str(design_file_paired),
+        '--hl-contrasts', str(con_file_paired),
+        '--hl-contrast-names', "STIM>CTRL", "CTRL>STIM",
+        '--hl-ftests', str(ftest_file),
+        '--overwrite'])
+
+    assert (tmp_path / 'out' / 'group_fstats.csv').is_file()
+
+
+def test_fmrs_stats_pairedttest_ftests(tmp_path):
+    # Two f contrasts
+    with open(tmp_path / 'results_list', 'w') as fp:
+        fp.writelines([str(x) + '\n' for x in sim_results])
+
+    subprocess.check_call([
+        'fmrs_stats',
+        '--data', str(tmp_path / 'results_list'),
+        '--output', str(tmp_path / 'out'),
+        '--fl-contrasts', str(fl_contrasts),
+        '--combine', 'NAA', 'NAAG',
+        '--combine', 'Cr', 'PCr',
+        '--combine', 'PCh', 'GPC',
+        '--hl-design', str(design_file_paired),
+        '--hl-contrasts', str(con_file_paired),
+        '--hl-contrast-names', "STIM>CTRL", "CTRL>STIM",
+        '--hl-ftests', str(ftests_file),
+        '--overwrite'])
+
+    assert (tmp_path / 'out' / 'group_fstats.csv').is_file()

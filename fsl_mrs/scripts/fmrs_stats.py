@@ -229,8 +229,29 @@ def main():
                 names=['Statistics', 'Contrast'])
         group_stats = pd.DataFrame(all_stats.reshape(-1, all_stats.shape[-1]), index=columns, columns=parameters).T
 
-    # 2. Save to output folder
+    # 1b Save
     group_stats.to_csv(args.output / 'group_stats.csv')
+
+    # 2. Form f-test outputs
+    if f is not None:
+        print(f)
+        f = {key: f[key].squeeze() for key in f}
+        print(f)
+        if f['f-stat'].ndim == 1:
+            f_stats = pd.DataFrame(
+                [f['f-stat'], f['zf-stat'], f['p']],
+                index=['f-stat', 'zf-stat', 'p'],
+                columns=parameters).T
+        else:
+            all_stats = np.stack([f['f-stat'], f['zf-stat'], f['p']])
+            columns = pd.MultiIndex.from_product(
+                (['f-stat', 'zf-stat', 'p'],
+                 list(range(all_stats.shape[1]))),
+                names=['Statistics', 'f-stat index'])
+            f_stats = pd.DataFrame(all_stats.reshape(-1, all_stats.shape[-1]), index=columns, columns=parameters).T
+
+        # 2b. Save to output folder
+        f_stats.to_csv(args.output / 'group_fstats.csv')
 
     # Create interactive HTML report
     if args.report:
