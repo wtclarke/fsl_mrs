@@ -29,6 +29,7 @@ On the command line :code:`fmrs_stats` can be called as shown in the example bel
         --hl-contrasts design.con\
         --hl-contrast-names "STIM>CTRL" "CTRL>STIM"\
         --hl-covariance cov_split.mat\
+        --hl-ftests design.fts\
         --overwrite
 
 This example:
@@ -36,7 +37,7 @@ This example:
 1. Forms a first-level contrast based on the contents of the :code:`fl_contrasts.json` file,
 2. Sums (at the first-level) the NAA peaks, the creatine peaks, the choline peaks, and glutamine and glutamate,
 3. Outputs the modified first level results to a new :code:`group_stats` result directory,
-4. Then using the supplied design matrix (:code:`design.mat`) and contrasts matrix (:code:`design.con`), uses FLAMEO to perform the higher-level analysis, and,
+4. Then using the supplied design matrix (:code:`design.mat`), contrasts matrix (:code:`design.con`), and f-tests matrix (:code:`design.fts`) uses FLAMEO to perform the higher-level analysis, and,
 5. The group level GLM statistics are then output to the :code:`group_stats` result directory.
 
 To achieve this the user must provide a number of input files to the script.
