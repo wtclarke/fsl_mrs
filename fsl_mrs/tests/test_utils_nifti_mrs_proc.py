@@ -219,13 +219,19 @@ def test_shift_to_reference_no_avg():
 
 
 def test_remove_unlike():
-    nmrs_obj = read_FID(wrefc)
+    nmrs_obj = read_FID(metab)
     nmrs_obj = nproc.coilcombine(nmrs_obj)
-    processed, _ = nproc.remove_unlike(nmrs_obj)
+    processed, removed_fids = nproc.remove_unlike(nmrs_obj, sdlimit=1.0)
 
+    assert processed.shape == (1, 1, 1, 4096, 53)
     assert processed.hdr_ext['ProcessingApplied'][1]['Method'] == 'Outlier removal'
     assert processed.hdr_ext['ProcessingApplied'][1]['Details']\
-        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_unlike, ppmlim=None, sdlimit=1.96, niter=2.'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.remove_unlike, ppmlim=None, sdlimit=1.0, niter=2.'
+    assert "DIM_DYN Indices" in processed.hdr_ext
+
+    assert removed_fids.shape == (1, 1, 1, 4096, 11)
+    assert "DIM_DYN Indices" in removed_fids.hdr_ext
+    assert removed_fids.hdr_ext["DIM_DYN Indices"]["Value"] == [2, 10, 16, 17, 25, 31, 32, 39, 40, 55, 59]
 
 
 def test_phase_correct():

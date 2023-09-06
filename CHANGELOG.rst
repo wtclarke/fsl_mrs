@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.13 (Tuesday 5th August 2023)
+--------------------------------
+- Add group level f-tests to the `fmrs_stats` tool. First level f-contrasts are not yet implemented.
+- Removed / retained indices after `fsl_mrs_proc unlike` (and related functions) are now listed in the NIfTI-MRS headers under the key "DIM_DYN Indices".
+
 2.1.12 (Thursday 10th August 2023)
 ----------------------------------
 - Implemented more testing of `fsl_mrs_proc` routines.

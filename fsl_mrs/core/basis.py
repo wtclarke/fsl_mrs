@@ -77,7 +77,7 @@ class Basis:
         self._widths = [hdr['fwhm'] for hdr in headers]
 
         # Assume Nucleus is 1H
-        # This only has bearing on the plotting currently
+        # This only has baring on the plotting currently
         self._nucleus = '1H'
 
         # Default interpolation is Fourier Transform based.

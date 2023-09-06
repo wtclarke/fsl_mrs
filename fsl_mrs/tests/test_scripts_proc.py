@@ -854,6 +854,8 @@ def test_unlike(svs_data, mrsi_data, tmp_path):
     # Load result for comparison
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
+    assert "DIM_DYN Indices" in data.hdr_ext
+
     # Run directly
     directRun, _ = preproc.remove_unlike(svsdata, sdlimit=1.0, niter=3)
 

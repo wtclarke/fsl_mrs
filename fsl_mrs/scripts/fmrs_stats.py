@@ -61,6 +61,8 @@ def main():
                                   help='FSL VEST file defining higher-level/group covariance groups')
     ga_contrast_args.add_argument('--hl-contrast-names', type=str, nargs='+', default=None,
                                   help='Names assigned to each contrast specified by hl-contrasts option')
+    ga_contrast_args.add_argument('--hl-ftests', type=Path, metavar='<FILE>',
+                                  help='FSL VEST file defining higher-level/group f-tests')
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--report', action="store_true",
@@ -183,16 +185,22 @@ def main():
         contrast_mat = None
 
     if args.hl_covariance is not None:
-        covariace_mat = loadVestFile(args.hl_covariance)
+        covariance_mat = loadVestFile(args.hl_covariance)
     else:
-        covariace_mat = None
+        covariance_mat = None
 
-    p, z, out_cope, out_varcope = fmrs.flameo_wrapper(
+    if args.hl_ftests is not None:
+        ftests_mat = loadVestFile(args.hl_ftests)
+    else:
+        ftests_mat = None
+
+    p, z, out_cope, out_varcope, f = fmrs.flameo_wrapper(
         copes,
         varcopes,
         design_mat=design_mat,
         contrast_mat=contrast_mat,
-        covariace_mat=covariace_mat,
+        covariance_mat=covariance_mat,
+        ftests=ftests_mat,
         verbose=args.verbose)
 
     # Save main results
@@ -221,8 +229,29 @@ def main():
                 names=['Statistics', 'Contrast'])
         group_stats = pd.DataFrame(all_stats.reshape(-1, all_stats.shape[-1]), index=columns, columns=parameters).T
 
-    # 2. Save to output folder
+    # 1b Save
     group_stats.to_csv(args.output / 'group_stats.csv')
+
+    # 2. Form f-test outputs
+    if f is not None:
+        print(f)
+        f = {key: f[key].squeeze() for key in f}
+        print(f)
+        if f['f-stat'].ndim == 1:
+            f_stats = pd.DataFrame(
+                [f['f-stat'], f['zf-stat'], f['p']],
+                index=['f-stat', 'zf-stat', 'p'],
+                columns=parameters).T
+        else:
+            all_stats = np.stack([f['f-stat'], f['zf-stat'], f['p']])
+            columns = pd.MultiIndex.from_product(
+                (['f-stat', 'zf-stat', 'p'],
+                 list(range(all_stats.shape[1]))),
+                names=['Statistics', 'f-stat index'])
+            f_stats = pd.DataFrame(all_stats.reshape(-1, all_stats.shape[-1]), index=columns, columns=parameters).T
+
+        # 2b. Save to output folder
+        f_stats.to_csv(args.output / 'group_fstats.csv')
 
     # Create interactive HTML report
     if args.report:
