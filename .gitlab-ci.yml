@@ -88,7 +88,7 @@ stages:
 # ############
 flake8:
   <<: *except_releases
-  image: python:3.7-slim-buster
+  image: python:3.9-slim-buster
   stage: style
   before_script:
   - python --version
@@ -104,20 +104,22 @@ flake8:
 
 pytest:
   <<: *test_rules
-  image: wtclarke/fsl_mrs_tests:2.0
+  image: mambaorg/micromamba@sha256:96b98d3816f370d2a6ad06820ea970135269913f311f2b17ca269369d3e318d1
   stage: test
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   before_script:
-  - conda init bash
-  - source ~/.bashrc 
-  - conda create -n fsl_mrs -c conda-forge -y python=3.8
-  - conda activate fsl_mrs
-  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
-  - conda install -y -c conda-forge pytest
+  - micromamba create -n fsl_mrs -c conda-forge -y python=3.9
+  - eval "$(micromamba shell hook --shell bash)"
+  - micromamba activate fsl_mrs
+  - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
+  - export FSLOUTPUTTYPE="NIFTI_GZ"
+  - export FSLDIR="/opt/conda/envs/fsl_mrs"
+  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
+  - micromamba install -y -c conda-forge pytest
   - pip install .
   script:
-  - pytest fsl_mrs/tests
+  - pytest -W error::FutureWarning fsl_mrs/tests
   - pytest fsl_mrs/denmatsim/tests
 
 ############
@@ -126,18 +128,20 @@ pytest:
 
 fit-validate:
   <<: *validate_rules
-  image: wtclarke/fsl_mrs_tests:2.0
+  image: mambaorg/micromamba:latest
   stage: validate
   variables:
     GIT_SUBMODULE_STRATEGY: normal
     DEPLOY_CURL_COMMAND_BODY: "'{\"title\":\"New FSL-MRS version\",\"body\":\"Version '$$FSL_MRS_VERSION' \",\"head\":\"fsl_mrs_updates_'$$FSL_MRS_VERSION'\",\"base\":\"main\"}'"
     DEPLOY_CURL_COMMAND: 'curl -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_PAT" https://api.github.com/repos/wtclarke/lcm_validation/pulls -d $DEPLOY_CURL_COMMAND_BODY'
   before_script:
-  - conda init bash
-  - source ~/.bashrc 
-  - conda create -n fsl_mrs -c conda-forge -y python=3.8
-  - conda activate fsl_mrs
-  - conda install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
+  - micromamba create -n fsl_mrs -c conda-forge -y python=3.9
+  - eval "$(micromamba shell hook --shell bash)"
+  - micromamba activate fsl_mrs
+  - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
+  - export FSLOUTPUTTYPE="NIFTI_GZ"
+  - export FSLDIR="/opt/conda/envs/fsl_mrs"
+  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
   - pip install .
   # Setup ssh communication with the github instance
   # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor

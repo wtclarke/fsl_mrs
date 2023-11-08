@@ -46,7 +46,7 @@ def calcQC(mrs, res, ppmlim=None):
             fwhm = []
             snrPeaks = []
             for _, rp in res.fitResults.iterrows():
-                qcres = calcQCOnResults(mrs, res, rp, ppmlim)
+                qcres = calcQCOnResults(mrs, res, rp.to_numpy(), ppmlim)
                 snrPeaks.append(qcres[0])
                 fwhm.append(qcres[1])
             snrSpec = qcres[2]
