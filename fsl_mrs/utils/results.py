@@ -109,10 +109,10 @@ class FitRes(object):
 
         # Calculate mcmc metrics
         if self.method == 'MH':
-            self.mcmc_cov = self.fitResults.cov().values
-            self.mcmc_cor = self.fitResults.corr().values
-            self.mcmc_var = self.fitResults.var().values
-            self.mcmc_samples = self.fitResults.values
+            self.mcmc_cov = self.fitResults.cov().to_numpy()
+            self.mcmc_cor = self.fitResults.corr().to_numpy()
+            self.mcmc_var = self.fitResults.var().to_numpy()
+            self.mcmc_samples = self.fitResults.to_numpy()
 
         # VB metrics
         if self.method == 'VB':
@@ -142,12 +142,12 @@ class FitRes(object):
     @property
     def params(self):
         """Return mean fit parameters as numpy array"""
-        return self.fitResults.loc[:, self.params_names].mean().values
+        return self.fitResults.loc[:, self.params_names].mean().to_numpy()
 
     @property
     def params_inc_combine(self):
         """Return mean fit parameters (including combined metabolites) as numpy array"""
-        return self.fitResults.mean().values
+        return self.fitResults.mean().to_numpy()
 
     @property
     def pred(self):
@@ -278,9 +278,9 @@ class FitRes(object):
             self._combined_crlb = np.concatenate([self._combined_crlb, new_crlb])
 
         if self.method == 'MH':
-            self.mcmc_cov = self.fitResults.cov().values
-            self.mcmc_cor = self.fitResults.corr().values
-            self.mcmc_var = self.fitResults.var().values
+            self.mcmc_cov = self.fitResults.cov().to_numpy()
+            self.mcmc_cor = self.fitResults.corr().to_numpy()
+            self.mcmc_var = self.fitResults.var().to_numpy()
 
     def predictedSpec(self, mrs, mode='Full', noBaseline=False, ppmlim=None, shift=True):
         if ppmlim is None:
@@ -625,8 +625,8 @@ class FitRes(object):
     def getPhaseParams(self, phi0='degrees', phi1='seconds', function='mean'):
         """Return the two phase parameters in specified units"""
         if function is None:
-            p0 = self.fitResults['Phi0'].values
-            p1 = self.fitResults['Phi1'].values
+            p0 = self.fitResults['Phi0'].to_numpy()
+            p1 = self.fitResults['Phi1'].to_numpy()
         else:
             p0 = self.fitResults['Phi0'].apply(function)
             p1 = self.fitResults['Phi1'].apply(function)
@@ -660,7 +660,7 @@ class FitRes(object):
         if function is None:
             shiftParams = np.zeros([self.fitResults.shape[0], len(iter_range)])
             for g in iter_range:
-                shiftParams[:, g] = self.fitResults[f'eps_{g}'].values
+                shiftParams[:, g] = self.fitResults[f'eps_{g}'].to_numpy()
         else:
             shiftParams = []
             for g in iter_range:
@@ -696,7 +696,7 @@ class FitRes(object):
             if function is None:
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
                 for g in range(self.g):
-                    gamma[:, g] = self.fitResults[f'gamma_{g}'].values
+                    gamma[:, g] = self.fitResults[f'gamma_{g}'].to_numpy()
             else:
                 gamma = []
                 for g in range(self.g):
@@ -718,8 +718,8 @@ class FitRes(object):
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
                 sigma = np.zeros([self.fitResults.shape[0], self.g])
                 for g in range(self.g):
-                    gamma[:, g] = self.fitResults[f'gamma_{g}'].values
-                    sigma[:, g] = self.fitResults[f'sigma_{g}'].values
+                    gamma[:, g] = self.fitResults[f'gamma_{g}'].to_numpy()
+                    sigma[:, g] = self.fitResults[f'sigma_{g}'].to_numpy()
             else:
                 gamma = []
                 sigma = []
