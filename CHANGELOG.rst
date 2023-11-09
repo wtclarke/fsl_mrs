@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.15 (Thursday 9th November 2023)
+-----------------------------------
+- Further changes to Docker CI images. Added build files and instructions to FSL-MRS repository.
+
 2.1.14 (Wednesday 8th November 2023)
 ------------------------------------
 - Under the hood fixes to CI pipeline.
