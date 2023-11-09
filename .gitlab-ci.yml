@@ -150,8 +150,6 @@ fit-validate:
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-  # Install CURL
-  - apt-get -y install curl
 
   script:
   - FSL_MRS_VERSION=`fsl_mrs --version` && export FSL_MRS_VERSION
