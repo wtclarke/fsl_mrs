@@ -8,12 +8,12 @@ Conda Guide
 
 This is a short guide on setting up conda for the first time.
 
-1. Download and install Miniconda (python version 3.8 or newer) from the `package website <https://docs.conda.io/en/latest/miniconda.html>`_.
+1. Download and install Miniconda (python version 3.9 or newer) from the `package website <https://docs.conda.io/en/latest/miniconda.html>`_.
 2. Create a conda environment for installing fsl-mrs. Note the name you specifiy with `--name` is arbitrary and does not need to relate to the package name. 
 
 ::
 
-    conda create --name fsl_mrs_env -c conda-forge python=3.8
+    conda create --name fsl_mrs_env -c conda-forge python=3.9
 
 3. Activate the environment.
 
