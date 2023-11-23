@@ -784,57 +784,92 @@ def plot_dist_approx(res, refname='Cr'):
     return fig
 
 
-def plot_corr(res, corr=None, title='Correlation'):
+def plot_general_corr(corr_mat, labels, title='Correlation', nan_diag=True):
+    """_summary_
 
-    # Greys,YlGnBu,Greens,YlOrRd,Bluered,RdBu,Reds,Blues,
-    # Picnic,Rainbow,Portland,Jet,Hot,Blackbody,Earth,
-    # Electric,Viridis,Cividis.
-    # n = mrs.numBasis
+    _extended_summary_
+
+    :param corr_mat: _description_
+    :type corr_mat: _type_
+    :param labels: _description_
+    :type labels: _type_
+    :param title: _description_, defaults to 'Correlation'
+    :type title: str, optional
+    :param nan_diag: _description_, defaults to True
+    :type nan_diag: bool, optional
+    :return: _description_
+    :rtype: _type_
+    """
     fig = go.Figure()
+    if nan_diag:
+        np.fill_diagonal(corr_mat, np.nan)
+    corrabs = np.abs(corr_mat)
+
+    fig.add_trace(
+        go.Heatmap(
+            z=corr_mat,
+            x=labels,
+            y=labels,
+            colorscale='Picnic',
+            zmid=0))
+
+    fig.update_layout(
+        template='plotly_white',
+        font=dict(size=10),
+        title=title,
+        width=600,
+        height=600,
+        yaxis=dict(
+            scaleanchor="x",
+            scaleratio=1,
+        ),
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="left",
+                buttons=list([
+                    dict(
+                        args=[{"z": [corr_mat], "colorscale": 'Picnic'}],
+                        label="Real",
+                        method="restyle"
+                    ),
+                    dict(
+                        args=[{"z": [corrabs], "colorscale": 'Picnic'}],
+                        label="Abs",
+                        method="restyle"
+                    )
+                ]),
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0.11,
+                xanchor="left",
+                y=1.1,
+                yanchor="top"
+            ),
+        ])
+    fig.update_layout(autosize=True)
+    return fig
+
+
+def plot_corr(res, corr=None, title='Correlation'):
+    """Plot the correlation matrix of fitting parameters from fit results
+
+    :param res: FSL-MRS results object
+    :type res: fsl_mrs.utils.results.FitRes
+    :param corr: Optionally override correlation matrix, defaults to None
+    :type corr: np.array, optional
+    :param title: Plot title, defaults to 'Correlation'
+    :type title: str, optional
+    :return: Plotly figure
+    :rtype: plotly.graph_objs.Figure
+    """
     if corr is None:
         corr = res.mcmc_cor
-    np.fill_diagonal(corr, np.nan)
-    corrabs = np.abs(corr)
 
-    fig.add_trace(go.Heatmap(z=corr,
-                             x=res.original_metabs, y=res.original_metabs, colorscale='Picnic', zmid=0))
-
-    fig.update_layout(template='plotly_white',
-                      font=dict(size=10),
-                      title=title,
-                      width=600,
-                      height=600,
-                      yaxis=dict(
-                          scaleanchor="x",
-                          scaleratio=1,
-                      ),
-                      updatemenus=[
-                          dict(
-                              type="buttons",
-                              direction="left",
-                              buttons=list([
-                                  dict(
-                                      args=[{"z": [corr], "colorscale":'Picnic'}],
-                                      label="Real",
-                                      method="restyle"
-                                  ),
-                                  dict(
-                                      args=[{"z": [corrabs], "colorscale":'Picnic'}],
-                                      label="Abs",
-                                      method="restyle"
-                                  )
-                              ]),
-                              pad={"r": 10, "t": 10},
-                              showactive=True,
-                              x=0.11,
-                              xanchor="left",
-                              y=1.1,
-                              yanchor="top"
-                          ),
-                      ])
-    fig.update_layout(autosize=True)
-
-    return fig
+    return plot_general_corr(
+        corr,
+        res.original_metabs,
+        title=title)
 
 
 def plot_dist_mcmc(res, refname='Cr'):

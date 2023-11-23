@@ -2,6 +2,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 2.1.16 (WIP)
 -----------------------------------
+- Better visualisation of dynamic fitting results.
 
 2.1.15 (Thursday 9th November 2023)
 -----------------------------------

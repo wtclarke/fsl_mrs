@@ -376,6 +376,29 @@ def dyn_mapped_div(dynres):
     return to_div(static_image(fig))
 
 
+def dyn_fit_q_div(dynres):
+    """Generate output on dynamic fit quality"""
+    fig = dynres.plot_residuals()
+    info_str = '<pre>\n'
+    for param in dynres.model_parameters:
+        if isinstance(dynres.model_parameters[param], float):
+            info_str += f'{param}:   {dynres.model_parameters[param]:0.1f}\n'
+        else:
+            info_str += f'{param}:   {dynres.model_parameters[param]:0.0f}\n'
+    info_str += '</pre>\n'
+
+    return f'''<h3>Fit quality parameters</h3>
+               <div id=fit>{info_str}</div>
+               <h3>Residuals</h3>
+               {to_div(static_image(fig))}
+               '''
+
+
+def dyn_corr(dynres):
+    """Generate a HTML div containing the free parameter correlations"""
+    return to_div(dynres.plot_corr())
+
+
 def dyn_free_parameter_summaries(dynres, category):
     """Summary table of mapped parameters"""
     collected_result = dynres.collected_results()[category]
@@ -433,6 +456,13 @@ def create_dyn_sections(dynres, location_fig):
         <hr>
         """)
 
+    sections.append(
+        f"""
+        <h1><a name="fit_quality">Fit Quality</a></h1>
+        <div id=fit>{dyn_fit_q_div(dynres)}</div>
+        <hr>
+        """)
+
     mapped_divs = []
     for cat in dynres._dyn.vm.mapped_categories:
         mapped_divs.append(
@@ -443,6 +473,8 @@ def create_dyn_sections(dynres, location_fig):
     sections.append(
         f"""
         <h1><a name="free_params">Free Parameter Summary</a></h1>
+        <h3>Parameter Correlations</h3>
+        {dyn_corr(dynres)}
         {mapped_divs_str}
         <hr>
         """)

@@ -244,7 +244,7 @@ class VariableMapping(object):
     # Properties for free parameters
     @dataclass
     class _FreeParameter:
-        """Class to keep track of infromation about each free parameter."""
+        """Class to keep track of information about each free parameter."""
         name: str
         mapped_category: str
         param_type: str
@@ -434,23 +434,26 @@ class VariableMapping(object):
         used_bounds = []
         # Form list of bounds
         b = []
-        for free_p, free_t in zip(self.free_names, self.free_types):
+        for free_par in self._free_params:
             # First look for an exact match, i.e. a bound on the precise parameter
-            if free_p in self.defined_bounds:
-                b.append(self.defined_bounds[free_p])
-                used_bounds.append(free_p)
+            if free_par.name in self.defined_bounds:
+                b.append(self.defined_bounds[free_par.name])
+                used_bounds.append(free_par.name)
             else:
                 # If a dynamic function look for a bound specific to the dynamic function
-                if free_t == 'dynamic':
-                    mod_p_name = '_'.join(free_p.split('_')[2:])
+                if free_par.param_type == 'dynamic':
+                    mod_p_name = free_par.name.replace(
+                        f'{free_par.mapped_category}_{free_par.met_or_group}_',
+                        ''
+                    )
                     if mod_p_name in self.defined_bounds:
                         b.append(self.defined_bounds[mod_p_name])
                         used_bounds.append(mod_p_name)
                     else:
                         b.append((None, None))
                 # If fixed or variable look for a bound on the generic form
-                elif free_t in ['fixed', 'variable']:
-                    mod_p_name = free_p.split('_')[0]
+                elif free_par.param_type in ['fixed', 'variable']:
+                    mod_p_name = free_par.mapped_category
                     if mod_p_name in self.defined_bounds:
                         b.append(self.defined_bounds[mod_p_name])
                         used_bounds.append(mod_p_name)
