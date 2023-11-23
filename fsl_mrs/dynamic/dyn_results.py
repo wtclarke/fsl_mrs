@@ -488,7 +488,7 @@ class dynRes:
         return np.asarray(fwd)
 
     def _sensible_tval_strings(self, override=None):
-        """Helper function to generate sensible title strings for the 
+        """Helper function to generate sensible title strings for the
         dynamic/time dimension.
 
         :param override: Provide your own list, defaults to None
