@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from fsl_mrs.utils.misc import calculate_lap_cov, gradient
+from fsl_mrs.utils.plotting import plot_general_corr
 
 
 class ResultLoadError(Exception):
@@ -473,6 +474,37 @@ class dynRes:
         fig.legend(handles, labels, loc='right')
         return fig
 
+    def _calc_fit_from_flatmapped(self, mapped):
+        """Return the fitted spectra as an array
+
+        :param mapped: Fitted mapped parameters
+        :type mapped: np.ndarray
+        :return: Array of fits as spectra
+        :rtype: np.ndarray
+        """
+        fwd = []
+        for idx, mp in enumerate(mapped):
+            fwd.append(self._dyn.forward[idx](mp))
+        return np.asarray(fwd)
+
+    def _sensible_tval_strings(self, override=None):
+        """Helper function to generate sensible title strings for the 
+        dynamic/time dimension.
+
+        :param override: Provide your own list, defaults to None
+        :type override: list, optional
+        :return: List of strings
+        :rtype: List
+        """
+        if override is not None:
+            return [f'#{idx}: {t}' for idx, t in enumerate(override)]
+        elif isinstance(self._dyn.time_var, dict):
+            return [f'#{idx}' for idx in range(self._dyn._t_steps)]
+        elif isinstance(self._dyn.time_var[0], (list, np.ndarray)):
+            return [f'#{idx}' for idx in range(self._dyn._t_steps)]
+        else:
+            return [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
+
     def plot_spectra(self, init=False, fit_to_init=False, indices=None, tvals=None):
         """Plot individual spectra as fitted using the dynamic model
 
@@ -480,25 +512,19 @@ class dynRes:
         :type init: bool, optional
         :param fit_to_init: Plot the spectra as per fitting the dynamic model to init, defaults to False
         :type fit_to_init: bool, optional
-        :param indices: List of indicies to plot, defaults to None which plots all.
+        :param indices: List of indicies to plot, defaults to None which plots up to 16 equally spaced.
         :type indices: list, optional
         :return: plotly figure
         """
         from plotly.subplots import make_subplots
         import plotly.graph_objects as go
 
-        def calc_fit_from_flatmapped(mapped):
-            fwd = []
-            for idx, mp in enumerate(mapped):
-                fwd.append(self._dyn.forward[idx](mp))
-            return np.asarray(fwd)
-
-        init_fit = calc_fit_from_flatmapped(self.init_mapped_parameters_array)
-        init_fitted_fit = calc_fit_from_flatmapped(self.init_mapped_parameters_fitted_array)
+        init_fit = self._calc_fit_from_flatmapped(self.init_mapped_parameters_array)
+        init_fitted_fit = self._calc_fit_from_flatmapped(self.init_mapped_parameters_fitted_array)
 
         dyn_fit = []
         for mp in self.mapped_parameters_array:
-            dyn_fit.append(calc_fit_from_flatmapped(mp))
+            dyn_fit.append(self._calc_fit_from_flatmapped(mp))
         dyn_fit = np.asarray(dyn_fit)
         dyn_fit_mean = np.mean(dyn_fit, axis=0)
         dyn_fit_sd = np.std(dyn_fit.real, axis=0) + 1j * np.std(dyn_fit.imag, axis=0)
@@ -514,12 +540,11 @@ class dynRes:
                          init=0.5,
                          init_fit=0.5,
                          dyn=1)
-        if tvals is not None:
-            sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(tvals)]
-        elif isinstance(self._dyn.time_var, dict):
-            sp_titles = [f'#{idx}' for idx in range(self._dyn._t_steps)]
-        else:
-            sp_titles = [f'#{idx}: {t}' for idx, t in enumerate(self._dyn.time_var)]
+
+        sp_titles = self._sensible_tval_strings(override=tvals)
+        n_transients = dyn_fit_mean.shape[0]
+        if n_transients > 16 and indices is None:
+            indices = np.round(np.linspace(0, n_transients - 1, 16)).astype(int)
 
         if indices is not None:
             init_fit = init_fit[indices, :]
@@ -534,37 +559,55 @@ class dynRes:
                             shared_xaxes=False, shared_yaxes=True,
                             x_title='Chemical shift (ppm)',
                             subplot_titles=sp_titles,
-                            horizontal_spacing=0.05,
-                            vertical_spacing=0.05)
+                            horizontal_spacing=0.02,
+                            vertical_spacing=0.1)
 
         for idx in range(len(sp_titles)):
             coldx = int(idx % col)
             rowdx = int(np.floor(idx / col))
 
-            trace1 = go.Scatter(x=x_axis, y=self._dyn.data[idx].real,
-                                mode='lines',
-                                name=f'data (t={idx})',
-                                line=dict(color=colors['data'], width=line_size['data']))
+            # Only show the first legend entry
+            if idx > 0:
+                showlgnd = False
+            else:
+                showlgnd = True
+
+            trace1 = go.Scatter(
+                x=x_axis, y=self._dyn.data[idx].real,
+                mode='lines',
+                name='data',
+                line=dict(color=colors['data'], width=line_size['data']),
+                legendgroup='data',
+                showlegend=showlgnd)
             fig.add_trace(trace1, row=rowdx + 1, col=coldx + 1)
 
             if init:
-                trace2 = go.Scatter(x=x_axis, y=init_fit[idx, :].real,
-                                    mode='lines',
-                                    name=f'init (t={idx})',
-                                    line=dict(color=colors['init'], width=line_size['init']))
+                trace2 = go.Scatter(
+                    x=x_axis, y=init_fit[idx, :].real,
+                    mode='lines',
+                    name='init',
+                    line=dict(color=colors['init'], width=line_size['init']),
+                    legendgroup='init',
+                    showlegend=showlgnd)
                 fig.add_trace(trace2, row=rowdx + 1, col=coldx + 1)
 
             if fit_to_init:
-                trace3 = go.Scatter(x=x_axis, y=init_fitted_fit[idx, :].real,
-                                    mode='lines',
-                                    name=f'fit to init (t={idx})',
-                                    line=dict(color=colors['init_fit'], width=line_size['init_fit']))
+                trace3 = go.Scatter(
+                    x=x_axis, y=init_fitted_fit[idx, :].real,
+                    mode='lines',
+                    name='fit to init',
+                    line=dict(color=colors['init_fit'], width=line_size['init_fit']),
+                    legendgroup='fit_to_init',
+                    showlegend=showlgnd)
                 fig.add_trace(trace3, row=rowdx + 1, col=coldx + 1)
 
-            trace4 = go.Scatter(x=x_axis, y=dyn_fit_mean[idx, :].real,
-                                mode='lines',
-                                name=f'dynamic (t={idx})',
-                                line=dict(color=colors['dyn'], width=line_size['dyn']))
+            trace4 = go.Scatter(
+                x=x_axis, y=dyn_fit_mean[idx, :].real,
+                mode='lines',
+                name='dynamic',
+                line=dict(color=colors['dyn'], width=line_size['dyn']),
+                legendgroup='fit',
+                showlegend=showlgnd)
             fig.add_trace(trace4, row=rowdx + 1, col=coldx + 1)
 
             if dyn_fit.shape[0] > 1:
@@ -587,8 +630,79 @@ class dynRes:
                          zerolinecolor='Gray',
                          showgrid=False, showticklabels=False)
 
-        fig.update_layout(template='plotly_white')
+        fig.update_layout(template='plotly_white', margin={'t': 30, 'l': 40, 'b': 60})
         # fig.layout.update({'height': 800, 'width': 1000})
+        return fig
+
+    def plot_corr(self):
+        """Plot free parameter correlations using plotly
+        """
+        return plot_general_corr(
+            self.corr_free.to_numpy(),
+            self.corr_free.columns,
+            title='Free Parameter Correlations')
+
+    def plot_residuals(self):
+        """Generate a 2D plot of residuals plu marginals.
+
+        :return: Matplotlib figure object
+        :rtype: matplotlib.figure.Figure
+        """
+        import matplotlib.pyplot as plt
+        import matplotlib.gridspec as gridspec
+
+        dyn_fit = []
+        for mp in self.mapped_parameters_array:
+            dyn_fit.append(self._calc_fit_from_flatmapped(mp))
+        dyn_fit = np.asarray(dyn_fit).mean(axis=0)
+
+        dyn_fit.shape
+
+        residuals = np.asarray(self._dyn.data) - dyn_fit
+        residuals /= dyn_fit.max()
+        residuals *= 100
+        ci95 = residuals.std() * 1.96
+        x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
+        yaxis = np.arange(residuals.shape[0])
+
+        dyn_titles = self._sensible_tval_strings()
+
+        xlim = [self._dyn._fit_args['ppmlim'][1], self._dyn._fit_args['ppmlim'][0]]
+
+        fig = plt.figure(figsize=(12, 5))
+        gs = gridspec.GridSpec(ncols=5, nrows=4, figure=fig, wspace=0, hspace=0)
+        X, Y = np.meshgrid(x_axis, yaxis)
+        ax1 = fig.add_subplot(gs[:3, :4])
+        im = ax1.pcolormesh(X, Y, np.real(residuals), edgecolors=None, cmap='viridis', vmin=-ci95, vmax=ci95)
+        ax1.set_xlim(xlim)
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+
+        ax2 = fig.add_subplot(gs[3, :4])
+        mean_spec_residual = residuals.mean(axis=0).real
+        ax2.plot(x_axis, mean_spec_residual, 'k')
+        ax2.set_xlim(xlim)
+        ax2.set_ylim(
+            [1.1 * mean_spec_residual.min(),
+             1.1 * mean_spec_residual.max()])
+        ax2.set_yticks([-ci95, 0, ci95])
+        ax2.set_xlabel('$\\delta$ (ppm)')
+        # ax2.set_ylabel('%')
+
+        ax3 = fig.add_subplot(gs[:3, 4])
+        ax3.plot((np.abs(residuals)**2).mean(axis=1)**0.5, yaxis, 'k')
+        ax3.yaxis.tick_right()
+        if len(yaxis) > 15:
+            tick_idx = np.round(np.linspace(0, len(yaxis) - 1, 15)).astype(int)
+            ax3.set_yticks(
+                yaxis[tick_idx],
+                labels=np.asarray(dyn_titles)[tick_idx])
+        else:
+            ax3.set_yticks(yaxis, labels=dyn_titles)
+        ax3.set_xlabel('RMSE (%)')
+        cax = fig.add_axes(rect=[0.76, 0.11, 0.13, 0.1])
+        fig.colorbar(im, orientation='horizontal', cax=cax, label='% max signal')
+        cax.set_xticks([-ci95, 0, ci95])
         return fig
 
 
