@@ -340,8 +340,8 @@ class dynRes:
         return {
             'dynamic log-likelihood': ll,
             'init log-likelihood': self._dyn.dyn_loglik(self.init_free_parameters),
-            'number of parameters': n_obs,
-            'number of observations': n_params,
+            'number of parameters': n_params,
+            'number of observations': n_obs,
             'AIC': aic,
             'BIC': bic}
 
@@ -669,7 +669,7 @@ class dynRes:
 
         xlim = [self._dyn._fit_args['ppmlim'][1], self._dyn._fit_args['ppmlim'][0]]
 
-        fig = plt.figure(figsize=(12, 5))
+        fig = plt.figure(figsize=(20, 9))
         gs = gridspec.GridSpec(ncols=5, nrows=4, figure=fig, wspace=0, hspace=0)
         X, Y = np.meshgrid(x_axis, yaxis)
         ax1 = fig.add_subplot(gs[:3, :4])
