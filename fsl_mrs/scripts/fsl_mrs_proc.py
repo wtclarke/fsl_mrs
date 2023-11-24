@@ -117,8 +117,9 @@ def main():
                                   ' (default=0.2->4.2)')
     align_group.add_argument('--reference', type=str, required=False,
                              help='Align to this reference data.')
-    align_group.add_argument('--apod', type=float, default=10,
-                             help='Apodise data to reduce noise (Hz).')
+    align_group.add_argument('--window', type=int,
+                             help='Define window size to use iterative moving window average. '
+                                  'This can improve performance for low SNR or data with phase cycled artifacts.')
     alignparser.set_defaults(func=align)
     add_common_args(alignparser)
 
@@ -609,7 +610,7 @@ def align(dataobj, args):
     aligned = preproc.align(dataobj.data,
                             args['dim'],
                             ppmlim=args['ppm'],
-                            apodize=args['apod'],
+                            window=args['window'],
                             report=args['generateReports'],
                             report_all=args['allreports'])
 

@@ -68,6 +68,8 @@ def main():
                           help='Remove points at the start of the fid.')
     optional.add_argument('--align_ppm_dynamic', type=float, nargs=2, default=(1.9, 4.2),
                           help='PPM limit for dynamics dimension alignment. Default=(0.0, 4.2).')
+    optional.add_argument('--align_window_dynamic', type=int,
+                          help='Window for iterative windowed alignment, defaults to off.')
     optional.add_argument('--align_ppm_edit', type=float, nargs=2, default=None,
                           help='PPM limit for edit dimension alignment. Default=full spectrum.')
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
@@ -261,7 +263,7 @@ def main():
         'DIM_DYN',
         ppmlim=args.align_ppm_dynamic,
         niter=4,
-        apodize=0.0,
+        window=args.align_window_dynamic,
         report=report_dir,
         report_all=True)
 
@@ -350,12 +352,12 @@ def main():
 
     if args.quant is not None:
         if 'DIM_EDIT' in quant_data.dim_tags:
-            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_EDIT', ppmlim=(0, 8), niter=1, apodize=0.0)
+            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_EDIT', ppmlim=(0, 8), niter=1)
             quant_data = nifti_mrs_proc.average(quant_data, 'DIM_EDIT')
         final_wref = nifti_mrs_proc.phase_correct(quant_data, (4.55, 4.7), hlsvd=False, report=report_dir)
     else:
         if 'DIM_EDIT' in ref_data.dim_tags:
-            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_EDIT', ppmlim=(0, 8), niter=1, apodize=0.0)
+            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_EDIT', ppmlim=(0, 8), niter=1)
             ref_data = nifti_mrs_proc.average(ref_data, 'DIM_EDIT')
         final_wref = nifti_mrs_proc.phase_correct(ref_data, (4.55, 4.7), hlsvd=False, report=report_dir)
 
@@ -388,7 +390,6 @@ def main():
             'DIM_EDIT',
             ppmlim=args.align_ppm_edit,
             niter=4,
-            apodize=10.0,
             report=report_dir)
 
     # Differencing

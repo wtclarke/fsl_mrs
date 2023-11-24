@@ -78,6 +78,40 @@ def test_preproc(tmp_path):
     assert (tmp_path / 'voxel_location.png').exists()
 
 
+def test_window_align_preproc(tmp_path):
+
+    metab = str(data / 'metab_raw.nii.gz')
+    wrefc = str(data / 'wref_internal.nii.gz')
+    wrefq = str(data / 'wref_quant.nii.gz')
+    ecc = str(data / 'wref_internal.nii.gz')
+
+    retcode = subprocess.check_call(
+        ['fsl_mrs_preproc_edit',
+         '--output', str(tmp_path),
+         '--data', metab,
+         '--reference', wrefc,
+         '--quant', wrefq,
+         '--ecc', ecc,
+         '--t1', t1,
+         '--align_ppm_dynamic', '1.8', '4.2',
+         '--align_window_dynamic', '4',
+         '--align_ppm_edit', '2.5', '4.2',
+         '--hlsvd',
+         '--leftshift', '2',
+         '--overwrite',
+         '--report',
+         '--verbose'])
+
+    assert retcode == 0
+    assert (tmp_path / 'diff.nii.gz').exists()
+    assert (tmp_path / 'edit_0.nii.gz').exists()
+    assert (tmp_path / 'edit_1.nii.gz').exists()
+    assert (tmp_path / 'wref.nii.gz').exists()
+    assert (tmp_path / 'options.txt').exists()
+    assert (tmp_path / 'mergedReports.html').exists()
+    assert (tmp_path / 'voxel_location.png').exists()
+
+
 def test_preproc_wnoise(tmp_path):
 
     from fsl_mrs.core.nifti_mrs import create_nmrs
