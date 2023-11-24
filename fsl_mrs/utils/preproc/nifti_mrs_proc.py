@@ -13,6 +13,7 @@ import numpy as np
 from fsl_mrs.utils import preproc
 from fsl_mrs.core import NIFTI_MRS
 from fsl_mrs import __version__
+from fsl_mrs.utils.misc import shift_FID
 
 
 class DimensionsDoNotMatch(Exception):
@@ -248,16 +249,28 @@ def average(data, dim, figure=False, report=None, report_all=False):
     return combined_obj
 
 
-def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False, report=None, report_all=False):
+def align(
+        data,
+        dim,
+        window=None,
+        target=None,
+        ppmlim=None,
+        niter=2,
+        figure=False,
+        report=None,
+        report_all=False):
     '''Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
     stored in higher dimensions.
 
+    Optionally define a window size to repeatedly align using hanning-weighted windows of spectra.
+    E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
+
     :param NIFTI_MRS data: Data to align
     :param str dim: NIFTI-MRS dimension tag, or 'all'
+    :param int window: Window size.
     :param target: Optional target FID
     :param ppmlim: ppm search limits.
     :param int niter: Number of total iterations
-    :param float apodize: Apply apodisation in Hz.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
     :param report_all: True to output all indicies
@@ -273,6 +286,8 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
         generator = data.iterate_over_dims(dim=dim,
                                            iterate_over_space=True,
                                            reduce_dim_index=False)
+
+    mrs = data.mrs()[0]
     for dd, idx in generator:
 
         if dim == 'all':
@@ -280,26 +295,96 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
             original_shape = dd.shape
             dd = dd.reshape(original_shape[0], -1)
 
-        out = preproc.phase_freq_align(
-            dd.T,
-            data.bandwidth,
-            data.spectrometer_frequency[0],
-            nucleus=data.nucleus[0],
-            ppmlim=ppmlim,
-            niter=niter,
-            apodize=apodize,
-            verbose=False,
-            target=target)
+        if window is None:
+            # Use original single transient alignment
+            out = preproc.phase_freq_align(
+                dd.T,
+                data.bandwidth,
+                data.spectrometer_frequency[0],
+                nucleus=data.nucleus[0],
+                ppmlim=ppmlim,
+                niter=niter,
+                verbose=False,
+                target=target)
 
-        if dim == 'all':
-            aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
+            if dim == 'all':
+                aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
+            else:
+                aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
+
         else:
-            aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
+            # Use iterative windowed alignment
+            curr_phs = np.zeros(dd.shape[1])
+            curr_eps = np.zeros(dd.shape[1])
+            curr_raw = dd.copy()
+
+            mean_eps = 1
+            niter = 0
+            win_size = window
+            if target is None:
+                set_target = True
+            else:
+                set_target = False
+            while mean_eps > 0.02:
+                if win_size % 2:
+                    # Odd window size: up the size of the window by two
+                    # discard the outer two zeros
+                    weighting_func = np.hanning(win_size + 2)
+                    weighting_func = weighting_func[1:-1]
+                    stride_size = win_size
+                else:
+                    # Even window size: up the size of the window by three
+                    # discard the outer two zeros
+                    weighting_func = np.hanning(win_size + 3)
+                    weighting_func = weighting_func[1:-1]
+                    stride_size = win_size + 1
+                half_win = int(win_size / 2)
+
+                # Handle window size 1 case
+                if win_size == 1:
+                    padded_data = curr_raw
+                else:
+                    padded_data = np.concatenate(
+                        (curr_raw[:, -half_win:], curr_raw[:, :], curr_raw[:, :half_win]),
+                        axis=1)
+
+                win_avg_data = np.lib.stride_tricks.sliding_window_view(
+                    padded_data,
+                    stride_size,
+                    axis=1) * weighting_func
+                win_avg_data = win_avg_data.mean(axis=-1)
+
+                if set_target:
+                    target = curr_raw.mean(axis=1)
+
+                _, phi, eps = preproc.phase_freq_align(
+                    win_avg_data.T,
+                    data.bandwidth,
+                    data.spectrometer_frequency[0],
+                    ppmlim=ppmlim,
+                    niter=niter,
+                    target=target)
+
+                for jdx, fid in enumerate(curr_raw.T):
+                    curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
+
+                curr_phs += phi
+                curr_eps += eps
+                mean_eps = np.abs(eps).mean()
+                niter += 1
+                # print(f'{nitter}: {np.abs(phi).mean()} deg, {mean_eps} Hz.')
+                if niter == 40:
+                    break
+
+            if dim == 'all':
+                aligned_obj[idx], phi, eps = curr_raw.reshape(original_shape), curr_phs, curr_eps
+            else:
+                aligned_obj[idx], phi, eps = curr_raw, curr_phs, curr_eps
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
             fig = phase_freq_align_report(dd.T,
-                                          out[0],
+                                          aligned_obj[idx].T,
                                           phi,
                                           eps,
                                           data.bandwidth,
@@ -314,13 +399,13 @@ def align(data, dim, target=None, ppmlim=None, niter=2, apodize=10, figure=False
     # Update processing prov
     processing_info = f'{__name__}.align, '
     processing_info += f'dim={dim}, '
+    processing_info += f'window={window}, '
     if target is not None:
         processing_info += 'target used, '
     else:
         processing_info += 'target=None, '
     processing_info += f'ppmlim={ppmlim}, '
-    processing_info += f'niter={niter}, '
-    processing_info += f'apodize={apodize}.'
+    processing_info += f'niter={niter}.'
 
     update_processing_prov(aligned_obj, 'Frequency and phase correction', processing_info)
 

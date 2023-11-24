@@ -29,7 +29,7 @@ def test_dyn_align(tmp_path):
 
     reduced_data, _ = split(combined, 'DIM_DYN', 2)
 
-    aligned_1 = nproc.align(reduced_data, 'DIM_DYN', ppmlim=(0.2, 4.2), apodize=0.0)
+    aligned_1 = nproc.align(reduced_data, 'DIM_DYN', ppmlim=(0.2, 4.2))
 
     basis = btools.conjugate_basis(read_basis(basis_path))
 

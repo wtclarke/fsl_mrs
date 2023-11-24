@@ -49,6 +49,39 @@ def test_preproc(tmp_path):
     assert proc_nii.shape == (1, 1, 1, 4095)
 
 
+def test_window_align_preproc(tmp_path):
+
+    metab = str(data / 'metab_raw.nii.gz')
+    wrefc = str(data / 'wref_raw.nii.gz')
+    wrefq = str(data / 'quant_raw.nii.gz')
+    ecc = str(data / 'ecc.nii.gz')
+
+    retcode = subprocess.check_call(
+        ['fsl_mrs_preproc',
+         '--output', str(tmp_path),
+         '--data', metab,
+         '--reference', wrefc,
+         '--quant', wrefq,
+         '--ecc', ecc,
+         '--t1', t1,
+         '--align_limits', '0.5', '4.0',
+         '--align_window', '4',
+         '--hlsvd',
+         '--leftshift', '1',
+         '--overwrite',
+         '--report',
+         '--verbose'])
+
+    assert retcode == 0
+    assert (tmp_path / 'mergedReports.html').exists()
+    assert (tmp_path / 'voxel_location.png').exists()
+    assert (tmp_path / 'metab.nii.gz').exists()
+    assert (tmp_path / 'wref.nii.gz').exists()
+
+    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    assert proc_nii.shape == (1, 1, 1, 4095)
+
+
 def test_preproc_wnoise(tmp_path):
 
     from fsl_mrs.core.nifti_mrs import create_nmrs

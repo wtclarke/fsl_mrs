@@ -305,8 +305,24 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
     return plt.gcf()
 
 
-def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True):
+def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True, legend=True):
+    """Plot multiple spectra on the same axes.
 
+    Optionally pass additional spectra to highlight and plot the mean.
+
+    :param MRSList: List of MRS objects to plot.
+    :type MRSList: Iterable of fsl_mrs.core.mrs.MRS objects
+    :param ppmlim: Define a ppm window, defaults to (0, 4.5)
+    :type ppmlim: tuple, optional
+    :param single_FID: Optional FID to highlight, defaults to None
+    :type single_FID: fsl_mrs.core.mrs.MRS, optional
+    :param plot_avg: Plot the mean spectra of MRSList, defaults to True
+    :type plot_avg: bool, optional
+    :param legend: Add legend for each index, defaults to True
+    :type legend: bool, optional
+    :return: figure object
+    :rtype: matplotlib.figure.Figure
+    """
     plt.figure(figsize=(10, 10))
     plt.xlim(ppmlim)
     plt.gca().invert_xaxis()
@@ -317,20 +333,24 @@ def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True):
     plt.autoscale(enable=True, axis='y', tight=True)
 
     avg = 0
-    for mrs in MRSList:
+    for idx, mrs in enumerate(MRSList):
         data = np.real(mrs.get_spec(ppmlim=ppmlim))
         ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
         avg += data
-        plt.plot(ppmAxisShift, data, color='k', linewidth=.5, linestyle='-')
+        if legend:
+            plt.plot(ppmAxisShift, data, linewidth=.7, linestyle='-', label=f'#{idx}')
+        else:
+            plt.plot(ppmAxisShift, data, linewidth=.5, color='k', linestyle='-')
     if single_FID is not None:
         data = np.real(single_FID.get_spec(ppmlim=ppmlim))
         plt.plot(ppmAxisShift, data, color='r', linewidth=2, linestyle='-')
     if plot_avg:
         avg /= len(MRSList)
-        plt.plot(ppmAxisShift, avg, color='g', linewidth=2, linestyle='-')
+        plt.plot(ppmAxisShift, avg, color='g', linewidth=2, linestyle='-', label='Mean')
 
     autoscale_y(plt.gca(), margin=0.05)
-
+    if legend:
+        plt.legend()
     return plt.gcf()
 
 

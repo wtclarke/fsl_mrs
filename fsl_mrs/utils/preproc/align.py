@@ -116,7 +116,7 @@ def phase_freq_align(FIDlist,
                      nucleus='1H',
                      ppmlim=None,
                      niter=2,
-                     apodize=10,
+                     apodize=0,
                      verbose=False,
                      shift=True,
                      target=None):
@@ -125,10 +125,6 @@ def phase_freq_align(FIDlist,
        Average spectra
        Loop over all spectra and find best phase/frequency shifts
        Iterate
-
-    TODO:
-       test the code
-       add dedrifting?
 
     Parameters:
     -----------

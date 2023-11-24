@@ -64,28 +64,36 @@ def test_average():
 def test_align():
     nmrs_obj = read_FID(metab)
     with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
-    aligned1 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+    aligned1 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
     combined = nproc.coilcombine(nmrs_obj)
-    aligned2 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+    aligned2 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
     # Align across all spectra
-    aligned3 = nproc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1, apodize=5)
+    aligned3 = nproc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
-           'target=None, ppmlim=(1.0, 4.0), niter=1, apodize=5.'
+           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+
+    # Windowed alignment
+    aligned4 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, window=4)
+
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'window=4, target used, ppmlim=(1.0, 4.0), niter=1.'
 
 
 def test_aligndiff():
