@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.1.16 (WIP)
------------------------------------
+2.1.16 (Saturday 25th November 2023)
+------------------------------------
 - Better visualisation of dynamic fitting results.
 - Added experimental windowed averaging to phase and frequency alignment. Improves results for low SNR data or that corrupted by phase cycled artifacts.
 
