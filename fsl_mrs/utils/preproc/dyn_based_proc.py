@@ -77,13 +77,12 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     init = dyn.initialise(indiv_init='mean', verbose=verbose)
     dyn_res = dyn.fit(init=init, verbose=verbose)
 
-    def correctfid(fid, eps, phi):
-        hz = eps * 1 / (2 * np.pi)
-        fid_shift = proc.freqshift(fid, data.dwelltime, hz)
-        fid_phased = proc.applyPhase(fid_shift, phi)
+    def correctfid(fid, hz_shift, phase_shift):
+        fid_shift = proc.freqshift(fid, data.dwelltime, hz_shift)
+        fid_phased = proc.applyPhase(fid_shift, phase_shift)
         return fid_phased
 
-    eps = dyn_res.dataframe_mapped.eps_0.to_numpy()
+    eps = dyn_res.dataframe_mapped.eps_0.to_numpy() / (2 * np.pi)
     phi = dyn_res.dataframe_mapped.Phi_0_0.to_numpy()
 
     aligned_obj = data.copy()
@@ -97,7 +96,7 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
 
     update_processing_prov(aligned_obj, 'Frequency and phase correction', processing_info)
 
-    return aligned_obj, eps, phi
+    return aligned_obj, eps, phi, dyn_res
 
 
 def align_by_dynamic_fit_report(indata, aligned_data, eps, phi, ppmlim=(0.0, 4.2), html=None):

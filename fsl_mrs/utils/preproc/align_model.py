@@ -5,7 +5,7 @@ Copyright (C) 2021 University of Oxford
 """
 
 Parameters = {
-    'Phi_0': 'fixed',
+    'Phi_0': 'variable',
     'Phi_1': 'fixed',
     'conc': 'fixed',
     'eps': 'variable',
