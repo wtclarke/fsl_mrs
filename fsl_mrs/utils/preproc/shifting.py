@@ -110,7 +110,7 @@ def truncate(FID, k, first_or_last='last'):
     elif first_or_last == 'last':
         return FID_trunc[:-k]
     else:
-        raise(Exception("Last parameter must either be 'first' or 'last'"))
+        raise ValueError("Last parameter must either be 'first' or 'last'")
 
 
 def pad(FID, k, first_or_last='last'):
@@ -134,7 +134,7 @@ def pad(FID, k, first_or_last='last'):
     elif first_or_last == 'last':
         return np.pad(FID_pad, (0, k))
     else:
-        raise(Exception("Last parameter must either be 'first' or 'last'"))
+        raise ValueError("Last parameter must either be 'first' or 'last'")
 
 
 def shift_report(inFID,

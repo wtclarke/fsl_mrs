@@ -363,13 +363,18 @@ def main():
 
     # Align between edit dimension
     if args.dynamic_align_edit and args.average:
-        metab_edit_align, eps, phi = dproc.align_by_dynamic_fit(supp_data, [basis_0, basis_1], fitargs_1)
+        basis_0 = mrs_io.read_basis(args.dynamic_basis[0])
+        basis_1 = mrs_io.read_basis(args.dynamic_basis[1])
+        fitargs_edit = {
+            'baseline_order': 2,
+            'ppmlim': (0, 4.2)}
+        metab_edit_align, eps, phi, _ = dproc.align_by_dynamic_fit(supp_data, [basis_0, basis_1], fitargs_edit)
         if report_dir is not None:
             dproc.align_by_dynamic_fit_report(supp_data, metab_edit_align, eps, phi, html=report_dir)
 
     elif args.dynamic_align_edit:
         # Do not average and dynamic alignment
-        # Work out alignement on averaged data
+        # Work out alignment on averaged data
         supp_data_avg = nifti_mrs_proc.average(supp_data, 'DIM_DYN')
         metab_edit_align, eps, phi = dproc.align_by_dynamic_fit(supp_data_avg, [basis_0, basis_1], fitargs_1)
 

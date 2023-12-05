@@ -319,7 +319,7 @@ def align(
             curr_raw = dd.copy()
 
             mean_eps = 1
-            niter = 0
+            nwiter = 0
             win_size = window
             if target is None:
                 set_target = True
@@ -371,9 +371,10 @@ def align(
                 curr_phs += phi
                 curr_eps += eps
                 mean_eps = np.abs(eps).mean()
-                niter += 1
-                # print(f'{nitter}: {np.abs(phi).mean()} deg, {mean_eps} Hz.')
-                if niter == 40:
+                nwiter += 1
+                print(f'{nwiter}: {np.abs(phi).mean()} deg, {mean_eps} Hz.')
+                if nwiter == 30:
+                    print('Reached windowed average iteration limit. Stopping.')
                     break
 
             if dim == 'all':

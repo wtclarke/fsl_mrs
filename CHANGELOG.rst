@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.17 (Tuesday 5th December 2023)
+----------------------------------
+- Fixed bug in windowed averaging introduced in v2.1.16
+
 2.1.16 (Saturday 25th November 2023)
 ------------------------------------
 - Better visualisation of dynamic fitting results.
