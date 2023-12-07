@@ -131,16 +131,23 @@ fit-validate:
   image: wtclarke/fsl_mrs_tests:latest
   stage: validate
   variables:
+    GIT_STRATEGY: clone
     GIT_SUBMODULE_STRATEGY: normal
     DEPLOY_CURL_COMMAND_BODY: "'{\"title\":\"New FSL-MRS version\",\"body\":\"Version '$$FSL_MRS_VERSION' \",\"head\":\"fsl_mrs_updates_'$$FSL_MRS_VERSION'\",\"base\":\"main\"}'"
     DEPLOY_CURL_COMMAND: 'curl -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_PAT" https://api.github.com/repos/wtclarke/lcm_validation/pulls -d $DEPLOY_CURL_COMMAND_BODY'
   before_script:
+  # Create an environment to work in
   - micromamba create -n fsl_mrs -c conda-forge -y python=3.9
   - eval "$(micromamba shell hook --shell bash)"
   - micromamba activate fsl_mrs
+  # Install all the FSL tools needed
   - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
   - export FSLOUTPUTTYPE="NIFTI_GZ"
   - export FSLDIR="/opt/conda/envs/fsl_mrs"
+  # Get the git tags.
+  - git config --global --add safe.directory /builds/wclarke/fsl_mrs
+  - git fetch --tags
+  - git status
   - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
   - pip install .
   # Setup ssh communication with the github instance
