@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.18 (Thursday 7th December 2023)
+-----------------------------------
+- Fixed bug in `fsl_mrs_summarise` that resulted in hang if single level of listed directories weren't distinguishable.
+- NIfTI-MRS tools v1.1.1 required. Fixes some visualisation bugs.
+
 2.1.17 (Tuesday 5th December 2023)
 ----------------------------------
 - Fixed bug in windowed averaging introduced in v2.1.16

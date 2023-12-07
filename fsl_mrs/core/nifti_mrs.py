@@ -221,7 +221,7 @@ def merge(array_of_nmrs, dimension):
     return NIFTI_MRS(tools.merge(array_of_nmrs, dimension))
 
 
-def split(nmrs, dimension, index_or_indicies):
+def split(nmrs, dimension, index_or_indices):
     """Splits, or extracts indices from, a specified dimension of a
     NIFTI_MRS object. Output is two NIFTI_MRS objects. Header information preserved.
 
@@ -230,17 +230,17 @@ def split(nmrs, dimension, index_or_indicies):
     :param dimension: Dimension along which to split.
         Dimension tag or one of 4, 5, 6 (for 0-indexed 5th, 6th, and 7th)
     :type dimension: str or int
-    :param index_or_indicies: Single integer index to split after,
+    :param index_or_indices: Single integer index to split after,
         or list of interger indices to insert into second array.
         E.g. '0' will place the first index into the first output
         and 1 -> N in the second.
         '[1, 5, 10]' will place 1, 5 and 10 into the second output
         and all other will remain in the first.
-    :type index_or_indicies: int or [int]
+    :type index_or_indices: int or [int]
     :return: Two NIFTI_MRS object containing the split files
     :rtype: fsl_mrs.core.nifti_mrs.NIFTI_MRS
     """
-    return (NIFTI_MRS(x) for x in tools.split(nmrs, dimension, index_or_indicies))
+    return (NIFTI_MRS(x) for x in tools.split(nmrs, dimension, index_or_indices))
 
 
 def reorder(nmrs, dim_tag_list):

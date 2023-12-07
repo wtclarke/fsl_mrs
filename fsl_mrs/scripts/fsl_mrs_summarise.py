@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from sys import stdout
 import argparse
+import os.path as op
 
 # 3rd party imports
 import pandas as pd
@@ -37,8 +38,8 @@ def main():
         'input',
         type=Path,
         metavar='DIR or FILE',
-        help='Directory contiaining individual results directories '
-             'or Text file contiaining line-separated list of results directories.')
+        help='Directory containing individual results directories '
+             'or Text file containing line-separated list of results directories.')
 
     # ADDITONAL OPTIONAL ARGUMENTS
     parser.add_argument('-v', '--verbose',
@@ -81,15 +82,10 @@ def main():
     if len(list(dict.fromkeys(res_dir))) < len(res_dir):
         raise ValueError('Input directories must not be duplicated.')
 
-    res_dir_for_names = [fp for fp in res_dir]
-    fit_names = [fp.name for fp in res_dir_for_names]
-    while len(list(dict.fromkeys(fit_names))) < len(res_dir):
-        res_dir_for_names = [fp.parent for fp in res_dir_for_names]
-
-        if res_dir_for_names[0] == Path('/'):
-            raise ValueError('Inputs must be uniquely identifiable at single level.')
-
-        fit_names = [fp.name for fp in res_dir_for_names]
+    # Look for common paths of the path
+    common_path = Path(op.commonpath(res_dir))
+    # Form path names out of the remaining paths after anything common is removed
+    fit_names = [str(cpath.relative_to(common_path)) for cpath in res_dir]
 
     # 1. Concentration.csv
     if verbose:
@@ -468,7 +464,7 @@ def main():
         elif ctx.triggered_id in ['fwhm-figure', 'snr-figure']:
             selecteddataset = None
         # print(selecteddataset)
-        return create_qc_figure(metab, selecteddataset, 'FWHM', colour),\
+        return create_qc_figure(metab, selecteddataset, 'FWHM', colour), \
             create_qc_figure(metab, selecteddataset, 'SNR', colour)
 
     @app.callback(

@@ -1,6 +1,6 @@
 numpy>=1.19
 scipy>=1.6
-matplotlib
+matplotlib>=3.5
 plotly>=4
 pandas
 jinja2
@@ -9,11 +9,11 @@ nibabel
 hlsvdpropy
 fslpy>=3.9.0
 pillow
-spec2nii>=0.3.0
+spec2nii>=0.7.2
 dill
 dash
 flask>=2.2
-nifti-mrs>=1.0.0
+nifti-mrs>=1.1.1
 fsl_sub
 fsl_sub_plugin_sge
 fsl_sub_plugin_slurm

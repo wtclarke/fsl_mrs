@@ -66,7 +66,7 @@ def test_split():
         nmrs_tools.split(nmrs, 'DIM_DYN', -1)
 
     assert exc_info.type is ValueError
-    assert exc_info.value.args[0] == "index_or_indicies must be between 0 and N-1,"\
+    assert exc_info.value.args[0] == "index_or_indices must be between 0 and N-1,"\
                                      " where N is the size of the specified dimension (64)."
 
     # Single index - out of range high
@@ -74,31 +74,31 @@ def test_split():
         nmrs_tools.split(nmrs, 'DIM_DYN', 64)
 
     assert exc_info.type is ValueError
-    assert exc_info.value.args[0] == "index_or_indicies must be between 0 and N-1,"\
+    assert exc_info.value.args[0] == "index_or_indices must be between 0 and N-1,"\
                                      " where N is the size of the specified dimension (64)."
 
-    # List of indicies - out of range low
+    # List of indices - out of range low
     with pytest.raises(ValueError) as exc_info:
         nmrs_tools.split(nmrs, 'DIM_DYN', [-1, 0, 1])
 
     assert exc_info.type is ValueError
-    assert exc_info.value.args[0] == "index_or_indicies must have elements between 0 and N,"\
+    assert exc_info.value.args[0] == "index_or_indices must have elements between 0 and N,"\
                                      " where N is the size of the specified dimension (64)."
 
-    # List of indicies - out of range high
+    # List of indices - out of range high
     with pytest.raises(ValueError) as exc_info:
         nmrs_tools.split(nmrs, 'DIM_DYN', [0, 65])
 
     assert exc_info.type is ValueError
-    assert exc_info.value.args[0] == "index_or_indicies must have elements between 0 and N,"\
+    assert exc_info.value.args[0] == "index_or_indices must have elements between 0 and N,"\
                                      " where N is the size of the specified dimension (64)."
 
-    # List of indicies - wrong type
+    # List of indices - wrong type
     with pytest.raises(TypeError) as exc_info:
         nmrs_tools.split(nmrs, 'DIM_DYN', '1')
 
     assert exc_info.type is TypeError
-    assert exc_info.value.args[0] == "index_or_indicies must be single index or list of indicies"
+    assert exc_info.value.args[0] == "index_or_indices must be single index or list of indices"
 
     # Functionality testing
 
