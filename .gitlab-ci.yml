@@ -179,7 +179,7 @@ pages:
   only:
     - branches@wclarke/fsl_mrs
     - tags@fsl/fsl_mrs
-  image: python:3.7
+  image: python:3.9
   stage: doc
   script:
   - git describe --tag --dirty

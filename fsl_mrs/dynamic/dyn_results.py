@@ -512,7 +512,7 @@ class dynRes:
         :type init: bool, optional
         :param fit_to_init: Plot the spectra as per fitting the dynamic model to init, defaults to False
         :type fit_to_init: bool, optional
-        :param indices: List of indicies to plot, defaults to None which plots up to 16 equally spaced.
+        :param indices: List of indices to plot, defaults to None which plots up to 16 equally spaced.
         :type indices: list, optional
         :return: plotly figure
         """
