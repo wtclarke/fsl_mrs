@@ -61,6 +61,61 @@ def test_QuantificationInfo():
     assert qci.add_corr == 5.0
 
 
+def test_water_ref_metab_options():
+    with pytest.raises(
+            quant.NoWaterScalingMetabolite,
+            match='No suitable metabolite has been identified for water scaling.'):
+        quant.QuantificationInfo(0.000, 20, ['Ins', ], 298)
+
+    qci = quant.QuantificationInfo(0.000, 20, ['Cr', ], 298)
+    assert qci.ref_metab == 'Cr'
+    assert qci.ref_protons == 5
+    assert qci.ref_limits == (2, 5)
+
+    qci = quant.QuantificationInfo(0.000, 20, ['PCr', ], 298)
+    assert qci.ref_metab == 'PCr'
+    assert qci.ref_protons == 5
+    assert qci.ref_limits == (2, 5)
+
+    qci = quant.QuantificationInfo(0.010, 20, ['NAA'], 298)
+    assert qci.ref_metab == 'NAA'
+    assert qci.ref_protons == 3
+    assert qci.ref_limits == (1.8, 2.2)
+
+    qci = quant.QuantificationInfo(0.000, 20, ['PCr', 'Cr'], 298)
+    assert qci.ref_metab == ['Cr', 'PCr']
+    assert qci.ref_protons == 5
+    assert qci.ref_limits == (2, 5)
+
+    # Provided - note input range / proton values are not correct
+    with pytest.raises(
+            ValueError,
+            match="Specified matabolite Ins isn't in the list of basis spectra."):
+        quant.QuantificationInfo(
+            0.000, 20, ['Cr', ], 298,
+            water_ref_metab='Ins',
+            water_ref_metab_limits=(3, 4),
+            water_ref_metab_protons=2)
+
+    qci = quant.QuantificationInfo(
+        0.000, 20, ['PCr', 'Cr', 'Ins'], 298,
+        water_ref_metab='Ins',
+        water_ref_metab_limits=(3, 4),
+        water_ref_metab_protons=2)
+    assert qci.ref_metab == 'Ins'
+    assert qci.ref_protons == 2
+    assert qci.ref_limits == (3, 4)
+
+    qci = quant.QuantificationInfo(
+        0.000, 20, ['PCr', 'Cr', 'Ins'], 298,
+        water_ref_metab=['Ins', 'PCr'],
+        water_ref_metab_limits=(3, 4),
+        water_ref_metab_protons=2)
+    assert qci.ref_metab == ['Ins', 'PCr']
+    assert qci.ref_protons == 2
+    assert qci.ref_limits == (3, 4)
+
+
 def test_volumefraction_calc():
     qci = quant.QuantificationInfo(0.010, 3, ['NAA'], 298)
     qci.set_fractions({'GM': 0.45, 'WM': 0.40, 'CSF': 0.15})

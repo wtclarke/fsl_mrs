@@ -92,6 +92,7 @@ def main():
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
     optional.add_argument('--wref_metabolite', type=str, default=None,
+                          nargs='+',
                           help='Metabolite(s) used as an the reference for water scaling.'
                                ' Uses internal defaults otherwise.')
     optional.add_argument('--ref_protons', type=int, default=None,
@@ -536,42 +537,49 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
     from fsl_mrs.utils import fitting, quantify
 
     mrs, index, tissue_seg = mrs_in
+    try:
+        res = fitting.fit_FSLModel(mrs, **Fitargs)
 
-    res = fitting.fit_FSLModel(mrs, **Fitargs)
+        # Internal and Water quantification if requested
+        if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
+            if mrs.H2O is not None and echotime is None:
+                warnings.warn(
+                    'H2O file provided but could not determine TE:'
+                    ' no absolute quantification will be performed.',
+                    UserWarning)
+            if mrs.H2O is not None and repetition_time is None:
+                warnings.warn(
+                    'H2O file provided but could not determine TR:'
+                    ' no absolute quantification will be performed.',
+                    UserWarning)
+            res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+        else:
+            # Form quantification information
+            q_info = quantify.QuantificationInfo(
+                echotime,
+                repetition_time,
+                mrs.names,
+                mrs.centralFrequency / 1E6,
+                water_ref_metab=args.wref_metabolite,
+                water_ref_metab_protons=args.ref_protons,
+                water_ref_metab_limits=args.ref_int_limits)
 
-    # Internal and Water quantification if requested
-    if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
-        if mrs.H2O is not None and echotime is None:
-            warnings.warn('H2O file provided but could not determine TE:'
-                          ' no absolute quantification will be performed.',
-                          UserWarning)
-        if mrs.H2O is not None and repetition_time is None:
-            warnings.warn('H2O file provided but could not determine TR:'
-                          ' no absolute quantification will be performed.',
-                          UserWarning)
-        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
-    else:
-        # Form quantification information
-        q_info = quantify.QuantificationInfo(echotime,
-                                             repetition_time,
-                                             mrs.names,
-                                             mrs.centralFrequency / 1E6,
-                                             water_ref_metab=args.wref_metabolite,
-                                             water_ref_metab_protons=args.ref_protons,
-                                             water_ref_metab_limits=args.ref_int_limits)
+            if tissue_seg:
+                q_info.set_fractions(tissue_seg)
+            if args.h2o_scale:
+                q_info.add_corr = args.h2o_scale
 
-        if tissue_seg:
-            q_info.set_fractions(tissue_seg)
-        if args.h2o_scale:
-            q_info.add_corr = args.h2o_scale
-
-        res.calculateConcScaling(mrs,
-                                 quant_info=q_info,
-                                 internal_reference=args.internal_ref,
-                                 verbose=args.verbose)
-    # Combine metabolites.
-    if args.combine is not None:
-        res.combine(args.combine)
+            res.calculateConcScaling(
+                mrs,
+                quant_info=q_info,
+                internal_reference=args.internal_ref,
+                verbose=args.verbose)
+        # Combine metabolites.
+        if args.combine is not None:
+            res.combine(args.combine)
+    except Exception as exc:
+        print(f'Exception ({exc}) occured in index {index}.')
+        raise exc
 
     return res, index
 

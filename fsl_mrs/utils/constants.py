@@ -83,10 +83,12 @@ H2O_PROTONS = 2
 
 # Water referencing metabolites
 # Define a list of sensible metabolites to use and
-# the number of protons between the default limits of 2 and 5
-WATER_SCALING_METAB = ['Cr', 'PCr', 'NAA']
-WATER_SCALING_METAB_PROTONS = [5, 5, 3]
-WATER_SCALING_DEFAULT_LIMITS = [(2, 5), (2, 5), (1.8, 2.2)]
+# the number of protons between the specified limits
+# Note that ['Cr', 'PCr'] still has only 5 protons as the
+# internal referencing in FitRes.calculateConcScaling is a ratio to Cr+PCr.
+WATER_SCALING_METAB = [['Cr', 'PCr'], 'Cr', 'PCr', 'NAA']
+WATER_SCALING_METAB_PROTONS = [5, 5, 5, 3]
+WATER_SCALING_DEFAULT_LIMITS = [(2, 5), (2, 5), (2, 5), (1.8, 2.2)]
 
 # T1 parameters
 # Derived from a survey of the literature. References listed below.

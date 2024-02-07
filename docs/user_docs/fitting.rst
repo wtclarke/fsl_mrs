@@ -171,7 +171,7 @@ Below are detailed explanations of some of the optional arguments in the wrapper
 :code:`--internal_ref`
     Set alternative metabolites for internal reference scaling (default is tCr = Cr + PCr). Multiple arguments can be specified for a combined internal reference.
 :code:`--wref_metabolite`
-    Set alternative water scaling reference (default is Cr). Must be used if none of Cr, PCr and NAA are present in the basis set.
+    Set alternative water scaling reference or references (default is PCr+Cr). Must be used if none of Cr, PCr and NAA are present in the basis set.
 :code:`--ref_protons`
     Number of protons that the water scaling reference is equivalent to (between defined integration limits). E.g. Cr is equivalent to 5 between 2 and 5 ppm. Only active when --wref_metabolite is used.
 :code:`--ref_int_limits`

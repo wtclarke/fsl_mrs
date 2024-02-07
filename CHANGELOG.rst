@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.19 (Wednesday 7th February 2024)
+------------------------------------
+- Multiple metabolites can now be specified as the water scaling metabolite
+- Default water scaling metabolite is now PCr+Cr to add robustness to one of PCr or Cr not being fit.
+- Improved error logging in `fsl_mrsi` when parallel processing enabled.
+
 2.1.18 (Thursday 7th December 2023)
 -----------------------------------
 - Fixed bug in `fsl_mrs_summarise` that resulted in hang if single level of listed directories weren't distinguishable.
