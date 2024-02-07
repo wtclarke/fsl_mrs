@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY,\
-    STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO,\
-    H2O_PROTONS, WATER_SCALING_METAB,\
-    WATER_SCALING_METAB_PROTONS,\
+from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY, \
+    STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
+    H2O_PROTONS, WATER_SCALING_METAB, \
+    WATER_SCALING_METAB_PROTONS, \
     WATER_SCALING_DEFAULT_LIMITS
 
 
@@ -194,7 +194,6 @@ class QuantificationInfo(object):
                                specified_metab=water_ref_metab,
                                specified_protons=water_ref_metab_protons,
                                specified_limits=water_ref_metab_limits)
-
         # Water reference integral limits
         self.h2o_limits = (1.65, 7.65)
 
@@ -236,14 +235,19 @@ class QuantificationInfo(object):
     def _handle_ref_metab(self, metab_list, specified_metab=None, specified_protons=None, specified_limits=None):
         """Set the water referencing metab using either the predefined list or the specified matabolite."""
         if specified_metab:
-            if not isinstance(specified_metab, str):
-                raise TypeError(f'Specified reference metabolite should be string not {type(specified_metab)}')
+            if not isinstance(specified_metab, (list, str)):
+                raise TypeError(
+                    f'Specified reference metabolite should be string or list of strings not {type(specified_metab)}')
             if not isinstance(specified_protons, int):
-                raise TypeError(f'Specified reference metabolite protons should be int not {type(specified_protons)}')
+                raise TypeError(
+                    f'Specified reference metabolite protons should be int not {type(specified_protons)}')
             if not isinstance(specified_limits, (list, tuple)):
-                raise TypeError(f'Specified reference metabolite limits should be tuple not {type(specified_limits)}')
+                raise TypeError(
+                    f'Specified reference metabolite limits should be tuple not {type(specified_limits)}')
 
-            if specified_metab in metab_list:
+            if (isinstance(specified_metab, list)
+                    and all([x in metab_list for x in specified_metab]))\
+                    or specified_metab in metab_list:
                 self.ref_metab = specified_metab
                 self.ref_protons = specified_protons
                 self.ref_limits = specified_limits
@@ -254,7 +258,9 @@ class QuantificationInfo(object):
             for wsm, nprot, lim in zip(WATER_SCALING_METAB,
                                        WATER_SCALING_METAB_PROTONS,
                                        WATER_SCALING_DEFAULT_LIMITS):
-                if wsm in metab_list:
+                if (isinstance(wsm, list)
+                        and all([x in metab_list for x in wsm]))\
+                        or wsm in metab_list:
                     self.ref_metab = wsm
                     self.ref_protons = nprot
                     self.ref_limits = lim

@@ -108,6 +108,7 @@ def main():
                           help='Metabolite(s) used as an internal reference.'
                                ' Defaults to tCr (Cr+PCr).')
     optional.add_argument('--wref_metabolite', type=str, default=None,
+                          nargs='+',
                           help='Metabolite(s) used as an the reference for water scaling.'
                                ' Uses internal defaults otherwise.')
     optional.add_argument('--ref_protons', type=int, default=None,

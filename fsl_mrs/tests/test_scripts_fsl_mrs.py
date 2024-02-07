@@ -123,6 +123,33 @@ def test_alt_ref(tmp_path):
     assert op.exists(op.join(tmp_path, 'options.txt'))
 
 
+def test_alt_multiple_ref(tmp_path):
+
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--h2o', data['water'],
+                           '--TE', '11',
+                           '--metab_groups', 'Mac',
+                           '--tissue_frac', '0.45', '0.45', '0.1',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--combine', 'NAA', 'NAAG',
+                           '--internal_ref', 'NAA', 'NAAG',
+                           '--wref_metabolite', 'PCh', 'GPC',
+                           '--ref_protons', '3',
+                           '--ref_int_limits', '3.0', '3.4',
+                           '--report'])
+
+    assert op.exists(op.join(tmp_path, 'report.html'))
+    assert op.exists(op.join(tmp_path, 'summary.csv'))
+    assert op.exists(op.join(tmp_path, 'concentrations.csv'))
+    assert op.exists(op.join(tmp_path, 'qc.csv'))
+    assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
+    assert op.exists(op.join(tmp_path, 'options.txt'))
+
+
 def test_fsl_mrs_default_mm(tmp_path, capfd):
 
     subprocess.check_call(['fsl_mrs',

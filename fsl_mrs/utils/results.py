@@ -230,7 +230,6 @@ class FitRes(object):
                                                                              self,
                                                                              quant_info,
                                                                              verbose=verbose)
-
             if ref_info['metab_ref'].integral == 0.0:
                 raise self.QuantificationError(
                     f'Metabolite reference {quant_info.ref_metab} has not been fit (conc=0). '
@@ -315,7 +314,47 @@ class FitRes(object):
         return out[first:last]
 
     def predictedFID(self, mrs, mode='Full', noBaseline=False, no_phase=False):
-        if mode.lower() == 'full':
+        """Return the predicted FID generated from the fitted model.
+
+        Mode may be set to return full fit, baseline or ore or more metabolite
+
+        :param mrs: MRS object containing data and basis
+        :type mrs: fsl_mrs.core.mrs.MRS
+        :param mode: 'Full', 'Baseline', metabolite name or list of names, defaults to 'Full'
+        :type mode: str, optional
+        :param noBaseline: Remove baseline, defaults to False
+        :type noBaseline: bool, optional
+        :param no_phase: Remove fitted phase, defaults to False
+        :type no_phase: bool, optional
+        :return: predicted FID
+        :rtype: numpy.array
+        """
+        if isinstance(mode, (list, tuple))\
+                and all([x in self.metabs for x in mode]):
+            out = np.sum(
+                [models.getFittedModel(
+                    self.model,
+                    self.params,
+                    self.base_poly,
+                    self.metab_groups,
+                    mrs,
+                    basisSelect=x,
+                    baselineOnly=False,
+                    noBaseline=noBaseline,
+                    no_phase=no_phase) for x in mode],
+                axis=0)
+        elif mode in self.metabs:
+            out = models.getFittedModel(
+                self.model,
+                self.params,
+                self.base_poly,
+                self.metab_groups,
+                mrs,
+                basisSelect=mode,
+                baselineOnly=False,
+                noBaseline=noBaseline,
+                no_phase=no_phase)
+        elif mode.lower() == 'full':
             out = models.getFittedModel(
                 self.model,
                 self.params,
@@ -333,19 +372,9 @@ class FitRes(object):
                 mrs,
                 baselineOnly=True,
                 no_phase=no_phase)
-        elif mode in self.metabs:
-            out = models.getFittedModel(
-                self.model,
-                self.params,
-                self.base_poly,
-                self.metab_groups,
-                mrs,
-                basisSelect=mode,
-                baselineOnly=False,
-                noBaseline=noBaseline,
-                no_phase=no_phase)
         else:
-            raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
+            raise ValueError(
+                'Unknown mode, must be one of: Full, baseline, a metabolite name or list of names.')
         return SpecToFID(out)
 
     def __str__(self):
