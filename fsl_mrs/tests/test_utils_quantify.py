@@ -9,6 +9,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 import os.path as op
 import numpy as np
 import pytest
+import pandas as pd
 
 import fsl_mrs.utils.mrs_io as mrsio
 from fsl_mrs.utils.fitting import fit_FSLModel
@@ -21,7 +22,28 @@ basisfile = op.join(op.dirname(__file__), 'testdata/quantify/basisset_JMRUI')
 
 
 def test_QuantificationInfo():
+    with pytest.raises(
+            quant.FieldStrengthInfoError,
+            match='No stored T1 values for 10.6T scanner. Specify values manually.'):
+        quant.QuantificationInfo(0.010, 10, ['Cr', ], 450)
+
+    with pytest.raises(
+            ValueError,
+            match=r'Echo time \(te\) must be larger than 0\.0 s\!'):
+        quant.QuantificationInfo(-0.010, 10, ['Cr', ], 300)
+
+    with pytest.raises(
+            ValueError,
+            match=r'Repetition time \(tr\) must be larger than 0\.0 s\!'):
+        quant.QuantificationInfo(0.010, -10, ['Cr', ], 300)
+
+    with pytest.raises(
+            ValueError,
+            match=r'Flip-angle \(fa\) must be larger than 0 degrees\!'):
+        quant.QuantificationInfo(0.010, 10, ['Cr', ], 300, fa=-5)
+
     qci = quant.QuantificationInfo(0.000, 40, ['Cr', 'NAA'], 298)
+    assert isinstance(qci.summary_table, pd.DataFrame)
     assert qci.relax_corr_water_molal > 55500
     assert qci.relax_corr_water_molar > 55500
 
@@ -65,24 +87,24 @@ def test_water_ref_metab_options():
     with pytest.raises(
             quant.NoWaterScalingMetabolite,
             match='No suitable metabolite has been identified for water scaling.'):
-        quant.QuantificationInfo(0.000, 20, ['Ins', ], 298)
+        quant.QuantificationInfo(0.010, 10, ['Ins', ], 298)
 
-    qci = quant.QuantificationInfo(0.000, 20, ['Cr', ], 298)
+    qci = quant.QuantificationInfo(0.010, 10, ['Cr', ], 298)
     assert qci.ref_metab == 'Cr'
     assert qci.ref_protons == 5
     assert qci.ref_limits == (2, 5)
 
-    qci = quant.QuantificationInfo(0.000, 20, ['PCr', ], 298)
+    qci = quant.QuantificationInfo(0.010, 10, ['PCr', ], 298)
     assert qci.ref_metab == 'PCr'
     assert qci.ref_protons == 5
     assert qci.ref_limits == (2, 5)
 
-    qci = quant.QuantificationInfo(0.010, 20, ['NAA'], 298)
+    qci = quant.QuantificationInfo(0.010, 10, ['NAA'], 298)
     assert qci.ref_metab == 'NAA'
     assert qci.ref_protons == 3
     assert qci.ref_limits == (1.8, 2.2)
 
-    qci = quant.QuantificationInfo(0.000, 20, ['PCr', 'Cr'], 298)
+    qci = quant.QuantificationInfo(0.010, 10, ['PCr', 'Cr'], 298)
     assert qci.ref_metab == ['Cr', 'PCr']
     assert qci.ref_protons == 5
     assert qci.ref_limits == (2, 5)
@@ -90,15 +112,15 @@ def test_water_ref_metab_options():
     # Provided - note input range / proton values are not correct
     with pytest.raises(
             ValueError,
-            match="Specified matabolite Ins isn't in the list of basis spectra."):
+            match="Specified metabolite Ins isn't in the list of basis spectra."):
         quant.QuantificationInfo(
-            0.000, 20, ['Cr', ], 298,
+            0.010, 10, ['Cr', ], 298,
             water_ref_metab='Ins',
             water_ref_metab_limits=(3, 4),
             water_ref_metab_protons=2)
 
     qci = quant.QuantificationInfo(
-        0.000, 20, ['PCr', 'Cr', 'Ins'], 298,
+        0.010, 10, ['PCr', 'Cr', 'Ins'], 298,
         water_ref_metab='Ins',
         water_ref_metab_limits=(3, 4),
         water_ref_metab_protons=2)
@@ -107,7 +129,7 @@ def test_water_ref_metab_options():
     assert qci.ref_limits == (3, 4)
 
     qci = quant.QuantificationInfo(
-        0.000, 20, ['PCr', 'Cr', 'Ins'], 298,
+        0.010, 10, ['PCr', 'Cr', 'Ins'], 298,
         water_ref_metab=['Ins', 'PCr'],
         water_ref_metab_limits=(3, 4),
         water_ref_metab_protons=2)

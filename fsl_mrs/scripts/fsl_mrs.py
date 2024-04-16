@@ -9,13 +9,26 @@
 # SHBASECOPYRIGHT
 
 # Quick imports
+# NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
+from pathlib import Path
+
 from fsl_mrs.auxiliary import configargparse
 
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 
 
-# NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
+class FSLMRSException(Exception):
+    """Exception class for issues in the FSL-MRS script"""
+    pass
+
+
+class QuantificationException(FSLMRSException):
+    """Exception class for issues arising from the quantification steps"""
+    def __init__(self, in_msg, *args, **kwargs):
+        msg = f'There has been an error in the FSL-MRS quantification step: {in_msg}'
+        super().__init__(msg, *args, **kwargs)
+
 
 def main():
     # Parse command-line arguments
@@ -43,7 +56,7 @@ def main():
                           help='.BASIS file or folder containing basis spectra'
                                '(will read all files within)')
     required.add_argument('--output',
-                          required=True, type=str, metavar='<str>',
+                          required=True, type=Path, metavar='<str>',
                           help='output folder')
 
     # FITTING ARGUMENTS
@@ -99,10 +112,28 @@ def main():
                           help='Repetition time for relaxation correction (s)')
     optional.add_argument('--tissue_frac', type=tissue_frac_arg,
                           action=TissueFracAction, nargs='+',
-                          default=None, metavar='WM GM CSF OR json',
-                          help='Fractional tissue volumes for WM, GM, CSF'
-                               ' or json segmentation file.'
-                               ' Defaults to pure water scaling.')
+                          default=None, metavar='WM GM CSF OR .json OR quantification.csv',
+                          help='Fractional tissue volumes for WM, GM, CSF '
+                               'or path to json segmentation file '
+                               'or path to a previously generated '
+                               'quantification_info.csv file. '
+                               'Defaults to pure water scaling.')
+    optional.add_argument('--t1-values',
+                          type=t1_arg,
+                          default=None,
+                          help='Manually specify T1 values. '
+                               'Must be a path to a .json formatted file '
+                               'containing T1 values with fields H2O_WM, H2O_GM, '
+                               'H2O_CSF and METAB; or path to a previously generated '
+                               'quantification_info.csv file.')
+    optional.add_argument('--t2-values',
+                          type=t2_arg,
+                          default=None,
+                          help='Manually specify T2 values. '
+                               'Must be a path to a .json formatted file '
+                               'containing T2 values with fields H2O_WM, H2O_GM, '
+                               'H2O_CSF and METAB; or path to a previously generated '
+                               'quantification_info.csv file.')
     optional.add_argument('--internal_ref', type=str, default=['Cr', 'PCr'],
                           nargs='+',
                           help='Metabolite(s) used as an internal reference.'
@@ -152,8 +183,6 @@ def main():
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import time
-    import os
-    import shutil
     import json
     import warnings
     import re
@@ -165,27 +194,19 @@ def main():
     from fsl_mrs.utils import plotting
     from fsl_mrs.utils import misc
     from fsl_mrs.utils import quantify
+    from fsl_mrs.scripts import make_output_folder
     import datetime
     # ######################################################
+    # Output
     if not args.verbose:
         warnings.filterwarnings("ignore")
 
+    def verboseprint(x: str):
+        if args.verbose:
+            print(x)
+
     # Check if output folder exists
-    overwrite = args.overwrite
-    if os.path.exists(args.output):
-        if not overwrite:
-            print(f"Folder '{args.output}' exists."
-                  " Are you sure you want to delete it? [Y,N]")
-            response = input()
-            overwrite = response.upper() == "Y"
-        if not overwrite:
-            print('Early stopping...')
-            exit()
-        else:
-            shutil.rmtree(args.output)
-            os.makedirs(args.output, exist_ok=True)
-    else:
-        os.makedirs(args.output, exist_ok=True)
+    make_output_folder(args.output, args.overwrite)
 
     # Create symlinks to original data (data, reference) and basis in output location
     '''Links are relative and should provide a route back to the data not relying on the
@@ -197,18 +218,18 @@ def main():
         misc.create_rel_symlink(args.h2o, args.output, 'h2o')
 
     # Save chosen arguments
-    with open(os.path.join(args.output, "options.txt"), "w") as f:
-        f.write(json.dumps(vars(args)))
+    with open(args.output / "options.txt", "w") as f:
+        # Deal with any path objects
+        f.write(json.dumps(vars(args), default=str))
         f.write("\n--------\n")
         f.write(p.format_values())
 
     # Do the work
 
     # Read data/h2o/basis
-    if args.verbose:
-        print('--->> Read input data and basis\n')
-        print(f'  {args.data}')
-        print(f'  {args.basis}\n')
+    verboseprint('--->> Read input data and basis\n')
+    verboseprint(f'  {args.data}')
+    verboseprint(f'  {args.basis}\n')
 
     FID = mrs_io.read_FID(args.data)
     basis = mrs_io.read_basis(args.basis)
@@ -227,18 +248,20 @@ def main():
         default_mm_mgroups = list(filter(default_mm_name.match, args.metab_groups))
     if len(default_mm_matches) > 0\
             and len(default_mm_mgroups) != len(default_mm_matches):
-        print(f'Default macromolecules ({", ".join(default_mm_matches)}) are present in the basis set.')
-        print('However they are not all listed in the --metab_groups.')
-        print('It is recommended that all default MM are assigned their own group.')
-        print(f'E.g. Use --metab_groups {" ".join(default_mm_matches)}')
+        print(
+            f'Default macromolecules ({", ".join(default_mm_matches)}) are present in the basis set. '
+            'However they are not all listed in the --metab_groups. '
+            'It is recommended that all default MM are assigned their own group. '
+            f'E.g. Use --metab_groups {" ".join(default_mm_matches)}')
 
     # Instantiate MRS object
     mrs = FID.mrs(basis=basis,
                   ref_data=H2O)
 
     if isinstance(mrs, list):
-        raise ValueError('fsl_mrs only handles a single FID at a time.'
-                         ' Please preprocess data.')
+        raise FSLMRSException(
+            'fsl_mrs only handles a single FID at a time. '
+            'Please preprocess data first.')
 
     # Check the FID and basis / conjugate
     if args.conjfid is not None:
@@ -246,20 +269,20 @@ def main():
             mrs.conj_FID = True
     else:
         conjugated = mrs.check_FID(repair=True)
-        if args.verbose:
-            if conjugated == 1:
-                warnings.warn('FID has been checked and conjugated.'
-                              ' Please check!', UserWarning)
+        if args.verbose and conjugated == 1:
+            warnings.warn(
+                'FID has been checked and conjugated. Please check!',
+                UserWarning)
 
     if args.conjbasis is not None:
         if args.conjbasis:
             mrs.conj_Basis = True
     else:
         conjugated = mrs.check_Basis(repair=True)
-        if args.verbose:
-            if conjugated == 1:
-                warnings.warn('Basis has been checked and conjugated.'
-                              ' Please check!', UserWarning)
+        if args.verbose and conjugated == 1:
+            warnings.warn(
+                'Basis has been checked and conjugated. Please check!',
+                UserWarning)
 
     # Rescale FID, H2O and basis to have nice range
     if not args.no_rescale:
@@ -270,57 +293,43 @@ def main():
     mrs.ignore = args.ignore
 
     # Do the fitting here
-    if args.verbose:
-        print('--->> Start fitting\n\n')
-        print('    Algorithm = [{}]\n'.format(args.algo))
+    verboseprint('--->> Start fitting\n\n')
+    verboseprint('    Algorithm = [{}]\n'.format(args.algo))
     start = time.time()
 
-    # Parse metabolite groups
-    metab_groups = misc.parse_metab_groups(mrs, args.metab_groups)
+    # Initialise fitting arguments and parse metabolite groups
+    Fitargs = {
+        'ppmlim': args.ppmlim,
+        'method': args.algo,
+        'baseline_order': args.baseline_order,
+        'metab_groups': misc.parse_metab_groups(mrs, args.metab_groups),
+        'disable_mh_priors': args.disable_MH_priors,
+        'MHSamples': args.mh_samples}
 
-    # Choose fitting lineshape model.
+    # Choose fitting lineshape model
     if args.lorentzian:
         if args.free_shift:
             raise configargparse.ArgumentError('Cannot use --free_shift with --lorentzian')
-        Fitargs = {'ppmlim': args.ppmlim,
-                   'method': args.algo,
-                   'baseline_order': args.baseline_order,
-                   'metab_groups': metab_groups,
-                   'model': 'lorentzian',
-                   'disable_mh_priors': args.disable_MH_priors,
-                   'MHSamples': args.mh_samples}
+        Fitargs['model'] = 'lorentzian'
     elif args.free_shift:
-        Fitargs = {'ppmlim': args.ppmlim,
-                   'method': args.algo,
-                   'baseline_order': args.baseline_order,
-                   'metab_groups': metab_groups,
-                   'model': 'free_shift',
-                   'disable_mh_priors': args.disable_MH_priors,
-                   'MHSamples': args.mh_samples}
+        Fitargs['model'] = 'free_shift'
     else:
-        Fitargs = {'ppmlim': args.ppmlim,
-                   'method': args.algo,
-                   'baseline_order': args.baseline_order,
-                   'metab_groups': metab_groups,
-                   'model': 'voigt',
-                   'disable_mh_priors': args.disable_MH_priors,
-                   'MHSamples': args.mh_samples}
+        Fitargs['model'] = 'voigt'
 
-    if args.verbose:
-        print(mrs)
-        print('Fitting args:')
-        print(Fitargs)
+    verboseprint(mrs)
+    verboseprint('Fitting args:')
+    verboseprint(Fitargs)
 
     res = fitting.fit_FSLModel(mrs, **Fitargs)
 
     # Quantification
     # Echo time
     if args.TE is not None:
-        echotime = args.TE * 1E-3
+        echo_time = args.TE * 1E-3
     elif 'EchoTime' in FID.hdr_ext:
-        echotime = FID.hdr_ext['EchoTime']
+        echo_time = FID.hdr_ext['EchoTime']
     else:
-        echotime = None
+        echo_time = None
     # Repetition time
     if args.TR is not None:
         repetition_time = args.TR
@@ -330,25 +339,33 @@ def main():
         repetition_time = None
 
     # Internal and Water quantification if requested
-    if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):
-        if echotime is None:
-            warnings.warn('H2O file provided but could not determine TE:'
-                          ' no absolute quantification will be performed.',
-                          UserWarning)
-        if repetition_time is None:
-            warnings.warn('H2O file provided but could not determine TR:'
-                          ' no absolute quantification will be performed.',
-                          UserWarning)
-        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
-    else:
+    if (mrs.H2O is not None)\
+            and (echo_time is not None)\
+            and (repetition_time is not None):
+        # All conditions for water referencing achieved
         # Form quantification information
-        q_info = quantify.QuantificationInfo(echotime,
-                                             repetition_time,
-                                             mrs.names,
-                                             mrs.centralFrequency / 1E6,
-                                             water_ref_metab=args.wref_metabolite,
-                                             water_ref_metab_protons=args.ref_protons,
-                                             water_ref_metab_limits=args.ref_int_limits)
+        try:
+            q_info = quantify.QuantificationInfo(
+                echo_time,
+                repetition_time,
+                mrs.names,
+                mrs.centralFrequency / 1E6,
+                water_ref_metab=args.wref_metabolite,
+                water_ref_metab_protons=args.ref_protons,
+                water_ref_metab_limits=args.ref_int_limits,
+                t1=args.t1_values,
+                t2=args.t2_values)
+        except (ValueError, TypeError) as exc:
+            raise QuantificationException("Inappropriate arguments. Check inputs to fsl_mrs.") from exc
+        except quantify.FieldStrengthInfoError as exc:
+            raise QuantificationException(
+                "This field strength is unknown to FSL-MRS and no relaxation constants are stored. "
+                "Please specify these manually using the --t1-values and / or --t2-values arguments.") from exc
+        except quantify.NoWaterScalingMetabolite as exc:
+            raise QuantificationException(
+                "No metabolites in FSL's dictionary of water scaling metabolites are in the basis set. "
+                "Please specify a water scaling metabolite manually (--wref_metabolite). "
+                "Also specify --ref_protons and --ref_int_limits.") from exc
 
         if args.tissue_frac:
             q_info.set_fractions(args.tissue_frac)
@@ -360,33 +377,57 @@ def main():
                                  internal_reference=args.internal_ref,
                                  verbose=args.verbose)
 
+        # Save quantification information as output
+        with open(args.output / 'quantification_info.csv', 'w') as qfp:
+            q_info.summary_table.to_csv(qfp)
+    else:
+        # Basic conditions (TR and TE set) are not met.
+        # If water reference was provided but other conditions not met
+        # then print some helpful warnings, but proceed with output using
+        # internal referencing.
+        if (mrs.H2O is not None) and (echo_time is None):
+            warnings.warn(
+                'H2O file provided but could not determine TE: '
+                'no absolute quantification will be performed.',
+                UserWarning)
+        if (mrs.H2O is not None) and (repetition_time is None):
+            warnings.warn(
+                'H2O file provided but could not determine TR: '
+                'no absolute quantification will be performed.',
+                UserWarning)
+        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+
     # Combine metabolites.
     if args.combine is not None:
         res.combine(args.combine)
     stop = time.time()
 
     # Report on the fitting
-    if args.verbose:
-        duration = stop - start
-        print(f'    Fitting lasted          : {duration:.3f} secs.\n')
-    # Save output files
-    if args.verbose:
-        print('--->> Saving output files to {}\n'.format(args.output))
+    duration = stop - start
+    verboseprint(f'    Fitting lasted          : {duration:.3f} secs.\n')
 
-    res.to_file(filename=os.path.join(args.output, 'summary.csv'),
-                what='summary')
-    res.to_file(filename=os.path.join(args.output, 'concentrations.csv'),
-                what='concentrations')
-    res.to_file(filename=os.path.join(args.output, 'qc.csv'),
-                what='qc')
-    res.to_file(filename=os.path.join(args.output, 'all_parameters.csv'),
-                what='parameters')
+    # Save output files
+    verboseprint(f'--->> Saving output files to {args.output}\n')
+
+    res.to_file(
+        filename=args.output / 'summary.csv',
+        what='summary')
+    res.to_file(
+        filename=args.output / 'concentrations.csv',
+        what='concentrations')
+    res.to_file(
+        filename=args.output / 'qc.csv',
+        what='qc')
+    res.to_file(
+        filename=args.output / 'all_parameters.csv',
+        what='parameters')
     if args.algo == 'MH':
-        res.to_file(filename=os.path.join(
-                    args.output, 'concentration_samples.csv'),
-                    what='concentrations-mh')
-        res.to_file(filename=os.path.join(args.output, 'all_samples.csv'),
-                    what='parameters-mh')
+        res.to_file(
+            filename=args.output / 'concentration_samples.csv',
+            what='concentrations-mh')
+        res.to_file(
+            filename=args.output / 'all_samples.csv',
+            what='parameters-mh')
 
     # Save image of MRS voxel
     location_fig = None
@@ -394,28 +435,28 @@ def main():
             and FID.image.getXFormCode() > 0:
         fig = plotting.plot_world_orient(args.t1, args.data)
         fig.tight_layout()
-        location_fig = os.path.join(args.output, 'voxel_location.png')
+        location_fig = args.output / 'voxel_location.png'
         fig.savefig(location_fig, bbox_inches='tight', facecolor='k')
 
     # Save quick summary figure
-    report.fitting_summary_fig(mrs, res,
-                               filename=os.path.join(args.output,
-                                                     'fit_summary.png'))
+    report.fitting_summary_fig(
+        mrs,
+        res,
+        filename=args.output / 'fit_summary.png')
 
     # Create interactive HTML report
     if args.report:
         report.create_svs_report(
             mrs,
             res,
-            filename=os.path.join(args.output, 'report.html'),
+            filename=args.output / 'report.html',
             fidfile=args.data,
             basisfile=args.basis,
             h2ofile=args.h2o,
             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
             location_fig=location_fig)
 
-    if args.verbose:
-        print('\n\n\nDone.')
+    verboseprint('\n\n\nDone.')
 
 
 def str_or_int_arg(x):
@@ -426,13 +467,23 @@ def str_or_int_arg(x):
 
 
 def tissue_frac_arg(x):
-    import json
     try:
-        with open(x) as jsonFile:
-            jsonString = jsonFile.read()
-        return json.loads(jsonString)
-    except IOError:
         return float(x)
+    except (ValueError, TypeError):
+        x = Path(x)
+        if x.suffix == '.json':
+            import json
+            with open(x) as jsonFile:
+                return json.load(jsonFile)
+        elif x.suffix == '.csv':
+            import pandas as pd
+            df = pd.read_csv(
+                x,
+                index_col=0)
+            return {
+                'WM': df.loc['WM', 'Tissue volume fractions'],
+                'GM': df.loc['GM', 'Tissue volume fractions'],
+                'CSF': df.loc['CSF', 'Tissue volume fractions']}
 
 
 class TissueFracAction(configargparse.Action):
@@ -443,6 +494,46 @@ class TissueFracAction(configargparse.Action):
         else:
             setattr(namespace, self.dest,
                     {'WM': values[0], 'GM': values[1], 'CSF': values[2]})
+
+
+def relaxation_arg(x: Path, mode: str) -> dict:
+    try:
+        with open(x) as relaxation_file:
+            if x.suffix == '.json':
+                import json
+                relax_dict = json.load(relaxation_file)
+            elif x.suffix == '.csv':
+                import pandas as pd
+                df = pd.read_csv(
+                    relaxation_file,
+                    index_col=0)
+                if mode == 't1':
+                    relax_dict = {
+                        'H2O_GM': df.loc['GM', 'Water T1 (s)'],
+                        'H2O_WM': df.loc['WM', 'Water T1 (s)'],
+                        'H2O_CSF': df.loc['CSF', 'Water T1 (s)'],
+                        'METAB': df.loc['GM', 'Metabolite T1 (s)']}
+                elif mode == 't2':
+                    relax_dict = {
+                        'H2O_GM': df.loc['GM', 'Water T2 (ms)'] / 1E3,
+                        'H2O_WM': df.loc['WM', 'Water T2 (ms)'] / 1E3,
+                        'H2O_CSF': df.loc['CSF', 'Water T2 (ms)'] / 1E3,
+                        'METAB': df.loc['GM', 'Metabolite T2 (ms)'] / 1E3}
+    except IOError:
+        raise configargparse.ArgumentError(
+            "The t1/t2-values argument must be a path to a JSON formatted file "
+            "or a previously generated quantification_info.csv.")
+    if not relax_dict.keys() >= set(['H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB']):
+        raise FSLMRSException("Relaxation JSON must contain 'H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB' fields.")
+    return relax_dict
+
+
+def t1_arg(x: str) -> dict:
+    return relaxation_arg(Path(x), 't1')
+
+
+def t2_arg(x: str) -> dict:
+    return relaxation_arg(Path(x), 't2')
 
 
 if __name__ == '__main__':

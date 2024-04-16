@@ -880,7 +880,10 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
         # Combine all higher dimensions
         shift = np.zeros(data.shape[:3])
         for dd, idx in data.iterate_over_spatial():
-            comb_data = preproc.combine_FIDs(dd.reshape(dd.shape[0], -1), 'mean')
+            comb_data = preproc.combine_FIDs(
+                dd.reshape(dd.shape[0], -1),
+                'svd',
+                do_prewhiten=False)
             # Run shift estimation
             _, shift[idx[:3]] = preproc.shiftToRef(
                 comb_data,
@@ -1033,7 +1036,10 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         p0 = np.zeros(data.shape[:3])
         pos_all = np.zeros(data.shape[:3], int)
         for dd, idx in data.iterate_over_spatial():
-            comb_data = preproc.combine_FIDs(dd.reshape(dd.shape[0], -1), 'mean')
+            comb_data = preproc.combine_FIDs(
+                dd.reshape(dd.shape[0], -1),
+                'svd',
+                do_prewhiten=False)
             # Run phase correction estimation
             _, p0[idx[:3]], pos_all[idx[:3]] = preproc.phaseCorrect(
                 comb_data,

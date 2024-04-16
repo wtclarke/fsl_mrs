@@ -267,12 +267,12 @@ class MRSI(object):
             ppmlim = self.mrs_from_average().default_ppm_range
 
         if mask:
-            mask_indicies = np.where(self.mask)
+            mask_indices = np.where(self.mask)
         else:
-            mask_indicies = np.where(np.full(self.mask.shape, True))
-        dim1 = np.asarray((np.min(mask_indicies[0]), np.max(mask_indicies[0])))
-        dim2 = np.asarray((np.min(mask_indicies[1]), np.max(mask_indicies[1])))
-        dim3 = np.asarray((np.min(mask_indicies[2]), np.max(mask_indicies[2])))
+            mask_indices = np.where(np.full(self.mask.shape, True))
+        dim1 = np.asarray((np.min(mask_indices[0]), np.max(mask_indices[0])))
+        dim2 = np.asarray((np.min(mask_indices[1]), np.max(mask_indices[1])))
+        dim3 = np.asarray((np.min(mask_indices[2]), np.max(mask_indices[2])))
 
         size1 = 1 + dim1[1] - dim1[0]
         size2 = 1 + dim2[1] - dim2[0]
@@ -282,16 +282,25 @@ class MRSI(object):
         ar2 = size2 / (size1 + size2)
 
         for sDx in range(size3):
+            # import pdb; pdb.set_trace()
+            index_in_slice = mask_indices[2] == sDx
+            slice_indices = (x[index_in_slice] for x in mask_indices)
+
+            if not any(index_in_slice):
+                continue
             fig, axes = plt.subplots(size1, size2, figsize=(20 * ar2, 20 * ar1))
-            for i, j, k in zip(*mask_indicies):
-                if (not self.mask[i, j, k]) and mask:
-                    continue
+
+            for i, j, k in zip(*slice_indices):
                 ii = i - dim1[0]
                 jj = j - dim2[0]
                 ax = axes[ii, jj]
+                if (not self.mask[i, j, k]) and mask:
+                    continue
                 mrs = self.mrs_by_index([i, j, k])
                 ax.plot(mrs.getAxes(ppmlim=ppmlim), np.real(mrs.get_spec(ppmlim=ppmlim)))
                 ax.invert_xaxis()
+
+            for ax in axes.ravel():
                 ax.set_xticks([])
                 ax.set_yticks([])
             plt.subplots_adjust(left=0.03,  # the left side of the subplots of the figure
