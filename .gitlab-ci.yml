@@ -191,7 +191,7 @@ pages:
   stage: doc
   script:
   - git describe --tag --dirty
-  - pip install -U sphinx sphinx_rtd_theme
+  - pip install -U "h5py<3.11" sphinx sphinx_rtd_theme
   - pip install .
   - sphinx-build -b html ./docs/user_docs public
   artifacts:

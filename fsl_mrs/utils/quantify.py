@@ -10,8 +10,9 @@ import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import pandas as pd
 
-from fsl_mrs.utils.misc import FIDToSpec
+from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
 from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
@@ -20,6 +21,10 @@ from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY, \
 
 
 class NoWaterScalingMetabolite(Exception):
+    pass
+
+
+class FieldStrengthInfoError(Exception):
     pass
 
 
@@ -118,7 +123,7 @@ class QuantificationInfo(object):
 
         Optional (added through methods):
             Tissue fractions - if not provided pure water concentration assumed
-            Tissue densitites - if defaults to be overridden
+            Tissue densities - if defaults to be overridden
             H20 integration limits - defaults to be overridden
     """
 
@@ -157,37 +162,23 @@ class QuantificationInfo(object):
         :type water_ref_metab_protons: int, optional
         :param water_ref_metab_limits: Integration limits for water_ref_metab spectrum, defaults to None
         :type water_ref_metab_limits: tuple, optional
-        :raises ValueError: [description]
-        :raises ValueError: [description]
-        :raises ValueError: [description]
         """
-        if te > 0.5:
-            print('te is an unusal value. Expecting a value < 0.5 s.')
-        elif te < 0:
-            raise ValueError('te must be larger than 0.0 s!')
+
         self.te = te
-
-        if tr > 20:
-            print('tr is an unusal value. Expecting a value < 20 s.')
-        elif tr < 0:
-            raise ValueError('tr must be larger than 0.0 s!')
         self.tr = tr
-
-        if fa < 0:
-            raise ValueError('fa must be larger than 0 degrees!')
         self.fa = fa
+        self.cf = cf
 
         # Set default values
-        # Tissue densitites
-        self._densitites = TISSUE_WATER_DENSITY
+        # Tissue densities
+        self._densities = TISSUE_WATER_DENSITY
 
         # Tissue fractions
         self._fractions = None
 
-        # T1s
-        self._handle_t1(cf, specified=t1)
-        # T2s
-        self._handle_t2(cf, specified=t2)
+        # Relaxation values
+        self.t1 = t1
+        self.t2 = t2
 
         # Reference metabolite
         self._handle_ref_metab(metabolites,
@@ -200,40 +191,108 @@ class QuantificationInfo(object):
         # Additional correction term
         self._add_corr = 1.0
 
-    def _handle_t1(self, cf, specified=None):
-        """ Use specified values or select T1 values based on field strength (7T or 3T)"""
-        if specified:
-            required = ['H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB']
-            if not all(item in specified.keys() for item in required):
-                raise ValueError(f'Specified T1 values must contain entries for all of {required}.')
-            self.t1 = specified
-        else:
-            field = cf / GYRO_MAG_RATIO['1H']
-            if field > 6.5 and field < 7.5:
-                self.t1 = STANDARD_T1['7T']
-            elif field > 2.5 and field < 3.5:
-                self.t1 = STANDARD_T1['3T']
-            else:
-                raise ValueError(f'No stored T1 values for {field}T scanner. Specify values manually.')
+    @property
+    def te(self):
+        "The te (echo time) property"
+        return self._te
 
-    def _handle_t2(self, cf, specified=None):
-        """ Use specified values or select T2 values based on field strength (7T or 3T)"""
-        if specified:
-            required = ['H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB']
-            if not all(item in specified.keys() for item in required):
-                raise ValueError(f'Specified T1 values must contain entries for all of {required}.')
-            self.t2 = specified
-        else:
-            field = cf / GYRO_MAG_RATIO['1H']
-            if field > 6.5 and field < 7.5:
-                self.t2 = STANDARD_T2['7T']
-            elif field > 2.5 and field < 3.5:
-                self.t2 = STANDARD_T2['3T']
+    @te.setter
+    def te(self, value):
+        if value > 0.5:
+            print(f'Echo time (te) is an unusual value = {value}. Expecting a value < 0.5 s.')
+        elif value < 0:
+            raise ValueError('Echo time (te) must be larger than 0.0 s!')
+        self._te = value
+
+    @property
+    def tr(self):
+        "The tr (repetition time) property"
+        return self._tr
+
+    @tr.setter
+    def tr(self, value):
+        if value > 20:
+            print(f'Repetition time (tr) is an unusual value  = {value}. Expecting a value < 20 s.')
+        elif value < 0:
+            raise ValueError('Repetition time (tr) must be larger than 0.0 s!')
+        self._tr = value
+
+    @property
+    def fa(self):
+        "The fa (flip-angle) property in degrees"
+        return self._fa
+
+    @fa.setter
+    def fa(self, value):
+        if value <= 0:
+            raise ValueError('Flip-angle (fa) must be larger than 0 degrees!')
+        self._fa = value
+
+    @property
+    def cf(self):
+        "The cf (central/spectrometer-frequency) property in MHz"
+        return self._cf
+
+    @cf.setter
+    def cf(self, value):
+        self._cf = checkCFUnits(value, units='MHz')
+
+    @property
+    def field_strength(self):
+        return self.cf / GYRO_MAG_RATIO['1H']
+
+    @property
+    def t1(self):
+        """ Use specified values or select T1 values based on field strength (7T or 3T)"""
+        return self._t1
+
+    @t1.setter
+    def t1(self, value):
+        if value is None:
+            if self.field_strength > 6.5 and self.field_strength < 7.5:
+                self._t1 = STANDARD_T1['7T']
+            elif self.field_strength > 2.5 and self.field_strength < 3.5:
+                self._t1 = STANDARD_T1['3T']
+            elif self.field_strength > 1.4 and self.field_strength < 1.6:
+                self._t1 = STANDARD_T1['1.5T']
             else:
-                raise ValueError(f'No stored T2 values for {field}T scanner. Specify values manually.')
+                raise FieldStrengthInfoError(
+                    f'No stored T1 values for {self.field_strength:0.1f}T scanner. Specify values manually.')
+        elif isinstance(value, dict):
+            required = set(['H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB'])
+            if not value.keys() >= required:
+                raise ValueError(f'Specified T1 values must contain entries for all of {required}.')
+            self._t1 = value
+        else:
+            raise TypeError('T1 must be None or dict.')
+
+    @property
+    def t2(self):
+        """Use specified values or select T2 values based on field strength"""
+        return self._t2
+
+    @t2.setter
+    def t2(self, value):
+        if value is None:
+            if self.field_strength > 6.5 and self.field_strength < 7.5:
+                self._t2 = STANDARD_T2['7T']
+            elif self.field_strength > 2.5 and self.field_strength < 3.5:
+                self._t2 = STANDARD_T2['3T']
+            elif self.field_strength > 1.4 and self.field_strength < 1.6:
+                self._t2 = STANDARD_T2['1.5T']
+            else:
+                raise FieldStrengthInfoError(
+                    f'No stored T2 values for {self.field_strength:0.1f}T scanner. Specify values manually.')
+        elif isinstance(value, dict):
+            required = set(['H2O_GM', 'H2O_WM', 'H2O_CSF', 'METAB'])
+            if not value.keys() >= required:
+                raise ValueError(f'Specified T2 values must contain entries for all of {required}.')
+            self._t2 = value
+        else:
+            raise TypeError('T2 must be None or dict.')
 
     def _handle_ref_metab(self, metab_list, specified_metab=None, specified_protons=None, specified_limits=None):
-        """Set the water referencing metab using either the predefined list or the specified matabolite."""
+        """Set the water referencing metab using either the predefined list or the specified metabolite."""
         if specified_metab:
             if not isinstance(specified_metab, (list, str)):
                 raise TypeError(
@@ -252,7 +311,7 @@ class QuantificationInfo(object):
                 self.ref_protons = specified_protons
                 self.ref_limits = specified_limits
             else:
-                raise ValueError(f"Specified matabolite {specified_metab} isn't in the list of basis spectra.")
+                raise ValueError(f"Specified metabolite {specified_metab} isn't in the list of basis spectra.")
         else:
             # Select from a predetermined list of sensible options
             for wsm, nprot, lim in zip(WATER_SCALING_METAB,
@@ -298,22 +357,22 @@ class QuantificationInfo(object):
         else:
             raise TypeError(f'fractions must be a dict, not {type(fractions)}.')
 
-    def set_densitites(self, densitites):
+    def set_densities(self, densities):
         """[summary]
 
-        :param densitites: Tissue densities, must contain 'WM', 'GM', 'CSF' fields. In units of g/ml.
-        :type densitites: dict
+        :param densities: Tissue densities, must contain 'WM', 'GM', 'CSF' fields. In units of g/ml.
+        :type densities: dict
         :raises ValueError: [description]
         :raises TypeError: [description]
         """
         required = ['WM', 'GM', 'CSF']
-        if isinstance(densitites, dict):
-            if all(item in densitites.keys() for item in required):
-                self._densitites = densitites
+        if isinstance(densities, dict):
+            if all(item in densities.keys() for item in required):
+                self._densities = densities
             else:
-                raise ValueError("densitites must be a dict containing 'WM', 'GM', 'CSF' keys")
+                raise ValueError("densities must be a dict containing 'WM', 'GM', 'CSF' keys")
         else:
-            raise TypeError(f'densitites must be a dict, not {type(densitites)}.')
+            raise TypeError(f'densities must be a dict, not {type(densities)}.')
 
     def set_h20_limits(self, low=1.65, high=7.65):
         """Set the water reference integral limits
@@ -326,18 +385,18 @@ class QuantificationInfo(object):
         self.h2o_limits = (low, high)
 
     # Properties
-    # tissue densitites d_GM, d_WM, d_CSF
+    # tissue densities d_GM, d_WM, d_CSF
     @property
     def d_GM(self):
-        return self._densitites['GM']
+        return self._densities['GM']
 
     @property
     def d_WM(self):
-        return self._densitites['WM']
+        return self._densities['WM']
 
     @property
     def d_CSF(self):
-        return self._densitites['CSF']
+        return self._densities['CSF']
 
     # tissue volume fractions f_GM, f_WM, f_CSF
     @property
@@ -445,7 +504,7 @@ class QuantificationInfo(object):
     # Water concentrations
     # relax_corr_water_molal, relax_corr_water_molar
     # relax_corr_water_molal uses mole fractions
-    # relax_corr_water_molar uses volume fractions * densitites
+    # relax_corr_water_molar uses volume fractions * densities
     @property
     def relax_corr_water_molal(self):
         """Relaxation (T1, T2) corrected water molality (mmol/kg).
@@ -498,6 +557,44 @@ class QuantificationInfo(object):
     @add_corr.setter
     def add_corr(self, value):
         self._add_corr = value
+
+    @property
+    def summary_table(self) -> pd.DataFrame:
+        """Returns summary table of held values
+
+        :return: Table of quantification outputs
+        :rtype: pandas.DataFrame
+        """
+        quant_df = pd.DataFrame()
+        quant_df['Tissue-water densities (g/cm^3)'] = [self.d_GM, self.d_WM, self.d_CSF]
+        quant_df['Tissue volume fractions'] = [self.f_GM, self.f_WM, self.f_CSF]
+        quant_df['Water T2 (ms)'] = np.around(
+            [self.t2['H2O_GM'] * 1000,
+             self.t2['H2O_WM'] * 1000,
+             self.t2['H2O_CSF'] * 1000])
+        quant_df['Water T1 (s)'] = np.around(
+            [self.t1['H2O_GM'],
+             self.t1['H2O_WM'],
+             self.t1['H2O_CSF']],
+            decimals=2)
+        quant_df['Metabolite T2 (ms)'] = np.around(
+            [self.t2['METAB'] * 1000,
+             self.t2['METAB'] * 1000,
+             self.t2['METAB'] * 1000])
+        quant_df['Metabolite T1 (s)'] = np.around(
+            [self.t1['METAB'],
+             self.t1['METAB'],
+             self.t1['METAB']],
+            decimals=2)
+        quant_df.index = ['GM', 'WM', 'CSF']
+        quant_df.index.name = 'Tissue'
+        return quant_df
+
+    def __repr__(self):
+        return str(self.summary_table)
+
+    def __str__(self):
+        return str(self.summary_table)
 
 
 def quantifyInternal(reference, concentrations, names):

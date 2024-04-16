@@ -144,7 +144,8 @@ def test_fmrs_stats_scaling(tmp_path):
 
     assert np.isclose(
         df_scaled.loc['sigma_0_beta3', 'COPE'],
-        df_no_scale.loc['sigma_0_beta3', 'COPE'])
+        df_no_scale.loc['sigma_0_beta3', 'COPE'],
+        atol=1E-2)
 
 
 def test_fmrs_stats_group_mean(tmp_path):

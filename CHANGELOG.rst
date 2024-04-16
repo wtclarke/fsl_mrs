@@ -1,5 +1,13 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.20 (Monday 15th April 2024)
+-------------------------------
+- Minor improvements in MRSI plotting and preprocessing routines using average spectra.
+- Added default relaxation values for 1.5 tesla.
+- You can now specify custom T1 and T2 values to `fsl_mrs` using the `--t1-values` and `--t2-values`.
+- The (t1/t2/tissue fraction) values used in the qunatification stage are now output as a `quantification_info.csv` file.
+- `quantification_info.csv` can be passed to any of `--tissue_frac`, `--t1-values` and `--t2-values` as inputs.
+
 2.1.19 (Wednesday 7th February 2024)
 ------------------------------------
 - Multiple metabolites can now be specified as the water scaling metabolite

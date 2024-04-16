@@ -38,10 +38,10 @@ Output
 Results from :code:`fsl_mrs` are stored in a single folder that contains the following:
 
 - Interactive HTML Report (if the :code:`--report` option was used.
-- CSV files summarising the metabolite concentrations (and uncertainties), fitted parameters, and some QC measures.
+- CSV files summarising the metabolite concentrations (and uncertainties), fitted parameters, QC measures, and the used relaxation values for quantification.
 - PNG files with summary of the fitting and (optionally) voxel location.
 
-A nifti file of the fitted spectrum, baseline, and individual metabolites can be generated using the :code:`results_to_spectrum` script. For example::
+A NIfTI file of the fitted spectrum, baseline, and individual metabolites can be generated using the :code:`results_to_spectrum` script. For example::
 
     results_to_spectrum --export_baseline example_fit
 
@@ -176,6 +176,8 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Number of protons that the water scaling reference is equivalent to (between defined integration limits). E.g. Cr is equivalent to 5 between 2 and 5 ppm. Only active when --wref_metabolite is used.
 :code:`--ref_int_limits`
     Integration limits for water scaling reference. Only active when --wref_metabolite is used.
+:code:`--t1-values / --t2-values`
+    Specify custom t1 and/or t2 values by providing a JSON formatted file(s) containing values for H2O_WM, H2O_GM, H2O_CSF and METAB.
 
 The wrapper scripts can also take a configuration file as an input. For example, say we have a text file called :code:`config.txt` which contains the below:
 

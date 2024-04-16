@@ -93,24 +93,34 @@ WATER_SCALING_DEFAULT_LIMITS = [(2, 5), (2, 5), (2, 5), (1.8, 2.2)]
 # T1 parameters
 # Derived from a survey of the literature. References listed below.
 # Metabolite values derived from an average of NAA, Cr and Cho peaks.
-STANDARD_T1 = {'3T': {'H2O_WM': 0.97,  # Ref: 1-6
-                      'H2O_GM': 1.50,  # Ref: 1-6
-                      'H2O_CSF': 4.47,  # Ref: 4
-                      'METAB': 1.29},  # Ref: 2, 7-9
-               '7T': {'H2O_WM': 1.21,  # Ref: 1-6
-                      'H2O_GM': 2.05,  # Ref: 1-6
-                      'H2O_CSF': 4.43,  # Ref: 4
-                      'METAB': 1.43}}  # Ref: 2, 7-9
+STANDARD_T1 = {
+    '1.5T': {'H2O_WM': 0.630,  # Ref: 16
+             'H2O_GM': 1.185,  # Ref: 16
+             'H2O_CSF': 3.90,  # Ref: 17
+             'METAB': 1.238},  # Ref: 18
+    '3T': {'H2O_WM': 0.97,  # Ref: 1-6
+           'H2O_GM': 1.50,  # Ref: 1-6
+           'H2O_CSF': 4.47,  # Ref: 4
+           'METAB': 1.29},  # Ref: 2, 7-9
+    '7T': {'H2O_WM': 1.21,  # Ref: 1-6
+           'H2O_GM': 2.05,  # Ref: 1-6
+           'H2O_CSF': 4.43,  # Ref: 4
+           'METAB': 1.43}}  # Ref: 2, 7-9
 
 # T2 parameters
-STANDARD_T2 = {'3T': {'H2O_WM': 0.073,  # Ref: 1,3,10-11
-                      'H2O_GM': 0.088,  # Ref: 1,3,10-11
-                      'H2O_CSF': 2.030,  # Ref: 12
-                      'METAB': 0.194},  # Ref: 7-9,13-15
-               '7T': {'H2O_WM': 0.055,  # Ref: 1,3,10-11
-                      'H2O_GM': 0.050,  # Ref: 1,3,10-11
-                      'H2O_CSF': 1.050,  # Ref: 12
-                      'METAB': 0.131}}  # Ref: 7-9,13-15
+STANDARD_T2 = {
+    '1.5T': {'H2O_WM': 0.080,  # Ref: 19
+             'H2O_GM': 0.083,  # Ref: 19
+             'H2O_CSF': 2.000,  # Aproximate
+             'METAB': 0.279},  # Ref: 20
+    '3T': {'H2O_WM': 0.073,  # Ref: 1,3,10-11
+           'H2O_GM': 0.088,  # Ref: 1,3,10-11
+           'H2O_CSF': 2.030,  # Ref: 12
+           'METAB': 0.194},  # Ref: 7-9,13-15
+    '7T': {'H2O_WM': 0.055,  # Ref: 1,3,10-11
+           'H2O_GM': 0.050,  # Ref: 1,3,10-11
+           'H2O_CSF': 1.050,  # Ref: 12
+           'METAB': 0.131}}  # Ref: 7-9,13-15
 
 '''
 T1 & T2 References:
@@ -130,6 +140,11 @@ T1 & T2 References:
 13. Marjańska M et al. doi: 10.1002/nbm.1754.
 14. Träber F et al. doi: 10.1002/jmri.20053.
 15. Wyss PO et al. doi: 10.1002/mrm.27067.
+16. Wright PJ et al. doi: 0.1007/s10334-008-0104-8. Table 2 average
+17. Yamashiro et al. 10.1002/acm2.12659. Table 2 average
+18. Ratiney et al. doi: 10.1007/s10334-007-0076-0 - Table 3, mean
+19. Cox E.F and Gowland PA. Proc. Intl. Soc. Mag. Reson. Med. 16 (2008) #1411
+20. Isobe et al. doi: 10.1016/S0730-725X(02)00500-3 - Table 1 mean of metabolites.
 '''
 
 '''

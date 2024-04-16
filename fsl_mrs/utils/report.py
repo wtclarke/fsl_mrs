@@ -11,6 +11,7 @@
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 
 import plotly
 import plotly.graph_objs as go
@@ -97,14 +98,7 @@ def svs_indiv_plot(mrs, res):
 
 def svs_table_tissue_quant(res):
     """Quantification information table"""
-    Q = res.concScalings['quant_info']
-    quant_df = pd.DataFrame()
-    quant_df['Tissue-water densities (g/cm^3)'] = [Q.d_GM, Q.d_WM, Q.d_CSF]
-    quant_df['Tissue volume fractions'] = [Q.f_GM, Q.f_WM, Q.f_CSF]
-    quant_df['Water T2 (ms)'] = np.around([Q.t2['H2O_GM'] * 1000, Q.t2['H2O_WM'] * 1000, Q.t2['H2O_CSF'] * 1000])
-    quant_df['Water T1 (s)'] = np.around([Q.t1['H2O_GM'], Q.t1['H2O_WM'], Q.t1['H2O_CSF']], decimals=2)
-    quant_df.index = ['GM', 'WM', 'CSF']
-    quant_df.index.name = 'Tissue'
+    quant_df = res.concScalings['quant_info'].summary_table
     quant_df.reset_index(inplace=True)
     tab = plotting.create_table(quant_df)
     fig = go.Figure(data=[tab])
@@ -609,14 +603,14 @@ def static_image(img_in):
     import plotly.graph_objects as go
     from PIL import Image
     import matplotlib.figure
-
+    print(type(img_in))
     if isinstance(img_in, matplotlib.figure.Figure):
         img_in.canvas.draw()
         img = Image.frombytes(
             'RGB',
             img_in.canvas.get_width_height(),
             img_in.canvas.tostring_rgb())
-    elif isinstance(img_in, str):
+    elif isinstance(img_in, (str, Path)):
         img = Image.open(img_in)
     # Create figure
     fig = go.Figure()
