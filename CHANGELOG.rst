@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.1.21 (Tuesday 16th April 2024)
+--------------------------------
+- Fix automatic deployment validation pipeline
+
 2.1.20 (Monday 15th April 2024)
 -------------------------------
 - Minor improvements in MRSI plotting and preprocessing routines using average spectra.

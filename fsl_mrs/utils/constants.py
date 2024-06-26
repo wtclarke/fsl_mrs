@@ -111,7 +111,7 @@ STANDARD_T1 = {
 STANDARD_T2 = {
     '1.5T': {'H2O_WM': 0.080,  # Ref: 19
              'H2O_GM': 0.083,  # Ref: 19
-             'H2O_CSF': 2.000,  # Aproximate
+             'H2O_CSF': 2.000,  # Approximate
              'METAB': 0.279},  # Ref: 20
     '3T': {'H2O_WM': 0.073,  # Ref: 1,3,10-11
            'H2O_GM': 0.088,  # Ref: 1,3,10-11
