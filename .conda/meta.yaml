@@ -27,13 +27,13 @@ source:
 # requirements may additionally be listed here.
 requirements:
   build:
-    - python >=3.7
+    - python >=3.9
     - setuptools
     {% for package in data.get('setup_requires', {}) %}
     - {{ package.lower() }}
     {% endfor %}
   run:
-    - python >=3.7
+    - python >=3.9
     {% for package in data.get('install_requires', {}) %}
     - {{ package.lower() }}
     {% endfor %}

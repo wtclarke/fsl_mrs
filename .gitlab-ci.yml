@@ -88,7 +88,7 @@ stages:
 # ############
 flake8:
   <<: *except_releases
-  image: python:3.9-slim-buster
+  image: python:3.11-slim-buster
   stage: style
   before_script:
   - python --version
@@ -109,14 +109,14 @@ pytest:
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   before_script:
-  - micromamba create -n fsl_mrs -c conda-forge -y python=3.9
+  - micromamba create -n fsl_mrs -c conda-forge -y python=3.11
   - eval "$(micromamba shell hook --shell bash)"
   - micromamba activate fsl_mrs
-  - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
+  # - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge 
+  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
+  # - micromamba install -y -c conda-forge pytest
   - export FSLOUTPUTTYPE="NIFTI_GZ"
   - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
-  - micromamba install -y -c conda-forge pytest
   - pip install .
   script:
   - pytest fsl_mrs/tests
@@ -137,7 +137,7 @@ fit-validate:
     DEPLOY_CURL_COMMAND: 'curl -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_PAT" https://api.github.com/repos/wtclarke/lcm_validation/pulls -d $DEPLOY_CURL_COMMAND_BODY'
   before_script:
   # Create an environment to work in
-  - micromamba create -n fsl_mrs -c conda-forge -y python=3.9
+  - micromamba create -n fsl_mrs -c conda-forge -y python=3.11
   - eval "$(micromamba shell hook --shell bash)"
   - micromamba activate fsl_mrs
   # Install all the FSL tools needed
@@ -185,7 +185,7 @@ pages:
   only:
     - branches@wclarke/fsl_mrs
     - tags@fsl/fsl_mrs
-  image: python:3.9
+  image: python:3.11
   stage: doc
   script:
   - git describe --tag --dirty

@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.2.0 (Tuesday 9th July 2024)
+--------------------------------
+- Increment minimum python version to 3.9, testing now takes place on python 3.11, matching main FSL.
+- Numpy 2.0 compatibility
+
 2.1.21 (Tuesday 16th April 2024)
 --------------------------------
 - Fix automatic deployment validation pipeline
