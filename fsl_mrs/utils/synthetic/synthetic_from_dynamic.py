@@ -131,7 +131,7 @@ def synthetic_spectra_from_model(config_file,
     mapped = vm.free_to_mapped(syn_free_params)
 
     # Amount of noise to add to each parameter in each timepoint
-    mapped_noise = np.empty(mapped.shape, dtype=object)
+    mapped_noise = np.zeros(mapped.shape)
     for idx, mp_obj in enumerate(vm.mapped_parameters):
         if param_noise is None \
                 or mp_obj.category not in param_noise:

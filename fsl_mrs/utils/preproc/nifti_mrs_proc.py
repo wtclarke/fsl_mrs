@@ -199,6 +199,8 @@ def coilcombine(
     processing_info = f'{__name__}.coilcombine, '
     if reference is None:
         processing_info += 'reference=None, '
+    elif reference.image.dataSource is None:
+        processing_info += 'reference=Used but unknown source, '
     else:
         processing_info += f'reference={reference.filename}, '
     processing_info += f'no_prewhiten={no_prewhiten}.'

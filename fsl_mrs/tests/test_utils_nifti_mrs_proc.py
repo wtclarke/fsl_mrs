@@ -49,7 +49,7 @@ def test_coilcombine():
 
     assert combined.hdr_ext['ProcessingApplied'][0]['Method'] == 'RF coil combination'
     assert combined.hdr_ext['ProcessingApplied'][0]['Details']\
-        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.coilcombine, reference=wref_raw.nii.gz, no_prewhiten=False.'
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.coilcombine, reference=Used but unknown source, no_prewhiten=False.'
 
 
 def test_average():

@@ -50,7 +50,7 @@ class FIDIntegrator:
             Calculate area of the abs real part of the spectrum between two limits
         """
         spec = FIDToSpec(FID, axis=0)[self.limits[0]:self.limits[1]]
-        area = np.trapz(np.abs(np.real(spec)), axis=0)
+        area = np.trapezoid(np.abs(np.real(spec)), axis=0)
         return area
 
 

@@ -1,5 +1,5 @@
-numpy>=1.19
-scipy>=1.6
+numpy>=1.26
+scipy==1.13.*
 matplotlib>=3.5
 plotly>=4
 pandas
@@ -9,11 +9,11 @@ nibabel
 hlsvdpropy
 fslpy>=3.9.0
 pillow
-spec2nii>=0.7.2
+spec2nii>=0.8.1
 dill
 dash
 flask>=2.2
-nifti-mrs>=1.1.1
+nifti-mrs>=1.3.0
 fsl_sub
 fsl_sub_plugin_sge
 fsl_sub_plugin_slurm
