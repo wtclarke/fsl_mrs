@@ -7,18 +7,19 @@ Will Clarke & Saad Jbabdi, University of Oxford, 2022
 
 import numpy as np
 from scipy.optimize import minimize
+from scipy.linalg import lstsq as sp_lstsq
 
 from fsl_mrs.utils.misc import FIDToSpec
 
 
-def vars(n_basis, n_groups, b_order):
+def vars(n_basis, n_groups, n_baseline):
     """Return the names and sizes of each parameter in the model
     :param n_basis: Number of basis spectra
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Baseline polynomial order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :return: List of parameter names
     :rtype: List
     :return: List of parameter sizes
@@ -32,24 +33,24 @@ def vars(n_basis, n_groups, b_order):
         n_groups,  # eps
         1,  # Phi_0
         1,  # Phi_1
-        2 + (b_order * 2)]  # baseline
+        2 * n_baseline]  # baseline
     return var_names, sizes
 
 
-def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
+def bounds(n_basis, n_groups, n_baseline, method, disableBaseline=False):
     """Return bounds for the methods
 
     :param n_basis: Number of basis spectra
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :param method: Fitting optimisation method. 'Newton' or 'MH'
     :type method: str
-    :param disableBaseline: Disable the baseline by seting bounds to 0, defaults to False
+    :param disableBaseline: Disable the baseline by setting bounds to 0, defaults to False
     :type disableBaseline: bool, optional
-    :return: For Newton method a list of (lowr bound, upper bound) tuples.
+    :return: For Newton method a list of (lower bound, upper bound) tuples.
         For MH method a 2-tuple of lower and upper bounds lists.
     :rtype: List or tuple
     """
@@ -65,7 +66,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
         # phi0, phi1
         bnds.extend([(None, None)] * 2)
         # baseline
-        n = (1 + b_order) * 2
+        n = n_baseline * 2
         if disableBaseline:
             bnds.extend([(0.0, 0.0)] * n)
         else:
@@ -91,7 +92,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
         LB.extend([MIN] * 2)
         UB.extend([MAX] * 2)
         # baseline
-        n = (1 + b_order) * 2
+        n = n_baseline * 2
         if disableBaseline:
             LB.extend([0.0] * n)
             UB.extend([0.0] * n)
@@ -105,7 +106,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
 def mask(
         n_basis,
         n_groups,
-        b_order,
+        n_baseline,
         fit_conc=True,
         fit_shape=True,
         fit_phase=True,
@@ -116,8 +117,8 @@ def mask(
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :param fit_conc: Whether to fit the concentrations, defaults to True
     :type fit_conc: bool, optional
     :param fit_shape: Whether to fit the lineshapes, defaults to True
@@ -143,7 +144,7 @@ def mask(
         mask.extend([1] * 2)
     else:
         mask.extend([0] * 2)
-    n = (1 + b_order) * 2
+    n = n_baseline * 2
     if fit_baseline:
         mask.extend([1] * n)
     else:
@@ -375,6 +376,29 @@ def jac(x, nu, t, m, B, G, g, first, last):
     return dS
 
 
+def modify_basis(mrs, gamma, sigma, eps, first, last):
+    bs = mrs.basis * np.exp(-(gamma + (sigma**2 * mrs.timeAxis) + 1j * eps) * mrs.timeAxis)
+    bs = FIDToSpec(bs, axis=0)
+    bs = bs[first:last, :]
+    return np.concatenate((np.real(bs), np.imag(bs)), axis=0)
+
+
+def loss(p, mrs, B, y, first, last):
+    gamma, sigma, eps = np.exp(p[0]), np.exp(p[1]), p[2]
+    basis = modify_basis(mrs, gamma, sigma, eps, first, last)
+    desmat = np.concatenate((basis, B), axis=1)
+    # pinv = np.linalg.pinv(desmat)
+    # beta = np.real(pinv @ y)
+    # beta = np.linalg.lstsq(desmat, y)[0]
+    beta = sp_lstsq(desmat, y, lapack_driver='gelsy', check_finite=False)[0]
+
+    # project onto >0 concentration
+    beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis], 0, None)
+    pred = np.matmul(desmat, beta)
+    val = np.mean(np.abs(pred - y)**2)
+    return val
+
+
 # Initilisation functions
 def _init_params_voigt(mrs, baseline, ppmlim):
     first, last = mrs.ppmlim_to_range(ppmlim)
@@ -383,29 +407,16 @@ def _init_params_voigt(mrs, baseline, ppmlim):
     B = baseline[first:last, :].copy()
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
-    def modify_basis(mrs, gamma, sigma, eps):
-        bs = mrs.basis * np.exp(-(gamma + (sigma**2 * mrs.timeAxis) + 1j * eps) * mrs.timeAxis)
-        bs = FIDToSpec(bs, axis=0)
-        bs = bs[first:last, :]
-        return np.concatenate((np.real(bs), np.imag(bs)), axis=0)
-
-    def loss(p):
-        gamma, sigma, eps = np.exp(p[0]), np.exp(p[1]), p[2]
-        basis = modify_basis(mrs, gamma, sigma, eps)
-        desmat = np.concatenate((basis, B), axis=1)
-        beta = np.real(np.linalg.pinv(desmat) @ y)
-        beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis], 0, None)  # project onto >0 concentration
-        pred = np.matmul(desmat, beta)
-        val = np.mean(np.abs(pred - y)**2)
-        return val
+    def local_loss(x):
+        return loss(x, mrs, B, y, first, last)
 
     x0 = np.array([np.log(1e-5), np.log(1e-5), 0])
-    res = minimize(loss, x0, method='Powell')
+    res = minimize(local_loss, x0, method='Powell')
 
     g, s, e = np.exp(res.x[0]), np.exp(res.x[1]), res.x[2]
 
     # get concentrations and baseline params
-    basis = modify_basis(mrs, g, s, e)
+    basis = modify_basis(mrs, g, s, e, first, last)
     desmat = np.concatenate((basis, B), axis=1)
     beta = np.real(np.linalg.pinv(desmat) @ y)
     con = np.clip(beta[:mrs.numBasis], 0, None)

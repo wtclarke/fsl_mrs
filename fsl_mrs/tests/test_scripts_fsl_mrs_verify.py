@@ -28,4 +28,4 @@ def test_verify(tmp_path):
             fsl_mrs_verify.main()
         except Exception as exc:
 
-            assert False, f"'fsl_mrs_verify.main()' fialed and raised an exception {exc}"
+            assert False, f"'fsl_mrs_verify.main()' failed and raised an exception {exc}"

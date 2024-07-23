@@ -35,7 +35,7 @@ def main():
     import json
 
     from fsl_mrs.utils import results, mrs_io, misc
-    from fsl_mrs.utils.baseline import prepare_baseline_regressor
+    from fsl_mrs.utils.baseline import Baseline
     from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 
     # output dir - make if it doesn't exist
@@ -83,22 +83,30 @@ def main():
     # Generate metabolite groups
     metab_groups = misc.parse_metab_groups(mrs, orig_args['metab_groups'])
     baseline_order = orig_args['baseline_order']
-    if baseline_order < 0:
-        baseline_order = 0  # Required to make prepare_baseline_regressor run.
+    if 'baseline' in orig_args:
+        baseline_arg = orig_args['baseline']
+    else:
+        baseline_arg = None
     ppmlim = orig_args['ppmlim']
-    # Generate baseline polynomials (B)
-    B = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
+    if ppmlim is None:
+        from fsl_mrs.utils.constants import nucleus_constants
+        ppmlim = nucleus_constants(mrs.nucleus).ppm_range
+
+    # Generate baseline object
+    baseline_obj = Baseline(
+        mrs,
+        ppmlim,
+        baseline_arg,
+        baseline_order)
 
     # Generate results object
-    print(metab_groups)
     res = results.FitRes(
         mrs,
         param_df['mean'].to_numpy(),
         model,
         method,
         metab_groups,
-        baseline_order,
-        B,
+        baseline_obj,
         ppmlim)
 
     if orig_args['combine'] is not None:

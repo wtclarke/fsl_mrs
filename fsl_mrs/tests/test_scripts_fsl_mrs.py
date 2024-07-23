@@ -271,3 +271,81 @@ def test_fsl_mrs_manual_t1_t2(tmp_path):
         index_col=0)
 
     assert q_info2.equals(q_info)
+
+
+def test_baseline_options(tmp_path):
+    # Default
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'default',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report'])
+
+    assert (tmp_path / 'default' / 'report.html').exists()
+
+    # Polynomial
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'poly1',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--baseline', 'poly, 1'])
+
+    assert (tmp_path / 'poly1' / 'report.html').exists()
+
+    # Spline ed
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'spline_ed',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--baseline', 'spline, 5'])
+
+    assert (tmp_path / 'spline_ed' / 'report.html').exists()
+
+    # Spline str
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'spline_str',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--baseline', 'spline, moderate'])
+
+    assert (tmp_path / 'spline_str' / 'report.html').exists()
+
+    # disabled
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'off',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--baseline', 'off'])
+
+    assert (tmp_path / 'off' / 'report.html').exists()
+
+    # legacy
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path / 'legacy',
+                           '--metab_groups', 'Mac',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--baseline_order', '1'])
+
+    assert (tmp_path / 'legacy' / 'report.html').exists()

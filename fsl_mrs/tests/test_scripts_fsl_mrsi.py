@@ -153,3 +153,63 @@ def test_alt_ref(tmp_path):
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
+
+
+def test_baseline_options(tmp_path):
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                           '--h2o', data['water'],
+                           '--TE', '30',
+                           '--TR', '2.0',
+                           '--mask', data['mask'],
+                           '--tissue_frac',
+                           data['seg_wm'],
+                           data['seg_gm'],
+                           data['seg_csf'],
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--baseline', 'polynomial, 3'])
+
+    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                           '--h2o', data['water'],
+                           '--TE', '30',
+                           '--TR', '2.0',
+                           '--mask', data['mask'],
+                           '--tissue_frac',
+                           data['seg_wm'],
+                           data['seg_gm'],
+                           data['seg_csf'],
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--baseline', 'spline, flexible'])
+
+    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                           '--h2o', data['water'],
+                           '--TE', '30',
+                           '--TR', '2.0',
+                           '--mask', data['mask'],
+                           '--tissue_frac',
+                           data['seg_wm'],
+                           data['seg_gm'],
+                           data['seg_csf'],
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--baseline_order', '4'])
+
+    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()

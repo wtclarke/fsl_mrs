@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.3.0 (Tuesday 23rd July 2024)
+------------------------------
+- New baseline options - penalised splines have been added.
+- In `fsl_mrs` and `fsl_mrsi`, baseline options should now be specified using the `--baseline` argument. Legacy `--baseline_order` is still available.
+- New python interface api for fitting to accompany the new baseline options
+
 2.2.0 (Tuesday 9th July 2024)
 --------------------------------
 - Increment minimum python version to 3.9, testing now takes place on python 3.11, matching main FSL.
