@@ -1,9 +1,12 @@
 Fitting
 =======
 
-FSL-MRS fitting is performed using a linear combination model where a spectral basis is shifted, broadened, and scaled to fit the FID in the spectral domain. Additional nuisance parameters are 0th and 1st order phase, as well as a polynomial complex baseline.
+FSL-MRS fitting is performed using a linear combination model where a spectral basis is shifted, 
+broadened, and scaled to fit the FID in the spectral domain. 
+Additional nuisance parameters are 0th and 1st order phase, as well as a polynomial or p-spline complex baseline.
 
-Wrapper scripts for command-line fitting are provided for SVS and MRSI as shown below. For more details on the fitting model, algorithms, and advanced options see :ref:`Details <details>`.
+Wrapper scripts for command-line fitting are provided for SVS and MRSI as shown below. 
+For more details on the fitting model, algorithms, and advanced options see :ref:`Details <details>`.
 
 
 SVS
@@ -17,7 +20,9 @@ A basic call to :code:`fsl_mrs`, the SVS wrapper script, is as follows:
             --basis my_basis_spectra \
             --output example_fit
 
-This will run non-linear optimisation using the Truncated Newton algorithm, as implemented in Scipy, and will produce a simple PNG file summarising the fit, and several CSV files containing concentrations, uncertainties, and QC parameters for further analysis. 
+This will run non-linear optimisation using the Truncated Newton algorithm, as implemented in Scipy, 
+and will produce a simple PNG file summarising the fit, and several CSV files containing concentrations, 
+uncertainties, and QC parameters for further analysis. 
 
 A more complete call to :code:`fsl_mrs` may be as follows.
 
@@ -31,7 +36,8 @@ A more complete call to :code:`fsl_mrs` may be as follows.
             --report 
 
 
-This will additionally run absolute quantification w.r.t the water reference (with partial volume adjustments) and will produce an interactive HTML report. Type: :code:`fsl_mrs --help` to see all available options.
+This will additionally run absolute quantification w.r.t the water reference (with partial volume adjustments) 
+and will produce an interactive HTML report. Type: :code:`fsl_mrs --help` to see all available options.
 
 Output
 ~~~~~~
@@ -158,8 +164,13 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     Combine sets of metabolites (not in the fitting, only in the quantification/display) - this option is repeatable.
 :code:`--ppmlim`            
     Only calculate the loss function within this ppm range.
-:code:`--baseline_order`    
-    Polynomial baseline order. Set to -1 to remove the baseline altogether.
+:code:`--baseline`    
+    Specify type of baseline modelling. Specify :code:`poly`, :code:`spline`, or :code:`off` to use a polynomial or p-spline baseline, or to disable the baseline.
+    Polynomial order can be specified using :code:`poly, N` where `N` is the order. 
+    The stiffness of the spline baseline can be modifed by providing either a string specifier: 
+    :code:`very-stiff`, :code:`stiff`, :code:`moderate`, :code:`flexible`, :code:`very-flexible`; 
+    or an `effective dimension` number can be given, running from 2 (very stiff) to inf (very flexible). 
+    E.g. command line options might be :code:`spline, very-stiff` or :code:`spline, 2`
 :code:`--metab_groups`      
     Group metabolites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
 :code:`--lorentzian`        

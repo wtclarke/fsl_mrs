@@ -26,7 +26,7 @@ def vm_obj_inputs():
         'lorentzian',
         len(metab_names),
         numGroups,
-        baseline_order)
+        baseline_order + 1)
     return varNames, varSizes, metab_names, numGroups
 
 

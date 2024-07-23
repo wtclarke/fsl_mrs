@@ -11,14 +11,14 @@ from scipy.optimize import minimize
 from fsl_mrs.utils.misc import FIDToSpec
 
 
-def vars(n_basis, n_groups, b_order):
+def vars(n_basis, n_groups, n_baseline):
     """Return the names and sizes of each parameter in the model
     :param n_basis: Number of basis spectra
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Baseline polynomial order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :return: List of parameter names
     :rtype: List
     :return: List of parameter sizes
@@ -31,24 +31,24 @@ def vars(n_basis, n_groups, b_order):
         n_groups,  # eps
         1,  # Phi_0
         1,  # Phi_1
-        2 + (b_order * 2)]  # baseline
+        n_baseline * 2]  # baseline
     return var_names, sizes
 
 
-def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
+def bounds(n_basis, n_groups, n_baseline, method, disableBaseline=False):
     """Return bounds for the methods
 
     :param n_basis: Number of basis spectra
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :param method: Fitting optimisation method. 'Newton' or 'MH'
     :type method: str
-    :param disableBaseline: Disable the baseline by seting bounds to 0, defaults to False
+    :param disableBaseline: Disable the baseline by setting bounds to 0, defaults to False
     :type disableBaseline: bool, optional
-    :return: For Newton method a list of (lowr bound, upper bound) tuples.
+    :return: For Newton method a list of (lower bound, upper bound) tuples.
         For MH method a 2-tuple of lower and upper bounds lists.
     :rtype: List or tuple
     """
@@ -62,7 +62,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
         # phi0, phi1
         bnds.extend([(None, None)] * 2)
         # baseline
-        n = (1 + b_order) * 2
+        n = n_baseline * 2
         if disableBaseline:
             bnds.extend([(0.0, 0.0)] * n)
         else:
@@ -85,7 +85,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
         LB.extend([MIN] * 2)
         UB.extend([MAX] * 2)
         # baseline
-        n = (1 + b_order) * 2
+        n = n_baseline * 2
         if disableBaseline:
             LB.extend([0.0] * n)
             UB.extend([0.0] * n)
@@ -99,7 +99,7 @@ def bounds(n_basis, n_groups, b_order, method, disableBaseline=False):
 def mask(
         n_basis,
         n_groups,
-        b_order,
+        n_baseline,
         fit_conc=True,
         fit_shape=True,
         fit_phase=True,
@@ -110,8 +110,8 @@ def mask(
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :param fit_conc: Whether to fit the concentrations, defaults to True
     :type fit_conc: bool, optional
     :param fit_shape: Whether to fit the lineshapes, defaults to True
@@ -137,7 +137,7 @@ def mask(
         mask.extend([1] * 2)
     else:
         mask.extend([0] * 2)
-    n = (1 + b_order) * 2
+    n = n_baseline * 2
     if fit_baseline:
         mask.extend([1] * n)
     else:

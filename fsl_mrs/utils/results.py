@@ -23,40 +23,24 @@ class FitRes(object):
        Collects fitting results
     """
 
-    def __init__(self, mrs, results, model, method, metab_groups, baseline_order, B, ppmlim, runqc=True, vb_optim=None):
-        """_summary_
+    def __init__(
+            self,
+            mrs,
+            results,
+            model,
+            method,
+            metab_groups,
+            baseline_obj,
+            ppmlim,
+            runqc=True):
 
-        _extended_summary_
-
-        :param mrs: _description_
-        :type mrs: _type_
-        :param results: _description_
-        :type results: _type_
-        :param model: _description_
-        :type model: _type_
-        :param method: _description_
-        :type method: _type_
-        :param metab_groups: _description_
-        :type metab_groups: _type_
-        :param baseline_order: _description_
-        :type baseline_order: _type_
-        :param B: _description_
-        :type B: _type_
-        :param ppmlim: _description_
-        :type ppmlim: _type_
-        :param runqc: _description_, defaults to True
-        :type runqc: bool, optional
-        :return: _description_
-        :rtype: _type_
-        """
-        # Initilise some basic parameters - includes fitting options
-        # Populate parameter names
+        # Store options from
         self.model = model
-        self.fill_names(mrs.names, baseline_order=baseline_order, metab_groups=metab_groups)
         self.method = method
         self.ppmlim = ppmlim
-        self.baseline_order = baseline_order
-        self.base_poly = B
+        self._baseline_obj = baseline_obj
+
+        self.fill_names(mrs.names, nbaseline=baseline_obj.n_basis, metab_groups=metab_groups)
 
         # Init properties
         self.concScalings = {'internal': None, 'internalRef': None, 'molarity': None, 'molality': None, 'info': None}
@@ -68,7 +52,7 @@ class FitRes(object):
         else:
             self.fitResults = pd.DataFrame(data=results, columns=self.params_names)
 
-        # Store prediction, baseline, residual
+        # Store prediction, baseline, residual, so that the mrs object doesn't have to be stored
         self._pred = self.predictedFID(mrs, mode='Full')
         self._baseline = self.predictedFID(mrs, mode='Baseline')
         self._residuals = mrs.FID - self.pred
@@ -105,7 +89,7 @@ class FitRes(object):
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
         # Empirical factor of 2 found, likely to arise from complex data/residuals
         self._cov = calculate_lap_cov(self.params, forward_lim, data, jac_lim(self.params).T)
-        self._cov /= 2  # Apply factor 2 corrrection
+        self._cov /= 2  # Apply factor 2 correction
 
         # Calculate mcmc metrics
         if self.method == 'MH':
@@ -113,13 +97,6 @@ class FitRes(object):
             self.mcmc_cor = self.fitResults.corr().to_numpy()
             self.mcmc_var = self.fitResults.var().to_numpy()
             self.mcmc_samples = self.fitResults.to_numpy()
-
-        # VB metrics
-        if self.method == 'VB':
-            self.vb_cov = vb_optim.cov
-            self.vb_var = vb_optim.var
-            std = np.sqrt(self.vb_var)
-            self.vb_corr = self.vb_cov / (std[:, np.newaxis] * std[np.newaxis, :])
 
         self.hzperppm = mrs.centralFrequency / 1E6
         self.bandwidth = mrs.bandwidth
@@ -199,6 +176,18 @@ class FitRes(object):
             perc_SD[perc_SD > 999] = 999   # Like LCModel :)
             perc_SD[np.isnan(perc_SD)] = 999
         return perc_SD
+
+    @property
+    def baseline_mode(self):
+        return self._baseline_obj.mode
+
+    @property
+    def base_poly(self):
+        return self._baseline_obj.regressor
+
+    @property
+    def n_baseline_bases(self):
+        return self._baseline_obj.n_basis
 
     class QuantificationError(Exception):
         pass
@@ -392,10 +381,10 @@ class FitRes(object):
 
         return out
 
-    def fill_names(self, names, baseline_order=0, metab_groups=None):
+    def fill_names(self, names, nbaseline=0, metab_groups=None):
         """
         mrs            : MRS Object
-        baseline_order : int
+        nbaseline : int
         metab_groups   : list (by default assumes single metab group)
         """
         self.metabs = deepcopy(names)
@@ -427,7 +416,7 @@ class FitRes(object):
 
         self.params_names.extend(['Phi0', 'Phi1'])
 
-        for i in range(0, baseline_order + 1):
+        for i in range(0, nbaseline):
             self.params_names.append(f"B_real_{i}")
             self.params_names.append(f"B_imag_{i}")
 
@@ -788,7 +777,7 @@ class FitRes(object):
     def getBaselineParams(self, complex=True, normalise=True):
         """ Return normalised complex baseline parameters."""
         bParams = []
-        for b in range(self.baseline_order + 1):
+        for b in range(self.n_baseline_bases):
             breal = self.fitResults[f'B_real_{b}'].mean()
             bimag = self.fitResults[f'B_imag_{b}'].mean()
             if complex:
@@ -826,9 +815,6 @@ class FitRes(object):
                 abs_std.append(np.sqrt(self.crlb[index]))
             elif self.method == 'MH':
                 abs_std.append(self.fitResults[m].std())
-            elif self.method == 'VB':
-                index = self.params_names_inc_comb.index(m)
-                abs_std.append(np.sqrt(self.vb_var[index]))
         abs_std = np.asarray(abs_std)
         if type.lower() == 'raw':
             return abs_std
@@ -843,9 +829,6 @@ class FitRes(object):
                 internalRefSD = np.sqrt(self.crlb[internalRefIndex])
             elif self.method == 'MH':
                 internalRefSD = self.fitResults[internal_ref].std()
-            elif self.method == 'VB':
-                index = self.params_names_inc_comb.index(internal_ref)
-                internalRefSD = np.sqrt(self.vb_var[index])
             abs_std = np.sqrt(abs_std**2 + internalRefSD**2)
             return abs_std * self.concScalings['internal']
         elif type.lower() == 'percentage':

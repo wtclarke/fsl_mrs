@@ -61,10 +61,24 @@ def main():
                                    'For 1H default=(.2,4.2).')
     fitting_args.add_argument('--h2o', default=None, type=str, metavar='H2O',
                               help='input .H2O file for quantification')
-    fitting_args.add_argument('--baseline_order', default=2, type=int,
+    fitting_args.add_argument('--baseline',
+                              type=str,
+                              default='poly, 2',
+                              help='Select baseline type. '
+                                   'Options: "off", "polynomial", or "spline". '
+                                   'With "polynomial" specify an order, e.g. "polynomial, 2". '
+                                   'With spline specify a stiffness: '
+                                   "'very-stiff', 'stiff', 'moderate', 'flexible', and 'very-flexible', "
+                                   "or an effective dimension (2 -> inf) where 2 is the stiffest. "
+                                   "The default is 'polynomial, 2'.")
+    #     'LEGACY OPTION use --baseline instead:'
+    #    ' order of baseline polynomial'
+    #    ' (default=2, -1 disables)'
+    fitting_args.add_argument('--baseline_order',
+                              type=int,
+                              default=None,
                               metavar=('ORDER'),
-                              help='order of baseline polynomial'
-                                   ' (default=2, -1 disables)')
+                              help=configargparse.SUPPRESS)
     fitting_args.add_argument('--metab_groups', default=0, nargs='+',
                               type=str_or_int_arg,
                               help="metabolite groups: list of groups or list"
@@ -237,8 +251,11 @@ def main():
     # Store info in dictionaries to be passed to MRS and fitting
     Fitargs = {'ppmlim': args.ppmlim,
                'method': args.algo,
-               'baseline_order': args.baseline_order,
                'metab_groups': metab_groups}
+    if args.baseline_order:
+        Fitargs['baseline_order'] = args.baseline_order
+    else:
+        Fitargs['baseline'] = args.baseline
     if args.lorentzian:
         Fitargs['model'] = 'lorentzian'
     else:

@@ -76,7 +76,7 @@ def synthetic_spectra_from_model(config_file,
     varNames, sizes = FSLModel_vars(model,
                                     n_basis=empty_mrs.numBasis,
                                     n_groups=max(mg) + 1,
-                                    b_order=baseline_order)
+                                    n_baseline=baseline_order + 1)
 
     vm = dynamic.VariableMapping(param_names=varNames,
                                  param_sizes=sizes,

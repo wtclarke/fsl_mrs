@@ -86,29 +86,29 @@ def getInit(model):
         raise ValueError('Unknown model {}.'.format(model))
 
 
-def FSLModel_vars(model, n_basis=None, n_groups=1, b_order=0):
+def FSLModel_vars(model, n_basis=None, n_groups=1, n_baseline=0):
     """
     Print out parameter names as a list of strings
     Args:
         model: str
         n_basis: int, number of basis spectra
         n_groups: int, number of metabolite groups
-        b_order: int, baseline order
+        n_baseline: int, number of baseline bases
     Returns:
         list of strings
         list of int
     """
     if model == 'lorentzian':
-        return lorentzian.vars(n_basis, n_groups, b_order)
+        return lorentzian.vars(n_basis, n_groups, n_baseline)
     elif model == 'voigt':
-        return voigt.vars(n_basis, n_groups, b_order)
+        return voigt.vars(n_basis, n_groups, n_baseline)
     elif model == 'free_shift':
-        return freeshift.vars(n_basis, n_groups, b_order)
+        return freeshift.vars(n_basis, n_groups, n_baseline)
     else:
         raise ValueError('Unknown model {}.'.format(model))
 
 
-def FSLModel_bounds(model, n_basis, n_groups, b_order, method, disableBaseline=False):
+def FSLModel_bounds(model, n_basis, n_groups, n_baseline, method, disableBaseline=False):
     """Return fitting parameter bounds associated with each model
 
     :param model: Name of model used
@@ -117,8 +117,8 @@ def FSLModel_bounds(model, n_basis, n_groups, b_order, method, disableBaseline=F
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number of baseline bases
+    :type n_baseline: int
     :param method: Fitting optimisation method. 'Newton' or 'MH'
     :type method: str
     :param disableBaseline: Disable baseline fit by setting bounds to zero, defaults to False
@@ -129,11 +129,11 @@ def FSLModel_bounds(model, n_basis, n_groups, b_order, method, disableBaseline=F
     """
 
     if model == 'lorentzian':
-        return lorentzian.bounds(n_basis, n_groups, b_order, method, disableBaseline)
+        return lorentzian.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     elif model == 'voigt':
-        return voigt.bounds(n_basis, n_groups, b_order, method, disableBaseline)
+        return voigt.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     elif model == 'free_shift':
-        return freeshift.bounds(n_basis, n_groups, b_order, method, disableBaseline)
+        return freeshift.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     else:
         raise ValueError('Unknown model {}.'.format(model))
 
@@ -142,7 +142,7 @@ def FSLModel_mask(
         model,
         n_basis,
         n_groups,
-        b_order,
+        n_baseline,
         fit_conc=True,
         fit_shape=True,
         fit_phase=True,
@@ -155,8 +155,8 @@ def FSLModel_mask(
     :type n_basis: int
     :param n_groups: Number of metabolite groups
     :type n_groups: int
-    :param b_order: Polynomial baseline order
-    :type b_order: int
+    :param n_baseline: Number baseline bases
+    :type n_baseline: int
     :param fit_conc: Whether to fit the concentrations, defaults to True
     :type fit_conc: bool, optional
     :param fit_shape: Whether to fit the lineshapes, defaults to True
@@ -172,7 +172,7 @@ def FSLModel_mask(
         return lorentzian.mask(
             n_basis,
             n_groups,
-            b_order,
+            n_baseline,
             fit_conc=fit_conc,
             fit_shape=fit_shape,
             fit_phase=fit_phase,
@@ -181,7 +181,7 @@ def FSLModel_mask(
         return voigt.mask(
             n_basis,
             n_groups,
-            b_order,
+            n_baseline,
             fit_conc=fit_conc,
             fit_shape=fit_shape,
             fit_phase=fit_phase,
@@ -190,7 +190,7 @@ def FSLModel_mask(
         return freeshift.mask(
             n_basis,
             n_groups,
-            b_order,
+            n_baseline,
             fit_conc=fit_conc,
             fit_shape=fit_shape,
             fit_phase=fit_phase,

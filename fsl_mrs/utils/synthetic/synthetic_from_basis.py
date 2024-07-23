@@ -9,7 +9,7 @@
 import numpy as np
 from fsl_mrs.utils.misc import SpecToFID, parse_metab_groups
 from fsl_mrs.utils import mrs_io
-from fsl_mrs.utils.baseline import prepare_baseline_regressor
+from fsl_mrs.utils.baseline import prepare_polynomial_regressor
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
 from fsl_mrs import models
@@ -227,7 +227,10 @@ def synthetic_from_fwd_model(fwd_model,
     """ Create a synthetic spectrum from the forward fitting model"""
     freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
     g = max(metab_groups) + 1
-    b = prepare_baseline_regressor(mrs, baseline_order, ppmlim)
+    b = prepare_polynomial_regressor(
+        mrs.numPoints,
+        baseline_order,
+        mrs.ppmlim_to_range(ppmlim))
 
     basespec = fwd_model(model_params,
                          freq,

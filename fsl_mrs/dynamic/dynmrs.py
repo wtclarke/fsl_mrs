@@ -17,6 +17,7 @@ import pickle
 import json
 
 from fsl_mrs.utils import fitting
+from fsl_mrs.utils import baseline
 from fsl_mrs import models
 from . import variable_mapping as varmap
 from . import dyn_results
@@ -113,7 +114,11 @@ class dynMRS(object):
         self.gradient = self._get_gradient()
 
         metab_names, numBasis, numGroups = self.mrs_list[0].names, self.mrs_list[0].numBasis, max(metab_groups) + 1
-        varNames, varSizes = models.FSLModel_vars(model, numBasis, numGroups, baseline_order)
+        varNames, varSizes = models.FSLModel_vars(
+            model,
+            numBasis,
+            n_groups=numGroups,
+            n_baseline=baseline_order + 1)
         self._vm = varmap.VariableMapping(
             param_names=varNames,
             param_sizes=varSizes,
@@ -362,7 +367,10 @@ class dynMRS(object):
         """collect constants for forward model"""
         first, last = mrs.ppmlim_to_range(ppmlim)  # data range
         freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
-        base_poly = fitting.prepare_baseline_regressor(mrs, baseline_order, ppmlim)
+        base_poly = baseline.prepare_polynomial_regressor(
+            mrs.numPoints,
+            baseline_order,
+            mrs.ppmlim_to_range(ppmlim))
         freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
         g = max(metab_groups) + 1
         return (freq, time, basis, base_poly, metab_groups, g, first, last)
@@ -513,8 +521,11 @@ class dynMRS(object):
                              self._fit_args['model'],
                              method,
                              metab_groups,
-                             self._fit_args['baseline_order'],
-                             base_poly,
+                             baseline.Baseline(
+                                 self.mrs_list[0],
+                                 self._fit_args['ppmlim'],
+                                 None,
+                                 self._fit_args['baseline_order']),
                              self._fit_args['ppmlim'])
             dynresList.append(results)
         return dynresList
