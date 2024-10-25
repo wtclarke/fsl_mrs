@@ -123,7 +123,8 @@ def coilcombine(
         coil_cov = None
 
     if reference is not None:
-        weights_shape = reference.shape[:3] + reference.shape[4:]
+        # Use .image.shape to exclude any trailing singleton dimensions
+        weights_shape = reference.image.shape[:3] + reference.image.shape[4:]
         ref_weights = np.zeros(weights_shape, dtype=complex)
         # Run wSVD on the reference data storing up weights
         for ref, idx in reference.iterate_over_dims(dim='DIM_COIL',
