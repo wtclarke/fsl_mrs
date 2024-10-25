@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 # Imports
 import subprocess
 from pathlib import Path
+import re
 
 # Files
 testsPath = Path(__file__).parent
@@ -79,12 +80,14 @@ def test_default_mm_warning(tmp_path, capfd):
                            '--overwrite',
                            '--combine', 'Cr', 'PCr'])
     out, _ = capfd.readouterr()
-    assert out == (
-        'Default macromolecules (MM09, MM12, MM14, MM17, MM21) are present in the '
-        'basis set.\n'
-        'However they are not all listed in the --metab_groups.\n'
-        'It is recommended that all default MM are assigned their own group.\n'
-        'E.g. Use --metab_groups MM09 MM12 MM14 MM17 MM21\n')
+    pattern = re.compile(
+        re.escape(
+            'Default macromolecules (MM09, MM12, MM14, MM17, MM21) are present in the '
+            'basis set.\n'
+            'However they are not all listed in the --metab_groups.\n'
+            'It is recommended that all default MM are assigned their own group.\n'
+            'E.g. Use --metab_groups MM09 MM12 MM14 MM17 MM21\n'))
+    assert pattern.match(out) is not None
 
 
 def test_fsl_mrsi_noh2o(tmp_path):

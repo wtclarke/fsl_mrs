@@ -399,8 +399,11 @@ def _init_params(mrs, baseline, ppmlim):
         val = np.mean(np.abs(pred - y)**2)
         return val
 
-    x0 = np.array([np.log(1e-5), 0])
-    res = minimize(loss, x0, method='Powell')
+    x0 = np.array([np.log(1), 0])
+    bounds = (
+        (None, np.log(100)),
+        (-mrs.centralFrequency / 1E6, mrs.centralFrequency / 1E6))
+    res = minimize(loss, x0, bounds=bounds)
 
     g, e = np.exp(res.x[0]), res.x[1]
 

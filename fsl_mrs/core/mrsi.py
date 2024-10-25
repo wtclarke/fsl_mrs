@@ -172,6 +172,9 @@ class MRSI(object):
 
                 yield mrs_out, idx, tissue_seg
 
+    def __len__(self) -> int:
+        return self.num_masked_voxels
+
     def get_indicies_in_order(self, mask=True):
         """Return a list of iteration indices in order"""
         out = []
