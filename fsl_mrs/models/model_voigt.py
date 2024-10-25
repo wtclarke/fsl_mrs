@@ -391,7 +391,6 @@ def loss(p, mrs, B, y, first, last):
     # beta = np.real(pinv @ y)
     # beta = np.linalg.lstsq(desmat, y)[0]
     beta = sp_lstsq(desmat, y, lapack_driver='gelsy', check_finite=False)[0]
-
     # project onto >0 concentration
     beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis], 0, None)
     pred = np.matmul(desmat, beta)
@@ -410,8 +409,12 @@ def _init_params_voigt(mrs, baseline, ppmlim):
     def local_loss(x):
         return loss(x, mrs, B, y, first, last)
 
-    x0 = np.array([np.log(1e-5), np.log(1e-5), 0])
-    res = minimize(local_loss, x0, method='Powell')
+    x0 = np.array([np.log(1), np.log(1), 0])
+    bounds = (
+        (None, np.log(100)),
+        (None, np.log(100)),
+        (-mrs.centralFrequency / 1E6, mrs.centralFrequency / 1E6))
+    res = minimize(local_loss, x0, bounds=bounds)
 
     g, s, e = np.exp(res.x[0]), np.exp(res.x[1]), res.x[2]
 

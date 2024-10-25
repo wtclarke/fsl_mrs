@@ -17,3 +17,5 @@ nifti-mrs>=1.3.0
 fsl_sub
 fsl_sub_plugin_sge
 fsl_sub_plugin_slurm
+dask-core
+dask-jobqueue

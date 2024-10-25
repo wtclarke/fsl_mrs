@@ -787,7 +787,8 @@ def plot_dist_approx(res, refname='Cr'):
         sig = np.sqrt(res.crlb[i]) / ref
         x = np.linspace(mu - mu, mu + mu, 100)
         N = np.exp(-(x - mu)**2 / sig**2)
-        N = N / N.sum() / (x[1] - x[0])
+        with np.errstate(divide='ignore'):
+            N = N / N.sum() / (x[1] - x[0])
         t = go.Scatter(x=x, y=N, mode='lines',
                        name=metab, line=dict(color='black'))
         fig.add_trace(t, row=r + 1, col=c + 1)

@@ -7,7 +7,6 @@
 #
 # Copyright (C) 2019 University of Oxford
 
-import time
 import warnings
 
 from fsl_mrs.auxiliary import configargparse
@@ -125,8 +124,22 @@ def main():
                           help='spit out verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
+    # --single_proc is depreciated for --parallel but retained for backward compatibility
     optional.add_argument('--single_proc', action="store_true",
-                          help='Disable parallel processing of voxels.')
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--parallel',
+                          type=str,
+                          default='local',
+                          help="Control parallelisation. Set to: "
+                          "'off', 'local' (default), or 'cluster'. "
+                          "'off' forces serial processing, "
+                          "'local' parallelises over local CPUs, "
+                          "'cluster' distributes over HPC SLURM nodes. "
+                          "See documentation for cluster configuration.")
+    optional.add_argument('--parallel-workers',
+                          type=int,
+                          default=None,
+                          help="Number of cores (local), or workers (cluster) to use.")
     optional.add_argument('--conj_fid', action="store_true",
                           help='Force conjugation of FID')
     optional.add_argument('--no_conj_fid', action="store_true",
@@ -142,6 +155,10 @@ def main():
 
     # Parse command-line arguments
     args = p.parse_args()
+
+    def verboseprint(x: str):
+        if args.verbose:
+            print(x)
 
     # Output kickass splash screen
     if args.verbose:
@@ -159,6 +176,7 @@ def main():
     import nibabel as nib
     from functools import partial
     import multiprocessing as mp
+    from dask.distributed import Client, progress
     from fsl_mrs.utils import misc, mrs_io
     # ######################################################
 
@@ -280,13 +298,11 @@ def main():
         repetition_time = None
 
     # Fitting
-    if args.verbose:
-        print('\n--->> Start fitting\n\n')
-        print(f'    Algorithm = [{args.algo}]\n')
+    verboseprint('\n--->> Start fitting\n\n')
+    verboseprint(f'    Algorithm = [{args.algo}]\n')
 
     # Initialise by fitting the average FID across all voxels
-    if args.verbose:
-        print("    Initialise with average fit")
+    verboseprint("    Initialise with average fit")
     mrs = mrsi.mrs_from_average()
     Fitargs_init = Fitargs.copy()
     Fitargs_init['method'] = 'Newton'
@@ -311,30 +327,43 @@ def main():
             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
     warnings.filterwarnings("ignore")
-    if args.single_proc:
-        if args.verbose:
-            print('    Running sequentially (are you sure about that?) ')
-        results = []
-        for idx, mrs in enumerate(mrsi):
-            res = runvoxel(mrs, args, Fitargs, echotime, repetition_time)
-            results.append(res)
-            if args.verbose:
-                print(f'{idx+1}/{mrsi.num_masked_voxels} voxels completed')
+    func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
+
+    if args.parallel == "off" or args.single_proc:
+        # client = Client(n_workers=1, threads_per_worker=1)
+        from tqdm import tqdm
+        results = list(map(func, tqdm(mrsi)))
+
+    elif args.parallel in ("local", "cluster"):
+        if args.parallel == "local":
+            if args.parallel_workers:
+                n_workers = args.parallel_workers
+            else:
+                n_workers = mp.cpu_count() - 1
+            verboseprint(f'    Parallelising over {n_workers} workers ')
+            client = Client(n_workers=n_workers)
+
+        elif args.parallel == "cluster":
+            if args.parallel_workers:
+                n_workers = args.parallel_workers
+            else:
+                n_workers = 2
+            verboseprint(f'    Parallelising over {n_workers} nodes ')
+            from dask_jobqueue import slurm
+            cluster = slurm.SLURMCluster(
+                config_name='fsl_mrsi')
+            cluster.scale(n_workers)
+
+            client = Client(cluster)
+
+        result_futures = client.map(func, mrsi)
+        progress(result_futures, notebook=False)
+        results = client.gather(result_futures)
     else:
-        if args.verbose:
-            print(f'    Parallelising over {mp.cpu_count()} workers ')
-
-        func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
-        with mp.Pool(processes=mp.cpu_count()) as p:
-            results = p.map_async(func, mrsi)
-            if args.verbose:
-                track_job(results)
-
-            results = results.get()
+        raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
     # Save output files
-    if args.verbose:
-        print(f'--->> Saving output files to {args.output}\n')
+    verboseprint(f'--->> Saving output files to {args.output}\n')
 
     # Results --> Images
     # Store concentrations, uncertainties, residuals, predictions
@@ -546,8 +575,7 @@ def main():
             name='MRS fit correlation matrix')
         nib.save(corr_img, file_nm)
 
-    if args.verbose:
-        print('\n\n\nDone.')
+    verboseprint('\n\n\nDone.')
 
 
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
@@ -606,26 +634,6 @@ def str_or_int_arg(x):
         return int(x)
     except ValueError:
         return x
-
-
-class PoolProgress:
-    def __init__(self, pool, update_interval=3):
-        self.pool = pool
-        self.update_interval = update_interval
-
-    def track(self, job):
-        task = self.pool._cache[job._job]
-        while task._number_left > 0:
-            print("Voxels remaining = {0}".
-                  format(task._number_left * task._chunksize))
-            time.sleep(self.update_interval)
-
-
-def track_job(job, update_interval=3):
-    while job._number_left > 0:
-        print(f"    {job._number_left * job._chunksize} Voxels remaining    ",
-              end='\r', flush=True)
-        time.sleep(update_interval)
 
 
 if __name__ == '__main__':
