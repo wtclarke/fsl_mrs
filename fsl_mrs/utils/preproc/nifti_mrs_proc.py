@@ -387,8 +387,12 @@ def align(
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
+            if dim == 'all':
+                output_for_report = aligned_obj[idx].reshape(original_shape[0], -1)
+            else:
+                output_for_report = aligned_obj[idx]
             fig = phase_freq_align_report(dd.T,
-                                          aligned_obj[idx].T,
+                                          output_for_report.T,
                                           phi,
                                           eps,
                                           data.bandwidth,

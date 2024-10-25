@@ -473,7 +473,8 @@ def test_align_all(svs_data_uncomb_reps, tmp_path):
                            '--file', svsfile,
                            '--ppm', '-10', '10',
                            '--output', tmp_path,
-                           '--filename', 'tmp'])
+                           '--filename', 'tmp',
+                           '-r'])
 
     # Load result for comparison
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
