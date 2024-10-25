@@ -1,11 +1,13 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.3.0 (WIP)
-------------------------------
+2.3.0 (Friday 25th October 2024)
+--------------------------------
 - New baseline options - penalised splines have been added.
 - In `fsl_mrs` and `fsl_mrsi`, baseline options should now be specified using the `--baseline` argument. Legacy `--baseline_order` is still available.
 - New python interface api for fitting to accompany the new baseline options
 - Dask now integrated for multi-voxel fitting across local cores and HPC clusters.
+- Fix bug in coil combination with trailing singleton dimensions
+- Fix bug for numpy versions < 2 calculating quantifiaction areas
 
 2.2.0 (Tuesday 9th July 2024)
 --------------------------------

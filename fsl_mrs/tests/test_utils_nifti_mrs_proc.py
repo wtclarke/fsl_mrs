@@ -52,6 +52,24 @@ def test_coilcombine():
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.coilcombine, reference=Used but unknown source, no_prewhiten=False.'
 
 
+def test_coilcombine_singleton():
+    '''Test coil combination when the reference has a trailing singleton dim'''
+    nmrs_obj = read_FID(metab)
+    nmrs_ref_obj = read_FID(wrefc)
+
+    singleton_ref, _ = split(nmrs_ref_obj, 'DIM_DYN', 0)
+    assert singleton_ref.shape[-1] == 1
+
+    combined = nproc.coilcombine(nmrs_obj, reference=singleton_ref)
+    assert combined.shape == (1, 1, 1, 4096, 64)
+
+    # Remove trailing singleton dim and check again
+    singleton_ref.set_dim_tag("DIM_DYN", None)
+    assert singleton_ref.shape[-1] > 1
+    combined = nproc.coilcombine(nmrs_obj, reference=singleton_ref)
+    assert combined.shape == (1, 1, 1, 4096, 64)
+
+
 def test_average():
     nmrs_ref_obj = read_FID(wrefc)
     combined = nproc.average(nmrs_ref_obj, 'DIM_DYN')
