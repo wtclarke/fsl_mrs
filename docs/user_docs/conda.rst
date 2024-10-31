@@ -13,7 +13,7 @@ This is a short guide on setting up conda for the first time.
 
 ::
 
-    conda create --name fsl_mrs_env -c conda-forge python=3.11
+    conda create --name fsl_mrs_env -c conda-forge python=3.12
 
 3. Activate the environment.
 

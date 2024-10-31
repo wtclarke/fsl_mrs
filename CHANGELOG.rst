@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.3.1 (Thursday 31st October 2024)
+----------------------------------
+- Recommended python version incremented to 3.12.
+- Python testing and validation versions incremented to 3.12
+
 2.3.0 (Friday 25th October 2024)
 --------------------------------
 - New baseline options - penalised splines have been added.

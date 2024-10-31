@@ -58,7 +58,7 @@ class Basis:
             dupes = [idx for idx, n in enumerate(names) if n == name]
             if len(dupes) > 0:
                 for idx, ddx in enumerate(dupes[1:]):
-                    names[ddx] = names[ddx] + f'_{idx+1}'
+                    names[ddx] = names[ddx] + f'_{idx + 1}'
                     print(f'Found duplicate basis name "{name}", renaming to "{names[ddx]}".')
 
         # Checks on shape of fids
@@ -488,7 +488,7 @@ class Basis:
             if isinstance(amplist[idx], (float, int)):
                 amplist[idx] = [float(amplist[idx]), ]
 
-        names = [f'MM{i[0]*10:02.0f}' for i in ppmlist]
+        names = [f'MM{i[0] * 10:02.0f}' for i in ppmlist]
 
         for name, ppm, amp in zip(names, ppmlist, amplist):
             self.add_peak(ppm, amp, name, gamma, sigma, conj=conj)
