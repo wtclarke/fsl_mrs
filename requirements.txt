@@ -9,7 +9,7 @@ nibabel>=5.3
 hlsvdpropy
 fslpy>=3.9.0
 pillow
-spec2nii>=0.8.1
+spec2nii>=0.8.5
 dill
 dash
 flask>=2.2
