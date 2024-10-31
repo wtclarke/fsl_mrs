@@ -131,7 +131,7 @@ def svs_table_quant(res):
         <table>
             <tr>
                 <td class="titles">Metabolite T<sub>2</sub>:</td>
-                <td>{1000*Q.t2['METAB']} ms</td>
+                <td>{1000 * Q.t2['METAB']} ms</td>
             </tr>
             <tr>
                 <td class="titles">Metabolite T<sub>1</sub>:</td>
@@ -139,7 +139,7 @@ def svs_table_quant(res):
             </tr>
             <tr>
                 <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
-                <td>{1000*Q.te} ms</td>
+                <td>{1000 * Q.te} ms</td>
             </tr>
             <tr>
                 <td class="titles">Sequence repetition time (T<sub>R</sub>):</td>
@@ -169,15 +169,15 @@ def svs_table_quant(res):
         <table>
             <tr>
                 <td class="titles">Water T<sub>2</sub></td>
-                <td> : {(1000*Q.t2['H2O_GM'] + 1000*Q.t2['H2O_WM']) / 2} ms</td>
+                <td> : {(1000 * Q.t2['H2O_GM'] + 1000 * Q.t2['H2O_WM']) / 2} ms</td>
             </tr>
             <tr>
                 <td class="titles">Water T<sub>1</sub></td>
-                <td> : {(1000*Q.t1['H2O_GM'] + 1000*Q.t1['H2O_WM']) / 2} ms</td>
+                <td> : {(1000 * Q.t1['H2O_GM'] + 1000 * Q.t1['H2O_WM']) / 2} ms</td>
             </tr>
             <tr>
                 <td class="titles">Metabolite T<sub>2</sub>:</td>
-                <td>{1000*Q.t2['METAB']} ms</td>
+                <td>{1000 * Q.t2['METAB']} ms</td>
             </tr>
             <tr>
                 <td class="titles">Metabolite T<sub>1</sub>:</td>
@@ -185,7 +185,7 @@ def svs_table_quant(res):
             </tr>
             <tr>
                 <td class="titles">Sequence echo time (T<sub>E</sub>):</td>
-                <td>{1000*Q.te} ms</td>
+                <td>{1000 * Q.te} ms</td>
             </tr>
             <tr>
                 <td class="titles">Sequence repetition time (T<sub>R</sub>):</td>
@@ -238,7 +238,7 @@ def svs_methods_summary(res):
         f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, "\
         f"part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). "\
         f"Briefly, basis spectra are fitted to the complex-valued spectrum in the frequency domain. "\
-        f"The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups)+1} metabolite groups. "\
+        f"The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups) + 1} metabolite groups. "\
         f"{baseline_string}"\
         f"{algo} "\
         f"<p><h3>References</h3><p>[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."

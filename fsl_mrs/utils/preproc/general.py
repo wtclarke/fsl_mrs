@@ -25,7 +25,7 @@ def get_target_FID(FIDlist, target='mean'):
         return np.median(np.real(np.asarray(FIDlist)), axis=0)\
             + 1j * np.median(np.imag(np.asarray(FIDlist)), axis=0)
     else:
-        raise(Exception('Unknown target type {}'.format(target)))
+        raise ValueError('Unknown target type {}'.format(target))
 
 
 def subtract(FID1, FID2):

@@ -88,7 +88,7 @@ def coilcombine(
     if noise is not None:
         if noise.shape[0] != ncoils:
             raise ValueError(
-                f'Noise must have a first dimension (currently {noise.shape[0] }) = NCoils {ncoils}')
+                f'Noise must have a first dimension (currently {noise.shape[0]}) = NCoils {ncoils}')
 
         coil_cov = np.cov(noise)
 

@@ -220,7 +220,7 @@ class MH:
         if bounds is None:
             return LB, UB
         if not isinstance(bounds, list):
-            raise(Exception('bounds must either be a list or None'))
+            raise TypeError('bounds must either be a list or None')
         for i, b in enumerate(bounds):
             LB[i] = b[0] if b[0] is not None else -np.inf
             UB[i] = b[1] if b[1] is not None else np.inf

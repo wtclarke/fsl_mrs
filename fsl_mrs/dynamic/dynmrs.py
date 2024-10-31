@@ -299,7 +299,7 @@ class dynMRS(object):
             raise (Exception(f'Unrecognised method {method}'))
         end_fit_time = time.time()
         if verbose:
-            print(f"...completed in {end_fit_time-start_time} seconds.")
+            print(f"...completed in {end_fit_time - start_time} seconds.")
         # Results
         if verbose:
             print('Collect results')
@@ -312,7 +312,7 @@ class dynMRS(object):
             raise (Exception(f'Unrecognised method {method}'))
 
         if verbose:
-            print(f"...completed in {time.time()-end_fit_time} seconds.")
+            print(f"...completed in {time.time() - end_fit_time} seconds.")
 
         if output_opt_sol:
             return results, sol
@@ -359,7 +359,7 @@ class dynMRS(object):
         mapped_params = self.vm.mapped_to_dict(init)
 
         if verbose:
-            print(f'Init done in {time.time()-start_time} seconds.')
+            print(f'Init done in {time.time() - start_time} seconds.')
         return {'x': init, 'mapped_params': mapped_params, 'resList': resList}
 
     # Utility methods

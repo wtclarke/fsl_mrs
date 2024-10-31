@@ -126,7 +126,7 @@ def main():
         seqFileParams = json.loads(jsonString)
         if 'seq' in seqFileParams:
             seqParams = seqFileParams['seq']
-        else:  #  Assume that this is a plain sequence file and contains just the information we need
+        else:  # Assume that this is a plain sequence file and contains just the information we need
             seqParams = seqFileParams
 
     # Identify spin systems to run

@@ -123,7 +123,7 @@ class VariableMapping(object):
         OUT += f'Number of Mapped param groups  = {len(self.mapped_categories)}\n'
         OUT += f'Number of Mapped params        = {sum(self._mapped_sizes)}\n'
         OUT += f'Number of Free params          = {self.nfree}\n'
-        OUT += f'Number of params if all indep  = {sum(self._mapped_sizes)*self.ntimes}\n'
+        OUT += f'Number of params if all indep  = {sum(self._mapped_sizes) * self.ntimes}\n'
 
         OUT += 'Dynamic functions\n'
         for param_name in self.mapped_categories:
@@ -556,7 +556,7 @@ class VariableMapping(object):
 
         if (p.shape != (self.ntimes, self.nmapped)):
             raise ValueError('Input mapped params does not have expected number of entries.'
-                             f' Found {p.shape}, expected {(self.ntimes,self.nmapped)}')
+                             f' Found {p.shape}, expected {(self.ntimes, self.nmapped)}')
 
         free_params = np.zeros(self.nfree)
         for index, mp_obj in enumerate(self._mapped_params):
