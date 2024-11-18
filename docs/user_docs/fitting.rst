@@ -161,7 +161,7 @@ Below are detailed explanations of some of the optional arguments in the wrapper
 :code:`--keep`              
     List of metabolites to include in the fitting, all other metabolites are excluded from the fitting
 :code:`--combine`           
-    Combine sets of metabolites (not in the fitting, only in the quantification/display) - this option is repeatable.
+    Combine sets of metabolites (not in the fitting, only in the quantification/display) - this option is repeatable. For example, to combine NAA and NAAG together pass `--combine NAA NAAG`.
 :code:`--ppmlim`            
     Only calculate the loss function within this ppm range.
 :code:`--baseline`    
