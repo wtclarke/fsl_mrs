@@ -122,7 +122,7 @@ def main():
             orig_args = json.loads(f.readline())
 
         # Load data into mrs object
-        if (fp / 'data').exists():
+        if (fp / 'data.nii.gz').exists():
             FID = mrs_io.read_FID((fp / 'data').resolve())
             basis = mrs_io.read_basis((fp / 'basis').resolve())
         else:  # Use old mechanism for backwards compatibility
