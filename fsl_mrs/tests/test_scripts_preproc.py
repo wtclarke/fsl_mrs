@@ -175,3 +175,61 @@ def test_already_processed(tmp_path):
         b'Please carefully ascertain what pre-processing has already taken place, '\
         b'before running appropriate individual steps using fsl_mrs_proc. '\
         b'Note, no pre-processing may be necessary.\n'
+
+
+def test_wref_singleton_preproc(tmp_path):
+    """
+    Test handling of reference data with singleton trailing dimensions
+    """
+
+    # Make data with right attributes
+    from fsl_mrs.utils import mrs_io
+    from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
+
+    metab = data / 'metab_raw.nii.gz'
+    wrefc = mrs_io.read_FID(data / 'wref_raw.nii.gz')
+    wrefq = mrs_io.read_FID(data / 'quant_raw.nii.gz')
+    ecc = mrs_io.read_FID(data / 'ecc.nii.gz')
+
+    wrefc = nproc.average(wrefc, 'DIM_DYN')
+    wrefq = nproc.average(wrefq, 'DIM_DYN')
+
+    wrefc.set_dim_tag(5, 'DIM_DYN')
+    assert wrefc.dim_tags[1] == 'DIM_DYN'
+    assert wrefc.shape[5] == 1
+    wrefc.save(tmp_path / 'wrefc.nii.gz')
+
+    wrefq.set_dim_tag(5, 'DIM_DYN')
+    assert wrefq.dim_tags[1] == 'DIM_DYN'
+    assert wrefq.shape[5] == 1
+    wrefq.save(tmp_path / 'wrefq.nii.gz')
+
+    ecc.set_dim_tag(5, 'DIM_DYN')
+    assert ecc.dim_tags[1] == 'DIM_DYN'
+    assert ecc.shape[5] == 1
+    ecc.save(tmp_path / 'ecc.nii.gz')
+
+    out = subprocess.run(
+        ['fsl_mrs_preproc',
+         '--output', tmp_path / 'preproc',
+         '--data', metab,
+         '--reference', tmp_path / 'wrefc.nii.gz',
+         '--quant', tmp_path / 'wrefq.nii.gz',
+         '--ecc', tmp_path / 'ecc.nii.gz',
+         '--t1', t1,
+         '--align_limits', '0.5', '4.0',
+         '--hlsvd',
+         '--leftshift', '1',
+         '--overwrite',
+         '--report',
+         '--verbose'],
+        check=True)
+
+    assert out.returncode == 0
+    assert (tmp_path / 'preproc' / 'mergedReports.html').exists()
+    assert (tmp_path / 'preproc' / 'voxel_location.png').exists()
+    assert (tmp_path / 'preproc' / 'metab.nii.gz').exists()
+    assert (tmp_path / 'preproc' / 'wref.nii.gz').exists()
+
+    proc_nii = mrs_io.read_FID(tmp_path / 'preproc' / 'metab.nii.gz')
+    assert proc_nii.shape == (1, 1, 1, 4095)

@@ -42,10 +42,10 @@ def estimate_noise_cov(FIDs, prop=.1):
     if selected_points.shape[0] < 10 * FIDs.shape[-1]:
         raise CovarianceEstimationError(
             f'You have far too few points ({selected_points.shape[0]}) '
-            f'to calculate an {FIDs.shape[-1]} element covariance.')
+            f'to calculate an {FIDs.shape[-1]} element covariance.'
+            ' Disable prewhitening.')
     elif selected_points.shape[0] < 1E5:
-        import warnings
-        warnings.warn(
+        print(
             'You may not have enough samples to accurately estimate the noise covariance, '
             '10^5 samples recommended.')
     return np.cov(selected_points, rowvar=False)
