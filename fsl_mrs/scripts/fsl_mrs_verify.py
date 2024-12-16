@@ -15,6 +15,7 @@ import shutil
 import tarfile
 from pathlib import Path
 import subprocess
+import sys
 
 import pandas as pd
 import numpy as np
@@ -49,7 +50,12 @@ def main():
                 # Remove file structure
                 if member.isfile():
                     member.name = Path(member.name).name
-                    tfile.extract(member, path='./' + file.replace('.tar.gz', ''))
+                    if sys.version_info >= (3, 12, 0):
+                        # Handle a python 3.14 issue and 3.12+ depreciation warning
+                        # Unclear if versions before 3.12 have the filter kwarg, 11.9 does...
+                        tfile.extract(member, path='./' + file.replace('.tar.gz', ''), filter='tar')
+                    else:
+                        tfile.extract(member, path='./' + file.replace('.tar.gz', ''))
             tfile.close()
             Path(file).unlink()
 

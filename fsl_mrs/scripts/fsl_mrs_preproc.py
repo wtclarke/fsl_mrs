@@ -199,10 +199,13 @@ def main():
     # Do preproc
     verbose_print('Begin pre-processing.... ')
 
+    def has_multiple_dynamics(dat):
+        return ('DIM_DYN' in dat.dim_tags) and (dat.shape[dat.dim_position('DIM_DYN')] > 1)
+
     if do_coil_combine:
         verbose_print('... Coil Combination ...')
 
-        if 'DIM_DYN' in ref_data.dim_tags:
+        if has_multiple_dynamics(ref_data):
             avg_ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
         else:
             avg_ref_data = ref_data
@@ -307,25 +310,25 @@ def main():
         window=args.align_window,
         report=report_dir)
 
-    if 'DIM_DYN' in ref_data.dim_tags:
+    if has_multiple_dynamics(ref_data):
         ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
 
-    if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
+    if args.quant is not None and has_multiple_dynamics(quant_data):
         quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
-    if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
+    if args.ecc is not None and has_multiple_dynamics(ecc_data):
         ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
 
     # Average the data (if asked to do so)
     if args.average:
         verbose_print('... Average FIDs ...')
         supp_data = nifti_mrs_proc.average(supp_data, 'DIM_DYN', report=report_dir)
-        if 'DIM_DYN' in ref_data.dim_tags:
+        if has_multiple_dynamics(ref_data):
             ref_data = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
-        if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
+        if args.quant is not None and has_multiple_dynamics(quant_data):
             quant_data = nifti_mrs_proc.average(quant_data, 'DIM_DYN')
 
     # Always average ecc if it exists as a separate scan
-    if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
+    if args.ecc is not None and has_multiple_dynamics(ecc_data):
         ecc_data = nifti_mrs_proc.average(ecc_data, 'DIM_DYN')
 
     # Eddy current correction
@@ -333,7 +336,7 @@ def main():
     if args.ecc is not None:
         eccRef = ecc_data
     else:
-        if 'DIM_DYN' in ref_data.dim_tags:
+        if has_multiple_dynamics(ref_data):
             eccRef = nifti_mrs_proc.average(ref_data, 'DIM_DYN')
         else:
             eccRef = ref_data

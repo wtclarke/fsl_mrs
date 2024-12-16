@@ -223,6 +223,12 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
     :return: Combined data in NIFTI_MRS format.
     '''
+    # Check that requested dimension exists and is non-singleton
+    # First check carried out in dim_position method
+    if data.shape[data.dim_position(dim)] == 1:
+        print(f'{dim} dimension is singleton, no averaging performed, returning unmodified input.')
+        return data
+
     combined_obj = data.copy(remove_dim=dim)
     for dd, idx in data.iterate_over_dims(dim=dim,
                                           iterate_over_space=True,
@@ -286,6 +292,11 @@ def align(
     if dim.lower() == 'all':
         generator = data.iterate_over_spatial()
     else:
+        # Check that requested dimension exists and is non-singleton
+        # First check carried out in dim_position method
+        if data.shape[data.dim_position(dim)] == 1:
+            print(f'{dim} dimension is singleton, no alignment performed, returning unmodified input.')
+            return data
         generator = data.iterate_over_dims(dim=dim,
                                            iterate_over_space=True,
                                            reduce_dim_index=False)
@@ -519,7 +530,8 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
     :return: Corrected data in NIFTI_MRS format.
     '''
     if data.shape != reference.shape\
-            and reference.ndim > 4:
+            and reference.ndim > 4\
+            and np.prod(reference.shape[4:]) > 1:
         raise DimensionsDoNotMatch('Reference and data shape must match'
                                    ' or reference must be single FID.')
 

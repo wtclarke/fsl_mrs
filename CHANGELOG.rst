@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.3.3 (WIP)
+---------------------------------
+- Improved handling of trailing singleton dimensions of NIfTI-MRS data through various processing scripts.
+
 2.3.2 (Monday 18th November 2024)
 ---------------------------------
 - Fixed bug in `fsl_mrs_summarise` that caused existing data symlinks to not be found. Thanks to Sean Tan for reporting.

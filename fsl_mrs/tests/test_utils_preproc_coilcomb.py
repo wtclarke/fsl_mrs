@@ -15,7 +15,7 @@ from fsl_mrs.utils.preproc.nifti_mrs_proc import coilcombine
 from fsl_mrs.core.nifti_mrs import create_nmrs
 
 
-def test_covar_est():
+def test_covar_est(capsys):
 
     rng = np.random.default_rng(seed=1)
 
@@ -48,8 +48,12 @@ def test_covar_est():
     noise = rng.multivariate_normal(mean, random_cov / 2, shape)\
         + 1j * rng.multivariate_normal(mean, random_cov / 2, shape)
 
-    with pytest.warns(UserWarning):
-        _ = combine.estimate_noise_cov(noise, prop=0.1)
+    warn_str = \
+        'You may not have enough samples to accurately estimate the noise covariance, '\
+        '10^5 samples recommended.\n'
+    _ = combine.estimate_noise_cov(noise, prop=0.1)
+    captured = capsys.readouterr()
+    assert captured.out == warn_str
 
     # Test case with insufficient samples
     mean = np.zeros((4,))
