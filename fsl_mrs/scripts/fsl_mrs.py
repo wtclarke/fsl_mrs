@@ -309,7 +309,13 @@ def main():
     # Do the fitting here
     verboseprint('--->> Start fitting\n\n')
     verboseprint('    Algorithm = [{}]\n'.format(args.algo))
-    start = time.time()
+
+    if args.mh_samples >= 1000:
+        fit_baseline_mh = True
+        verboseprint('Number of mh_samples set to 1000 or more, fitting baseline with MH.')
+    else:
+        fit_baseline_mh = False
+        verboseprint('Number of MH Samples set to 999 or fewer, baseline estimated with Newton init.')
 
     # Initialise fitting arguments and parse metabolite groups
     Fitargs = {
@@ -317,7 +323,8 @@ def main():
         'method': args.algo,
         'metab_groups': misc.parse_metab_groups(mrs, args.metab_groups),
         'disable_mh_priors': args.disable_MH_priors,
-        'MHSamples': args.mh_samples}
+        'MHSamples': args.mh_samples,
+        'fit_baseline_mh': fit_baseline_mh}
 
     if args.baseline_order:
         Fitargs['baseline_order'] = args.baseline_order
@@ -338,6 +345,7 @@ def main():
     verboseprint('Fitting args:')
     verboseprint(Fitargs)
 
+    start = time.time()
     res = fitting.fit_FSLModel(mrs, **Fitargs)
 
     # Quantification

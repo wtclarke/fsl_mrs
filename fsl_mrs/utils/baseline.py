@@ -169,6 +169,39 @@ class Baseline:
             self.regressor,
             x2b)
 
+    def cov_penalty_term(
+            self,
+            n_fit_params: int) -> np.ndarray:
+        """Return any penalty term needed for the laplace covariance estimation.
+
+        Output will be the size of J@J.T
+
+        :param n_fit_params: Number of parameters in fitting model
+        :type n_fit_params: int
+        :return: penalty term matrix size (n_fit_params, n_fit_params)
+        :rtype: np.ndarray
+        """
+        if self.mode in ("off", "polynomial"):
+            return np.zeros((n_fit_params, n_fit_params))
+        return calculate_lap_cov_penalty_term(
+            self.spline_penalty,
+            self.regressor,
+            n_fit_params)
+
+    def mh_penalty_term(
+            self,
+    ) -> typing.Callable:
+        """Returns a function that will calculate the penalty from the current fit parameters
+
+        penalty_function = bline_obj.mh_penalty_term()
+
+        :return: Calculation function
+        :rtype: typing.Callable
+        """
+        return calculate_mh_liklihood_term(
+            self.spline_penalty,
+            self.regressor)
+
     def __str__(self) -> str:
         if self.mode == "polynomial":
             return f"polynomial baseline of order {self._order}"
@@ -352,6 +385,76 @@ def prepare_penalised_functions(
         return out
 
     return penalised_error, penalised_grad
+
+
+def calculate_mh_liklihood_term(
+        penalty: float,
+        basis: np.ndarray
+) -> typing.Callable:
+    """Create the function that calculates the MH likelihood penalty value
+
+    :param penalty: penalty ED
+    :type penalty: float
+    :param basis: baseline basis
+    :type basis: numpy.ndarray
+    :return: calculation function
+    :rtype: typing.Callable
+    """
+
+    n_basis = int(basis.shape[1] / 2)
+
+    diff_mat = _pspline_diff(n_basis)
+
+    penalty_lambda = lambda_from_ed(
+        penalty,
+        basis[:, :n_basis])
+
+    def mh_penalty(p) -> float:
+        """Returns the liklihood penalty term
+
+        :param p: All fit parameters, last section is baseline
+        :type p: np.ndarray
+        :return: penalty
+        :rtype: float
+        """
+        return penalty_lambda * np.linalg.norm(p[(-n_basis * 2):(-n_basis)] @ diff_mat)**2\
+            + penalty_lambda * np.linalg.norm(p[-n_basis:] @ diff_mat)**2
+
+    return mh_penalty
+
+
+def calculate_lap_cov_penalty_term(
+        penalty: float,
+        basis: np.ndarray,
+        n_params: int
+) -> np.ndarray:
+    """Generate the additional penalty term needed for the laplace covariance estimation
+
+    2 * lambda * D.T @ D
+
+    :param penalty: penalty ED
+    :type penalty: float
+    :param basis: baseline basis
+    :type basis: numpy.ndarray
+    :param n_params: Number of parameters in full fitting model
+    :type n_params: int
+    :return: Returns penalty matrix the same shape as J@J.T
+    :rtype: np.ndarray
+    """
+
+    n_basis = int(basis.shape[1] / 2)
+
+    diff_mat = _pspline_diff(n_basis)
+
+    penalty_lambda = lambda_from_ed(
+        penalty,
+        basis[:, :n_basis])
+
+    pterm = 2 * penalty_lambda * (diff_mat @ diff_mat.T)
+    pterm_full = np.zeros((n_params, n_params))
+    pterm_full[-pterm.shape[0]:, -pterm.shape[0]:] = pterm
+    pterm_full[-2 * pterm.shape[0]:-pterm.shape[0], -2 * pterm.shape[0]:-pterm.shape[0]] = pterm
+    return pterm_full
 
 
 # Polynomial baseline functions

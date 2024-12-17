@@ -147,6 +147,18 @@ Model parameters are summarised in the below table:
  :math:`\mathrm{C}_{l,g}`   concentration for metabolite :math:`l` in group :math:`g`     A.U.
 ========================== ============================================================ ============
 
+Algorithms
+~~~~~~~~~~
+There are two optimisation algorithms available in FSL-MRS:
+
+ - a truncated Newton (TNC method as implemented in `Scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html>`_), and
+ - a Metropolis-Hastings (MH) algorithm.
+
+The MH algorithm is slower but provides an estimate of the full parameter posteriors. It gives more robst estimates of the concentrations of metabolites with low concentrations.
+
+When using the MH algorithm it is highly recommended to increase the number of samples from the default, set low for quick trialling, to a much larger value e.g. more than 10000, for the final fit estimate.
+
+When using medium to high sample numbers (1000+) the MH algorithm is also used to estimate the baseline parameters, below this number the baseline is estimated only by the initialisation from the TNC algorithm.
 
 Wrapper options
 ~~~~~~~~~~~~~~~

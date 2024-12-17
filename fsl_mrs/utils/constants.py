@@ -159,17 +159,17 @@ disable_MH_priors command line argument to set all priors to uniform.
 deviation of the Guassian prior.
 '''
 
-MCMC_PRIORS = {'lorentzian': {'conc_loc': 0.0, 'conc_scale': 1E0,
-                              'gamma_loc': 5.0, 'gamma_scale': 2.5,  # Hz
-                              'eps_loc': 0.0, 'eps_scale': 0.005,    # ppm
-                              'phi0_loc': 0.0, 'phi0_scale': 5.0,   # degrees
-                              'phi1_loc': 0.0, 'phi1_scale': 1E-5},  # seconds
-               'voigt': {'conc_loc': 0.0, 'conc_scale': 1E0,
-                         'gamma_loc': 5.0, 'gamma_scale': 2.5,  # Hz
-                         'sigma_loc': 5.0, 'sigma_scale': 2.5,  # Hz
-                         'eps_loc': 0.0, 'eps_scale': 0.005,    # ppm
-                         'phi0_loc': 0.0, 'phi0_scale': 5.0,   # degrees
-                         'phi1_loc': 0.0, 'phi1_scale': 1E-5}}  # seconds
+MCMC_PRIORS = {'lorentzian': {'conc_loc': 0.0, 'conc_scale': 1E3,
+                              'gamma_loc': 5.0, 'gamma_scale': 7.5,  # Hz
+                              'eps_loc': 0.0, 'eps_scale': 0.015,    # ppm
+                              'phi0_loc': 0.0, 'phi0_scale': 15.0,   # degrees
+                              'phi1_loc': 0.0, 'phi1_scale': 2E-5},  # seconds
+               'voigt': {'conc_loc': 0.0, 'conc_scale': 1E3,
+                         'gamma_loc': 5.0, 'gamma_scale': 7.5,  # Hz
+                         'sigma_loc': 5.0, 'sigma_scale': 7.5,  # Hz
+                         'eps_loc': 0.0, 'eps_scale': 0.015,    # ppm
+                         'phi0_loc': 0.0, 'phi0_scale': 15.0,   # degrees
+                         'phi1_loc': 0.0, 'phi1_scale': 2E-5}}  # seconds
 
 '''
 DEFAULT MM BASIS SET

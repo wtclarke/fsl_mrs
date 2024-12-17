@@ -88,7 +88,12 @@ class FitRes(object):
         # Calculate uncertainties using covariance derived from Fisher information
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
         # Empirical factor of 2 found, likely to arise from complex data/residuals
-        self._cov = calculate_lap_cov(self.params, forward_lim, data, jac_lim(self.params).T)
+        self._cov = calculate_lap_cov(
+            self.params,
+            forward_lim,
+            data,
+            jac_lim(self.params).T,
+            additional_term=baseline_obj.cov_penalty_term(len(self.params)))
         self._cov /= 2  # Apply factor 2 correction
 
         # Calculate mcmc metrics
