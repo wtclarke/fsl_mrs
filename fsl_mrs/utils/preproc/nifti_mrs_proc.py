@@ -12,6 +12,7 @@ import numpy as np
 
 from fsl_mrs.utils import preproc
 from fsl_mrs.core import NIFTI_MRS
+from fsl_mrs.core import nifti_mrs as ntools
 from fsl_mrs import __version__
 from fsl_mrs.utils.misc import shift_FID
 
@@ -996,27 +997,27 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         if figure:
             fig.show()
 
-    goodFIDs = np.asarray(goodFIDs).T
-    goodFIDs = goodFIDs.reshape([1, 1, 1] + list(goodFIDs.shape))
-
-    good_out = NIFTI_MRS(
-        goodFIDs,
-        header=data.header)
-    good_out.add_hdr_field(
-        'DIM_DYN Indices',
-        gIndicies,
-        doc="Data's original index values in the DIM_DYN dimension")
+    # goodFIDs = np.asarray(goodFIDs).T
+    # goodFIDs = goodFIDs.reshape([1, 1, 1] + list(goodFIDs.shape))
 
     if len(badFIDs) > 0:
-        badFIDs = np.asarray(badFIDs).T
-        badFIDs = badFIDs.reshape([1, 1, 1] + list(badFIDs.shape))
-        bad_out = NIFTI_MRS(
-            badFIDs,
-            header=data.header)
+        bad_out, good_out  = ntools.split(
+            data,
+            data.dim_tags[0],
+            gIndicies)
+    else:
+        good_out = data.copy()
+
+    good_out.add_hdr_field(
+        f'{data.dim_tags[0]} Indices',
+        gIndicies,
+        doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
+
+    if len(badFIDs) > 0:
         bad_out.add_hdr_field(
-            'DIM_DYN Indices',
+            f'{data.dim_tags[0]} Indices',
             bIndicies,
-            doc="Data's original index values in the DIM_DYN dimension")
+            doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
     else:
         bad_out = None
 

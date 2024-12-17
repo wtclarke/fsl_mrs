@@ -247,6 +247,12 @@ def test_shift_to_reference_no_avg():
 def test_remove_unlike():
     nmrs_obj = read_FID(metab)
     nmrs_obj = nproc.coilcombine(nmrs_obj)
+
+    # Add a header of the right size to test
+    nmrs_obj.set_dim_tag(
+        'DIM_DYN',
+        'DIM_DYN',
+        header={'RepetitionTime': np.arange(nmrs_obj.shape[4]).tolist()})
     processed, removed_fids = nproc.remove_unlike(nmrs_obj, sdlimit=1.0)
 
     assert processed.shape == (1, 1, 1, 4096, 53)
