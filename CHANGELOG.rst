@@ -1,7 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.3.3 (WIP)
----------------------------------
+2.4.0 (Tuesday 17th December 2024)
+----------------------------------
+- Added p-spline baseline option to MH fitting algorithm.
+- Updated documentation around MH fitting.
+- Widened MH fitting priors to allow better handling of poorly scaled data.
+- Fixed incorrect covariance and uncertainty calculation with new p-spline baseline option.
 - Improved handling of trailing singleton dimensions of NIfTI-MRS data through various processing scripts.
 - Fixed bug in unlike scan removal (e.g. `fsl_mrs_proc unlike`) when there was a header associated with the dimension being operated on.
 

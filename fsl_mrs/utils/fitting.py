@@ -46,7 +46,7 @@ def fit_FSLModel(mrs,
     :type model: str, optional
     :param x0: Initialisation values, defaults to None
     :type x0: List, optional
-    :param MHSamples: Number of MH samples to run, defaults to 500
+    :param MHSamples: Number of MH steps to run, defaults to 500 (will produce 50 samples)
     :type MHSamples: int, optional
     :param disable_mh_priors: If True all priors are disabled for MH fitting, defaults to False
     :type disable_mh_priors: bool, optional
@@ -134,8 +134,15 @@ def fit_FSLModel(mrs,
         numPoints_over_2 = (last - first) / 2.0
         y = data[first:last]
 
-        def loglik(p):
-            return np.log(np.linalg.norm(y - forward_mh(p))) * numPoints_over_2
+        if fit_baseline_mh and baseline_obj.mode == 'spline':
+            penalty_function = baseline_obj.mh_penalty_term()
+
+            def loglik(p):
+                lik = np.linalg.norm(y - forward_mh(p)) + penalty_function(p)
+                return np.log(lik) * numPoints_over_2
+        else:
+            def loglik(p):
+                return np.log(np.linalg.norm(y - forward_mh(p))) * numPoints_over_2
 
         if disable_mh_priors:
             def logpr(p):
