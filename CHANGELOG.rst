@@ -3,6 +3,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.3.3 (WIP)
 ---------------------------------
 - Improved handling of trailing singleton dimensions of NIfTI-MRS data through various processing scripts.
+- Fixed bug in unlike scan removal (e.g. `fsl_mrs_proc unlike`) when there was a header associated with the dimension being operated on.
 
 2.3.2 (Monday 18th November 2024)
 ---------------------------------
