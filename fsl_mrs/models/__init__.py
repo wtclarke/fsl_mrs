@@ -7,6 +7,7 @@ import numpy as np
 import fsl_mrs.models.model_freeshift as freeshift
 import fsl_mrs.models.model_voigt as voigt
 import fsl_mrs.models.model_lorentzian as lorentzian
+import fsl_mrs.models.model_negativevoigt as negativevoigt
 
 
 def getModelFunctions(model):
@@ -29,6 +30,12 @@ def getModelFunctions(model):
         forward = freeshift.forward  # forward model
         x2p = freeshift.x2param
         p2x = freeshift.param2x
+    elif model == 'negativevoigt':
+        err_func = negativevoigt.err     # error function
+        grad_func = negativevoigt.grad    # gradient
+        forward = negativevoigt.forward  # forward model
+        x2p = negativevoigt.x2param
+        p2x = negativevoigt.param2x
     else:
         raise ValueError('Unknown model {}.'.format(model))
     return err_func, grad_func, forward, x2p, p2x
@@ -38,7 +45,7 @@ def getModelForward(model):
     """Return the model forward function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift'
+     or 'free_shift' or 'negativevoigt'
     :type model: str
     :return: forward function
     :rtype: _type_
@@ -51,7 +58,7 @@ def getModelJac(model):
     """Return the model jacobian function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift'
+     or 'free_shift' or 'negativevoigt'
     :type model: str
     :return: Jacobian function
     :rtype: function
@@ -62,6 +69,8 @@ def getModelJac(model):
         jac = voigt.jac
     elif model == 'free_shift':
         jac = freeshift.jac
+    elif model == 'negativevoigt':
+        jac = negativevoigt.jac        
     else:
         raise ValueError('Unknown model {}.'.format(model))
     return jac
@@ -71,7 +80,7 @@ def getInit(model):
     """Return the initilisation function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift'
+     or 'free_shift' or 'negativevoigt'
     :type model: str
     :return: Init function
     :rtype: function
@@ -82,6 +91,8 @@ def getInit(model):
         return voigt.init
     elif model == 'free_shift':
         return freeshift.init
+    elif model == 'negativevoigt':
+        return negativevoigt.init
     else:
         raise ValueError('Unknown model {}.'.format(model))
 
@@ -104,6 +115,8 @@ def FSLModel_vars(model, n_basis=None, n_groups=1, n_baseline=0):
         return voigt.vars(n_basis, n_groups, n_baseline)
     elif model == 'free_shift':
         return freeshift.vars(n_basis, n_groups, n_baseline)
+    elif model == 'negativevoigt':
+        return negativevoigt.vars(n_basis, n_groups, n_baseline)
     else:
         raise ValueError('Unknown model {}.'.format(model))
 
@@ -134,6 +147,8 @@ def FSLModel_bounds(model, n_basis, n_groups, n_baseline, method, disableBaselin
         return voigt.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     elif model == 'free_shift':
         return freeshift.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
+    elif model == 'negativevoigt':
+        return negativevoigt.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     else:
         raise ValueError('Unknown model {}.'.format(model))
 
@@ -188,6 +203,15 @@ def FSLModel_mask(
             fit_baseline=fit_baseline)
     elif model == 'free_shift':
         return freeshift.mask(
+            n_basis,
+            n_groups,
+            n_baseline,
+            fit_conc=fit_conc,
+            fit_shape=fit_shape,
+            fit_phase=fit_phase,
+            fit_baseline=fit_baseline)
+    elif model == 'negativevoigt':
+        return negativevoigt.mask(
             n_basis,
             n_groups,
             n_baseline,

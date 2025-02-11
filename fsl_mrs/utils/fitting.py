@@ -56,6 +56,7 @@ def fit_FSLModel(mrs,
     :return: Fit results object
     :rtype: fsl_mrs.utils.FitRes
     """
+
     err_func, grad_func, forward, x2p, p2x = models.getModelFunctions(model)
 
     init_func = models.getInit(model)         # initialisation of params
