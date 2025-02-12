@@ -547,14 +547,14 @@ class dynRes:
         n_transients = dyn_fit_mean.shape[0]
         if n_transients > 16 and indices is None:
             indices = np.round(np.linspace(0, n_transients - 1, 16)).astype(int)
-
+        print('here')
         if indices is not None:
             init_fit = init_fit[indices, :]
             init_fitted_fit = init_fitted_fit[indices, :]
             dyn_fit_mean = dyn_fit_mean[indices, :]
             dyn_fit_sd = dyn_fit_sd[indices, :]
             sp_titles = np.asarray(sp_titles)[indices]
-            data_to_plot = np.asarray(data_to_plot)[indices]
+            data_to_plot = np.asarray(data_to_plot[indices])
 
         row, col = subplot_shape(len(sp_titles))
 

@@ -408,7 +408,7 @@ class FitRes(object):
 
         for i in range(g):
             self.params_names.append(f'gamma_{i}')
-        if self.model.lower() in ['voigt', 'free_shift']:
+        if self.model.lower() in ['voigt', 'free_shift', 'negativevoigt']:
             for i in range(g):
                 self.params_names.append(f'sigma_{i}')
 
@@ -736,7 +736,7 @@ class FitRes(object):
                 raise ValueError('Units must be Hz, ppm or raw.')
             combined = gamma
             return combined, gamma
-        elif self.model in ['voigt', 'free_shift']:
+        elif self.model in ['voigt', 'free_shift', 'negativevoigt']:
             if function is None:
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
                 sigma = np.zeros([self.fitResults.shape[0], self.g])
