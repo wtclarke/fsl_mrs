@@ -404,19 +404,29 @@ class Basis:
         self._names.pop(index)
         self._widths.pop(index)
 
-    def add_peak(self, ppm, amp, name, gamma=0.0, sigma=0.0, conj=False):
+    def add_peak(
+            self,
+            ppm,
+            amp,
+            name,
+            gamma=0.0,
+            sigma=0.0,
+            phase=0.0,
+            conj=False):
         """Add Voigt peak to basis at specified ppm
 
         :param ppm: The ppm position of the peak
-        :type ppm: float
+        :type ppm: float | list[float]
         :param amp: Amplitude of the peak
-        :type amp: float
+        :type amp: float | list[float]
         :param name: Name of new basis
         :type name: str
         :param gamma: Lorentzian line broadening, defaults to 0
         :type gamma: float, optional
         :param sigma: Guassian line broadening, defaults to 0
         :type sigma: float, optional
+        :param phase: Peak phae in radians, defaults to 0
+        :type phase: float | list[float], optional
         :param conj: Conjugate fid, defaults to False
         :type conj: Bool, optional
         """
@@ -424,7 +434,7 @@ class Basis:
         time_axis = self.original_time_axis
         time_axis -= time_axis[0]
 
-        fid = misc.create_peak(time_axis, self.cf, ppm, amp, gamma, sigma)[:, None]
+        fid = misc.create_peak(time_axis, self.cf, ppm, amp, gamma, sigma, phase)[:, None]
         width = None  # TO DO
         if conj:
             fid = fid.conj()

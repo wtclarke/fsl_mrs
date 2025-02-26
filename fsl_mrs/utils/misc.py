@@ -8,6 +8,7 @@
 
 import os
 from contextlib import contextmanager
+from typing import Union
 
 import numpy as np
 import itertools as it
@@ -566,24 +567,34 @@ def rescale_FID(x, scale=100):
     return y, 1 / factor * scale
 
 
-def create_peak(time_axis, cf, ppm, amp, gamma=0, sigma=0):
-    """
-        creates FID for peak at specific ppm
+def create_peak(
+        time_axis: np.ndarray,
+        cf: float,
+        ppm: Union[float, list[float]],
+        amp: Union[float, list[float]],
+        gamma: float = 0,
+        sigma: float = 0,
+        phase: Union[float, list[float]] = 0) -> np.ndarray:
+    """creates FID for peak(s) at specific ppm(s)
 
-    Parameters
-    ----------
-    time_axis : time axis (in seconds)
-    cf  : Central frequency
-    ppm : list of floats
-    amp : list of floats
-    gamma : float
-            Peak Lorentzian dispersion
-    sigma : float
-            Peak Gaussian dispersion
+    Returns a single fid with one or more specified peaks
 
-    Returns
-    -------
-    array-like FID
+    :param time_axis: time axis (in seconds)
+    :type time_axis: np.ndarray
+    :param cf: Spectrometer (central) frequency in MHz
+    :type cf: float
+    :param ppm: Position of peak(s) in ppm (relative to cf)
+    :type ppm: Union[float, list[float]]
+    :param amp: Peak amplitude(s)
+    :type amp: Union[float, list[float]]
+    :param gamma: Lorentzian peak broadening, defaults to 0
+    :type gamma: float, optional
+    :param sigma: Gaussian peak broadening, defaults to 0
+    :type sigma: float, optional
+    :param phase: Phase of peak(s) in radians, defaults to 0
+    :type phase: float, optional
+    :return: FID
+    :rtype: np.ndarray
     """
 
     if isinstance(ppm, (float, int)):
@@ -591,9 +602,17 @@ def create_peak(time_axis, cf, ppm, amp, gamma=0, sigma=0):
     if isinstance(amp, (float, int)):
         amp = [float(amp), ]
 
+    if len(ppm) != len(amp):
+        raise ValueError(f'ppm and amp should have the same length, currently {len(ppm)} and {len(amp)}')
+
+    if isinstance(phase, (float, int)):
+        phase = phase * np.ones_like(ppm)
+    elif len(ppm) != len(phase):
+        raise ValueError(f'ppm and phase should have the same length, currently {len(ppm)} and {len(phase)}')
+
     out = np.zeros(time_axis.shape[0], dtype=np.complex128)
 
-    for p, a in zip(ppm, amp):
+    for p, a, phs in zip(ppm, amp, phase):
         freq = ppm2hz(cf, p)
 
         x = a * np.exp(1j * 2 * np.pi * freq * time_axis).flatten()
@@ -601,8 +620,8 @@ def create_peak(time_axis, cf, ppm, amp, gamma=0, sigma=0):
         if gamma > 0 or sigma > 0:
             x = blur_FID_Voigt(time_axis, x, gamma, sigma)
 
-        # dephase
-        x = x * np.exp(-1j * np.angle(x[0]))
+        # phase
+        x = x * np.exp(1j * phs)
         out += x
 
     return out

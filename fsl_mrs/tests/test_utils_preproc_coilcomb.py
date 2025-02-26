@@ -163,6 +163,25 @@ def test_combine():
     assert np.allclose(amps.conj(), scaled_true_weights, atol=1E-1)
 
 
+def test_single_coil_combine():
+
+    fids, _ = syn.syntheticFID(
+        noisecovariance=[[1]],
+        bandwidth=1000,
+        points=1024,
+        chemicalshift=[-2, -3],
+        amplitude=[1, 1],
+        phase=[0, 0],
+        damping=[30, 30],
+        g=[0, 0],
+        nucleus='1H')
+
+    assert len(fids) == 1
+    print(np.asarray(fids).T.shape)
+    comb_fid = combine.combine_FIDs(fids, 'svd', do_prewhiten=True)
+    assert np.allclose(comb_fid, fids)
+
+
 def test_nifti_mrs_coilcomb():
     cov = 1E-4 * np.asarray(
         [[1, 0.4, 0.01],

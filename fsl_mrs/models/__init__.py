@@ -70,7 +70,7 @@ def getModelJac(model):
     elif model == 'free_shift':
         jac = freeshift.jac
     elif model == 'negativevoigt':
-        jac = negativevoigt.jac        
+        jac = negativevoigt.jac
     else:
         raise ValueError('Unknown model {}.'.format(model))
     return jac
