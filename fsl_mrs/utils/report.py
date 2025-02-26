@@ -615,13 +615,11 @@ def static_image(img_in):
     import plotly.graph_objects as go
     from PIL import Image
     import matplotlib.figure
-    print(type(img_in))
     if isinstance(img_in, matplotlib.figure.Figure):
         img_in.canvas.draw()
-        img = Image.frombytes(
-            'RGB',
-            img_in.canvas.get_width_height(),
-            img_in.canvas.tostring_rgb())
+        img = Image.fromarray(
+            np.asarray(
+                img_in.canvas.renderer.buffer_rgba())[:, :, :3])
     elif isinstance(img_in, (str, Path)):
         img = Image.open(img_in)
     # Create figure

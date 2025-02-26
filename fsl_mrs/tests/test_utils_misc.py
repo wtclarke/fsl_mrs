@@ -3,12 +3,14 @@
 Test functions that appear in utils.misc module
 
 Copyright Will Clarke, University of Oxford, 2021'''
+import pytest
+from pathlib import Path
+
+import numpy as np
 
 from fsl_mrs.utils.mrs_io.main import read_FID
 from fsl_mrs.utils import misc
 from fsl_mrs.utils import synthetic as synth
-import numpy as np
-from pathlib import Path
 
 testsPath = Path(__file__).parent
 basis_path = testsPath / 'testdata/fsl_mrs/steam_basis'
@@ -163,3 +165,60 @@ def test_link_creation(tmp_path):
     dummy_dir.mkdir()
     misc.create_rel_symlink(dummy_dir, tmp_path, 'test4')
     assert (tmp_path / 'test4').is_symlink()
+
+
+def test_create_peak():
+    dwell = 1 / 2000
+    t_axis = np.arange(0, dwell * 256, dwell)
+
+    with pytest.raises(
+            ValueError,
+            match='ppm and amp should have the same length, currently'):
+        misc.create_peak(
+            t_axis,
+            120,
+            [0, 1, 2],
+            [1.0, ],
+            gamma=10)
+    with pytest.raises(
+            ValueError,
+            match='ppm and phase should have the same length, currently'):
+        misc.create_peak(
+            t_axis,
+            120,
+            [0, 1, 2],
+            [1, 1, 1],
+            phase=[0, 0])
+
+    zero_ppm = misc.create_peak(
+        t_axis,
+        120,
+        0.0,
+        1.0,
+        gamma=10)
+
+    zero_ppm_neg = misc.create_peak(
+        t_axis,
+        120,
+        0.0,
+        1.0,
+        gamma=10,
+        phase=np.pi)
+
+    assert np.allclose(zero_ppm, -zero_ppm_neg)
+
+    one_ppm = misc.create_peak(
+        t_axis,
+        120,
+        1.0,
+        1.0,
+        gamma=10)
+
+    both_peaks = misc.create_peak(
+        t_axis,
+        120,
+        [0.0, 1.0],
+        [1.0, 1.0],
+        gamma=10)
+
+    assert np.allclose(one_ppm + zero_ppm, both_peaks)

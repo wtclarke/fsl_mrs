@@ -180,6 +180,12 @@ def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=
     if isinstance(FIDlist, list):
         FIDlist = np.asarray(FIDlist).T
 
+    if FIDlist.shape[-1] == 1:
+        if method == 'svd_weights':
+            return FIDlist[:, 0], None, None
+        else:
+            return FIDlist[:, 0]
+
     # Pre-whitening
     pre_w_mat = None
     if do_prewhiten:

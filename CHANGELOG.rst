@@ -1,5 +1,12 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.1 (WIP)
+------------------------------------
+- Handle single coil data in coil combine function
+- Allow phased peaks to be added to basis set.
+- Added the `negativevoigt` model, which allows inverted peaks.
+- Removed use of depreciated matplotlib function `tostring_rgb`.
+
 2.4.0 (Tuesday 17th December 2024)
 ----------------------------------
 - Added p-spline baseline option to MH fitting algorithm.
