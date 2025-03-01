@@ -6,12 +6,14 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 import pytest
 import numpy as np
+from pathlib import Path
 
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.core import MRS, basis
 import fsl_mrs.dynamic as dyn
 from fsl_mrs.dynamic.dynmrs import dynMRSArgumentError
 from fsl_mrs.dynamic.variable_mapping import ConfigFileError
+from fsl_mrs.utils.report import create_dynmrs_report
 
 
 @pytest.fixture
@@ -125,11 +127,7 @@ def test_get_constants(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
 
-    consts = dyn_obj._get_constants(
-        mrs_list[0],
-        (0.2, 4.2),
-        0,
-        [0, 0])
+    consts = dyn_obj._get_constants(mrs_list[0])
 
     assert len(consts) == 8
     assert np.allclose(consts[0], mrs_list[0].frequencyAxis)
@@ -154,7 +152,12 @@ def test_dynMRS_fit(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
     init = dyn_obj.initialise(indiv_init=None)
-    res = dyn_obj.fit(init=init)
+    res = dyn_obj.fit(init=init, method='quasi-newton')
+
+    concs = res.dataframe_free.filter(like='conc').to_numpy()
+    assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
+
+    res = dyn_obj.fit(init=init, method='newton')
 
     concs = res.dataframe_free.filter(like='conc').to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
@@ -349,3 +352,26 @@ def test_vm_errors(fixed_ratio_mrs):
             baseline_order=0,
             metab_groups=[0, 0],
             rescale=False)
+
+
+def test_create_dynmrs_report(tmp_path, fixed_ratio_mrs):
+    mrs_list = fixed_ratio_mrs
+
+    dyn_obj = dyn.dynMRS(
+        mrs_list,
+        [0, 1],
+        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        model='lorentzian',
+        baseline_order=0,
+        metab_groups=[0, 0],
+        rescale=False)
+    res = dyn_obj.fit(method='quasi-newton')
+
+    create_dynmrs_report(
+        res,
+        tmp_path / 'report.html',
+        Path('fidfile'),
+        Path('basisfile'),
+        Path('configfile'),
+        'tvarfile1, tvarfile2',
+        'time_string')

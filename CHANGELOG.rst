@@ -1,7 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.4.1 (WIP)
-------------------------------------
+2.4.1 (Saturday 1st March 2025)
+-------------------------------
+- P-spline baseline added as an option to dynamic fitting.
+- Dynamic fitting default solver changed to L-BFGS (`method='quasi-newton'`)
+- Citation information added for p-spline fitting (https://doi.org/10.1002/mrm.28385).
 - Handle single coil data in coil combine function
 - Allow phased peaks to be added to basis set.
 - Added the `negativevoigt` model, which allows inverted peaks.

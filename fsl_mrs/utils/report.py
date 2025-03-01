@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import plotly
 import plotly.graph_objs as go
@@ -19,6 +20,9 @@ import nibabel as nib
 
 from fsl_mrs.utils import plotting
 from fsl_mrs.utils import misc
+if TYPE_CHECKING:
+    from fsl_mrs.dynamic import dyn_results
+    from fsl_mrs.utils.results import FitRes
 
 
 def to_div(fig):
@@ -219,7 +223,7 @@ def svs_plot_refs(mrs, res):
     return to_div(fig)
 
 
-def svs_methods_summary(res):
+def svs_methods_summary(res: "FitRes"):
     """Text summary of the methods used."""
     from fsl_mrs import __version__
     if res.method == "Newton":
@@ -231,8 +235,14 @@ def svs_methods_summary(res):
 
     if res.baseline_mode == "off":
         baseline_string = "No baseline was fitted. "
+        baseline_ref = ""
+    elif res.baseline_mode == 'spline':
+        baseline_string = f"A {res._baseline_obj}, as described in [2], is concurrently fitted. "
+        baseline_ref = "[2] Wilson M. Adaptive baseline fitting for 1H MR spectroscopy analysis. "\
+                       "Magn Reson Med. 2020; 85: 13-29. doi: 10.1002/mrm.28385"
     else:
         baseline_string = f"A {res._baseline_obj} is concurrently fitted. "
+        baseline_ref = ""
 
     return \
         f"<p>Fitting of the SVS data was performed using a Linear Combination model as described in [1] and as implemented in FSL-MRS version {__version__}, "\
@@ -241,7 +251,8 @@ def svs_methods_summary(res):
         f"The basis spectra are shifted and broadened with parameters fitted to the data and grouped into {max(res.metab_groups) + 1} metabolite groups. "\
         f"{baseline_string}"\
         f"{algo} "\
-        f"<p><h3>References</h3><p>[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."
+        f"<p><h3>References</h3><p>[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630. "\
+        f"<br/>{baseline_ref}"
 
 
 '''Layout for the svs report'''
@@ -425,18 +436,26 @@ def dyn_free_parameter_uncertainties(dynres):
     return to_div(fig)
 
 
-def dyn_methods_summary(res):
+def dyn_methods_summary(res: "dyn_results.dynRes"):
     """Text summary of the methods used."""
     from fsl_mrs import __version__
 
-    return "<p>Fitting was performed using FSL-MRS's dynamic model fitting tool "\
-           f"as described in [1] and [2] and as implemented in FSL-MRS version {__version__}, "\
-           "part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). "\
-           "<p><h3>References</h3><p>"\
-           "[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. "\
-           "Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."\
-           "[2] Clarke WT, Ligneul C, Cottaar M, Ip IB, Jbabdi S. Universal Dynamic Fitting of Magnetic Resonance Spectroscopy. "\
-           "BioRxiv 2013. https://doi.org/10.1101/2023.06.15.544935."
+    base_str = \
+        "<p>Fitting was performed using FSL-MRS's dynamic model fitting tool "\
+        f"as described in [1] and [2] and as implemented in FSL-MRS version {__version__}, "\
+        "part of FSL (FMRIB's Software Library, www.fmrib.ox.ac.uk/fsl). "\
+        "<p><h3>References</h3><p>"\
+        "[1] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. "\
+        "Magnetic Resonance in Medicine 2021;85:2950-2964 doi: 10.1002/mrm.28630."\
+        "<br/>[2] Clarke WT, Ligneul C, Cottaar M, Ip IB, Jbabdi S. Universal dynamic fitting of magnetic "\
+        "resonance spectroscopy. Magn Reson Med. 2024; 91: 2229-2246. doi: 10.1002/mrm.30001."
+
+    if 'spline' in res._dyn.fitargs['baseline']:
+        return base_str\
+            + "<br/>[3] Wilson M. Adaptive baseline fitting for 1H MR spectroscopy analysis. "\
+            "Magn Reson Med. 2020; 85: 13-29. doi: 10.1002/mrm.28385"
+    else:
+        return base_str
 
 
 def create_dyn_sections(dynres, location_fig):
@@ -509,7 +528,34 @@ def create_dyn_sections(dynres, location_fig):
     return sections, sections_titles
 
 
-def create_dynmrs_report(dynres, filename, fidfile, basisfile, configfile, tvarfiles, date, location_fig=None):
+def create_dynmrs_report(
+        dynres: "dyn_results.dynRes",
+        filename: Path,
+        fidfile: Path,
+        basisfile: Path,
+        configfile: Path,
+        tvarfiles: str,
+        date: str,
+        location_fig: Path | None = None):
+    """Create an HTML report for a first level (single subject) dynamic fit.
+
+    :param dynres: Dynamic fitting results object
+    :type dynres: dynRes
+    :param filename: HTML report output path
+    :type filename: Path
+    :param fidfile: Data input path
+    :type fidfile: Path
+    :param basisfile: Basis input path
+    :type basisfile: Path
+    :param configfile: Congiuration file path
+    :type configfile: Path
+    :param tvarfiles: Concatenated list of time variable files
+    :type tvarfiles: str
+    :param date: Date string
+    :type date: str
+    :param location_fig: Path to voxel location figure, defaults to None
+    :type location_fig: Path | None, optional
+    """
 
     title = "FSL-MRS Dynamic Fitting Report"
 
@@ -530,9 +576,21 @@ def create_dynmrs_report(dynres, filename, fidfile, basisfile, configfile, tvarf
 
 # -------- Report creation tools ---------
 
-def create_report(title, preamble, section_titles, sections, filename):
+def create_report(title: str, preamble: str, section_titles: dict, sections: list[str], filename: Path):
     """Create a HTML report out of sections of HTML formatted data.
+
+    :param title: Report title
+    :type title: str
+    :param preamble: Report preamble
+    :type preamble: str
+    :param section_titles: Titles of each section
+    :type section_titles: dict
+    :param sections: List of sections formatted as HTML strings
+    :type sections: list[str]
+    :param filename: Report output path.
+    :type filename: Path
     """
+
     sectiont_text = '\n'.join([f'<a href="#{key}">{section_titles[key]}</a> -' for key in section_titles])
 
     template = f"""<!DOCTYPE html>

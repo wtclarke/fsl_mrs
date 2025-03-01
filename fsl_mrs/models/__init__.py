@@ -104,7 +104,7 @@ def FSLModel_vars(model, n_basis=None, n_groups=1, n_baseline=0):
         model: str
         n_basis: int, number of basis spectra
         n_groups: int, number of metabolite groups
-        n_baseline: int, number of baseline bases
+        n_baseline: int, number of baseline bases (per real/imag)
     Returns:
         list of strings
         list of int
