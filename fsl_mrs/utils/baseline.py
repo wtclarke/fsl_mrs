@@ -139,7 +139,12 @@ class Baseline:
             return prepare_polynomial_regressor(self._spectral_points, 0, self._ppm_range)
 
     @property
-    def n_basis(self):
+    def n_basis(self) -> int:
+        """Returns the number of regressors (for each of real/imag)
+
+        :return: Number of baselien regressors per real/imag channel
+        :rtype: int
+        """
         return int(self.regressor.shape[1] / 2)
 
     def prepare_penalised_fit_functions(

@@ -85,3 +85,21 @@ def test_fsl_dynmrs(fixed_ratio_data, tmp_path):
     assert (tmp_path / 'dyn_res' / 'free_parameters.csv').exists()
     assert (tmp_path / 'dyn_res' / 'options.txt').exists()
     assert (tmp_path / 'dyn_res' / 'report.html').exists()
+
+    run(['fsl_dynmrs',
+         '--data', data_str,
+         '--basis', basis_str,
+         '--dyn_config', model_str,
+         '--time_variables', tv_str,
+         '--baseline', 'spline, flexible',
+         '--output', str(tmp_path / 'dyn_res_spline'),
+         '--report'])
+
+    assert (tmp_path / 'dyn_res_spline').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'dyn_cov.csv').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'init_results.csv').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'dyn_results.csv').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'mapped_parameters.csv').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'free_parameters.csv').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'options.txt').exists()
+    assert (tmp_path / 'dyn_res_spline' / 'report.html').exists()
