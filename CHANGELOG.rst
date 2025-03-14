@@ -3,7 +3,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 2.4.2 (WIP)
 -------------------------------
 - Added a `freeshift_lorentzian` model with inter-metabolite shifts (freeshift) and lorentzian lineshape.
-- Added `freeshift` option to dynamic fitting script.
+- Added `freeshift` option to mrsi `fsl_mrsi` and dynamic `fsl_dynmrs` fitting scripts.
+- Added option to show phase corrected spectum in the `fsl_mrs` HTML fitting report.
 
 2.4.1 (Saturday 1st March 2025)
 -------------------------------
