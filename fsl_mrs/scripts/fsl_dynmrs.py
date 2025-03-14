@@ -73,6 +73,8 @@ def main():
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
+    fitting_args.add_argument('--free_shift', action="store_true",
+                              help='Enable free frequency shifting of all metabolites.')
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
@@ -265,10 +267,17 @@ def main():
                'baseline': args.baseline,
                'baseline_order': args.baseline_order,
                'metab_groups': metab_groups,
-               'model': 'voigt'
                }
-    if args.lorentzian:
+
+    # Choose fitting lineshape model
+    if args.lorentzian and args.free_shift:
+        Fitargs['model'] = 'free_shift_lorentzian'
+    elif args.lorentzian:
         Fitargs['model'] = 'lorentzian'
+    elif args.free_shift:
+        Fitargs['model'] = 'free_shift'
+    else:
+        Fitargs['model'] = 'voigt'
 
     # Now create a dynmrs object
     # This is the main class that knows how to map between

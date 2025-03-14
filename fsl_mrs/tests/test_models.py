@@ -6,8 +6,18 @@ Copyright Will Clarke, University of Oxford, 2022'''
 
 import fsl_mrs.models as models
 
-all_models = ['lorentzian', 'voigt', 'free_shift']
-modules = [models.lorentzian, models.voigt, models.freeshift]
+all_models = [
+    'lorentzian',
+    'voigt',
+    'free_shift',
+    'free_shift_lorentzian',
+    'negativevoigt']
+modules = [
+    models.lorentzian,
+    models.voigt,
+    models.freeshift,
+    models.freeshift_lorentzian,
+    models.negativevoigt]
 
 
 def test_getModelFunctions():
@@ -61,6 +71,16 @@ answer_sizes.append([10, 2, 2, 2, 1, 1, 6])
 # Voigt + an eps term for each basis (i.e. 10)
 answer_names.append(['conc', 'gamma', 'sigma', 'eps', 'Phi_0', 'Phi_1', 'baseline'])
 answer_sizes.append([10, 2, 2, 10, 1, 1, 6])
+
+# Freeshift lorentzian model
+# Lorentzian + an eps term for each basis (i.e. 10)
+answer_names.append(['conc', 'gamma', 'eps', 'Phi_0', 'Phi_1', 'baseline'])
+answer_sizes.append([10, 2, 10, 1, 1, 6])
+
+# Negative voigt  model
+# same as voigt
+answer_names.append(['conc', 'gamma', 'sigma', 'eps', 'Phi_0', 'Phi_1', 'baseline'])
+answer_sizes.append([10, 2, 2, 2, 1, 1, 6])
 
 
 def test_FSLModel_vars():

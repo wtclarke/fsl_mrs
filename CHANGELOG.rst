@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.2 (WIP)
+-------------------------------
+- Added a `freeshift_lorentzian` model with inter-metabolite shifts (freeshift) and lorentzian lineshape.
+- Added `freeshift` option to dynamic fitting script.
+
 2.4.1 (Saturday 1st March 2025)
 -------------------------------
 - P-spline baseline added as an option to dynamic fitting.

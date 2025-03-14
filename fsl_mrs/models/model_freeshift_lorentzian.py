@@ -1,14 +1,14 @@
-"""Free frequency shift model
+"""Freeshift + Lorentzian model
 
-Voigt model extended to have free frequency parameters for all metabolites.
+Lorentzian model extended to have free frequency parameters for all metabolites.
 Linewidths still constrained by metabolite group.
-Will Clarke & Saad Jbabdi, University of Oxford, 2022
+Will Clarke & Saad Jbabdi, University of Oxford, 2025
 """
 
 import numpy as np
 
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.models.model_voigt import _init_params_voigt
+from fsl_mrs.models.model_lorentzian import _init_params
 
 
 def vars(n_basis, n_groups, n_baseline):
@@ -24,11 +24,10 @@ def vars(n_basis, n_groups, n_baseline):
     :return: List of parameter sizes
     :rtype: List
     """
-    var_names = ['conc', 'gamma', 'sigma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
+    var_names = ['conc', 'gamma', 'eps', 'Phi_0', 'Phi_1', 'baseline']
     sizes = [
         n_basis,  # Number of metabs
         n_groups,  # gamma
-        n_groups,  # sigma
         n_basis,  # eps
         1,  # Phi_0
         1,  # Phi_1
@@ -58,8 +57,6 @@ def bounds(n_basis, n_groups, n_baseline, method, disableBaseline=False):
         bnds = [(0, None)] * n_basis
         # gamma
         bnds.extend([(0, None)] * n_groups)
-        # sigma
-        bnds.extend([(0, None)] * n_groups)
         # eps
         bnds.extend([(None, None)] * n_basis)
         # phi0, phi1
@@ -79,9 +76,6 @@ def bounds(n_basis, n_groups, n_baseline, method, disableBaseline=False):
         LB = [0] * n_basis
         UB = [MAX] * n_basis
         # gamma
-        LB.extend([0] * n_groups)
-        UB.extend([MAX] * n_groups)
-        # sigma
         LB.extend([0] * n_groups)
         UB.extend([MAX] * n_groups)
         # eps
@@ -134,7 +128,7 @@ def mask(
         mask = [1] * n_basis
     else:
         mask = [0] * n_basis
-    n = (2 * n_groups) + n_basis
+    n = n_groups + n_basis
     if fit_shape:
         mask.extend([1] * n)
     else:
@@ -160,17 +154,16 @@ def x2param(x, n, g):
     """
     con = x[:n]           # concentrations
     gamma = x[n:n + g]        # lineshape scale parameter θ
-    sigma = x[n + g:n + 2 * g]    # lineshape shape parameter k
-    eps = x[n + 2 * g:2 * n + 2 * g]    # frequency shift
-    phi0 = x[2 * n + 2 * g]        # global phase shift
-    phi1 = x[2 * n + 2 * g + 1]      # global phase ramp
-    b = x[2 * n + 2 * g + 2:]     # baseline params
+    eps = x[n + g:2 * n + g]    # frequency shift
+    phi0 = x[2 * n + g]        # global phase shift
+    phi1 = x[2 * n + g + 1]      # global phase ramp
+    b = x[2 * n + g + 2:]     # baseline params
 
-    return con, gamma, sigma, eps, phi0, phi1, b
+    return con, gamma, eps, phi0, phi1, b
 
 
-def param2x(con, gamma, sigma, eps, phi0, phi1, b):
-    x = np.r_[con, gamma, sigma, eps, phi0, phi1, b]
+def param2x(con, gamma, eps, phi0, phi1, b):
+    x = np.r_[con, gamma, eps, phi0, phi1, b]
 
     return x
 
@@ -191,11 +184,11 @@ def forward(x, nu, t, m, B, G, g):
 
     n = m.shape[1]    # get number of basis functions
 
-    con, gamma, sigma, eps, phi0, phi1, b = x2param(x, n, g)
+    con, gamma, eps, phi0, phi1, b = x2param(x, n, g)
 
     E = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
-        E[:, gg] = np.exp(-(gamma[gg] + t * sigma[gg]**2) * t).flatten()
+        E[:, gg] = np.exp(-gamma[gg] * t).flatten()
 
     tmp = np.zeros(m.shape, dtype=complex)
     for i, gg in enumerate(G):
@@ -251,31 +244,25 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     n = m.shape[1]    # get number of basis functions
     # g     = max(G)+1       # get number of metabolite groups
 
-    con, gamma, sigma, eps, phi0, phi1, b = x2param(x, n, g)
+    con, gamma, eps, phi0, phi1, b = x2param(x, n, g)
 
     # Start
     E = np.zeros((m.shape[0], g), dtype=complex)
-    SIG = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
-        E[:, gg] = np.exp(-(gamma[gg] + t * sigma[gg]**2) * t).flatten()
-        SIG[:, gg] = sigma[gg]
+        E[:, gg] = np.exp(-gamma[gg] * t).flatten()
 
     e_term = np.zeros(m.shape, dtype=complex)
-    sig_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         EPS = np.exp(-1j * eps[i] * t).flatten()
         e_term[:, i] = E[:, gg] * EPS
-        sig_term[:, i] = SIG[:, gg]
         c[i, gg] = con[i]
     m_term = m * e_term
 
     phi_term = np.exp(-1j * (phi0 + phi1 * nu))
     Fmet = FIDToSpec(m_term)
     Ftmet = FIDToSpec(t * m_term)
-    Ft2sigmet = FIDToSpec(t * t * sig_term * m_term)
     Ftmetc = Ftmet @ c
-    Ft2sigmetc = Ft2sigmet @ c
     Fmetcon = Fmet @ con[:, None]
     Ftmetcon = Ftmet @ np.diag(con)
 
@@ -289,7 +276,6 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     # Gradients
     dSdc = phi_term * Fmet
     dSdgamma = phi_term * (-Ftmetc)
-    dSdsigma = phi_term * (-2 * Ft2sigmetc)
     dSdeps = phi_term * (-1j * Ftmetcon)
     dSdphi0 = -1j * phi_term * (Fmetcon)
     dSdphi1 = -1j * nu * phi_term * (Fmetcon)
@@ -299,13 +285,12 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     S = S[first:last]
     dSdc = dSdc[first:last, :]
     dSdgamma = dSdgamma[first:last, :]
-    dSdsigma = dSdsigma[first:last, :]
     dSdeps = dSdeps[first:last, :]
     dSdphi0 = dSdphi0[first:last]
     dSdphi1 = dSdphi1[first:last]
     dSdb = dSdb[first:last]
 
-    dS = np.concatenate((dSdc, dSdgamma, dSdsigma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
+    dS = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 
     grad = np.real(np.sum(S * np.conj(dS) + np.conj(S) * dS - np.conj(Spec) * dS - Spec * np.conj(dS), axis=0))
 
@@ -329,38 +314,31 @@ def jac(x, nu, t, m, B, G, g, first, last):
     """
     n = m.shape[1]  # get number of basis functions
 
-    con, gamma, sigma, eps, phi0, phi1, b = x2param(x, n, g)
+    con, gamma, eps, phi0, phi1, b = x2param(x, n, g)
 
     # Start
     E = np.zeros((m.shape[0], g), dtype=complex)
-    SIG = np.zeros((m.shape[0], g), dtype=complex)
     for gg in range(g):
-        E[:, gg] = np.exp(-(gamma[gg] + t * sigma[gg] ** 2) * t).flatten()
-        SIG[:, gg] = sigma[gg]
+        E[:, gg] = np.exp(-gamma[gg] * t).flatten()
 
     e_term = np.zeros(m.shape, dtype=complex)
-    sig_term = np.zeros(m.shape, dtype=complex)
     c = np.zeros((con.size, g))
     for i, gg in enumerate(G):
         EPS = np.exp(-1j * eps[i] * t).flatten()
         e_term[:, i] = E[:, gg] * EPS
-        sig_term[:, i] = SIG[:, gg]
         c[i, gg] = con[i]
     m_term = m * e_term
 
     phi_term = np.exp(-1j * (phi0 + phi1 * nu))
     Fmet = FIDToSpec(m_term)
     Ftmet = FIDToSpec(t * m_term)
-    Ft2sigmet = FIDToSpec(t * t * sig_term * m_term)
     Ftmetc = Ftmet @ c
-    Ft2sigmetc = Ft2sigmet @ c
     Fmetcon = Fmet @ con[:, None]
     Ftmetcon = Ftmet @ np.diag(con)
 
     # Gradients
     dSdc = phi_term * Fmet
     dSdgamma = phi_term * (-Ftmetc)
-    dSdsigma = phi_term * (-2 * Ft2sigmetc)
     dSdeps = phi_term * (-1j * Ftmetcon)
     dSdphi0 = -1j * phi_term * (Fmetcon)
     dSdphi1 = -1j * nu * phi_term * (Fmetcon)
@@ -369,13 +347,12 @@ def jac(x, nu, t, m, B, G, g, first, last):
     # Only compute within a range
     dSdc = dSdc[first:last, :]
     dSdgamma = dSdgamma[first:last, :]
-    dSdsigma = dSdsigma[first:last, :]
     dSdeps = dSdeps[first:last, :]
     dSdphi0 = dSdphi0[first:last]
     dSdphi1 = dSdphi1[first:last]
     dSdb = dSdb[first:last]
 
-    dS = np.concatenate((dSdc, dSdgamma, dSdsigma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
+    dS = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 
     return dS
 
@@ -384,13 +361,12 @@ def init(mrs, metab_groups, baseline, ppmlim):
     """
        Initialise params of FSLModel for Voigt linesahapes + free shifting
     """
-    gamma, sigma, eps, con, b0 = _init_params_voigt(mrs, baseline, ppmlim)
+    gamma, eps, con, b0 = _init_params(mrs, baseline, ppmlim)
 
     # Append
     x0 = con
     g = max(metab_groups) + 1                      # number of metab groups
     x0 = np.append(x0, [gamma] * g)                # gamma[0]..
-    x0 = np.append(x0, [sigma] * g)                # sigma[0]..
     x0 = np.append(x0, [eps] * len(metab_groups))  # eps[0]..
     x0 = np.append(x0, [0, 0])                     # phi0 and phi1
     x0 = np.append(x0, b0)                         # baseline

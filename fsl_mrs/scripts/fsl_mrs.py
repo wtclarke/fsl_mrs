@@ -104,8 +104,7 @@ def main():
                               help='Enable purely lorentzian broadening'
                                    ' (default is Voigt)')
     fitting_args.add_argument('--free_shift', action="store_true",
-                              help='Enable free frequency shifting of all metabolites. '
-                                   'Only compatible with voigt model')
+                              help='Enable free frequency shifting of all metabolites.')
     fitting_args.add_argument('--ind_scale', default=None, type=str,
                               nargs='+',
                               help='List of basis spectra to scale'
@@ -332,9 +331,9 @@ def main():
         Fitargs['baseline'] = args.baseline
 
     # Choose fitting lineshape model
-    if args.lorentzian:
-        if args.free_shift:
-            raise configargparse.ArgumentError('Cannot use --free_shift with --lorentzian')
+    if args.lorentzian and args.free_shift:
+        Fitargs['model'] = 'free_shift_lorentzian'
+    elif args.lorentzian:
         Fitargs['model'] = 'lorentzian'
     elif args.free_shift:
         Fitargs['model'] = 'free_shift'

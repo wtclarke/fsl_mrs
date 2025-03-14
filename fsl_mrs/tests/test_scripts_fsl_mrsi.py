@@ -63,6 +63,28 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
 
 
+def test_fsl_mrsi_models(tmp_path):
+
+    def gen_cmd(out_path):
+        return ['fsl_mrsi',
+                '--data', data['metab'],
+                '--basis', data['basis'],
+                '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                '--mask', data['mask'],
+                '--overwrite',
+                '--combine', 'Cr', 'PCr',
+                '--output', str(tmp_path / out_path)]
+
+    subprocess.run(gen_cmd('voigt'))
+    assert (tmp_path / 'voigt/concs/raw/NAA.nii.gz').exists()
+    subprocess.run(gen_cmd('lorentzian') + ['--lorentzian',])
+    assert (tmp_path / 'lorentzian/concs/raw/NAA.nii.gz').exists()
+    subprocess.run(gen_cmd('lorentzianfs') + ['--lorentzian', '--free_shift'])
+    assert (tmp_path / 'lorentzianfs/concs/raw/NAA.nii.gz').exists()
+    subprocess.run(gen_cmd('fs') + ['--free_shift',])
+    assert (tmp_path / 'fs/concs/raw/NAA.nii.gz').exists()
+
+
 def test_default_mm_warning(tmp_path, capfd):
     subprocess.check_call(['fsl_mrsi',
                            '--data', data['metab'],

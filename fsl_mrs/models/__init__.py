@@ -5,6 +5,7 @@ Will Clarke & Saad Jbabdi, University of Oxford, 2022
 
 import numpy as np
 import fsl_mrs.models.model_freeshift as freeshift
+import fsl_mrs.models.model_freeshift_lorentzian as freeshift_lorentzian
 import fsl_mrs.models.model_voigt as voigt
 import fsl_mrs.models.model_lorentzian as lorentzian
 import fsl_mrs.models.model_negativevoigt as negativevoigt
@@ -30,6 +31,12 @@ def getModelFunctions(model):
         forward = freeshift.forward  # forward model
         x2p = freeshift.x2param
         p2x = freeshift.param2x
+    elif model == 'free_shift_lorentzian':
+        err_func = freeshift_lorentzian.err     # error function
+        grad_func = freeshift_lorentzian.grad    # gradient
+        forward = freeshift_lorentzian.forward  # forward model
+        x2p = freeshift_lorentzian.x2param
+        p2x = freeshift_lorentzian.param2x
     elif model == 'negativevoigt':
         err_func = negativevoigt.err     # error function
         grad_func = negativevoigt.grad    # gradient
@@ -45,7 +52,7 @@ def getModelForward(model):
     """Return the model forward function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift' or 'negativevoigt'
+    'free_shift', 'free_shift_lorentzian', or 'negativevoigt'
     :type model: str
     :return: forward function
     :rtype: _type_
@@ -58,7 +65,7 @@ def getModelJac(model):
     """Return the model jacobian function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift' or 'negativevoigt'
+    'free_shift', 'free_shift_lorentzian', or 'negativevoigt'
     :type model: str
     :return: Jacobian function
     :rtype: function
@@ -69,6 +76,8 @@ def getModelJac(model):
         jac = voigt.jac
     elif model == 'free_shift':
         jac = freeshift.jac
+    elif model == 'free_shift_lorentzian':
+        jac = freeshift_lorentzian.jac
     elif model == 'negativevoigt':
         jac = negativevoigt.jac
     else:
@@ -80,7 +89,7 @@ def getInit(model):
     """Return the initilisation function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
-     or 'free_shift' or 'negativevoigt'
+    'free_shift', 'free_shift_lorentzian', or 'negativevoigt'
     :type model: str
     :return: Init function
     :rtype: function
@@ -91,6 +100,8 @@ def getInit(model):
         return voigt.init
     elif model == 'free_shift':
         return freeshift.init
+    elif model == 'free_shift_lorentzian':
+        return freeshift_lorentzian.init
     elif model == 'negativevoigt':
         return negativevoigt.init
     else:
@@ -115,6 +126,8 @@ def FSLModel_vars(model, n_basis=None, n_groups=1, n_baseline=0):
         return voigt.vars(n_basis, n_groups, n_baseline)
     elif model == 'free_shift':
         return freeshift.vars(n_basis, n_groups, n_baseline)
+    elif model == 'free_shift_lorentzian':
+        return freeshift_lorentzian.vars(n_basis, n_groups, n_baseline)
     elif model == 'negativevoigt':
         return negativevoigt.vars(n_basis, n_groups, n_baseline)
     else:
@@ -147,6 +160,8 @@ def FSLModel_bounds(model, n_basis, n_groups, n_baseline, method, disableBaselin
         return voigt.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     elif model == 'free_shift':
         return freeshift.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
+    elif model == 'free_shift_lorentzian':
+        return freeshift_lorentzian.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     elif model == 'negativevoigt':
         return negativevoigt.bounds(n_basis, n_groups, n_baseline, method, disableBaseline)
     else:
@@ -203,6 +218,15 @@ def FSLModel_mask(
             fit_baseline=fit_baseline)
     elif model == 'free_shift':
         return freeshift.mask(
+            n_basis,
+            n_groups,
+            n_baseline,
+            fit_conc=fit_conc,
+            fit_shape=fit_shape,
+            fit_phase=fit_phase,
+            fit_baseline=fit_baseline)
+    elif model == 'free_shift_lorentzian':
+        return freeshift_lorentzian.mask(
             n_basis,
             n_groups,
             n_baseline,

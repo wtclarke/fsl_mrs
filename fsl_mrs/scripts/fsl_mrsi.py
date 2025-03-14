@@ -85,6 +85,8 @@ def main():
     fitting_args.add_argument('--lorentzian', action="store_true",
                               help="Enable purely lorentzian broadening"
                                    " (default is Voigt)")
+    fitting_args.add_argument('--free_shift', action="store_true",
+                              help='Enable free frequency shifting of all metabolites.')
     fitting_args.add_argument('--ind_scale', default=None, type=str,
                               nargs='+',
                               help='List of basis spectra to scale'
@@ -274,8 +276,13 @@ def main():
         Fitargs['baseline_order'] = args.baseline_order
     else:
         Fitargs['baseline'] = args.baseline
-    if args.lorentzian:
+
+    if args.lorentzian and args.free_shift:
+        Fitargs['model'] = 'free_shift_lorentzian'
+    elif args.lorentzian:
         Fitargs['model'] = 'lorentzian'
+    elif args.free_shift:
+        Fitargs['model'] = 'free_shift'
     else:
         Fitargs['model'] = 'voigt'
 
