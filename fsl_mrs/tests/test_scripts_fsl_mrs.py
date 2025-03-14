@@ -56,6 +56,27 @@ def test_fsl_mrs(tmp_path):
     assert (tmp_path / 'quantification_info.csv').is_file()
 
 
+def test_fsl_mrs_models(tmp_path):
+    cmd = ['fsl_mrs',
+           '--data', data['metab'],
+           '--basis', data['basis'],
+           '--output', tmp_path,
+           '--h2o', data['water'],
+           '--TE', '11',
+           '--metab_groups', 'Mac',
+           '--tissue_frac', '0.45', '0.45', '0.1',
+           '--overwrite',
+           '--combine', 'Cr', 'PCr']
+    subprocess.run(cmd)
+    assert (tmp_path / 'concentrations.csv').is_file()
+    subprocess.run(cmd + ['--lorentzian',])
+    assert (tmp_path / 'concentrations.csv').is_file()
+    subprocess.run(cmd + ['--lorentzian', '--free_shift'])
+    assert (tmp_path / 'concentrations.csv').is_file()
+    subprocess.run(cmd + ['--free_shift',])
+    assert (tmp_path / 'concentrations.csv').is_file()
+
+
 def test_no_fractions(tmp_path):
 
     subprocess.check_call(['fsl_mrs',

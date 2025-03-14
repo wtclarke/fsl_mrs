@@ -35,7 +35,11 @@ class FitRes(object):
             runqc=True):
 
         # Store options from
-        self.model = model
+        known_models = ['lorentzian', 'free_shift_lorentzian', 'voigt', 'free_shift', 'negativevoigt']
+        if model in known_models:
+            self.model = model
+        else:
+            raise ValueError(f'Unrecognised model {model}. Must be one of {", ".join(known_models)}.')
         self.method = method
         self.ppmlim = ppmlim
         self._baseline_obj = baseline_obj
@@ -412,7 +416,7 @@ class FitRes(object):
             for i in range(g):
                 self.params_names.append(f'sigma_{i}')
 
-        if self.model.lower() == 'free_shift':
+        if self.model.lower() in ['free_shift', 'free_shift_lorentzian']:
             for i in range(len(names)):
                 self.params_names.append(f"eps_{i}")
         else:
@@ -676,7 +680,7 @@ class FitRes(object):
 
     def getShiftParams(self, units='ppm', function='mean'):
         """ Return shift parameters (eps) in specified units - default = ppm."""
-        if self.model == 'free_shift':
+        if 'free_shift' in self.model:
             iter_range = range(len(self.original_metabs))
         else:
             iter_range = range(self.g)
@@ -715,7 +719,7 @@ class FitRes(object):
             Combined is undefined for units=raw.
         :rtype: tuple
         """
-        if self.model == 'lorentzian':
+        if self.model in ['lorentzian', 'free_shift_lorentzian']:
             if function is None:
                 gamma = np.zeros([self.fitResults.shape[0], self.g])
                 for g in range(self.g):

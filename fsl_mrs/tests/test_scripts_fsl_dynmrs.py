@@ -86,6 +86,12 @@ def test_fsl_dynmrs(fixed_ratio_data, tmp_path):
     assert (tmp_path / 'dyn_res' / 'options.txt').exists()
     assert (tmp_path / 'dyn_res' / 'report.html').exists()
 
+
+def test_dynmrs_spline(fixed_ratio_data, tmp_path):
+    data_str = str(fixed_ratio_data[0])
+    basis_str = str(fixed_ratio_data[1])
+    tv_str = str(fixed_ratio_data[2])
+    model_str = str(model_path)
     run(['fsl_dynmrs',
          '--data', data_str,
          '--basis', basis_str,
@@ -103,3 +109,29 @@ def test_fsl_dynmrs(fixed_ratio_data, tmp_path):
     assert (tmp_path / 'dyn_res_spline' / 'free_parameters.csv').exists()
     assert (tmp_path / 'dyn_res_spline' / 'options.txt').exists()
     assert (tmp_path / 'dyn_res_spline' / 'report.html').exists()
+
+
+def test_dynmrs_models(fixed_ratio_data, tmp_path):
+    data_str = str(fixed_ratio_data[0])
+    basis_str = str(fixed_ratio_data[1])
+    tv_str = str(fixed_ratio_data[2])
+    model_str = str(model_path)
+
+    def gen_cmd(out_path):
+        return ['fsl_dynmrs',
+                '--data', data_str,
+                '--basis', basis_str,
+                '--dyn_config', model_str,
+                '--time_variables', tv_str,
+                '--baseline', 'spline, flexible',
+                '--output', str(tmp_path / out_path),
+                '--report']
+
+    run(gen_cmd('voigt'))
+    assert (tmp_path / 'voigt' / 'dyn_results.csv').exists()
+    run(gen_cmd('lorentzian') + ['--lorentzian',])
+    assert (tmp_path / 'lorentzian' / 'dyn_results.csv').exists()
+    run(gen_cmd('lorentzianfs') + ['--lorentzian', '--free_shift'])
+    assert (tmp_path / 'lorentzianfs' / 'dyn_results.csv').exists()
+    run(gen_cmd('fs') + ['--free_shift',])
+    assert (tmp_path / 'fs' / 'dyn_results.csv').exists()
