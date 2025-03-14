@@ -21,6 +21,11 @@ from fsl_mrs.utils import mrs_io
 from fsl.transform.affine import transform
 from fsl_mrs.utils.misc import FIDToSpec, limit_to_range
 
+import typing
+if typing.TYPE_CHECKING:
+    from fsl_mrs.core import MRS
+    from fsl_mrs.utils.results import FitRes
+
 
 def FID2Spec(x):
     """
@@ -556,7 +561,12 @@ def plotly_spectrum(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0))
     return fig
 
 
-def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
+def plotly_fit(
+        mrs: "MRS",
+        res: "FitRes",
+        ppmlim: tuple = None,
+        proj: typing.Literal['real', 'imag', 'phase', 'abs'] = 'real',
+        metabs: list = None):
     """
          plot model fitting plus baseline
 
@@ -565,20 +575,10 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
          res    : ResFit Object
          ppmlim : tuple
          metabs : list of metabolite to include in pred
-         phs    : display phasing in degrees and seconds
 
     Returns
          fig
      """
-    def project(x, proj):
-        if proj == 'real':
-            return np.real(x)
-        elif proj == 'imag':
-            return np.imag(x)
-        elif proj == 'angle':
-            return np.angle(x)
-        else:
-            return np.abs(x)
 
     # Prepare the data
     base = FID2Spec(res.baseline)
@@ -592,7 +592,6 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
         preds = []
         for m in metabs:
             preds.append(FID2Spec(res.predictedFID(mrs, mode=m, noBaseline=True)))
-            # preds.append(FID2Spec(pred(mrs, res, m, add_baseline=False)))
         preds = sum(preds)
         preds += FID2Spec(res.baseline)
         resid = data - preds
@@ -602,21 +601,35 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
 
     # phasing
     faxis = mrs.getAxes(axis='freq')
-    phaseTerm = np.exp(1j * (phs[0] * np.pi / 180)) * np.exp(1j * 2 * np.pi * phs[1] * faxis)
+    phs = res.getPhaseParams()
+    phaseTerm = np.exp(1j * (phs[0] * np.pi / 180)) * np.exp(1j * 2 * np.pi * -phs[1] * faxis)
 
-    base *= phaseTerm
-    data *= phaseTerm
-    preds *= phaseTerm
-    resid *= phaseTerm
+    def project(x, proj):
+        if proj == 'real':
+            return np.real(x)
+        elif proj == 'imag':
+            return np.imag(x)
+        elif proj == 'phase':
+            return np.angle(x)
+        elif proj == 'abs':
+            return np.abs(x)
 
-    base = project(base, proj)
-    data = project(data, proj)
-    preds = project(preds, proj)
-    resid = project(resid, proj)
+    def trace_dict(x):
+        return {
+            'uncorrected': project(x, proj),
+            'phase corrected': project(x * phaseTerm, proj)}
+
+    traces_to_plot = dict(
+        data=trace_dict(data),
+        model=trace_dict(preds),
+        baseline=trace_dict(base),
+        residuals=trace_dict(resid),)
 
     # y-axis range
-    minval = min(np.min(base), np.min(data), np.min(preds), np.min(resid))
-    maxval = max(np.max(base), np.max(data), np.max(preds), np.max(resid))
+    def sub_stats(x, func):
+        return func((x['uncorrected'], x['phase corrected']))
+    minval = min([sub_stats(traces_to_plot[key], np.min) for key in traces_to_plot])
+    maxval = max([sub_stats(traces_to_plot[key], np.max) for key in traces_to_plot])
     ymin = minval - minval / 2
     ymax = maxval + maxval / 30
 
@@ -639,34 +652,29 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
 
     tab = create_table(df)
 
-    colors = dict(data='rgb(67,67,67)',
-                  pred='rgb(253,59,59)',
-                  base='rgb(0,150,242)',
-                  resid='rgb(170,170,170)')
-    line_size = dict(data=1,
-                     pred=2,
-                     base=1, resid=1)
+    # Spectrum, fit, residual and baseline
+    colors = dict(
+        data='rgb(67,67,67)',
+        model='rgb(253,59,59)',
+        baseline='rgb(0,150,242)',
+        residuals='rgb(170,170,170)')
+    line_size = dict(
+        data=1,
+        model=2,
+        baseline=1,
+        residuals=1)
 
-    trace1 = go.Scatter(x=axis, y=data,
-                        mode='lines',
-                        name='data',
-                        line=dict(color=colors['data'], width=line_size['data']),
-                        )
-    trace2 = go.Scatter(x=axis, y=preds,
-                        mode='lines',
-                        name='model',
-                        line=dict(color=colors['pred'], width=line_size['pred']),
-                        )
-    trace3 = go.Scatter(x=axis, y=base,
-                        mode='lines',
-                        name='baseline',
-                        line=dict(color=colors['base'], width=line_size['base']),
-                        )
-    trace4 = go.Scatter(x=axis, y=resid,
-                        mode='lines',
-                        name='residuals',
-                        line=dict(color=colors['resid'], width=line_size['resid']),
-                        )
+    traces = {}
+    for trace in ['data', 'model', 'baseline', 'residuals']:
+        for case in ['phase corrected', 'uncorrected']:
+            traces[(trace, case)] = go.Scatter(
+                x=axis,
+                y=traces_to_plot[trace][case],
+                mode='lines',
+                name=trace,
+                line=dict(
+                    color=colors[trace],
+                    width=line_size[trace]))
 
     fig = make_subplots(rows=1, cols=2,
                         column_widths=[0.4, 0.6],
@@ -674,10 +682,8 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
                         specs=[[{'type': 'table'}, {'type': 'scatter'}]])
 
     fig.add_trace(tab, row=1, col=1)
-    fig.add_trace(trace1, row=1, col=2)
-    fig.add_trace(trace2, row=1, col=2)
-    fig.add_trace(trace3, row=1, col=2)
-    fig.add_trace(trace4, row=1, col=2)
+    for trace in ['data', 'model', 'baseline', 'residuals']:
+        fig.add_trace(traces[(trace, 'uncorrected')], row=1, col=2)
 
     fig.update_layout(template='plotly_white')
 
@@ -691,6 +697,50 @@ def plotly_fit(mrs, res, ppmlim=None, proj='real', metabs=None, phs=(0, 0)):
                      zerolinecolor='Gray',
                      showgrid=False, showticklabels=False,
                      range=[ymin, ymax])
+
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="left",
+                buttons=list([
+                    dict(
+                        args=[{'y': [
+                            traces_to_plot['data']['phase corrected'],
+                            traces_to_plot['model']['phase corrected'],
+                            traces_to_plot['baseline']['phase corrected'],
+                            traces_to_plot['residuals']['phase corrected']]},
+                            [1, 2, 3, 4]],
+                        label="Corrected",
+                        method="restyle"
+                    ),
+                    dict(
+                        args=[{'y': [
+                            traces_to_plot['data']['uncorrected'],
+                            traces_to_plot['model']['uncorrected'],
+                            traces_to_plot['baseline']['uncorrected'],
+                            traces_to_plot['residuals']['uncorrected']]},
+                            [1, 2, 3, 4]],
+                        label="Uncorrected",
+                        method="restyle"
+                    )
+                ]),
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0.85,
+                xanchor="left",
+                y=1.1,
+                yanchor="top",
+                active=1
+            ),
+        ])
+
+    fig.update_layout(
+        annotations=[
+            dict(text="Correct fitted phase:<br> (0<sup>th</sup> and 1<sup>st</sup> order) ",
+                 showarrow=False,
+                 x=1.7, y=1.08,
+                 yref="paper", align="left")])
 
     fig.layout.update({'height': 800})
 
