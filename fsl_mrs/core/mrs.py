@@ -587,12 +587,10 @@ class MRS(object):
         if ppmlim is None:
             ppmlim = self.default_ppm_range
 
-        first, last = self.ppmlim_to_range(ppmlim)
-        Spec1 = np.real(misc.FIDToSpec(self.FID))[first:last]
-        Spec2 = np.real(misc.FIDToSpec(np.conj(self.FID)))[first:last]
-
-        if np.linalg.norm(misc.detrend(Spec1, deg=4)) < \
-           np.linalg.norm(misc.detrend(Spec2, deg=4)):
+        if misc.detect_conjugation(
+                self.FID,
+                self.ppmAxisShift,
+                ppmlim):
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
                 return -1
@@ -620,27 +618,16 @@ class MRS(object):
         if ppmlim is None:
             ppmlim = self.default_ppm_range
 
-        first, last = self.ppmlim_to_range(ppmlim)
-
-        conjOrNot = []
-        basis = self.basis
-        for b in basis.T:
-            Spec1 = np.real(misc.FIDToSpec(b))[first:last]
-            Spec2 = np.real(misc.FIDToSpec(np.conj(b)))[first:last]
-            if np.linalg.norm(misc.detrend(Spec1, deg=4)) < \
-               np.linalg.norm(misc.detrend(Spec2, deg=4)):
-                conjOrNot.append(1.0)
-            else:
-                conjOrNot.append(0.0)
-
-        if (sum(conjOrNot) / len(conjOrNot)) > 0.5:
+        if misc.detect_conjugation(
+                self.basis.T,
+                self.ppmAxisShift,
+                ppmlim):
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1
             else:
                 self.conj_Basis = True
                 return 1
-
         return 0
 
     # Plotting functions

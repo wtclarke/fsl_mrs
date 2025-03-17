@@ -345,14 +345,42 @@ def shift(args):
 def all_shift(args):
     from fsl_mrs.utils import basis_tools
     from fsl_mrs.utils.mrs_io import read_basis
+    from fsl_mrs.utils.misc import detect_conjugation
     import pandas as pd
     import numpy as np
+    import json
+    from fsl_mrs.utils.constants import PPM_RANGE
 
     basis = read_basis(args.file)
+
+    # Extract settings from the saved fitting arguments
+    with open(args.results_dir / 'options.txt', "r") as f:
+        fit_args = json.loads(f.readline())
+    ppmlims = fit_args['ppmlim'] if fit_args['ppmlim'] else PPM_RANGE['1H']
+
+    # Load fitting results
     all_results = pd.read_csv(args.results_dir / 'all_parameters.csv', index_col=0)
     shift_res = all_results.filter(regex='eps', axis=0)['mean'] / (2 * np.pi * basis.cf)
-    for name, shift in zip(basis.names, shift_res.to_list()):
-        basis = basis_tools.shift_basis(basis, name, shift)
+
+    # Apply shifts to each basis
+    # Currently this assumes that all basis spectra are used.
+    assert len(basis.names) == len(shift_res.to_list())
+
+    def apply_shifts(x):
+        for name, shift in zip(x.names, shift_res.to_list()):
+            x = basis_tools.shift_basis(x, name, shift)
+        return x
+
+    if detect_conjugation(
+            basis.original_basis_array.T,
+            basis.original_ppm_shift_axis,
+            ppmlims):
+        from fsl_mrs.utils.basis_tools import conjugate_basis
+        basis = conjugate_basis(basis)
+        basis = apply_shifts(basis)
+        basis = conjugate_basis(basis)
+    else:
+        basis = apply_shifts(basis)
 
     basis.save(args.output, overwrite=True)
 

@@ -792,6 +792,44 @@ def parse_metab_groups(mrs, metab_groups):
     return out
 
 
+def detect_conjugation(
+        data: np.ndarray,
+        ppmaxis: np.ndarray,
+        ppmlim: tuple) -> bool:
+    """Detect whether data should be conjugated based on
+    the amount of information content in ppm range.
+
+    :param data: FID or stack of FIDS (last dimension is time).
+    :type data: np.ndarray
+    :param ppmaxis: ppmaxis to match FFT of FID
+    :type ppmaxis: np.ndarray
+    :param ppmlim: Limits that define region of expected signal
+    :type ppmlim: tuple
+    :return: True if FIDs should be conjugated to maximise signal in limits.
+    :rtype: bool
+    """
+    if data.shape[-1] != ppmaxis.size:
+        raise ValueError("data's last dimension must matcht he size of ppmaxis.")
+
+    first, last = limit_to_range(ppmaxis, ppmlim)
+
+    def conj_or_not(x):
+        Spec1 = np.real(FIDToSpec(x))[first:last]
+        Spec2 = np.real(FIDToSpec(np.conj(x)))[first:last]
+        if np.linalg.norm(detrend(Spec1, deg=4)) < \
+                np.linalg.norm(detrend(Spec2, deg=4)):
+            return 1
+        else:
+            return 0
+
+    if data.ndim == 2:
+        return sum([conj_or_not(fid) for fid in data]) >= 0.5
+    elif data.ndim == 1:
+        return bool(conj_or_not(data))
+    else:
+        raise ValueError(f'data must have one or two dimensions, not {data.ndim}.')
+
+
 # ----- MRSI stuff ---- #
 def volume_to_list(data, mask):
     """
