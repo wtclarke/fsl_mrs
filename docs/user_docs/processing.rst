@@ -84,11 +84,16 @@ Optionally the user may specify any of the following:
 
 - `--quant`: Data to be used for quantitation
 - `--ecc`: Data to be used for eddy current correction
-- `--hlsvd`: Apply HLSVD to remove residual water
-- `--leftshift POINTS`: Truncate FID at start by POINTS.
+- `--remove-water`: Remove residual water using HLSVD.
+- `--truncate-fid POINTS`: Truncate FID at start by POINTS. This can remove first-order phase.
 - `--align_limits`: Select spectral window (in ppm) to run phase/frequency alignment over.
+- `--align_window {N}`: Enables iterative alignment using windowed averages of N transients. Useful for low SNR data or if there are strong artefacts normally cancelled by averaging across phase cycles.
+- `--noremoval`, `--noaverage`, `--noalign`, and `--fmrs`: Disables respective part of the processing pipeline. `--fmrs` sets --noremoval and --noaverage arguments.
 
 The :code:`--ecc` option should be used to provide water reference data for eddy current correction. I.e. the data has experienced all gradients that the primary water suppressed data has. Conversely the :code:`--quant` option should be used to provide water reference data purely for final water reference scaling. The water reference data provided using the :code:`--reference` option will always be used for coil combination (if required) and if :code:`--quant` or :code:`--ecc` haven't been specified it will be used for quantification and ECC respectively.
+
+:code:`fsl_mrs_preproc_edit` performs the same purpose for edited SVS data.
+
 
 Python & Interactive Interface
 ------------------------------
@@ -118,43 +123,43 @@ fsl_mrs_proc subcommand specifics
 5. remove (residual water removal - HLSVD) 
         Takes either a single file or list of files (:code:`--file`) and applies HLSVD peak removal ([LAUD02]_) over the specified ppm limits (:code:`--ppm`, default = 4.5->4.8 ppm) 
 
-5. model (model peaks from data using HLSVD)
+6. model (model peaks from data using HLSVD)
         Takes either a single file (:code:`--file`) and applies HLSVD to model peaks within a ppm range (:code:`--ppm`). Returns noiseless representation of these peaks as a NIfTI-MRS file.
 
-6. tshift (time domain resampling) 
+7. tshift (time domain resampling) 
         Takes either a single file or list of files (:code:`--file`) and resamples in the time domain to achieve a different number of points (:code:`--samples`), and/or a different start time (:code:`--tshiftStart`, in ms), and/or a different end time (:code:`--tshiftEnd`, in ms). 
 
-7. truncate (truncation or zero padding) 
+8. truncate (truncation or zero padding) 
         Takes either a single file or list of files (:code:`--file`) and adds or removes points (:code:`--points`, positive to add, negative to remove) from the start or end (:code:`--pos`, default end) of the FID. Points added are zeros. 
 
-8. apodize (filtering of data) 
+9. apodize (filtering of data) 
         Takes either a single file or list of files (:code:`--file`) and applies either an exponential or Lorentzian to Gaussian window (:code:`--filter`) to the time domain data. The window parameters may be specified (:code:`--amount`). 
 
-9. fshift (frequency shift) 
+10. fshift (frequency shift) 
         Takes either a single file or list of files (:code:`--file`) and shifts the data in the frequency domain by an amount specified in hertz (:code:`--shifthz`) or in ppm (:code:`--shiftppm`). 
 
-10. unlike (bad average removal) 
+11. unlike (bad average removal) 
         Takes a list of files (:code:`--file`) and returns files containing FIDS that are within N standard deviations (:code:`--sd`) from the median. The ppm range over which the spectra are compared can be set (:code:`--ppm`, default = 0.2->4.2 ppm) and the number of iterations of the algorithm can be controlled (:code:`--iter`). Optionally the FIDs which are identified as failing the criterion can be output (:code:`--outputbad`) 
 
-11. phase (zero order phasing) 
+12. phase (zero order phasing) 
         Takes either a single file or list of files (:code:`--file`) and applies zero-order phase to the FID/spectrum based on the phase at the maximum in a specified chemical shift range (:code:`--ppm`) 
 
-12. fixed_phase (Apply fixed phase to spectrum)
+13. fixed_phase (Apply fixed phase to spectrum)
         Applies a fixed phase to data, either zero order (in degrees) (:code:`--p0`), or first order (in seconds) (:code:`--p1`). Can be applied as a timeshift in the time domain or linear phase int he frequency domain :code:`--p1_type {shift,linphase}`.
 
-13. subtract (Subtract two FIDs)
+14. subtract (Subtract two FIDs)
         Subtracts two elements in a :code:`--dim` of one :code:`--file`, or subtracts a :code:`--reference` file.
 
-14. add (Add two FIDs)
+15. add (Add two FIDs)
         Adds elements in a :code:`--dim` of one :code:`--file`, or adds a :code:`--reference` file.
 
-15. conj (Conjugate fids)
+16. conj (Conjugate fids)
         Applied conjugation (reverses frequency flip) to :code:`--file`.
 
-16. mrsi-align (Phase and/or frequency align across voxels)
+17. mrsi-align (Phase and/or frequency align across voxels)
         Can frequency align voxels :code:`--freq-align` and/or perform zero-order phase correction :code:`--phase-correct`. Phase correction can be limited to peaks in a range :code:`--ppm`. THe detected shifts and phases can be output into NIfTI files :code:`--save-params`.
 
-17. mrsi-lipid (Remove lipids from MRSI by L2 regularisation)
+18. mrsi-lipid (Remove lipids from MRSI by L2 regularisation)
         Uses a NIfTI :code:`--mask` file to identify lipid source voxels to remove lipids from other voxels using L2 regularisation method ([BILG13]_). :code:`--beta` must be adjusted for different cases.
 
 References

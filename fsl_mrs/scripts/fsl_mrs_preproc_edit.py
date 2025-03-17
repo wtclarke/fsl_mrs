@@ -55,8 +55,14 @@ def main():
     # option to not average, this will toggle the average property to False
     optional.add_argument('--noaverage', action="store_false", dest='average',
                           help='Do not average repetitions.')
-    optional.add_argument('--hlsvd', action="store_true",
-                          help='Apply HLSVD for residual water removal.')
+    optional.add_argument('--noalign', action="store_false", dest='align',
+                          help='Do not align dynamics.')
+    optional.add_argument('--align_ppm_dynamic', type=float, nargs=2, default=(1.9, 4.2),
+                          help='PPM limit for dynamics dimension alignment. Default=(0.0, 4.2).')
+    optional.add_argument('--align_window_dynamic', type=int,
+                          help='Window for iterative windowed alignment, defaults to off.')
+    optional.add_argument('--align_ppm_edit', type=float, nargs=2, default=None,
+                          help='PPM limit for edit dimension alignment. Default=full spectrum.')
     optional.add_argument('--dynamic_align', action="store_true",
                           help='Align spectra based on dynamic fitting. Must specify dynamic basis sets.')
     optional.add_argument('--dynamic_align_edit', action="store_true",
@@ -64,14 +70,14 @@ def main():
     optional.add_argument('--dynamic_basis', type=str, nargs=2,
                           help='Paths to the two editing condition basis sets. '
                           'Only needed if --dynamic_align is specified.')
+    optional.add_argument('--remove-water', action="store_true",
+                          help='Apply HLSVD for residual water removal (replaces --hlsvd option).')
+    optional.add_argument('--hlsvd', action="store_true",
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--truncate-fid', type=int, metavar='POINTS',
+                          help='Remove points at the start of the fid (replaces --leftshift option).')
     optional.add_argument('--leftshift', type=int, metavar='POINTS',
-                          help='Remove points at the start of the fid.')
-    optional.add_argument('--align_ppm_dynamic', type=float, nargs=2, default=(1.9, 4.2),
-                          help='PPM limit for dynamics dimension alignment. Default=(0.0, 4.2).')
-    optional.add_argument('--align_window_dynamic', type=int,
-                          help='Window for iterative windowed alignment, defaults to off.')
-    optional.add_argument('--align_ppm_edit', type=float, nargs=2, default=None,
-                          help='PPM limit for edit dimension alignment. Default=full spectrum.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
                           help='structural image (for report)')
     optional.add_argument('--verbose', action="store_true",
@@ -267,7 +273,7 @@ def main():
         report=report_dir,
         report_all=True)
 
-    if args.dynamic_align:
+    if args.dynamic_align and args.align:
         # Run dynamic fitting based alignment
         edit_0, edit_1 = ntools.split(supp_data, 'DIM_EDIT', 0)
 
@@ -290,13 +296,14 @@ def main():
 
         supp_data = ntools.merge([edit_0_aligned, edit_1_aligned], 'DIM_EDIT')
 
-    if 'DIM_DYN' in ref_data.dim_tags:
-        ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
+    elif args.align:
+        if 'DIM_DYN' in ref_data.dim_tags:
+            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
 
-    if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
-        quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
-    if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
-        ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.quant is not None and ('DIM_DYN' in quant_data.dim_tags):
+            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.ecc is not None and ('DIM_DYN' in ecc_data.dim_tags):
+            ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
 
     # Average the data (if asked to do so)
     if args.average:
@@ -330,17 +337,18 @@ def main():
         quant_data = nifti_mrs_proc.ecc(quant_data, quant_data)
 
     # HLSVD
-    if args.hlsvd:
+    if args.remove_water or args.hlsvd:
         verbose_print('... Residual water removal ...')
         hlsvdlimits = [-0.25, 0.25]
         supp_data = nifti_mrs_proc.remove_peaks(supp_data, hlsvdlimits, limit_units='ppm', report=report_dir)
 
-    if args.leftshift:
+    if args.leftshift or args.truncate_fid:
         verbose_print('... Truncation ...')
-        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
-        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
+        trunc_amount = args.truncate_fid if args.truncate_fid else args.leftshift
+        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -trunc_amount, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -trunc_amount, 'first')
         if args.quant is not None:
-            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -trunc_amount, 'first')
 
     # Apply shift to reference
     verbose_print('... Shift Cr to 3.027 ...')

@@ -59,6 +59,8 @@ def main():
                           help='Do not remove unlike averages.')
     optional.add_argument('--noaverage', action="store_false", dest='average',
                           help='Do not average repetitions.')
+    optional.add_argument('--noalign', action="store_false", dest='align',
+                          help='Do not align dynamics.')
     optional.add_argument(
         '--align_limits',
         type=float,
@@ -70,10 +72,14 @@ def main():
         '--align_window',
         type=int,
         help='Alignment window size. Disabled by default, but useful for low SNR data.')
+    optional.add_argument('--remove-water', action="store_true",
+                          help='Apply HLSVD for residual water removal (replaces --hlsvd option).')
     optional.add_argument('--hlsvd', action="store_true",
-                          help='Apply HLSVD for residual water removal.')
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--truncate-fid', type=int, metavar='POINTS',
+                          help='Remove points at the start of the fid (replaces --leftshift option).')
     optional.add_argument('--leftshift', type=int, metavar='POINTS',
-                          help='Remove points at the start of the fid.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
                           help='structural image (for report)')
     optional.add_argument('--verbose', action="store_true",
@@ -302,21 +308,22 @@ def main():
                       'bad averages identified and removed.')
 
     # Frequency and phase align the FIDs
-    verbose_print('... Align Dynamics (2nd iteration) ...')
-    supp_data = nifti_mrs_proc.align(
-        supp_data,
-        'DIM_DYN',
-        ppmlim=args.align_limits,
-        window=args.align_window,
-        report=report_dir)
+    if args.align:
+        verbose_print('... Align Dynamics (2nd iteration) ...')
+        supp_data = nifti_mrs_proc.align(
+            supp_data,
+            'DIM_DYN',
+            ppmlim=args.align_limits,
+            window=args.align_window,
+            report=report_dir)
 
-    if has_multiple_dynamics(ref_data):
-        ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
+        if has_multiple_dynamics(ref_data):
+            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
 
-    if args.quant is not None and has_multiple_dynamics(quant_data):
-        quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
-    if args.ecc is not None and has_multiple_dynamics(ecc_data):
-        ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.quant is not None and has_multiple_dynamics(quant_data):
+            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.ecc is not None and has_multiple_dynamics(ecc_data):
+            ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
 
     # Average the data (if asked to do so)
     if args.average:
@@ -349,15 +356,16 @@ def main():
     if args.quant is not None:
         quant_data = nifti_mrs_proc.ecc(quant_data, quant_data)
 
-    if args.leftshift:
+    if args.leftshift or args.truncate_fid:
         verbose_print('... Truncation ...')
-        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -args.leftshift, 'first', report=report_dir)
-        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -args.leftshift, 'first')
+        trunc_amount = args.truncate_fid if args.truncate_fid else args.leftshift
+        supp_data = nifti_mrs_proc.truncate_or_pad(supp_data, -trunc_amount, 'first', report=report_dir)
+        ref_data = nifti_mrs_proc.truncate_or_pad(ref_data, -trunc_amount, 'first')
         if args.quant is not None:
-            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -args.leftshift, 'first')
+            quant_data = nifti_mrs_proc.truncate_or_pad(quant_data, -trunc_amount, 'first')
 
     # HLSVD
-    if args.hlsvd:
+    if args.remove_water or args.hlsvd:
         if not args.average:
             print('Warning: Running HLSVD water removal on each unaveraged dynamic might take a long time, '
                   'and potentially introduce high variance.')
