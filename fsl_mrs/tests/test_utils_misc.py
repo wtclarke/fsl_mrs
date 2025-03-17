@@ -222,3 +222,31 @@ def test_create_peak():
         gamma=10)
 
     assert np.allclose(one_ppm + zero_ppm, both_peaks)
+
+
+def test_detect_conjugation():
+    FIDs, headers = synth.syntheticFID(
+        chemicalshift=[-2, -3])
+    FID = FIDs[0]
+    FIDs = np.stack((FIDs[0], FIDs[0], FIDs[0].conj()))
+
+    assert not misc.detect_conjugation(
+        FID,
+        headers['ppmaxis'],
+        (0, -4))
+    assert misc.detect_conjugation(
+        FID.conj(),
+        headers['ppmaxis'],
+        (0, -4))
+
+    assert misc.detect_conjugation(
+        FIDs.conj(),
+        headers['ppmaxis'],
+        (0, -4))
+
+    # Test wrong orientation of data raises error
+    with pytest.raises(ValueError):
+        misc.detect_conjugation(
+            FIDs.T,
+            headers['ppmaxis'],
+            (0, -4))

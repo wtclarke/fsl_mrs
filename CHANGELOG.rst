@@ -1,13 +1,14 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.4.2 (WIP)
--------------------------------
+2.4.2 (Monday 17th March 2025)
+------------------------------
 - Added a `freeshift_lorentzian` model with inter-metabolite shifts (freeshift) and lorentzian lineshape.
 - Added `freeshift` option to mrsi `fsl_mrsi` and dynamic `fsl_dynmrs` fitting scripts.
 - Added option to show phase corrected spectum in the `fsl_mrs` HTML fitting report.
 - Added option to suppress alignment step in `fsl_mrs_preproc{_edit}`.
 - Changed syntax for water removal in `fsl_mrs_preproc{_edit}` from `--hlsvd` to `--remove-water`
 - Changed syntax for truncation in `fsl_mrs_preproc{_edit}` from `--leftshift {N}` to `--truncate-fid {N}`
+- Basis sets are automatically conjugated when using `basis_tools shift_all`.
 
 2.4.1 (Saturday 1st March 2025)
 -------------------------------
