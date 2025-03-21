@@ -97,16 +97,14 @@ def test_noalign(tmp_path):
          '--ecc', ecc,
          '--noalign',
          '--overwrite',
-         '--report',
          '--verbose'])
 
     assert retcode == 0
-    assert (tmp_path / 'mergedReports.html').exists()
     assert (tmp_path / 'metab.nii.gz').exists()
-    assert (tmp_path / 'wref.nii.gz').exists()
 
     proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4096)
+    assert all(['.align' not in step['Details'] for step in proc_nii.hdr_ext['ProcessingApplied']])
 
 
 def test_window_align_preproc(tmp_path):

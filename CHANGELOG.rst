@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.3 (Friday 21st March 2025)
+------------------------------
+- Fixed bug introduced in 2.4.2 where the option to suppress alignment step in `fsl_mrs_preproc{_edit}` only suppressed some alignment.
+- Update minimum hlsvdpropy version to 2.0.2
+
 2.4.2 (Monday 17th March 2025)
 ------------------------------
 - Added a `freeshift_lorentzian` model with inter-metabolite shifts (freeshift) and lorentzian lineshape.
