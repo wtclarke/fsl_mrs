@@ -241,8 +241,7 @@ def test_noalign(tmp_path):
          '--verbose'])
 
     assert retcode == 0
-    assert (tmp_path / 'diff.nii.gz').exists()
     assert (tmp_path / 'edit_0.nii.gz').exists()
-    assert (tmp_path / 'edit_1.nii.gz').exists()
-    assert (tmp_path / 'wref.nii.gz').exists()
-    assert (tmp_path / 'options.txt').exists()
+
+    proc_nii = mrs_io.read_FID(tmp_path / 'edit_0.nii.gz')
+    assert all(['.align, dim=DIM_DYN' not in step['Details'] for step in proc_nii.hdr_ext['ProcessingApplied']])

@@ -275,13 +275,21 @@ def main():
                 covariance=covariance,
                 no_prewhiten=no_prewhiten)
 
-    verbose_print('... Align Dynamics (1st iteration) ...')
-    supp_data = nifti_mrs_proc.align(
-        supp_data,
-        'DIM_DYN',
-        ppmlim=args.align_limits,
-        window=args.align_window,
-        report=report_dir)
+    if args.align:
+        verbose_print('... Align Dynamics (1st iteration) ...')
+        supp_data = nifti_mrs_proc.align(
+            supp_data,
+            'DIM_DYN',
+            ppmlim=args.align_limits,
+            window=args.align_window,
+            report=report_dir)
+
+        if has_multiple_dynamics(ref_data):
+            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.quant is not None and has_multiple_dynamics(quant_data):
+            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
+        if args.ecc is not None and has_multiple_dynamics(ecc_data):
+            ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
 
     # Bad average removal on the suppressed data
     if args.unlike:
@@ -307,23 +315,15 @@ def main():
         verbose_print(f'{bd_shape}/{supp_shape + bd_shape} '
                       'bad averages identified and removed.')
 
-    # Frequency and phase align the FIDs
-    if args.align:
-        verbose_print('... Align Dynamics (2nd iteration) ...')
-        supp_data = nifti_mrs_proc.align(
-            supp_data,
-            'DIM_DYN',
-            ppmlim=args.align_limits,
-            window=args.align_window,
-            report=report_dir)
-
-        if has_multiple_dynamics(ref_data):
-            ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
-
-        if args.quant is not None and has_multiple_dynamics(quant_data):
-            quant_data = nifti_mrs_proc.align(quant_data, 'DIM_DYN', ppmlim=(0, 8))
-        if args.ecc is not None and has_multiple_dynamics(ecc_data):
-            ecc_data = nifti_mrs_proc.align(ecc_data, 'DIM_DYN', ppmlim=(0, 8))
+        # After removal repeat frequency and phase align the FIDs
+        if args.align:
+            verbose_print('... Align Dynamics (2nd iteration) ...')
+            supp_data = nifti_mrs_proc.align(
+                supp_data,
+                'DIM_DYN',
+                ppmlim=args.align_limits,
+                window=args.align_window,
+                report=report_dir)
 
     # Average the data (if asked to do so)
     if args.average:

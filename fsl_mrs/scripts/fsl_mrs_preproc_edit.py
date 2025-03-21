@@ -263,17 +263,19 @@ def main():
                 no_prewhiten=no_prewhiten)
 
     # Frequency and phase align the FIDs in the ON/OFF condition
-    verbose_print('... Align Dynamics ...')
-    supp_data = nifti_mrs_proc.align(
-        supp_data,
-        'DIM_DYN',
-        ppmlim=args.align_ppm_dynamic,
-        niter=4,
-        window=args.align_window_dynamic,
-        report=report_dir,
-        report_all=True)
+    if args.align:
+        verbose_print('... Align Dynamics ...')
+        supp_data = nifti_mrs_proc.align(
+            supp_data,
+            'DIM_DYN',
+            ppmlim=args.align_ppm_dynamic,
+            niter=4,
+            window=args.align_window_dynamic,
+            report=report_dir,
+            report_all=True)
 
     if args.dynamic_align and args.align:
+        verbose_print('... Align Dynamics using spectral model ...')
         # Run dynamic fitting based alignment
         edit_0, edit_1 = ntools.split(supp_data, 'DIM_EDIT', 0)
 
@@ -296,7 +298,7 @@ def main():
 
         supp_data = ntools.merge([edit_0_aligned, edit_1_aligned], 'DIM_EDIT')
 
-    elif args.align:
+    if args.align:
         if 'DIM_DYN' in ref_data.dim_tags:
             ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
 
