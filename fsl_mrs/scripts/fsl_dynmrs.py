@@ -75,6 +75,10 @@ def main():
                                    ' (default is Voigt)')
     fitting_args.add_argument('--free_shift', action="store_true",
                               help='Enable free frequency shifting of all metabolites.')
+    fitting_args.add_argument('--inversion_model', action="store_true",
+                              help='Set model to "negativevoigt" which allows inversion '
+                                   'through negative concentrations. '
+                                   'Incompatible with --lorentzian and --free_shift.')
 
     # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--t1', type=str, default=None, metavar='IMAGE',
@@ -270,7 +274,9 @@ def main():
                }
 
     # Choose fitting lineshape model
-    if args.lorentzian and args.free_shift:
+    if args.inversion_model:
+        Fitargs['model'] = 'negativevoigt'
+    elif args.lorentzian and args.free_shift:
         Fitargs['model'] = 'free_shift_lorentzian'
     elif args.lorentzian:
         Fitargs['model'] = 'lorentzian'

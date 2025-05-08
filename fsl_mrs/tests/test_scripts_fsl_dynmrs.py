@@ -135,3 +135,5 @@ def test_dynmrs_models(fixed_ratio_data, tmp_path):
     assert (tmp_path / 'lorentzianfs' / 'dyn_results.csv').exists()
     run(gen_cmd('fs') + ['--free_shift',])
     assert (tmp_path / 'fs' / 'dyn_results.csv').exists()
+    run(gen_cmd('inversion') + ['--inversion_model',])
+    assert (tmp_path / 'inversion' / 'dyn_results.csv').exists()

@@ -10,6 +10,16 @@ import fsl_mrs.models.model_voigt as voigt
 import fsl_mrs.models.model_lorentzian as lorentzian
 import fsl_mrs.models.model_negativevoigt as negativevoigt
 
+from typing import Literal
+
+model_strings = Literal[
+    'lorentzian',               # Main (one parameter) lorentzian model
+    'voigt',                    # Default (two parameter) voigt model
+    'free_shift',               # Voigt model with peak shifting
+    'free_shift_lorentzian',    # Lorentzian model with peak shifting
+    'negativevoigt'             # Voigt model which allows negative concentration values.
+]
+
 
 def getModelFunctions(model):
     """ Return the err, grad, forward and conversion functions appropriate for the model."""

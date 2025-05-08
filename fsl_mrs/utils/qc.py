@@ -13,7 +13,6 @@ import warnings
 from fsl_mrs import models
 from fsl_mrs.utils.constants import NOISE_REGION
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
-from fsl_mrs.core import MRS
 from scipy.signal import find_peaks
 from scipy.stats import levene
 import numpy as np
@@ -246,6 +245,7 @@ def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=None):
 
 def generateBasisFromRes(mrs, res, resparams):
     """ Return mrs objects for each fitted basis spectrum"""
+    from fsl_mrs.core import MRS
     mrsFits = []
     for metab in mrs.names:
         pred = models.getFittedModel(res.model,

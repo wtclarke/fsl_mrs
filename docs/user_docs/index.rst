@@ -26,6 +26,7 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    macromolecules
    simulation
    basis_tools
+   spatial
    visualisation
    dynamic
    fmrs

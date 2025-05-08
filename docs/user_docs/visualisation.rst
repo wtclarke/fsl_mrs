@@ -74,30 +74,24 @@ FSL-MRS can generate interactive HTML reports either through the wrapper scripts
 4. FSLeyes
 ----------
 
-A very powerful way to visualise MRS data is FSLeyes (for compatibility with FSL-MRS, this requires FSLeyes version 0.32.0 or later). This is particularly useful for MRSI data, where we can simultaneously view the spectrum and fitted model alongside the anatomical image and interactively navigate from voxel to voxel.
+A very powerful way to visualise MRS data is using the MRS plugin for FSLeyes. This is particularly useful for MRSI data, where we can simultaneously view the spectrum and fitted model alongside the anatomical image and interactively navigate from voxel to voxel.
 
-Below are instructions for loading and configuring FSLeyes to work with MRSI data. Say the input FID (used for fitting) is :code:`FID_Metab.nii.gz` and the output from :code:`fsl_mrsi` is a folder called :code:`mrsi_output`. You can load these data into FSLeyes with:
+The plugin, which now comes as standard with FSL, has detailed `online documentation <https://pages.fmrib.ox.ac.uk/wclarke/fsleyes-plugin-mrs/>`_.
+
+Below are instructions for loading and configuring FSLeyes to work with an MRSI data set. Say the input FID (used for fitting) is :code:`FID_Metab.nii.gz` and the output from :code:`fsl_mrsi` is a folder called :code:`mrsi_output`. You can load these data into FSLeyes with:
 
 ::
 
-    fsleyes  mrsi_out/{fit.nii.gz,baseline.nii.gz,residual.nii.gz} FID_Metab.nii.gz T1.nii &
+    fsleyes -smrs  FID_Metab.nii.gz T1.nii &
 
-Then open *View=>Power Spectra*, select the FID/fit/baseline/residuals as required for display. 
+Subsequently navigate to the :code:`Tools` menu and select the :code:`LoadLoad FSL-MRS fit` option. Select the :code:`mrsi_output` folder to load.
 
-Now to make the power-spectrum display nicely, we need to change the x-axis scaling/shifting to be compatible with MRS conventions (shifted PPM). Open the Power spetrum control panel, and do the following:
+ You should be able to see something like this:
 
- - Invert X axis
- - Set X axis scale to 1/{central frequency}
- - Set X axis offset to 4.65 (Shift of water to Tetramethylsilane)
- - Untick "Autoscale X" and Set X axis limits to a desired PPM range (e.g. [.2,4.2])
- - Untick "Normalise to unit variance"
-
- You should be able to see something like this (after playing around with changing the colours and the panel locations):
-
- .. image:: data/fsleyes.png
+ .. image:: data/mrsi_fit.png
   :width: 700
 
-5. SVS results dashboard
+1. SVS results dashboard
 ------------------------
 
 **Warning: experimental / new feature**

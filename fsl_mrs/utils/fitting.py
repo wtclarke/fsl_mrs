@@ -16,18 +16,22 @@ from fsl_mrs.utils.results import FitRes
 from fsl_mrs.utils.constants import nucleus_constants
 from fsl_mrs.utils import baseline as bline
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from fsl_mrs.core.mrs import MRS
 
-def fit_FSLModel(mrs,
+
+def fit_FSLModel(mrs: "MRS",
                  method: str = 'Newton',
-                 ppmlim=None,
+                 ppmlim: tuple[float, float] | None = None,
                  baseline: str = 'polynomial, 2',
                  baseline_order: int | None = None,
-                 metab_groups=None,
-                 model: str = 'voigt',
-                 x0=None,
-                 MHSamples=500,
-                 disable_mh_priors=False,
-                 fit_baseline_mh=False):
+                 metab_groups: list[int] = None,
+                 model: models.model_strings = 'voigt',
+                 x0: list[float] = None,
+                 MHSamples: int = 500,
+                 disable_mh_priors: bool = False,
+                 fit_baseline_mh: bool = False):
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
@@ -42,7 +46,7 @@ def fit_FSLModel(mrs,
     :type baseline_order: int, optional
     :param metab_groups: List of metabolite groupings, defaults to None
     :type metab_groups: List, optional
-    :param model: 'lorentzian' or 'voigt', defaults to 'voigt'
+    :param model: 'lorentzian', 'voigt', 'free_shift', 'free_shift_lorentzian', 'negativevoigt', defaults to 'voigt'
     :type model: str, optional
     :param x0: Initialisation values, defaults to None
     :type x0: List, optional

@@ -187,7 +187,7 @@ pages:
   stage: doc
   script:
   - git describe --tag --dirty
-  - pip install -U sphinx sphinx_rtd_theme
+  - pip install -U sphinx sphinx_rtd_theme "docutils<0.21" "snowballstemmer<3"
   - pip install --no-deps .
   - sphinx-build -b html ./docs/user_docs public
   artifacts:

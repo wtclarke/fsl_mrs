@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.4 (Thursday 8th May 2025)
+-----------------------------
+- Updated documentation and doc strings around fitting models.
+- Added `--inversion_model` option to `fsl_dynmrs` to allow modelling of inverted peaks.
+- Added documentation page about spatial information with how to create a SVS mask in T1 space.
+
 2.4.3 (Friday 21st March 2025)
 ------------------------------
 - Fixed bug introduced in 2.4.2 where the option to suppress alignment step in `fsl_mrs_preproc{_edit}` only suppressed some alignment.
