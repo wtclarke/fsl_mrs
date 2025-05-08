@@ -9,8 +9,8 @@ FSL-MRS should be installed using the conda package manager (option 1) or via th
 Option 1: Using Conda
 ~~~~~~~~~~~~~~~~~~~~~
 
-The primary installation method is via *conda*. After installing conda and creating or activating a suitable environment you can install FSL-MRS from the FSL conda channel. See our page on setting up a :ref:`conda enviroment 
-<conda>` for a step by step guide. Do not install _FSL-MRS_ into the `base` environment (this is the environment that starts activated).
+The primary installation method is via *conda*. After installing conda and creating or activating a suitable environment you can install FSL-MRS from the FSL conda channel.
+See our page on setting up a :ref:`conda enviroment <conda>` for a step by step guide. Do not install FSL-MRS into the `base` environment (this is the environment that starts activated).
 
 ::
 

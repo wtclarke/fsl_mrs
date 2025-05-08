@@ -184,9 +184,11 @@ Below are detailed explanations of some of the optional arguments in the wrapper
     or an `effective dimension` number can be given, running from 2 (very stiff) to inf (very flexible). 
     E.g. command line options might be :code:`spline, very-stiff` or :code:`spline, 2`
 :code:`--metab_groups`      
-    Group metabolites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
+    Group metabolites into sub-groups that get their own lineshape and frequency parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
 :code:`--lorentzian`        
     By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
+:code:`--free_shift`        
+    By default, metabolite bases can't shift relative to each other. Add this flag to enable shifting (whilst retaining the lineshape constraints specified by metab_groups).   
 :code:`--ind_scale`        
     Allow independent scaling of specified basis spectra before fitting. For example this can be used to independently scale empirically measured macromolecules combined with simulated metabolite spectra.
 :code:`--disable_MH_priors`        
