@@ -72,9 +72,19 @@ def main():
     optional.add_argument('--num_processes', type=int,
                           required=False, default=None,
                           help='Number of worker processes to use in simulation, defaults to os.cpu_count().')
-
-    # optional.add_argument('--verbose',action="store_true",
-    #                help='spit out verbose info')
+    optional.add_argument('--parallel',
+                          type=str,
+                          default='local',
+                          help="Control parallelisation. Set to: "
+                          "'off', 'local' (default), or 'cluster'. "
+                          "'off' forces serial processing, "
+                          "'local' parallelises over local CPUs, "
+                          "'cluster' distributes over HPC SLURM nodes. "
+                          "See documentation for cluster configuration.")
+    optional.add_argument('--parallel-workers',
+                          type=int,
+                          default=None,
+                          help="Number of cores (local), or workers (cluster) to use.")
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--verbose', action="store_true",
@@ -98,7 +108,12 @@ def main():
     from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
     import os
     import datetime
+    from dask.distributed import Client, progress
     # ######################################################
+
+    def verboseprint(x: str):
+        if args.verbose:
+            print(x)
 
     # Check if output folder exists
     overwrite = args.overwrite
@@ -218,11 +233,40 @@ def main():
     # global_counter = mp.Value('L')
 
     # Loop over the spin systems (list) in a parallel way
-    poolFunc = partial(runSimForMetab, seqParams=seqParams, args=args)
-    poolArgs = [(i, s, n) for i, (s, n) in enumerate(zip(spinsys, spinsToSim))]
-    # handle number of processes
-    pool = mp.Pool(args.num_processes)
-    pool.starmap(poolFunc, poolArgs)
+    poolFunc = partial(runSimForMetab, seqParams=seqParams, args=args, verbose=args.verbose)
+
+    if args.parallel == "off":
+        # client = Client(n_workers=1, threads_per_worker=1)
+        from tqdm import tqdm
+        _ = list(map(poolFunc, tqdm(spinsys), spinsToSim))
+
+    elif args.parallel in ("local", "cluster"):
+        if args.parallel == "local":
+            if args.parallel_workers:
+                n_workers = args.parallel_workers
+            else:
+                n_workers = mp.cpu_count() - 1
+            verboseprint(f'    Parallelising over {n_workers} workers ')
+            client = Client(n_workers=n_workers)
+
+        elif args.parallel == "cluster":
+            if args.parallel_workers:
+                n_workers = args.parallel_workers
+            else:
+                n_workers = 2
+            verboseprint(f'    Parallelising over {n_workers} nodes ')
+            from dask_jobqueue import slurm
+            cluster = slurm.SLURMCluster(
+                config_name='fsl_mrs_sim')
+            cluster.scale(n_workers)
+
+            client = Client(cluster)
+
+        result_futures = client.map(poolFunc, spinsys, spinsToSim)
+        progress(result_futures, notebook=False)
+        _ = client.gather(result_futures)
+    else:
+        raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
     # Additional write steps for MM and LCM basis generation
     if args.MM is not None:
@@ -279,7 +323,7 @@ def main():
             lcm_io.writeLcmInFile(fileOut, spinsToSim, outputBaseName, inputSeqBaseName, inParamDict)
 
 
-def runSimForMetab(iDx, s, name, seqParams, args):
+def runSimForMetab(s, name, seqParams, args, verbose=False):
     """Run the simulation for a single metabolite"""
     import copy
     import numpy as np
@@ -288,7 +332,6 @@ def runSimForMetab(iDx, s, name, seqParams, args):
     import os
     import datetime
 
-    print(f'Running simulation on {name}.')
     sToSave = copy.deepcopy(s)  # Make a copy here as some bits of s are converted to np.arrays inside simulator.
     # Run simulation
     densityMatriciesRe = []
@@ -296,14 +339,14 @@ def runSimForMetab(iDx, s, name, seqParams, args):
     if isinstance(s, list):
         combinedScaledFID = []
         for ss in s:
-            FID, ax, pmat = sim.simseq(ss, seqParams)
+            FID, ax, pmat = sim.simseq(ss, seqParams, verbose=verbose)
             combinedScaledFID.append(FID * ss['scaleFactor'])
             densityMatriciesRe.append(np.real(pmat).tolist())
             densityMatriciesIm.append(np.imag(pmat).tolist())
         combinedScaledFID = np.sum(combinedScaledFID, axis=0)
 
     else:
-        FID, ax, pmat = sim.simseq(s, seqParams)
+        FID, ax, pmat = sim.simseq(s, seqParams, verbose=verbose)
         combinedScaledFID = FID * s['scaleFactor']
         densityMatriciesRe.append(np.real(pmat).tolist())
         densityMatriciesIm.append(np.imag(pmat).tolist())
