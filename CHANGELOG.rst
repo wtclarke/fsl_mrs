@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.5 (Friday 30th May 2025)
+----------------------------
+- `fsl_mrs_sim` now uses Dask for parallel processing.
+
 2.4.4 (Thursday 8th May 2025)
 -----------------------------
 - Updated documentation and doc strings around fitting models.
