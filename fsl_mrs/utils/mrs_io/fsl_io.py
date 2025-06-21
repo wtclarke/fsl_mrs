@@ -231,6 +231,11 @@ def readAndGenFSLBasis(file, readoutShift, bandwidth, points):
             p = p[0]  # deal with single spin system case
 
     lw = basisFileParams['basis']['basis_width']
+    if 'seq' in basisFileParams and "Nucleus" in basisFileParams['seq']:
+        nucleus = basisFileParams['seq']["Nucleus"]
+    else:
+        nucleus = "1H"
+
     FID = simutils.FIDFromDensityMat(p,
                                      spins,
                                      B0,
@@ -238,7 +243,8 @@ def readAndGenFSLBasis(file, readoutShift, bandwidth, points):
                                      1 / bandwidth,
                                      lw,
                                      offset=readoutShift,
-                                     recieverPhs=rxphs)
+                                     recieverPhs=rxphs,
+                                     nucleus=nucleus)
 
     metabo = basisFileParams['basis']['basis_name']
     cf = basisFileParams['basis']['basis_centre'] * 1E6

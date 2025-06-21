@@ -68,10 +68,6 @@ def main():
     optional.add_argument('-e', '--outputTE', type=float,
                           required=False, metavar='ECHOTIME',
                           help='Echo time value in ms for output files (no effect on simulation).')
-
-    optional.add_argument('--num_processes', type=int,
-                          required=False, default=None,
-                          help='Number of worker processes to use in simulation, defaults to os.cpu_count().')
     optional.add_argument('--parallel',
                           type=str,
                           default='local',
@@ -102,6 +98,7 @@ def main():
     import shutil
     import json
     from fsl_mrs.denmatsim import utils as simutils
+    from fsl_mrs.denmatsim.constants import GYRO_MAG_RATIO
     from fsl_mrs.utils.misc import FIDToSpec
     import numpy as np
     from fsl_mrs.denmatsim import simseq as sim
@@ -191,7 +188,6 @@ def main():
         print(f'Identified spinsystems: {spinsToSim}')
 
     # Auto phase adjustment
-    # breakpoint()
     if args.autophase is not None:
         # Construct a single spin spin system
         if 'centralShift' in seqParams:
@@ -230,7 +226,6 @@ def main():
 
     import multiprocessing as mp
     from functools import partial
-    # global_counter = mp.Value('L')
 
     # Loop over the spin systems (list) in a parallel way
     poolFunc = partial(runSimForMetab, seqParams=seqParams, args=args, verbose=args.verbose)
@@ -269,9 +264,36 @@ def main():
         raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
     # Additional write steps for MM and LCM basis generation
+    if "Nucleus" in seqParams:
+        nucleus = seqParams["Nucleus"]
+    else:
+        nucleus = "1H"
+    central_frequency = seqParams["B0"] * GYRO_MAG_RATIO[nucleus]
+    dwelltime = 1 / seqParams['Rx_SW']
     if args.MM is not None:
         # Read in file
         MMBasisFID = fsl_io.readJSON(args.MM)  # Input should be the same as the format of basisDict above
+
+        if np.isclose(MMBasisFID["basis_centre"], central_frequency, atol=1):
+            print(
+                f'MM central frequency ({MMBasisFID["basis_centre"]} MHz) '
+                f'is less than 1 MHz different to simulation ({central_frequency} MHz), overwriting.')
+            MMBasisFID["basis_centre"] = central_frequency
+        else:
+            raise ValueError(
+                f'The MM FID has a central frequency ({MMBasisFID["basis_centre"]} MHz) '
+                f'more than 1 MHz different from simulated ({central_frequency} MHz).')
+
+        mm_sw = 1 / MMBasisFID["basis_dwell"]
+        if np.isclose(mm_sw, seqParams['Rx_SW'], rtol=0.01):
+            print(
+                f'MM sweep width ({mm_sw} Hz) '
+                f'is less than 1% different to simulation ({seqParams["Rx_SW"]} Hz), overwriting.')
+            MMBasisFID["basis_dwell"] = dwelltime
+        else:
+            raise ValueError(
+                f'The MM sweep width ({mm_sw} Hz) '
+                f'is more than 1 % different from simulated ({seqParams["Rx_SW"]} Hz).')
 
         # Write MM FID to the correct format
         if args.raw:
@@ -283,7 +305,7 @@ def main():
             fileOut = os.path.join(args.output, 'Mac.txt')
             combinedScaledFID = np.array(MMBasisFID['basis_re']) + 1j * np.array(MMBasisFID['basis_im'])
             jmruidict = {'dwelltime': 1 / seqParams['Rx_SW'],
-                         'centralFrequency': ax['centreFreq']}
+                         'centralFrequency': central_frequency}
             jmrui_io.writejMRUItxt(fileOut, combinedScaledFID, jmruidict)
 
         # Always output fsl_mrs
@@ -308,7 +330,7 @@ def main():
 
         fileOut = os.path.join(args.output, 'lcm.IN')
         inParamDict = {'width': seqParams['Rx_LW'],
-                       'centralFrequency': seqParams['B0'] * 42.5774,
+                       'centralFrequency': seqParams['B0'] * GYRO_MAG_RATIO[seqParams["Nucleus"]],
                        'dwelltime': 1 / seqParams['Rx_SW'],
                        'points': seqParams['Rx_Points']}
         if args.outputTE is not None:
