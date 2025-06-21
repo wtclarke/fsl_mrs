@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.6 (Friday 20th June 2025)
+-----------------------------
+- The basis set simulator can now be passed a `"Nucleus"` field to enable simulation of 2H, 13C and 31P nuclei.
+- MM seeds passed to `fsl_mrs_sim` will have central frequencies and dwell times lightly modified to match other simulated bases
+- Automatic conjugation for `basis_tools add_set`
+
 2.4.5 (Friday 30th May 2025)
 ----------------------------
 - `fsl_mrs_sim` now uses Dask for parallel processing.

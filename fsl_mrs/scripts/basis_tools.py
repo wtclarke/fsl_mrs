@@ -451,9 +451,21 @@ def add_peak(args):
 def add_peak_set(args):
     from fsl_mrs.utils import basis_tools
     from fsl_mrs.utils.mrs_io import read_basis
+    from fsl_mrs.utils.misc import detect_conjugation
+    from fsl_mrs.utils.constants import PPM_RANGE
     import numpy as np
 
     basis = read_basis(args.file)
+
+    if basis.nucleus == "1H" and\
+            detect_conjugation(
+                basis.original_basis_array.T,
+                basis.original_ppm_shift_axis,
+                PPM_RANGE['1H']):
+        conjugate = True
+    else:
+        conjugate = False
+
     all_original = basis.original_basis_array
     original_target = np.linalg.norm(np.mean(all_original, axis=1), axis=0)
 
@@ -466,7 +478,7 @@ def add_peak_set(args):
             sigma = 30
         else:
             sigma = args.sigma
-        names = basis.add_default_MM_peaks(gamma, sigma, conj=False)
+        names = basis.add_default_MM_peaks(gamma, sigma, conj=conjugate)
     elif args.add_MM_MEGA:
         if args.gamma is None:
             gamma = 10
@@ -476,7 +488,7 @@ def add_peak_set(args):
             sigma = 0
         else:
             sigma = args.sigma
-        names = basis.add_default_MEGA_MM_peaks(gamma, sigma, conj=False)
+        names = basis.add_default_MEGA_MM_peaks(gamma, sigma, conj=conjugate)
     elif args.add_water:
         if args.gamma is None:
             gamma = 0
@@ -486,7 +498,7 @@ def add_peak_set(args):
             sigma = 0
         else:
             sigma = args.sigma
-        names = basis.add_water_peak(gamma, sigma, conj=False)
+        names = basis.add_water_peak(gamma, sigma, conj=conjugate)
 
     for name in names:
         basis = basis_tools.rescale_basis(basis, name, target_scale=original_target)

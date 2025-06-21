@@ -41,13 +41,9 @@ class Basis:
         """
         # Check all the basis headers match
         def hdr_match(hdr1, hdr2):
-            if hdr1['dwelltime'] != hdr2['dwelltime']:
-                return False
-            if hdr1['bandwidth'] != hdr2['bandwidth']:
-                return False
-            if hdr1['centralFrequency'] != hdr2['centralFrequency']:
-                return False
-            return True
+            return np.isclose(hdr1['dwelltime'], hdr2['dwelltime'])\
+                and np.isclose(hdr1['bandwidth'], hdr2['bandwidth'])\
+                and np.isclose(hdr1['centralFrequency'], hdr2['centralFrequency'])\
 
         for hdr, name in zip(headers, names):
             if not hdr_match(hdr, headers[0]):

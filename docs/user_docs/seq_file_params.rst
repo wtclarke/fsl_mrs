@@ -12,7 +12,8 @@ Sequence description parameters
     sequenceName,   Str,	        Y,        Sequence name,                              svs_slaser
     description,    Str,	        Y,        User description,	                        3T slaser 28 ms
     B0,	            float,	        Y,        Static field strength,	                    6.98
-    centralShift,	float,	        N,         Receiver offset from ppm reference. For most 1H MRS sequences this will be 4.65 ppm (the shift of water at 37 °C from TMS/DSS). Default = 0.0,	4.65
+    Nucleus,        Str,            N,        Nucleus string of style "1H", or "31P" Defaults to "1H"., 1H
+    centralShift,	float,	        N,        Receiver offset from ppm reference. For most 1H MRS sequences this will be 4.65 ppm (the shift of water at 37 °C from TMS/DSS). Default = 0.0,	4.65
     RX_Points,	    int,	        Y,        Number of points in the final spectrum,	    4096
     RX_SW,	        float,	        Y,        Receiver sweep-width (bandwidth) in Hz,     6000
     RX_LW,	        float,	        Y,        FWHM of peaks in the output spectra. In Hz., 2.0

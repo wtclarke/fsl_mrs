@@ -78,13 +78,14 @@ def test_sim_workers(spinsys, seqparams, tmp_path):
     ssFile = op.join(tmp_path, 'custom_ss.json')
     outfile1 = op.join(tmp_path, 'simulated_single')
     outfile2 = op.join(tmp_path, 'simulated_multi')
+    outfile3 = op.join(tmp_path, 'simulated_no_dask')
     assert not subprocess.check_call(
         ['fsl_mrs_sim',
          '-s', ssFile,
          '-o', outfile1,
          '-r',
          '-a', seqfile,
-         '--num_processes', '1'])
+         '--parallel-workers', '1'])
 
     assert not subprocess.check_call(
         ['fsl_mrs_sim',
@@ -92,4 +93,12 @@ def test_sim_workers(spinsys, seqparams, tmp_path):
          '-o', outfile2,
          '-r',
          '-a', seqfile,
-         '--num_processes', '2'])
+         '--parallel-workers', '2'])
+
+    assert not subprocess.check_call(
+        ['fsl_mrs_sim',
+         '-s', ssFile,
+         '-o', outfile3,
+         '-r',
+         '-a', seqfile,
+         '--parallel', 'off'])

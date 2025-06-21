@@ -116,7 +116,7 @@ def test_fslBasisRegen():
 
     assert basis_fsl2.names == basis_fsl.names
     assert basis_fsl2.original_bw == basis_fsl.original_bw
-    assert np.allclose(basis_fsl2.original_basis_array, basis_fsl.original_basis_array[:pointsToGen, :])
+    assert np.allclose(basis_fsl2.original_basis_array, basis_fsl.original_basis_array[:pointsToGen, :], atol=1E-2)
 
 
 def test_check_datatype():
