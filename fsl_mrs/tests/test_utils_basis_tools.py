@@ -39,6 +39,15 @@ def test_convert_lcmodel(tmp_path):
     assert np.isclose(basis.cf, new_basis.cf)
 
 
+def test_convert_lcmodel_nuc(tmp_path):
+    out_loc = tmp_path / 'test_basis'
+    basis_tools.convert_lcm_basis(lcm_basis_path, out_loc, nucleus="31P")
+
+    new_basis = mrs_io.read_basis(out_loc)
+
+    assert new_basis.nucleus == "31P"
+
+
 def test_convert_raw(tmp_path):
     out_loc = tmp_path / 'test_basis_raw'
     basis_tools.convert_lcm_raw_basis(

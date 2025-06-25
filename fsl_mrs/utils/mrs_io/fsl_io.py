@@ -143,6 +143,13 @@ def readFSLBasis(filename, N=None, dofft=False):
                       'fwhm': basis['basis_width']}
             # header['echotime'] Not clear how to calculate this in the general case.
 
+            if 'basis_nucleus' in basis:
+                header['nucleus'] = basis['basis_nucleus']
+            elif 'seq' in basisFileParams \
+                    and basisFileParams['seq'] is not None \
+                    and 'Nucleus' in basisFileParams['seq']:
+                header['nucleus'] = basisFileParams["seq"]["Nucleus"]
+
             metabo = basis['basis_name']
 
         else:  # No basis information found
@@ -184,6 +191,9 @@ def write_fsl_basis_file(basis, name, header, out_dir, info=''):
                          'basis_name': name},
                'meta': {'time': datetime.now().strftime("%Y%m%d_%H%M%S"),
                         'SimVersion': info}}
+
+    if "nucleus" in header:
+        bs_dict['basis']['basis_nucleus'] = header["nucleus"]
 
     # 6. Write dict to json
     writeJSON(out_dir / (name + '.json'), bs_dict)

@@ -62,6 +62,8 @@ def main():
                                help='Remove LCModel reference peak.')
     convertparser.add_argument('--hlsvd', action="store_true",
                                help='Use HLSVD peak removal, rather than zeroing.')
+    convertparser.add_argument('--nucleus', type=str, default=None,
+                               help='Update nucleus. Not stored in LCmodel outputs. Format should be "1H", "31P" etc.')
     convertparser.set_defaults(func=convert)
 
     # Add tool - add a json formatted fid to a basis set
@@ -262,14 +264,15 @@ def convert(args):
     from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
     if args.input.is_file():
-        basis_tools.convert_lcm_basis(args.input, args.output)
+        basis_tools.convert_lcm_basis(args.input, args.output, nucleus=args.nucleus)
     elif args.input.is_dir()\
             and (len(list(args.input.glob('*.raw'))) > 0 or len(list(args.input.glob('*.RAW'))) > 0):
         basis_tools.convert_lcm_raw_basis(
             args.input,
             args.bandwidth,
             args.fieldstrength * GYRO_MAG_RATIO['1H'],
-            args.output)
+            args.output,
+            nucleus=args.nucleus)
     elif args.input.is_dir()\
             and len(list(args.input.glob('*.txt'))) > 0:
         basis_tools.convert_jmrui_basis(

@@ -44,6 +44,14 @@ def test_convert_lcmbasis(tmp_path):
     assert (tmp_path / 'new').is_dir()
     assert (tmp_path / 'new' / 'NAA.json').is_file()
 
+    subprocess.check_call(['basis_tools', 'convert',
+                           str(lcm),
+                           str(tmp_path / 'new_nuc'),
+                           '--nucleus', '31P'])
+
+    assert (tmp_path / 'new_nuc').is_dir()
+    assert (tmp_path / 'new_nuc' / 'NAA.json').is_file()
+
 
 def test_convert_raw(tmp_path):
     subprocess.check_call(['basis_tools', 'convert',

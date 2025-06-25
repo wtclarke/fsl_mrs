@@ -21,7 +21,7 @@ class IncompatibleBasisError(Exception):
     pass
 
 
-def convert_lcm_basis(path_to_basis, output_location=None):
+def convert_lcm_basis(path_to_basis, output_location=None, nucleus=None):
     """Converts an existing LCModel basis set (.BASIS) file to FSL format (a directory of json files).
 
     The generated FSL format will only contain a subset of the information that it normaly does
@@ -31,6 +31,8 @@ def convert_lcm_basis(path_to_basis, output_location=None):
     :type path_to_basis: str or pathlib.Path
     :param output_location: Name of output directory, defaults to match input name and location
     :type output_location: str or pathlib.Path, optional.
+    :param nucleus: String to update nucleus field with (e.g. 31P, 2H, etc)
+    :type nucleus: str, optional.
     """
     if isinstance(path_to_basis, str):
         path_to_basis = Path(path_to_basis)
@@ -41,6 +43,10 @@ def convert_lcm_basis(path_to_basis, output_location=None):
     # 2. Conjugate to preserve the sense w.r.t. FSL-MRS useage.
     basis = conjugate_basis(basis)
 
+    # 3. Update nucleus information if provided
+    if nucleus is not None:
+        basis.nucleus = nucleus
+
     # 3. Write to new location
     sim_info = f'Converted from {str(path_to_basis)}'
     if output_location is None:
@@ -49,7 +55,7 @@ def convert_lcm_basis(path_to_basis, output_location=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None):
+def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None, nucleus=None):
     """Converts an existing LCModel set of .Raw basis files to FSL format (a directory of json files).
 
     The generated FSL format will only contain a subset of the information that it normaly does
@@ -63,6 +69,8 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     :type central_frequency: float
     :param output_location: path to output location + name, defaults to None
     :type output_location: _tpathlib.Path or str, optional
+    :param nucleus: String to update nucleus field with (e.g. 31P, 2H, etc)
+    :type nucleus: str, optional.
     """
     from fsl_mrs.utils.mrs_io.lcm_io import read_basis_files
 
@@ -76,6 +84,7 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     header['bandwidth'] = bandwidth
     header['centralFrequency'] = central_frequency
     header['fwhm'] = None
+    header['nucleus'] = nucleus
 
     basis = Basis(basis_array, names, [header, ] * len(names))
 
