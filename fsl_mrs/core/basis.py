@@ -72,9 +72,14 @@ class Basis:
         self._names = names
         self._widths = [hdr['fwhm'] for hdr in headers]
 
-        # Assume Nucleus is 1H
-        # This only has baring on the plotting currently
-        self._nucleus = '1H'
+        # Try to read nucleus from basis file.
+        # If not found assume Nucleus is 1H
+        # This only has baring on the plotting but causes difficulty in checking basis
+        # suitability
+        if 'nucleus' in headers[0] and headers[0]['nucleus'] is not None:
+            self.nucleus = headers[0]['nucleus']
+        else:
+            self.nucleus = '1H'
 
         # Default interpolation is Fourier Transform based.
         self._use_fourier_interp = True
@@ -171,7 +176,10 @@ class Basis:
     @nucleus.setter
     def nucleus(self, nucleus):
         """Set the nucleus string - only affects plotting"""
-        self._nucleus = nucleus
+        if misc.check_nucleus_format(nucleus):
+            self._nucleus = nucleus
+        else:
+            raise ValueError("Nucleus string must be in format of '1H', '31P', '23Na' etc.")
 
     @property
     def use_fourier_interp(self):
@@ -200,7 +208,8 @@ class Basis:
             return {'centralFrequency': self.cf * 1E6,
                     'bandwidth': self.original_bw,
                     'dwelltime': self.original_dwell,
-                    'fwhm': width}
+                    'fwhm': width,
+                    'nucleus': self.nucleus}
 
         for name, basis, width in zip(self.names, self.original_basis_array.T, self.basis_fwhm):
             hdr = out_hdr(width)

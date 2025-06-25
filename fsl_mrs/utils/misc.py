@@ -9,6 +9,7 @@
 import os
 from contextlib import contextmanager
 from typing import Union
+import re
 
 import numpy as np
 import itertools as it
@@ -908,6 +909,20 @@ def ravel(arr, mask):
             if arr == [x, y, z]:
                 return counter
             counter += 1
+
+
+def check_nucleus_format(nuc_str: str) -> bool:
+    """Checks that the nucleus string matches the expected format
+
+    1H, 31P, 13C etc
+
+    :param nuc_str: Nucleus string
+    :type nuc_str: str
+    :return: True = correct format, false otherwise
+    :rtype: bool
+    """
+    rexp = re.compile(r'^\d{1,3}[A-Z][a-z]?$')
+    return rexp.match(nuc_str) is not None
 
 
 # FMRS Stuff

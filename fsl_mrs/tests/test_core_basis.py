@@ -70,6 +70,28 @@ def test_load_and_constructors():
     assert manual.original_basis_array.dtype == complex
 
 
+def test_nuc_in_hdr():
+    basis, names, bhdrs = fslio.readFSLBasisFiles(fsl_basis_path)
+    manual = basis_mod.Basis(basis, names, bhdrs)
+
+    assert manual.nucleus == "1H"
+
+    for hdr in bhdrs:
+        hdr['nucleus'] = "1H"
+    manual = basis_mod.Basis(basis, names, bhdrs)
+    assert manual.nucleus == "1H"
+
+    for hdr in bhdrs:
+        hdr['nucleus'] = "31P"
+    manual = basis_mod.Basis(basis, names, bhdrs)
+    assert manual.nucleus == "31P"
+
+    with pytest.raises(ValueError):
+        for hdr in bhdrs:
+            hdr['nucleus'] = "not_a_nuc"
+        manual = basis_mod.Basis(basis, names, bhdrs)
+
+
 def test_lcm_load():
     # Test LCModel basis load
     lcm = basis_mod.Basis.from_file(lcm_basis_path)
@@ -224,3 +246,15 @@ def test_update():
 
     index = original.names.index('Mac')
     assert np.allclose(original._raw_fids[:, index], np.ones((original.original_points,), complex))
+
+
+def test_update_nucleus():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+
+    original.nucleus = "31P"
+    assert original.nucleus == "31P"
+
+    with pytest.raises(
+            ValueError,
+            match="Nucleus string must be in format of '1H', '31P', '23Na' etc."):
+        original.nucleus = "1234RR"

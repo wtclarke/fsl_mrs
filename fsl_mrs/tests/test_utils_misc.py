@@ -250,3 +250,12 @@ def test_detect_conjugation():
             FIDs.T,
             headers['ppmaxis'],
             (0, -4))
+
+
+def test_check_nucleus_format():
+    for correct_value in ["1H", "31P", "23Na", "129Xe"]:
+        assert misc.check_nucleus_format(correct_value)
+
+    for incorrect_value in ["H1", "31p", "23NA", "1229Xe", "129Xee"]:
+        print(incorrect_value)
+        assert not misc.check_nucleus_format(incorrect_value)

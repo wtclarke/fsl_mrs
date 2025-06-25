@@ -57,11 +57,14 @@ def test_read_FID_SVS():
 # def test_read_FID_MRSI()
 
 
-BasisTestData = {'fsl': op.join(testsPath, 'testdata/mrs_io/basisset_FSL'),
-                 'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
-                 'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
-                 'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
-                 'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
+BasisTestData = {
+    'fsl': op.join(testsPath, 'testdata/mrs_io/basisset_FSL'),
+    'fsl_nuc': op.join(testsPath, 'testdata/mrs_io/basisset_FSL_nuc'),  # Includes a basis_nucleus field (set to 31P)
+    'fsl_seq_nuc': op.join(testsPath, 'testdata/mrs_io/basisset_FSL_seq_nuc'),   # Includes a seq->nucleus field (31P)
+    'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
+    'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
+    'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
+    'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
 
 
 def test_read_Basis():
@@ -156,6 +159,23 @@ def test_fsl_io_save_load_basis(tmp_path):
     assert np.allclose(nbasis[:, 0], basis[:, 0])
     assert nnames[0] == names[0]
     assert nhdr[0] == hdrs[0]
+
+
+def test_fsl_io_save_load_basis_nucleus(tmp_path):
+
+    # With nucleus information
+    # Test that read directly ["basis"]["basis_nucleus"] works
+    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_nuc'])
+    assert hdrs[0]['nucleus'] == "31P"
+
+    # Test that read from ["seq"]["Nucleus"] works
+    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_seq_nuc'])
+    assert hdrs[0]['nucleus'] == "31P"
+
+    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
+    _, _, nhdr = fslio.readFSLBasisFiles(tmp_path)
+    assert nhdr[0] == hdrs[0]
+    assert nhdr[0]['nucleus'] == "31P"
 
 
 def test_load_symlink(tmp_path):

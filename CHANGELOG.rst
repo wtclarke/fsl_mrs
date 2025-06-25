@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.7 (Wednesday 25th June 2025)
+--------------------------------
+- Added nucleus awareness to `Basis` class. This will apply the correct ppm reference shift each nucleus in `basis_tools vis`. Previously 1H (and 4.65 ppm shift) was assumed.
+- When converting basis sets from LCModel format (.basis) using `basis_tools convert` the user can now specify `--nucleus`.
+
 2.4.6 (Friday 20th June 2025)
 -----------------------------
 - The basis set simulator can now be passed a `"Nucleus"` field to enable simulation of 2H, 13C and 31P nuclei.
