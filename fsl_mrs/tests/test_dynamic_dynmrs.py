@@ -152,12 +152,12 @@ def test_dynMRS_fit(fixed_ratio_mrs):
         metab_groups=[0, 0],
         rescale=False)
     init = dyn_obj.initialise(indiv_init=None)
-    res = dyn_obj.fit(init=init, method='quasi-newton')
+    res = dyn_obj.fit(init=init, method='quasi-newton', minimize_options={"ftol": 1E-7})
 
     concs = res.dataframe_free.filter(like='conc').to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
 
-    res = dyn_obj.fit(init=init, method='newton')
+    res = dyn_obj.fit(init=init, method='newton', minimize_options={"ftol": 1E-7})
 
     concs = res.dataframe_free.filter(like='conc').to_numpy()
     assert np.allclose(concs, [1, 1, 1, 1], atol=0.1)
@@ -375,3 +375,47 @@ def test_create_dynmrs_report(tmp_path, fixed_ratio_mrs):
         Path('configfile'),
         'tvarfile1, tvarfile2',
         'time_string')
+
+
+testsPath = Path(__file__).parent
+config_simple_var = testsPath / 'testdata' / 'dynamic' / 'simple_linear_model_variable.py'
+basis_path = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis'
+basis_ignore = [
+    'Ala', 'Asc', 'Asp', 'GABA', 'Glc', 'Gln', 'Glu', 'GPC', 'GSH',
+    'Ins', 'Lac', 'Mac', 'NAAG', 'PCh', 'PCr', 'PE', 'Scyllo', 'Tau']
+
+
+def test_gradient_calc():
+    mrs_list, vm, freeparams = syn.synthetic_spectra_from_model(
+        config_simple_var,
+        np.arange(5),
+        basis_path,
+        ignore=basis_ignore,
+        noisecovariance=[[0.0]]
+    )
+
+    dyn_obj = dyn.dynMRS(
+        mrs_list,
+        np.arange(5),
+        config_simple_var,
+        baseline_order=0,
+        metab_groups=[0, 0],
+        rescale=False)
+
+    from fsl_mrs.utils.misc import gradient
+    analytic_grad = dyn_obj.dyn_loss_grad(freeparams)
+    numerical_grad = gradient(freeparams, dyn_obj.dyn_loss)
+
+    import pandas as pd
+    pd.options.display.float_format = '{:,.4e}'.format
+
+    print(pd.DataFrame(
+        np.asarray([analytic_grad, numerical_grad]).T,
+        index=dyn_obj.vm.free_names,
+        columns=['analytic', 'numerical']))
+
+    assert np.allclose(
+        analytic_grad,
+        numerical_grad,
+        rtol=1E-3
+    )

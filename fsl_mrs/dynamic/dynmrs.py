@@ -272,7 +272,8 @@ class dynMRS(object):
             init=None,
             x0=None,
             verbose=False,
-            output_opt_sol=False):
+            output_opt_sol=False,
+            minimize_options={}):
         """Fit the dynamic model
 
         :param method: 'Quasi-newton', 'Newton' or 'MH', defaults to 'Quasi-newton'
@@ -284,10 +285,13 @@ class dynMRS(object):
         :param x0: Initialisation based on free parameters, defaults to None
         :type x0: np.array, optional
         :param verbose: Verbosity flag, defaults to False
+        :type verbose: bool, optional
         :param output_opt_sol: Output the Scipy solution object (for debugging), defaults to False
         :type output_opt_sol: bool, optional
-        :type verbose: bool, optional
-        :return: Tuple containing dedicated results object, and optimisation output (Newton only)
+        :param minimize_options: Dict containing algorithm specific options.
+            This dict is passed to the options kwarg of scipy minimize.
+        :type minimize_options: dict, optional
+        :return: Tuple containing dedicated results object, and optimisation output ([Quasi]-Newton only)
         :rtype: tuple
         """
         if verbose:
@@ -305,13 +309,16 @@ class dynMRS(object):
 
         # MCMC or Newton
         if method.lower() == 'newton':
+            if 'maxfun' not in minimize_options:
+                minimize_options.update(
+                    {'maxfun': 100 * len(x0)})
             sol = minimize(
                 method='TNC',
                 fun=self.dyn_loss,
                 x0=x0,
                 jac=self.dyn_loss_grad,
                 bounds=self.vm.Bounds,
-                options={'maxfun': 100 * len(x0)})
+                options=minimize_options)
             if sol.status != 0:
                 print(
                     f'The TNC optimisation might have failed (status = {sol.status}), '
@@ -321,12 +328,16 @@ class dynMRS(object):
                 print(sol)
             x = sol.x
         elif method.lower() == 'quasi-newton':
+            if 'maxcor' not in minimize_options:
+                minimize_options.update(
+                    {'maxcor': 100})
             sol = minimize(
                 method='L-BFGS-B',
                 fun=self.dyn_loss,
                 x0=x0,
                 jac=self.dyn_loss_grad,
-                bounds=self.vm.Bounds)
+                bounds=self.vm.Bounds,
+                options=minimize_options)
             if sol.status != 0:
                 print(
                     f'The L-BFGS optimisation might have failed (status = {sol.status}), '
@@ -343,7 +354,7 @@ class dynMRS(object):
             x = mcmc.fit(x0, LB=LB, UB=UB, verbose=verbose)
             sol = None
         else:
-            raise (Exception(f'Unrecognised method {method}'))
+            raise ValueError(f'Unrecognised method {method}, must be one of "Quasi-newton", "Newton", or "MH".')
         end_fit_time = time.time()
         if verbose:
             print(f"...completed in {end_fit_time - start_time} seconds.")
@@ -356,7 +367,7 @@ class dynMRS(object):
         elif method.lower() == 'mh':
             results = dyn_results.dynRes_mcmc(x, self, init)
         else:
-            raise (Exception(f'Unrecognised method {method}'))
+            raise ValueError(f'Unrecognised method {method}, must be one of "Quasi-newton", "Newton", or "MH".')
 
         if verbose:
             print(f"...completed in {time.time() - end_fit_time} seconds.")
@@ -379,7 +390,7 @@ class dynMRS(object):
     def initialise(self, indiv_init='mean', verbose=False):
         """Initialise the dynamic fitting using seperate fits of each spectrum.
 
-        :param indiv_init: Optional initilisation of individual fits.
+        :param indiv_init: Optional initialisation of individual fits.
             Can be a numpy array of mapped parameters, 'mean' (fits the mean spectrum), or None (independent).
             Defaults to 'mean'.
         :param verbose: Print information during fitting, defaults to False

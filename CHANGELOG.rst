@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.8 (Monday 30th June 2025)
+-----------------------------
+- Fixed a bug in the dynamic fitting module (`fsl_dynmrs`) where the calculation of analytical gradients was incorrect for `variable` parameters.
+
 2.4.7 (Wednesday 25th June 2025)
 --------------------------------
 - Added nucleus awareness to `Basis` class. This will apply the correct ppm reference shift each nucleus in `basis_tools vis`. Previously 1H (and 4.65 ppm shift) was assumed.

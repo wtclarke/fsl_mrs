@@ -142,3 +142,54 @@ def test_get_fcns(vm_obj):
     assert vm_obj.get_init_fcn(vm_obj.mapped_parameters[1]).__name__ == 'default_init'
 
 # TO DO test mapped_to_free
+
+
+@pytest.fixture
+def vm_obj_inputs_2():
+    metab_names = ['water', ]
+    numGroups = 1
+    baseline_order = 0
+    varNames, varSizes = models.FSLModel_vars(
+        'lorentzian',
+        len(metab_names),
+        numGroups,
+        baseline_order + 1)
+    return varNames, varSizes, metab_names, numGroups
+
+
+config_simple_var = testsPath / 'testdata' / 'dynamic' / 'simple_linear_model_variable.py'
+
+
+@pytest.fixture
+def vm_obj_vareps(vm_obj_inputs_2):
+    return varmap.VariableMapping(
+        param_names=vm_obj_inputs_2[0],
+        param_sizes=vm_obj_inputs_2[1],
+        metabolite_names=vm_obj_inputs_2[2],
+        metabolite_groups=vm_obj_inputs_2[3],
+        time_variable=np.arange(5),
+        config_file=str(config_simple_var))
+
+
+def test_get_gradient_fcn(vm_obj_vareps):
+    # Check form of returned gradient
+    for mp in vm_obj_vareps.mapped_parameters:
+        grad_func = vm_obj_vareps.get_gradient_fcn(mp)
+        assert callable(grad_func)
+
+        gradient = grad_func(
+            np.random.random(vm_obj_vareps.nfree),
+            vm_obj_vareps.time_variable)
+
+        if mp.param_type == 'variable':
+            assert np.allclose(
+                gradient,
+                np.eye(mp.free_indices.size))
+        elif mp.param_type == 'fixed':
+            assert np.allclose(
+                gradient,
+                np.ones(mp.free_indices.size))
+        elif mp.param_type == 'dynamic':
+            assert gradient.shape == (
+                mp.free_indices.size,
+                vm_obj_vareps.time_variable.size)

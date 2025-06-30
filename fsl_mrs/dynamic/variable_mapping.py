@@ -571,8 +571,10 @@ class VariableMapping(object):
         Returns:
         function
         """
-        if (mp_param_obj.param_type == 'fixed') or (mp_param_obj.param_type  == 'variable'):
+        if mp_param_obj.param_type == 'fixed':
             return lambda x, t: np.ones((1, self.ntimes))
+        elif mp_param_obj.param_type == 'variable':
+            return lambda x, t: np.eye(self.ntimes)
         elif mp_param_obj.param_type == 'dynamic':
             grad_name = mp_param_obj.grad_function()
             if grad_name not in self.fcns:
