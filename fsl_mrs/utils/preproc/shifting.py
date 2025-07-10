@@ -54,6 +54,38 @@ def freqshift(FID, dwelltime, shift):
     return FID
 
 
+def freqshift_array(
+        fid_array: np.ndarray,
+        dwelltime: float,
+        shift_array: np.ndarray | float) -> np.ndarray:
+    """Apply shifts to a grid of data without looping
+
+    :param fid_array: ND array of FIDs. Last dimension is time.
+    :type fid_array: np.ndarray
+    :param dwelltime: Dwell time (1/bandwidth) in seconds
+    :type dwelltime: float
+    :param shift_array: Either a single value or an array matching fid)array spatial size
+    :type shift_array: np.ndarray | float
+    :return: Shifted FIDs
+    :rtype: np.ndarray
+    """
+    if isinstance(shift_array, np.ndarray)\
+            and shift_array.shape != fid_array.shape[:-1]:
+        raise ValueError('shift_array must be float or array matching spatial size of fid_array.')
+
+    tAxis = np.linspace(
+        0,
+        dwelltime * fid_array.shape[-1],
+        fid_array.shape[-1])
+
+    if isinstance(shift_array, float):
+        phaseRamp = 2 * np.pi * tAxis * shift_array
+    else:
+        phaseRamp = 2 * np.pi * tAxis * shift_array[..., np.newaxis]
+
+    return fid_array * np.exp(1j * phaseRamp)
+
+
 def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True):
     '''Find a maximum and shift that maximum to a reference position.
 

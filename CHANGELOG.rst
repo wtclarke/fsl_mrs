@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.9 (Tuesday 8th July 2025)
+-----------------------------
+- Improved data scaling approach for dynamically fitted MRSI data. Closer match to single voxel approach.
+- (Python API Only) Implemented LCModel's Phasta and cross-correlation processing for frequency and phase alignment.
+- Adjusted 2H water shift constant to 4.8 ppm
+
 2.4.8 (Monday 30th June 2025)
 -----------------------------
 - Fixed a bug in the dynamic fitting module (`fsl_dynmrs`) where the calculation of analytical gradients was incorrect for `variable` parameters.

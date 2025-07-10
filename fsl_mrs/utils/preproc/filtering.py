@@ -7,6 +7,7 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
+from scipy.optimize import minimize
 
 
 def apodize(FID, dwelltime, broadening, filter='exp'):
@@ -21,6 +22,14 @@ def apodize(FID, dwelltime, broadening, filter='exp'):
     Returns:
         FID (ndarray): Apodised FID
     """
+    # Deal with non-array arguments (for user friendliness)
+    if isinstance(broadening, (float, int)):
+        broadening = [broadening, ]
+
+    # If any values are zero just return (unfiltered) FID
+    if not all(broadening):
+        return FID
+
     taxis = np.linspace(0, dwelltime * (FID.size - 1), FID.size)
     if filter == 'exp':
         Tl = 1 / broadening[0]
@@ -109,3 +118,43 @@ def apodize_report(inFID,
         return fig
     else:
         return fig
+
+
+def calc_aprox_t2decay(
+        fids: np.ndarray,
+        dwelltime: float) -> float:
+    """Fits an exponential decay to mean of data to extract a rough T2*.
+
+    :param fids: Array of FID data
+    :type fids: np.ndarray
+    :param dwelltime: dwelltime (1/bandwidth) of FIDs
+    :type dwelltime: float
+    :return: Apodisation amount in hertz
+    :rtype: float
+    """
+    timeaxis = np.arange(
+        0,
+        dwelltime * fids.shape[-1],
+        dwelltime)
+
+    avg_data = np.mean(np.abs(fids), axis=0)
+    avg_data /= avg_data[0]
+
+    def exp_model_offset(p):
+        return p[0] + p[2] * np.exp(-timeaxis * p[1] * np.pi)
+
+    def loss(x):
+        return np.linalg.norm(avg_data - exp_model_offset(x))
+
+    xout = minimize(
+        loss,
+        [0, 10, 1],
+        bounds=((0, 1), (0.1, 100), (0, 2))).x
+
+    # print(xout)
+    # import matplotlib.pyplot as plt
+    # plt.plot(timeaxis, avg_data)
+    # plt.plot(timeaxis, exp_model_offset(xout))
+    # plt.show()
+
+    return xout[1]
