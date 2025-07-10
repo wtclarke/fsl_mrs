@@ -230,15 +230,34 @@ def main():
 
     elif is_mrsi:
         # MRSI and spatial index defined, treat as a single voxel
+        from fsl.data.image import Image
 
-        # First ensure that rescaling is consistent
-        mrsi_data_scale_factor = 100.0 / np.linalg.norm(data[:])
-        data[:] *= mrsi_data_scale_factor
-        args.no_rescale = True
+        # Ensure that rescaling is consistent
+        if not args.no_rescale:
+            if args.spatial_mask is not None:
+                norm_mask = Image(args.spatial_mask)[:].astype(bool)
+            else:
+                norm_mask = np.ones(data.shape[:3]).astype(bool)
+            # Calculate scaling as mean of per-voxel norm
+            mrsi_data_scale_factor = np.mean(
+                100.0 / np.linalg.norm(data[:][norm_mask], axis=(1, 2)))
+            data[:] *= mrsi_data_scale_factor
+        else:
+            mrsi_data_scale_factor = 1.0
 
+        # After consistent data scaling, generate the mrslist
         mrslist = data.mrs(
             basis_file=args.basis,
             spatial_index=args.spatial_index)
+
+        # Now ensure basis is scaled appropriately if rescaling not disabled
+        if not args.no_rescale:
+            for mrs in mrslist:
+                mrs.basis_scaling_target = 100.0
+
+            # Finally disable further rescaling (within dynMRS class)
+            args.no_rescale = True
+
     else:
         # Single voxel
         mrslist = data.mrs(basis_file=args.basis)
@@ -303,7 +322,13 @@ def main():
     verbose_print(Fitargs)
 
     # Initialise the fit
-    init = dyn.initialise(verbose=args.verbose)
+    if args.inversion_model:
+        # If inversion, then do not use the mean as first stage init
+        init = dyn.initialise(
+            indiv_init=None,
+            verbose=args.verbose)
+    else:
+        init = dyn.initialise(verbose=args.verbose)
 
     # Run dynamic fitting
     dyn_res = dyn.fit(init=init, verbose=args.verbose)

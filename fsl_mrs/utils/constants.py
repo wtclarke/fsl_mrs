@@ -22,7 +22,7 @@ GYRO_MAG_RATIO = {
 
 PPM_SHIFT = {
     '1H': 4.65,
-    '2H': 4.65,  # Placeholder?
+    '2H': 4.8,
     '13C': 0.0,
     '31P': 0.0}
 

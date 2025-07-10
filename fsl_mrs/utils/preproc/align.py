@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# align.py - Module containing alignment functions (align and aligndiff)
+# align.py - Module containing spectral registration alignment functions (align and aligndiff)
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>

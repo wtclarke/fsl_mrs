@@ -25,6 +25,41 @@ def test_freqshift():
     assert freqOfMax < 5 and freqOfMax > -5
 
 
+def test_freqshift_array():
+    testFID, testHdrs = syn.syntheticFID(
+        amplitude=[0.0, 1.0],
+        noisecovariance=[[0]],
+        bandwidth=2000,
+        points=1000,
+        centralfrequency=100)  # Single peak at 3 ppm
+
+    testFID_2, testHdrs = syn.syntheticFID(
+        amplitude=[0.0, 1.0],
+        chemicalshift=[0.0, 2.0],
+        noisecovariance=[[0]],
+        bandwidth=2000,
+        points=1000,
+        centralfrequency=100.0)  # Single peak at 2 ppm
+
+    fid_array = np.tile(testFID, (2, 2, 2, 1))
+    test_array = np.tile(testFID_2, (2, 2, 2, 1))
+    assert fid_array.shape == (2, 2, 2, 1000)
+
+    from fsl_mrs.utils.preproc.shifting import freqshift_array
+    shifted = freqshift_array(
+        fid_array,
+        testHdrs['dwelltime'],
+        -testHdrs['centralFrequency'])
+
+    assert np.allclose(shifted[..., :10], test_array[..., :10], rtol=1e-2)
+
+    shifted_array = freqshift_array(
+        fid_array,
+        testHdrs['dwelltime'],
+        np.tile(-testHdrs['centralFrequency'], (2, 2, 2)))
+    assert np.allclose(shifted_array, shifted)
+
+
 # Test timeshift
 def test_timeshift():
     # Create data with lots of points and some begin time delay
@@ -151,6 +186,14 @@ def test_apodize():
     assert apodFID[-1] == np.exp(-dt * 1023 * 10)
     assert apodFID[0] == 1.0
 
+    apodFID = preproc.apodize(mockFID, dt, 10)
+    assert apodFID[-1] == np.exp(-dt * 1023 * 10)
+    assert apodFID[0] == 1.0
+
+    apodFID = preproc.apodize(mockFID, dt, 10.0)
+    assert apodFID[-1] == np.exp(-dt * 1023 * 10)
+    assert apodFID[0] == 1.0
+
     apodFID = preproc.apodize(mockFID, dt, [10, 0.01], 'l2g')
 
     t = dt * 1023
@@ -158,6 +201,13 @@ def test_apodize():
     Tg = 1 / 0.01
     assert apodFID[-1] == np.exp(t / Tl) * np.exp(t**2 / Tg**2)
     assert apodFID[0] == 1.0
+
+
+def test_calc_aprox_t2decay():
+    from fsl_mrs.utils.preproc.filtering import calc_aprox_t2decay
+    testFIDs, testHdrs = syn.syntheticFID(linewidth=(10, 10), noisecovariance=[[0.001]])
+    approx_t2 = calc_aprox_t2decay(np.asarray(testFIDs), testHdrs['dwelltime'])
+    assert np.isclose(approx_t2, 10, atol=5)
 
 
 # Test zero_spectrum by removing one peak from a two peak fid

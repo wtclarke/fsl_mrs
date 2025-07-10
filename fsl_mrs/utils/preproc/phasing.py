@@ -13,6 +13,7 @@ from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum, checkCFUnits, FIDToSpec, SpecToFID
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
+from fsl_mrs.utils.preproc.filtering import apodize
 
 
 def applyPhase(FID, phaseAngle):
@@ -172,3 +173,51 @@ def phaseCorrect_report(inFID,
         return fig
     else:
         return fig
+
+
+def phasta(
+        data: np.ndarray,
+        dwelltime: float,
+        limits: tuple[int, int] | None = None,
+        indices_to_use: list[int] | slice = slice(None),
+        apodization: float = 0) -> tuple[np.ndarray, float]:
+    """Phase correction of a FID or an array of FIDs based on LCModel's Phasta algorithm
+
+    Phase is calculated using the mean of the array or a subset, as selected using indices_to_use
+
+    :param data: FID or 2D array of FIDS, time is first dimension
+    :type data: np.ndarray
+    :param dwelltime: Dwelltime (1 / spectral bandwidth)
+    :type dwelltime: float
+    :param limits: Index limits to limit range over which algorithm is run, defaults to None
+    :type limits: tuple, optional
+    :param indices_to_use: Phase all FIDs based on mean of subset, defaults to slice(None) (use all in mean).
+    :type indices_to_use: list[int] | slice, optional
+    :param apodization: Apply apodization, defaults to 0 (no apodization)
+    :type apodization: float, optional
+    :return: Phase corrected FID array
+    :rtype: np.ndarray
+    """
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+
+    limits = slice(None) if limits is None else slice(limits[0], limits[1])
+
+    data_apod = np.asarray([
+        apodize(fid, dwelltime, apodization) for fid in data.T]).T
+
+    deg_search = np.arange(0, 359, 1)
+    range_6 = []
+    spec_sum = []
+    spec = FIDToSpec(
+        np.mean(data_apod[:, indices_to_use], axis=-1))[limits]
+    for deg in deg_search:
+        re_spec = (spec * np.exp(1j * deg * np.pi / 180)).real
+        range_6.append(np.sum(np.abs(re_spec - re_spec[0])**6))
+        spec_sum.append(np.sum(re_spec))
+
+    range_6 = np.asarray(range_6)
+    spec_sum = np.asarray(spec_sum)
+    max_deg = deg_search[spec_sum > 0][np.argmax(range_6[spec_sum > 0])]
+
+    return data.squeeze() * np.exp(1j * max_deg * np.pi / 180), max_deg
