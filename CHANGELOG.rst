@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.20 (Wednesday 20th August 2025)
+-----------------------------------
+- Fixed bug (introduced in `2.4.2`) that sometimes applied an incorrect conjugation of a basis spectrum.
+
 2.4.9 (Tuesday 8th July 2025)
 -----------------------------
 - Improved data scaling approach for dynamically fitted MRSI data. Closer match to single voxel approach.
