@@ -244,6 +244,11 @@ def test_detect_conjugation():
         headers['ppmaxis'],
         (0, -4))
 
+    assert not misc.detect_conjugation(
+        FIDs,
+        headers['ppmaxis'],
+        (0, -4))
+
     # Test wrong orientation of data raises error
     with pytest.raises(ValueError):
         misc.detect_conjugation(

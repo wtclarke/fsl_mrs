@@ -824,7 +824,7 @@ def detect_conjugation(
             return 0
 
     if data.ndim == 2:
-        return sum([conj_or_not(fid) for fid in data]) >= 0.5
+        return (sum([conj_or_not(fid) for fid in data]) / len(data)) >= 0.5
     elif data.ndim == 1:
         return bool(conj_or_not(data))
     else:
