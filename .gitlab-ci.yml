@@ -71,6 +71,14 @@ stages:
     - if:   '$CI_PIPELINE_SOURCE == "push"'
       when: on_success
 
+.test_merge_rules: &test_merge_rules
+  rules:
+    # Run these tests ONLY for merge requests
+    - if:   '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    # Default: skip
+    - when: never
+
 .validate_rules: &validate_rules
   rules:
     # Validate on tag / release in upstream (fsl/fsl_mrs) repo
@@ -96,16 +104,15 @@ flake8:
   - python --version
   - pip install flake8
   script:
-  - flake8 fsl_mrs
-  - flake8 fsl_mrs/scripts/*
+  - flake8 fsl_mrs --ignore=E121,E123,E126,E221,E226,E24,E272,E701,E704,W503,W504
+  - flake8 fsl_mrs/scripts/* --ignore=E121,E123,E126,E221,E226,E24,E272,E701,E704,W503,W504
   allow_failure: true
 
 ############
 # 2. test 
 ############
 
-pytest:
-  <<: *test_rules
+.test: &test_template
   image: wtclarke/fsl_mrs_tests:latest
   stage: test
   variables:
@@ -113,16 +120,51 @@ pytest:
   tags:
     - docker
   before_script:
-  - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
-  - eval "$(micromamba shell hook --shell bash)"
-  - micromamba activate fsl_mrs
-  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
-  - export FSLOUTPUTTYPE="NIFTI_GZ"
-  - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  - pip install --no-deps .
+    - eval "$(micromamba shell hook --shell bash)"
+    - micromamba activate fsl_mrs
+    - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
+    - export FSLOUTPUTTYPE="NIFTI_GZ"
+    - export FSLDIR="/opt/conda/envs/fsl_mrs"
+    - pip install --no-deps .
   script:
-  - pytest fsl_mrs/tests
-  - pytest fsl_mrs/denmatsim/tests
+    - pytest fsl_mrs/tests
+    - pytest fsl_mrs/denmatsim/tests
+  # artifacts:
+  #   when: on_failure
+  #   expire_in: 1 day
+  #   paths:
+  #     - failures/
+
+test:3.10:
+  <<: [*test_template, *test_merge_rules]
+  before_script:
+    - micromamba create -n fsl_mrs -c conda-forge -y python=3.10
+    - *test_template.before_script
+
+test:3.11:
+  <<: [*test_template, *test_merge_rules]
+  before_script:
+    - micromamba create -n fsl_mrs -c conda-forge -y python=3.11
+    - *test_template.before_script
+
+# this is the main testing environment so tests will be run every time
+test:3.12:
+  <<: [*test_template, *test_rules]
+  before_script:
+    - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
+    - *test_template.before_script
+
+test:3.13:
+  <<: [*test_template, *test_merge_rules]
+  before_script:
+    - micromamba create -n fsl_mrs -c conda-forge -y python=3.13
+    - *test_template.before_script
+
+test:3.14:
+  <<: [*test_template, *test_merge_rules]
+  before_script:
+    - micromamba create -n fsl_mrs -c conda-forge -y python=3.14
+    - *test_template.before_script
 
 ############
 # 3. Validate 
