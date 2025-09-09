@@ -123,7 +123,7 @@ flake8:
     - micromamba create -n fsl_mrs -c conda-forge -y python=$PYTHON_VERSION
     - eval "$(micromamba shell hook --shell bash)"
     - micromamba activate fsl_mrs
-    - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
+    - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt pytest
     - export FSLOUTPUTTYPE="NIFTI_GZ"
     - export FSLDIR="/opt/conda/envs/fsl_mrs"
     - pip install --no-deps .
@@ -187,14 +187,12 @@ fit-validate:
   - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
   - eval "$(micromamba shell hook --shell bash)"
   - micromamba activate fsl_mrs
-  # Install all the FSL tools needed
-  - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
-  - export FSLOUTPUTTYPE="NIFTI_GZ"
-  - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  # Get the git tags.
+  # Install all the FSL tools needed and get the git tags.
   - git config --global --add safe.directory /builds/wclarke/fsl_mrs
   - git config --global --add safe.directory /builds/fsl/fsl_mrs
   - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
+  - export FSLOUTPUTTYPE="NIFTI_GZ"
+  - export FSLDIR="/opt/conda/envs/fsl_mrs"
   - pip install --no-deps .
   # Setup ssh communication with the github instance
   # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor

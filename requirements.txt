@@ -14,6 +14,10 @@ dill
 dash
 flask>=2.2
 nifti-mrs>=1.3.2
+fsl-avwutils
+fsl-flameo
+fsl-flirt
+fsl-fugue
 fsl_sub
 fsl_sub_plugin_sge
 fsl_sub_plugin_slurm
