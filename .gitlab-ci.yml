@@ -151,7 +151,7 @@ test:3.11:
 # this is the main testing environment so tests will be run every time
 test:3.12:
   <<: *test_template
-  <<: *test_merge_rules
+  <<: *test_rules
   variables:
     PYTHON_VERSION: "3.12"
 
@@ -163,9 +163,9 @@ test:3.13:
 
 test:3.14:
   <<: *test_template
-  <<: *test_rules
+  <<: *test_merge_rules
   variables:
-    PYTHON_VERSION: "3.14.0rc2" # TODO change to 3.14 when the stable version is released
+    PYTHON_VERSION: "3.14"
 
 ############
 # 3. Validate 

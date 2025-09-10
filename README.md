@@ -57,8 +57,6 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 : Collection of tools for manipulating basis sets.
 - **svs_segment & mrsi_segment**
 : Run tissue segmentation for SVS/MRSI from T1 image.
-- **results_to_spectrum**
-: Generate spectrum representation of a fit from *fsl_mrs* results.
 ---
 
 ## Documentation

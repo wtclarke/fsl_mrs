@@ -370,3 +370,38 @@ def test_baseline_options(tmp_path):
                            '--baseline_order', '1'])
 
     assert (tmp_path / 'legacy' / 'report.html').exists()
+
+
+def test_fsl_mrs_with_spectrum_output(tmp_path):
+
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--h2o', data['water'],
+                           '--TE', '11',
+                           '--metab_groups', 'Mac',
+                           '--tissue_frac', '0.45', '0.45', '0.1',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--filename', 'test',
+                           '--export_baseline',
+                           '--export_no_baseline',
+                           '--export_separate'])
+
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
+    assert (tmp_path / 'quantification_info.csv').is_file()
+    assert (tmp_path / 'test.nii.gz').is_file()
+    assert (tmp_path / 'test_baseline.nii.gz').is_file()
+    assert (tmp_path / 'test_no_baseline.nii.gz').is_file()
+    assert (tmp_path / 'test_NAA.nii.gz').is_file()
+    assert (tmp_path / 'test_Cr.nii.gz').is_file()

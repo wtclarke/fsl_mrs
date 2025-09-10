@@ -53,7 +53,6 @@ setup(name='fsl_mrs',
               'merge_mrs_reports = fsl_mrs.scripts.merge_mrs_reports:main',
               'svs_segment = fsl_mrs.scripts.svs_segment:main',
               'mrsi_segment = fsl_mrs.scripts.mrsi_segment:main',
-              'results_to_spectrum = fsl_mrs.scripts.results_to_spectrum:main',
               'fsl_mrs_summarise = fsl_mrs.scripts.fsl_mrs_summarise:main',
               'fsl_mrs_verify = fsl_mrs.scripts.fsl_mrs_verify:main'
           ]
