@@ -54,24 +54,28 @@ FSL-MRS has been tested thoroughly on Mac and Linux operating systems but is not
 
 Option A: Using WSL (recommended)
 ---------------------------------
-The first option is to install (as above)  FSL-MRS and the complete FSL package using `Windows Subsystem for Linux <https://docs.microsoft.com/en-us/windows/wsl/install-win10>`_ (or WSL2). This offers an easy way of running a linux environment on a Windows machine. To install the full FSL package in WSL, follow the `instructions online <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_
+The first option is to install FSL-MRS and the complete FSL package using `Windows Subsystem for Linux <https://learn.microsoft.com/en-us/windows/wsl/install>`_ (or WSL2). This offers an easy way of running a Linux environment on a Windows machine. To install the full FSL package in WSL, follow the `instructions online <https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/windows>`_.
 
 Option B: Native windows FSL-MRS + FSL on WSL
 ---------------------------------------------
-Alternatively, as of V1.1.13 of FSL-MRS the python-only FSL-MRS package can be run in native Windows alongside a WSL FSL installation. This can be achieved as follows:
+Alternatively, as of V1.1.13 of FSL-MRS the Python-only FSL-MRS package can be run in native Windows alongside a WSL FSL installation. This can be achieved as follows:
 
-1. Enable WSL and install FSL into WSL as described in the `FSL install instructions <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation/Windows#Windows_Subsystem_for_Linux>`_.
+1. Enable WSL and install FSL into WSL as described in the `FSL install instructions <https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/windows>`_.
 
-2. Add an :code:`FSLDIR` enviroment variable on the host Windows machine. This should be set to :code:`\\\\wsl$\\usr\\local\\fsl` assuming the default install directory for FSL on the WSL guest. In Powershell this can be done with the command :code:`$env:FSLDIR = "\\\\wsl$\\usr\\local\\fsl"` to set it for a single session or :code:`[System.Environment]::SetEnvironmentVariable("FSLDIR", "\\wsl$\usr\local\fsl", [System.EnvironmentVariableTarget]::User)` to set it permanently.
+2. Add an :code:`FSLDIR` environment variable on the host Windows machine. This should be set to :code:`\\\\wsl$\<Distro>\home\<wsl-user>\fsl`, where <Distro> is the Linux distribution installed in WSL, and <wsl-user> is the WSL user account that you created when you set up WSL.
+   a. In PowerShell this can be done for a single session with the command :code:`$env:FSLDIR = "\\\\wsl$\<Distro>\home\<wsl-user>\fsl"`.
+   b. In Command Prompt this can be done for a single session with the command :code:`set FSLDIR="\\\\wsl$\<Distro>\home\<wsl-user>\fsl"`.
+   c. To set it permanently, in either shell run the command :code:`setx FSLDIR "\\\\wsl$\<Distro>\home\<wsl-user>\fsl"`. Restart your terminal window for the variable to be accessible.
 
 3. Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1.
 
-For FSL-MRS to access the FSL scripts installed on the WSL machine, it must be running.
+**Note**: You may need to run FSL-MRS in a terminal with administrator rights as certain functions (e.g. symlink) might not have the required privileges to execute correctly.
 
 Option C: Native windows FSL-MRS (partial function)
 ---------------------------------------------------
 Install FSL-MRS on the native Windows machine by following the conda installation guide in Option 1. Certain features which rely on an FSL installation (e.g. the :code:`svs_segment` scripts) won't function.
 
+**Note**: You may need to run FSL-MRS in a terminal with administrator rights as certain functions (e.g. symlink) might not have the required privileges to execute correctly.
 
 Verifying the installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

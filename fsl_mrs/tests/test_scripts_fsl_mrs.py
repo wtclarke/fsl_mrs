@@ -57,7 +57,7 @@ def test_fsl_mrs_models(tmp_path):
            '--tissue_frac', '0.45', '0.45', '0.1',
            '--overwrite',
            '--combine', 'Cr', 'PCr']
-    
+
     subprocess.run(cmd)
     assert (tmp_path / 'summary.csv').is_file()
     assert (tmp_path / 'concentrations.csv').is_file()
