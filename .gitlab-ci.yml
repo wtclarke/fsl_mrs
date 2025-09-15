@@ -85,9 +85,9 @@ stages:
     - if:   ( $CI_COMMIT_TAG != null ) && ( $CI_PROJECT_PATH == "fsl/fsl_mrs" )
       when: on_success
     # if  "[validate]" is in the commit message
-    # AND it is to the forked (wclarke/fsl_mrs) repo
+    # AND it is in a forked repo
     # AND the branch isn't master
-    - if:   ($CI_COMMIT_MESSAGE =~ /\[validate\]/) && ($CI_PROJECT_PATH == "wclarke/fsl_mrs") && ($CI_COMMIT_BRANCH != "master")
+    - if:   ($CI_COMMIT_MESSAGE =~ /\[validate\]/) && ($CI_PROJECT_PATH != "fsl/fsl_mrs") && ($CI_COMMIT_BRANCH != "master")
       when: on_success
 
 

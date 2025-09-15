@@ -462,7 +462,7 @@ def main():
         res.to_file(
             filename=args.output / 'all_samples.csv',
             what='parameters-mh')
-        
+
     # Save spectra
     data_out = res.predictedFID(mrs, mode='Full')
     data_out /= mrs.scaling['FID']
