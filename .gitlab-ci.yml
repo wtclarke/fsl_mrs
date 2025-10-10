@@ -120,13 +120,15 @@ flake8:
   tags:
     - docker
   before_script:
+    - mkdir -p failures
+    - git config --global --add safe.directory /builds/fsl/fsl_mrs
+    - git submodule update --init --recursive
     - micromamba create -n fsl_mrs -c conda-forge -y python=$PYTHON_VERSION
     - eval "$(micromamba shell hook --shell bash)"
     - micromamba activate fsl_mrs
     - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt pytest
     - export FSLOUTPUTTYPE="NIFTI_GZ"
     - export FSLDIR="/opt/conda/envs/fsl_mrs"
-    - git submodule update --init --recursive
     - pip install --no-deps .
   script:
     - pytest fsl_mrs/tests
