@@ -130,21 +130,21 @@ flake8:
   script:
     - pytest fsl_mrs/tests
     - pytest fsl_mrs/denmatsim/tests
-  # artifacts:
-  #   when: on_failure
-  #   expire_in: 1 day
-  #   paths:
-  #     - failures/
+  artifacts:
+    when: on_failure
+    expire_in: 1 day
+    paths:
+      - failures/
 
 test:3.10:
   <<: *test_template
-  <<: *test_merge_rules
+  <<: *test_rules
   variables:
     PYTHON_VERSION: "3.10"
 
 test:3.11:
   <<: *test_template
-  <<: *test_merge_rules
+  <<: *test_rules
   variables:
     PYTHON_VERSION: "3.11"
 
@@ -157,13 +157,13 @@ test:3.12:
 
 test:3.13:
   <<: *test_template
-  <<: *test_merge_rules
+  <<: *test_rules
   variables:
     PYTHON_VERSION: "3.13"
 
 test:3.14:
   <<: *test_template
-  <<: *test_merge_rules
+  <<: *test_rules
   variables:
     PYTHON_VERSION: "3.14"
 
