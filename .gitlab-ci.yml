@@ -126,6 +126,7 @@ flake8:
     - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt pytest
     - export FSLOUTPUTTYPE="NIFTI_GZ"
     - export FSLDIR="/opt/conda/envs/fsl_mrs"
+    - git submodule update --init --recursive
     - pip install --no-deps .
   script:
     - pytest fsl_mrs/tests
@@ -163,7 +164,7 @@ test:3.13:
 
 test:3.14:
   <<: *test_template
-  <<: *test_rules
+  <<: *test_merge_rules
   variables:
     PYTHON_VERSION: "3.14"
 
