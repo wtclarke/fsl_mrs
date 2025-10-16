@@ -14,11 +14,11 @@ import numpy as np
 def test_calcQC():
     # Syntetic data
     synFID, synHdr = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
-                                  amplitude=[6.0], linewidth=[10])
+                                  amplitude=[6.0], linewidth=[10], seed=20)
     synFIDNoise, synHdrNoise = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
-                                            amplitude=[0], linewidth=[10])
+                                            amplitude=[0], linewidth=[10], seed=20)
     basisFID, basisHdr = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[0],
-                                      amplitude=[0.1], linewidth=[2])
+                                      amplitude=[0.1], linewidth=[2], seed=20)
     basisHdr['fwhm'] = 1.0
 
     synMRSNoise = MRS(FID=synFIDNoise[0], header=synHdrNoise)

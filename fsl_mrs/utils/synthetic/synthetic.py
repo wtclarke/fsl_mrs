@@ -22,7 +22,8 @@ def syntheticFID(coilamps=[1.0],
                  linewidth=None,
                  g=[0.0, 0.0],
                  begintime=0.0,
-                 nucleus='1H'):
+                 nucleus='1H',
+                 seed=None):
 
     inputs = locals()
     # Check noisecovariance is Ncoils x Ncoils
@@ -33,7 +34,7 @@ def syntheticFID(coilamps=[1.0],
     if noisecovariance.shape != (ncoils, ncoils):
         raise ValueError('noisecovariance must be ncoils x ncoils.')
 
-    rng = np.random.default_rng(seed=20)  # create a random generator with a fixed seed
+    rng = np.random.default_rng(seed=seed)  # create a random generator with a fixed seed
     noise = rng.multivariate_normal(np.zeros((ncoils)),
                                     noisecovariance,
                                     points) + \
