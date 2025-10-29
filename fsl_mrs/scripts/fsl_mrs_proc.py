@@ -352,8 +352,8 @@ def main():
     conj_group = conjparser.add_argument_group('Conjugation arguments')
     conj_group.add_argument('--file', type=str, required=True,
                             help='Data file(s) to conjugate')
-    conj_group.set_defaults(func=conj)
-    add_common_args(conj_group)
+    conjparser.set_defaults(func=conj)
+    add_common_args(conjparser)
 
     # mrsi-align - mrsi alignment across voxels
     malignparser = sp.add_parser(
