@@ -1,6 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.4.20 (Wednesday 20th August 2025)
+2.4.11 (WIP)
+-----------------------------------
+- Fixed unnecessary warnings in `fsl_mrs_summarise` terminal output when viewing MH results.
+- Added mean baseline and residual traces to average plot in `fsl_mrs_summarise`.
+
+2.4.10 (Wednesday 20th August 2025)
 -----------------------------------
 - Fixed bug (introduced in `2.4.2`) that sometimes applied an incorrect conjugation of a basis spectrum.
 

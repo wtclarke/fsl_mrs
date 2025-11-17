@@ -146,7 +146,12 @@ def main():
         else:
             model = 'voigt'
 
-        method = orig_args['algo']
+        # Always set method to Newton, we only use the mean result here
+        # running with MH will cause errors in the mcmc results code.
+        # E.g. covariances of a vector
+        # method = orig_args['algo']
+        method = 'Newton'
+
         # Generate metabolite groups
         metab_groups = misc.parse_metab_groups(mrs, orig_args['metab_groups'])
         baseline_order = orig_args['baseline_order']
