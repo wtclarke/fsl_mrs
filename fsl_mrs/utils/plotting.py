@@ -754,32 +754,55 @@ def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
 
     all_specs = []
     all_pred = []
+    all_baseline = []
     for mrs, res in zip(mrs_list, res_list):
         all_specs.append(mrs.FID)
         all_pred.append(res.pred)
+        all_baseline.append(res.baseline)
 
     from fsl_mrs.utils import preproc as proc
+    from fsl_mrs.utils.misc import shift_FID
 
     fids, _, _ = proc.phase_freq_align(
         all_specs,
         mrs_list[0].bandwidth, mrs_list[0].centralFrequency)
-    pred, _, _ = proc.phase_freq_align(
+    pred, pred_phi, pred_eps = proc.phase_freq_align(
         all_pred,
         mrs_list[0].bandwidth, mrs_list[0].centralFrequency,
         target=np.asarray(fids).mean(axis=0))
+
+    all_baseline = [
+        np.exp(-1j * phi) * shift_FID(mrs_list[0], fid, eps)
+        for fid, eps, phi in zip(all_baseline, pred_phi, pred_eps)
+    ]
 
     specs = [FID2Spec(x) for x in fids]
     avg_spec = np.asarray(specs).mean(axis=0).real
     plus1sd_spec = avg_spec + 1 * np.asarray(specs).std(axis=0).real
     minus1sd_spec = avg_spec - 1 * np.asarray(specs).std(axis=0).real
     avg_fit = FID2Spec(np.asarray(pred).mean(axis=0)).real
+    avg_resid = FID2Spec(
+        (np.asarray(pred) - np.asarray(fids)).mean(axis=0)).real
+    avg_baseline = FID2Spec(np.asarray(all_baseline).mean(axis=0)).real
     axis = mrs_list[0].getAxes()
 
     # y-axis range
-    minval = min((np.min(avg_spec), np.min(plus1sd_spec), np.min(minus1sd_spec), np.min(avg_fit)))
-    maxval = max((np.max(avg_spec), np.max(plus1sd_spec), np.max(minus1sd_spec), np.max(avg_fit)))
-    ymin = minval - minval / 2
-    ymax = maxval + maxval / 30
+    minval = min((
+        np.min(avg_spec),
+        np.min(plus1sd_spec),
+        np.min(minus1sd_spec),
+        np.min(avg_fit),
+        np.min(avg_resid),
+        np.min(avg_baseline)))
+    maxval = max((
+        np.max(avg_spec),
+        np.max(plus1sd_spec),
+        np.max(minus1sd_spec),
+        np.max(avg_fit),
+        np.max(avg_resid),
+        np.max(avg_baseline)))
+    ymin = minval - np.abs(minval / 2)
+    ymax = maxval + np.abs(maxval / 30)
 
     trace1 = go.Scatter(x=axis, y=avg_spec,
                         mode='lines',
@@ -801,11 +824,25 @@ def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
                         line=dict(color='rgb(253,59,59)', width=2),
                         )
 
+    trace4 = go.Scatter(x=axis, y=avg_resid,
+                        mode='lines',
+                        name='Mean residual',
+                        line=dict(color='rgb(170,170,170)', width=1.5),
+                        )
+
+    trace5 = go.Scatter(x=axis, y=avg_baseline,
+                        mode='lines',
+                        name='Mean baseline',
+                        line=dict(color='rgb(0,150,242)', width=1.5),
+                        )
+
     fig = go.Figure()
     fig.update_layout(template='plotly_white')
     fig.add_trace(trace1)
     fig.add_trace(trace2)
     fig.add_trace(trace3)
+    fig.add_trace(trace4)
+    fig.add_trace(trace5)
 
     fig.update_xaxes(title_text='Chemical shift (ppm)',
                      tick0=2, dtick=.5,
