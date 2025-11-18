@@ -104,8 +104,8 @@ flake8:
   - python --version
   - pip install flake8
   script:
-  - flake8 fsl_mrs --ignore=E121,E123,E126,E221,E226,E24,E272,E701,E704,W503,W504
-  - flake8 fsl_mrs/scripts/* --ignore=E121,E123,E126,E221,E226,E24,E272,E701,E704,W503,W504
+  - flake8 fsl_mrs
+  - flake8 fsl_mrs/scripts/*
   allow_failure: true
 
 ############
