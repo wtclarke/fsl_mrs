@@ -54,7 +54,7 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance
     mats = {}
 
     def check_2d(mat, T=True):
-        if mat.ndim == 1:
+        if mat.ndim <= 1:
             if T:
                 return np.atleast_2d(mat).T
             else:
