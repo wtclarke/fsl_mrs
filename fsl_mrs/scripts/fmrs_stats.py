@@ -271,7 +271,7 @@ class DataAction(configargparse.Action):
                     dirs.append(Path(line.rstrip()))
             setattr(namespace, self.dest, dirs)
         else:
-            setattr(namespace, self.dest, values[0])
+            setattr(namespace, self.dest, values)
 
 
 if __name__ == '__main__':

@@ -130,3 +130,25 @@ def test_with_ftests():
     assert isinstance(f, dict)
     assert tuple(f.keys()) == ('f-stat', 'zf-stat', 'p')
     assert f['f-stat'].shape == (2, 2)
+
+
+def test_check_2d():
+
+    # Test 1D and float in np.array
+    # Both easy to get from squeezed loaded design/contrast files
+    cope = np.ones((10, 1))
+    varcope = 1E-5 * np.ones((10, 1))
+
+    dmat = np.ones((10,))
+    conmat = np.array(1.0)
+
+    p, z, out_cope, out_varcope, f = flame.flameo_wrapper(
+        cope,
+        varcope,
+        design_mat=dmat,
+        contrast_mat=conmat)
+
+    assert p < 1E-5
+    assert np.isclose(z, 10.107995)
+    assert np.isclose(out_cope, 1)
+    assert np.isclose(out_varcope, 1E-6)

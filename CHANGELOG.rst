@@ -4,6 +4,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 -----------------------------------
 - Fixed unnecessary warnings in `fsl_mrs_summarise` terminal output when viewing MH results.
 - Added mean baseline and residual traces to average plot in `fsl_mrs_summarise`.
+- Fixed bug in `fmrs_stats` for explicit group mean contrast (and other 1x1 matrices).
+- Fixed bug in `fmrs_stats` to allow list of directories to be passed rather than files.
 
 2.4.10 (Wednesday 20th August 2025)
 -----------------------------------
