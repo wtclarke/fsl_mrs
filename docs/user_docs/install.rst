@@ -7,11 +7,13 @@ FSL-MRS should be installed via the main FSL installer (:ref:`Option 1 <mac-fsl-
 
 
 .. _mac-fsl-option:
+
 Option 1: FSL install script
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The primary installation method is via the *FSL installer*. Follow the instructions on the main `FSL wiki installation page <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation>`_. If the *fsl_mrs* version is not the latest, then run :code:`update_fsl_package fsl_mrs` to update it.
 
 .. _mac-conda-option:
+
 Option 2: Using Conda
 ~~~~~~~~~~~~~~~~~~~~~
 The alternative installation method is via *conda*. After installing conda and creating or activating a suitable environment you can install FSL-MRS from the FSL conda channel.
@@ -42,6 +44,7 @@ Example data with conda
 Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data_notebooks|_.
 
 .. _mac-git-option:
+
 Option 3: From GitLab
 ~~~~~~~~~~~~~~~~~~~~~
 Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and example Jupyter notebooks, download the full package from gitlab. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
@@ -66,6 +69,7 @@ To access all features (those which rely on other FSL tools, e.g. the :code:`svs
 
 
 .. _win-instructions:
+
 Windows Operating System
 ~~~~~~~~~~~~~~~~~~~~~~~~
 FSL-MRS has been tested thoroughly on Mac and Linux operating systems, but it is limited tested on MS Windows. However there are three routes for using FSL-MRS on Windows.
