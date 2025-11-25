@@ -47,6 +47,7 @@ def main():
     from fsl.wrappers.fnirt import applywarp
     import numpy as np
     from fsl.data.image import Image
+    from fsl.utils.run import FSLNotPresent
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.
@@ -68,6 +69,8 @@ def main():
             else:
                 msg = 'FSL tool fsl_anat not found. Please install FSL.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
         anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
@@ -96,6 +99,8 @@ def main():
             else:
                 msg = 'FSL tool applywarp not found. Please install FSL or fsl-fugue using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
     
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
@@ -135,6 +140,8 @@ def main():
             else:
                 msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
         (args.output / 'tmp_sum.nii.gz').unlink()
 

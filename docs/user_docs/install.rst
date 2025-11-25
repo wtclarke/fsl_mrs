@@ -23,6 +23,12 @@ See our page on setting up a :ref:`conda enviroment <conda>` for a step by step 
                   -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
                   fsl_mrs
 
+Set *FSLDIR* and *FSLOUTPUTTYPE* environment variables within your activated environment - Do not set them in the `base` environment!
+::
+
+    export FSLDIR="${CONDA_PREFIX}"
+    export FSLOUTPUTTYPE="NIFTI_GZ"
+
 To check the version installed run :code:`fsl_mrs --version`. FSL-MRS can be updated by running :code:`conda update`:
 
 ::

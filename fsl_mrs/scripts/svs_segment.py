@@ -55,6 +55,7 @@ def main():
     import nibabel as nib
     import numpy as np
     from fsl.wrappers import flirt, fslstats, fsl_anat, fslmaths
+    from fsl.utils.run import FSLNotPresent
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.
@@ -76,6 +77,8 @@ def main():
             else:
                 msg = 'FSL tool fsl_anat not found. Please install FSL.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
         anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
@@ -116,6 +119,8 @@ def main():
         else:
             msg = 'FSL tool flirt not found. Please install FSL or fsl-flirt using conda.'
         raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+    except FSLNotPresent:
+        raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
         
 
     # Provide tissue segmentation if anat is available
@@ -133,6 +138,8 @@ def main():
             else:
                 msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
         try:
             meanInVox = fslstats(tmp_out).M.run()
@@ -142,6 +149,8 @@ def main():
             else:
                 msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
             
         if meanInVox < 2.0:
             warnings.warn('The mask does not fully intersect'
@@ -163,6 +172,8 @@ def main():
             else:
                 msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
         if args.normalise:
             sum_val = CSF + GM + WM
