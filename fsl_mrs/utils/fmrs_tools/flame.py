@@ -10,12 +10,16 @@
 import tempfile
 import subprocess
 from pathlib import Path
+import sys
 
 import numpy as np
 import scipy.stats
 
 from fsl.data.vest import generateVest
 from fsl.data.image import Image
+
+os_name = sys.platform
+win_platforms = {'win32', 'cygwin'}
 
 
 def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance_mat=None, ftests=None, verbose=False):
@@ -130,8 +134,11 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance
                 stdout=stdout,
                 check=True)
         except subprocess.CalledProcessError as exc:
-            print('Error in FSL flameo.')
-            raise exc
+            if os_name in win_platforms:
+                msg = 'FSL tool flameo not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool flameo not found. Please install FSL or fsl-flameo using conda..'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m") from exc
 
         # collect results
         p = []
