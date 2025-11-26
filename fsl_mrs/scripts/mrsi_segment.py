@@ -11,7 +11,11 @@
 # Quick imports
 import argparse
 from pathlib import Path
+import sys
 # More imports after argument parsing!
+
+os_name = sys.platform
+win_platforms = {'win32', 'cygwin'}
 
 
 def main():
@@ -43,6 +47,7 @@ def main():
     from fsl.wrappers.fnirt import applywarp
     import numpy as np
     from fsl.data.image import Image
+    from fsl.utils.run import FSLNotPresent
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.
@@ -53,10 +58,20 @@ def main():
     # If not prevented run fsl_anat for fast segmentation
     if args.anat is None:
         anat = args.output  / 'fsl_anat'
-        fsl_anat(
-            str_resolve_path(args.t1),
-            out=str_resolve_path(anat),
-            nosubcortseg=True)
+        try:
+            fsl_anat(
+                str_resolve_path(args.t1),
+                out=str_resolve_path(anat),
+                nosubcortseg=True)
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fsl_anat not found. Please install FSL.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
         anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
@@ -72,12 +87,22 @@ def main():
 
     # Register the pvseg to the MRSI data using flirt
     def applywarp_func(i, o):
-        applywarp(str_resolve_path(i),
-                  tmp_img,
-                  str_resolve_path(o),
-                  usesqform=True,
-                  super=True,
-                  superlevel='a')
+        try:
+            applywarp(str_resolve_path(i),
+                      tmp_img,
+                      str_resolve_path(o),
+                      usesqform=True,
+                      super=True,
+                      superlevel='a')
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool applywarp not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool applywarp not found. Please install FSL or fsl-fugue using conda.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
@@ -93,22 +118,33 @@ def main():
                    wm_output)
 
     if args.normalise:
-        fslmaths(csf_output)\
-            .add(gm_output)\
-            .add(wm_output)\
-            .run(args.output / 'tmp_sum')
+        try:
+            fslmaths(csf_output)\
+                .add(gm_output)\
+                .add(wm_output)\
+                .run(args.output / 'tmp_sum')
 
-        fslmaths(csf_output)\
-            .div(args.output / 'tmp_sum')\
-            .run(csf_output)
+            fslmaths(csf_output)\
+                .div(args.output / 'tmp_sum')\
+                .run(csf_output)
 
-        fslmaths(gm_output)\
-            .div(args.output / 'tmp_sum')\
-            .run(gm_output)
+            fslmaths(gm_output)\
+                .div(args.output / 'tmp_sum')\
+                .run(gm_output)
 
-        fslmaths(wm_output)\
-            .div(args.output / 'tmp_sum')\
-            .run(wm_output)
+            fslmaths(wm_output)\
+                .div(args.output / 'tmp_sum')\
+                .run(wm_output)
+
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fslmaths not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
         (args.output / 'tmp_sum.nii.gz').unlink()
 

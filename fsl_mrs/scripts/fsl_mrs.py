@@ -183,6 +183,14 @@ def main():
     optional.set_defaults(conjfid=None, conjbasis=None)
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis/H2O.')
+    optional.add_argument('--export_baseline', action="store_true",
+                          help="Output just baseline")
+    optional.add_argument('--export_no_baseline', action="store_true",
+                          help="Output fit without baseline")
+    optional.add_argument('--export_separate', action="store_true",
+                          help="Output individual metabolites")
+    optional.add_argument('-f', '--filename', type=str,
+                          help='Output file name', default='fit')
     optional.add('--config', required=False, is_config_file=True,
                  help='configuration file')
 
@@ -208,6 +216,7 @@ def main():
     from fsl_mrs.utils import misc
     from fsl_mrs.utils import quantify
     from fsl_mrs.scripts import make_output_folder
+    from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
     import datetime
     # ######################################################
     # Output
@@ -453,6 +462,55 @@ def main():
         res.to_file(
             filename=args.output / 'all_samples.csv',
             what='parameters-mh')
+
+    # Save spectra
+    data_out = res.predictedFID(mrs, mode='Full')
+    data_out /= mrs.scaling['FID']
+    data_out = data_out.reshape((1, 1, 1) + data_out.shape)
+    out = gen_nifti_mrs(
+        data_out,
+        mrs.dwellTime,
+        mrs.centralFrequency,
+        nucleus=mrs.nucleus,
+        affine=FID.voxToWorldMat)
+    out.save(args.output / args.filename)
+
+    if args.export_no_baseline:
+        data_out = res.predictedFID(mrs, mode='Full', noBaseline=True)
+        data_out /= mrs.scaling['FID']
+        data_out = data_out.reshape((1, 1, 1) + data_out.shape)
+        out = gen_nifti_mrs(
+            data_out,
+            mrs.dwellTime,
+            mrs.centralFrequency,
+            nucleus=mrs.nucleus,
+            affine=FID.voxToWorldMat)
+        out.save(args.output / (args.filename + '_no_baseline'))
+
+    if args.export_baseline:
+        data_out = res.predictedFID(mrs, mode='baseline')
+        data_out /= mrs.scaling['FID']
+        data_out = data_out.reshape((1, 1, 1) + data_out.shape)
+        out = gen_nifti_mrs(
+            data_out,
+            mrs.dwellTime,
+            mrs.centralFrequency,
+            nucleus=mrs.nucleus,
+            affine=FID.voxToWorldMat)
+        out.save(args.output / (args.filename + '_baseline'))
+
+    if args.export_separate:
+        for metab in res.original_metabs:
+            data_out = res.predictedFID(mrs, mode=metab)
+            data_out /= mrs.scaling['FID']
+            data_out = data_out.reshape((1, 1, 1) + data_out.shape)
+            out = gen_nifti_mrs(
+                data_out,
+                mrs.dwellTime,
+                mrs.centralFrequency,
+                nucleus=mrs.nucleus,
+                affine=FID.voxToWorldMat)
+            out.save(args.output / (args.filename + f'_{metab}'))
 
     # Save image of MRS voxel
     location_fig = None

@@ -39,7 +39,8 @@ def data():
                                 linewidth=[lw[idx] / 5],
                                 phase=[0.0],
                                 g=[g[idx]],
-                                begintime=0)
+                                begintime=0,
+                                seed=20)
         hdr['fwhm'] = lw[idx] / 5
         basisFIDs.append(tmp[0])
         basisHdr.append(hdr)
@@ -51,7 +52,8 @@ def data():
                                   linewidth=lw,
                                   phase=phases,
                                   g=g,
-                                  begintime=begintime)
+                                  begintime=begintime,
+                                  seed=20)
 
     synMRS = MRS(FID=synFID[0],
                  header=synHdr,
