@@ -135,7 +135,8 @@ def flameo_wrapper(cope, varcope, design_mat=None, contrast_mat=None, covariance
                 check=True)
         except subprocess.CalledProcessError as exc:
             if os_name in win_platforms:
-                msg = 'FSL tool flameo not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool flameo not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool flameo not found. Please install FSL or fsl-flameo using conda..'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m") from exc

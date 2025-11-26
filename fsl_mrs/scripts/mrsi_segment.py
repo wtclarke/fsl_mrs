@@ -65,7 +65,8 @@ def main():
                 nosubcortseg=True)
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fsl_anat not found. Please install FSL.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
@@ -88,20 +89,21 @@ def main():
     def applywarp_func(i, o):
         try:
             applywarp(str_resolve_path(i),
-                    tmp_img,
-                    str_resolve_path(o),
-                    usesqform=True,
-                    super=True,
-                    superlevel='a')
+                      tmp_img,
+                      str_resolve_path(o),
+                      usesqform=True,
+                      super=True,
+                      superlevel='a')
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool applywarp not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool applywarp not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool applywarp not found. Please install FSL or fsl-fugue using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
         except FSLNotPresent:
             raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
-    
+
     # T1_fast_pve_0, T1_fast_pve_1, T1_fast_pve_2
     # partial volume segmentations (CSF, GM, WM respectively)
     csf_output = args.output / (args.filename + '_csf.nii.gz')
@@ -133,10 +135,11 @@ def main():
             fslmaths(wm_output)\
                 .div(args.output / 'tmp_sum')\
                 .run(wm_output)
-        
+
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fslmaths not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fslmaths not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")

@@ -73,7 +73,8 @@ def main():
                 nosubcortseg=True)
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fsl_anat not found. Please install FSL.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
@@ -105,23 +106,23 @@ def main():
 
     try:
         flirt(tmp,
-            flirt_ref,
-            out=flirt_out,
-            usesqform=True,
-            applyxfm=True,
-            noresampblur=True,
-            interp='nearestneighbour',
-            setbackground=0,
-            paddingsize=1)
+              flirt_ref,
+              out=flirt_out,
+              usesqform=True,
+              applyxfm=True,
+              noresampblur=True,
+              interp='nearestneighbour',
+              setbackground=0,
+              paddingsize=1)
     except FileNotFoundError:
         if os_name in win_platforms:
-            msg = 'FSL tool flirt not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+            msg = 'FSL tool flirt not found. It is not installable on Windows, \
+                unless you follow the WSL instructions in the FSL-MRS documentation.'
         else:
             msg = 'FSL tool flirt not found. Please install FSL or fsl-flirt using conda.'
         raise FileNotFoundError("\033[91m"+msg+"\033[0m")
     except FSLNotPresent:
         raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
-        
 
     # Provide tissue segmentation if anat is available
     if anat is not None:
@@ -134,7 +135,8 @@ def main():
                 .run()
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fslmaths not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fslmaths not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
@@ -145,13 +147,14 @@ def main():
             meanInVox = fslstats(tmp_out).M.run()
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fslstats not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fslstats not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
         except FSLNotPresent:
             raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
-            
+
         if meanInVox < 2.0:
             warnings.warn('The mask does not fully intersect'
                           ' with the brain mask. Check manually.')
@@ -168,7 +171,8 @@ def main():
             WM = fslstats(seg_wm).k(flirt_out).m.run()
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fslstats not found. It is not installable on Windows, unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fslstats not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
