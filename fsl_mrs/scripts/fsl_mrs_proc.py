@@ -388,7 +388,7 @@ def main():
     ml_group = mlipidparser.add_argument_group('MRSI alignment arguments')
     ml_group.add_argument('--file', type=str, required=True,
                           help='File to align.')
-    ml_group.add_argument('--mask', type=str, required=False,
+    ml_group.add_argument('--mask', type=Image, required=False,
                           help='Mask file, NIfTI formated, only align on voxels selected.')
     ml_group.add_argument('--beta', type=float, default=1E-5,
                           help='Regularisation scaling, default = 1E-5. Adjust to scale lipid removal strength')
