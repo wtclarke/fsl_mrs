@@ -71,15 +71,23 @@ stages:
     - if:   '$CI_PIPELINE_SOURCE == "push"'
       when: on_success
 
+.test_merge_rules: &test_merge_rules
+  rules:
+    # Run these tests ONLY for merge requests
+    - if:   '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    # Default: skip
+    - when: never
+
 .validate_rules: &validate_rules
   rules:
     # Validate on tag / release in upstream (fsl/fsl_mrs) repo
     - if:   ( $CI_COMMIT_TAG != null ) && ( $CI_PROJECT_PATH == "fsl/fsl_mrs" )
       when: on_success
     # if  "[validate]" is in the commit message
-    # AND it is to the forked (wclarke/fsl_mrs) repo
+    # AND it is in a forked repo
     # AND the branch isn't master
-    - if:   ($CI_COMMIT_MESSAGE =~ /\[validate\]/ ) && ( $CI_PROJECT_PATH == "wclarke/fsl_mrs" ) && ($CI_COMMIT_BRANCH != "master")
+    - if:   ($CI_COMMIT_MESSAGE =~ /\[validate\]/) && ($CI_PROJECT_PATH != "fsl/fsl_mrs") && ($CI_COMMIT_BRANCH != "master")
       when: on_success
 
 
@@ -97,15 +105,13 @@ flake8:
   - pip install flake8
   script:
   - flake8 fsl_mrs
-  - flake8 fsl_mrs/scripts/*
   allow_failure: true
 
 ############
 # 2. test 
 ############
 
-pytest:
-  <<: *test_rules
+.test: &test_template
   image: wtclarke/fsl_mrs_tests:latest
   stage: test
   variables:
@@ -113,16 +119,55 @@ pytest:
   tags:
     - docker
   before_script:
-  - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
-  - eval "$(micromamba shell hook --shell bash)"
-  - micromamba activate fsl_mrs
-  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
-  - export FSLOUTPUTTYPE="NIFTI_GZ"
-  - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  - pip install --no-deps .
+    - mkdir -p failures
+    - git config --global --add safe.directory /builds/fsl/fsl_mrs
+    - git submodule update --init --recursive
+    - micromamba create -n fsl_mrs -c conda-forge -y python=$PYTHON_VERSION
+    - eval "$(micromamba shell hook --shell bash)"
+    - micromamba activate fsl_mrs
+    - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
+    - export FSLOUTPUTTYPE="NIFTI_GZ"
+    - export FSLDIR="/opt/conda/envs/fsl_mrs"
+    - pip install --no-deps .
   script:
-  - pytest fsl_mrs/tests
-  - pytest fsl_mrs/denmatsim/tests
+    - pytest fsl_mrs/tests
+    - pytest fsl_mrs/denmatsim/tests
+  artifacts:
+    when: on_failure
+    expire_in: 1 day
+    paths:
+      - failures/
+
+test:3.10:
+  <<: *test_template
+  <<: *test_merge_rules
+  variables:
+    PYTHON_VERSION: "3.10"
+
+test:3.11:
+  <<: *test_template
+  <<: *test_merge_rules
+  variables:
+    PYTHON_VERSION: "3.11"
+
+# this is the main testing environment so tests will be run every time
+test:3.12:
+  <<: *test_template
+  <<: *test_rules
+  variables:
+    PYTHON_VERSION: "3.12"
+
+test:3.13:
+  <<: *test_template
+  <<: *test_merge_rules
+  variables:
+    PYTHON_VERSION: "3.13"
+
+test:3.14:
+  <<: *test_template
+  <<: *test_merge_rules
+  variables:
+    PYTHON_VERSION: "3.14"
 
 ############
 # 3. Validate 
@@ -144,14 +189,12 @@ fit-validate:
   - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
   - eval "$(micromamba shell hook --shell bash)"
   - micromamba activate fsl_mrs
-  # Install all the FSL tools needed
-  - micromamba install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
-  - export FSLOUTPUTTYPE="NIFTI_GZ"
-  - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  # Get the git tags.
+  # Install all the FSL tools needed and get the git tags.
   - git config --global --add safe.directory /builds/wclarke/fsl_mrs
   - git config --global --add safe.directory /builds/fsl/fsl_mrs
-  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt
+  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
+  - export FSLOUTPUTTYPE="NIFTI_GZ"
+  - export FSLDIR="/opt/conda/envs/fsl_mrs"
   - pip install --no-deps .
   # Setup ssh communication with the github instance
   # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor

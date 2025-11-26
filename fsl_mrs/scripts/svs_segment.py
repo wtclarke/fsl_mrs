@@ -14,7 +14,11 @@ import argparse
 from pathlib import Path
 import json
 import warnings
+import sys
 # More imports below after argument parsing!
+
+os_name = sys.platform
+win_platforms = {'win32', 'cygwin'}
 
 
 def main():
@@ -51,6 +55,7 @@ def main():
     import nibabel as nib
     import numpy as np
     from fsl.wrappers import flirt, fslstats, fsl_anat, fslmaths
+    from fsl.utils.run import FSLNotPresent
 
     # For windows implementations we must supply absolute
     # paths. This enables conversion to wsl paths.
@@ -61,10 +66,20 @@ def main():
     # If not prevented run fsl_anat for fast segmentation
     if (args.anat is None) and (not args.mask_only):
         anat = args.output  / 'fsl_anat'
-        fsl_anat(
-            str_resolve_path(args.t1),
-            out=str_resolve_path(anat),
-            nosubcortseg=True)
+        try:
+            fsl_anat(
+                str_resolve_path(args.t1),
+                out=str_resolve_path(anat),
+                nosubcortseg=True)
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fsl_anat not found. Please install FSL.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
         anat = anat.with_suffix('.anat')
     else:
         anat = args.anat
@@ -89,26 +104,57 @@ def main():
         mask_name = args.filename + '_mask.nii.gz'
     flirt_out = str_resolve_path(args.output / mask_name)
 
-    flirt(tmp,
-          flirt_ref,
-          out=flirt_out,
-          usesqform=True,
-          applyxfm=True,
-          noresampblur=True,
-          interp='nearestneighbour',
-          setbackground=0,
-          paddingsize=1)
+    try:
+        flirt(tmp,
+              flirt_ref,
+              out=flirt_out,
+              usesqform=True,
+              applyxfm=True,
+              noresampblur=True,
+              interp='nearestneighbour',
+              setbackground=0,
+              paddingsize=1)
+    except FileNotFoundError:
+        if os_name in win_platforms:
+            msg = 'FSL tool flirt not found. It is not installable on Windows, \
+                unless you follow the WSL instructions in the FSL-MRS documentation.'
+        else:
+            msg = 'FSL tool flirt not found. Please install FSL or fsl-flirt using conda.'
+        raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+    except FSLNotPresent:
+        raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
     # Provide tissue segmentation if anat is available
     if anat is not None:
         # Check that the svs mask intersects with brain, issue warning if not.
         mask_path = str_resolve_path(anat / 'T1_biascorr_brain_mask.nii.gz')
-        tmp_out = fslmaths(flirt_out)\
-            .add(mask_path)\
-            .mas(flirt_out)\
-            .run()
+        try:
+            tmp_out = fslmaths(flirt_out)\
+                .add(mask_path)\
+                .mas(flirt_out)\
+                .run()
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fslmaths not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
-        meanInVox = fslstats(tmp_out).M.run()
+        try:
+            meanInVox = fslstats(tmp_out).M.run()
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fslstats not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
+
         if meanInVox < 2.0:
             warnings.warn('The mask does not fully intersect'
                           ' with the brain mask. Check manually.')
@@ -119,9 +165,19 @@ def main():
         seg_wm = str_resolve_path(anat / 'T1_fast_pve_2.nii.gz')
 
         # fslstats -t /fast_output/fast_output_pve_0 -k SVS_mask.nii –m
-        CSF = fslstats(seg_csf).k(flirt_out).m.run()
-        GM = fslstats(seg_gm).k(flirt_out).m.run()
-        WM = fslstats(seg_wm).k(flirt_out).m.run()
+        try:
+            CSF = fslstats(seg_csf).k(flirt_out).m.run()
+            GM = fslstats(seg_gm).k(flirt_out).m.run()
+            WM = fslstats(seg_wm).k(flirt_out).m.run()
+        except FileNotFoundError:
+            if os_name in win_platforms:
+                msg = 'FSL tool fslstats not found. It is not installable on Windows, \
+                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+            else:
+                msg = 'FSL tool fslstats not found. Please install FSL or fsl-avwutils using conda.'
+            raise FileNotFoundError("\033[91m"+msg+"\033[0m")
+        except FSLNotPresent:
+            raise FSLNotPresent("$FSLDIR is not set - please use: 'export FSLDIR=${CONDA_PREFIX}'")
 
         if args.normalise:
             sum_val = CSF + GM + WM

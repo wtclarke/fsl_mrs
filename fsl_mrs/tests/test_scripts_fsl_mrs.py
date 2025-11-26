@@ -9,6 +9,7 @@ import subprocess
 import os.path as op
 import json
 import pandas as pd
+from pathlib import Path
 
 # Files
 testsPath = op.dirname(__file__)
@@ -20,17 +21,6 @@ data = {'metab': op.join(testsPath, 'testdata/fsl_mrs/metab.nii.gz'),
 
 
 def test_fsl_mrs(tmp_path):
-
-    subprocess.check_call(['fsl_mrs',
-                           '--data', data['metab'],
-                           '--basis', data['basis'],
-                           '--output', tmp_path,
-                           '--h2o', data['water'],
-                           '--TE', '11',
-                           '--metab_groups', 'Mac',
-                           '--tissue_frac', '0.45', '0.45', '0.1',
-                           '--overwrite',
-                           '--combine', 'Cr', 'PCr'])
 
     subprocess.check_call(['fsl_mrs',
                            '--data', data['metab'],
@@ -67,12 +57,27 @@ def test_fsl_mrs_models(tmp_path):
            '--tissue_frac', '0.45', '0.45', '0.1',
            '--overwrite',
            '--combine', 'Cr', 'PCr']
+
     subprocess.run(cmd)
+    assert (tmp_path / 'summary.csv').is_file()
     assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
+    assert (tmp_path / 'quantification_info.csv').is_file()
+
+    Path.unlink((tmp_path / 'concentrations.csv'))
     subprocess.run(cmd + ['--lorentzian',])
     assert (tmp_path / 'concentrations.csv').is_file()
+
+    Path.unlink((tmp_path / 'concentrations.csv'))
     subprocess.run(cmd + ['--lorentzian', '--free_shift'])
     assert (tmp_path / 'concentrations.csv').is_file()
+
+    Path.unlink((tmp_path / 'concentrations.csv'))
     subprocess.run(cmd + ['--free_shift',])
     assert (tmp_path / 'concentrations.csv').is_file()
 
@@ -90,15 +95,15 @@ def test_no_fractions(tmp_path):
                            '--combine', 'Cr', 'PCr',
                            '--report'])
 
-    assert op.exists(op.join(tmp_path, 'report.html'))
-    assert op.exists(op.join(tmp_path, 'summary.csv'))
-    assert op.exists(op.join(tmp_path, 'concentrations.csv'))
-    assert op.exists(op.join(tmp_path, 'qc.csv'))
-    assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
-    assert op.exists(op.join(tmp_path, 'options.txt'))
-    assert op.exists(op.join(tmp_path, 'data.nii.gz'))
-    assert op.exists(op.join(tmp_path, 'basis'))
-    assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
 
     # Check quantification section included
     from bs4 import BeautifulSoup
@@ -117,7 +122,7 @@ def test_no_ref(tmp_path):
                            '--combine', 'Cr', 'PCr',
                            '--report'])
 
-    assert op.exists(op.join(tmp_path, 'report.html'))
+    assert (tmp_path / 'report.html').is_file()
 
 
 def test_alt_ref(tmp_path):
@@ -166,12 +171,12 @@ def test_alt_multiple_ref(tmp_path):
                            '--ref_int_limits', '3.0', '3.4',
                            '--report'])
 
-    assert op.exists(op.join(tmp_path, 'report.html'))
-    assert op.exists(op.join(tmp_path, 'summary.csv'))
-    assert op.exists(op.join(tmp_path, 'concentrations.csv'))
-    assert op.exists(op.join(tmp_path, 'qc.csv'))
-    assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
-    assert op.exists(op.join(tmp_path, 'options.txt'))
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
 
 
 def test_fsl_mrs_default_mm(tmp_path, capfd):
@@ -206,15 +211,15 @@ def test_fsl_mrs_default_mm(tmp_path, capfd):
                            '--overwrite',
                            '--combine', 'Cr', 'PCr'])
 
-    assert op.exists(op.join(tmp_path, 'report.html'))
-    assert op.exists(op.join(tmp_path, 'summary.csv'))
-    assert op.exists(op.join(tmp_path, 'concentrations.csv'))
-    assert op.exists(op.join(tmp_path, 'qc.csv'))
-    assert op.exists(op.join(tmp_path, 'all_parameters.csv'))
-    assert op.exists(op.join(tmp_path, 'options.txt'))
-    assert op.exists(op.join(tmp_path, 'data.nii.gz'))
-    assert op.exists(op.join(tmp_path, 'basis'))
-    assert op.exists(op.join(tmp_path, 'h2o.nii.gz'))
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
 
 
 def test_fsl_mrs_manual_t1_t2(tmp_path):
@@ -304,7 +309,7 @@ def test_baseline_options(tmp_path):
                            '--combine', 'Cr', 'PCr',
                            '--report'])
 
-    assert (tmp_path / 'default' / 'report.html').exists()
+    assert (tmp_path / 'default' / 'report.html').is_file()
 
     # Polynomial
     subprocess.check_call(['fsl_mrs',
@@ -317,7 +322,7 @@ def test_baseline_options(tmp_path):
                            '--report',
                            '--baseline', 'poly, 1'])
 
-    assert (tmp_path / 'poly1' / 'report.html').exists()
+    assert (tmp_path / 'poly1' / 'report.html').is_file()
 
     # Spline ed
     subprocess.check_call(['fsl_mrs',
@@ -330,7 +335,7 @@ def test_baseline_options(tmp_path):
                            '--report',
                            '--baseline', 'spline, 5'])
 
-    assert (tmp_path / 'spline_ed' / 'report.html').exists()
+    assert (tmp_path / 'spline_ed' / 'report.html').is_file()
 
     # Spline str
     subprocess.check_call(['fsl_mrs',
@@ -343,7 +348,7 @@ def test_baseline_options(tmp_path):
                            '--report',
                            '--baseline', 'spline, moderate'])
 
-    assert (tmp_path / 'spline_str' / 'report.html').exists()
+    assert (tmp_path / 'spline_str' / 'report.html').is_file()
 
     # disabled
     subprocess.check_call(['fsl_mrs',
@@ -356,7 +361,7 @@ def test_baseline_options(tmp_path):
                            '--report',
                            '--baseline', 'off'])
 
-    assert (tmp_path / 'off' / 'report.html').exists()
+    assert (tmp_path / 'off' / 'report.html').is_file()
 
     # legacy
     subprocess.check_call(['fsl_mrs',
@@ -369,4 +374,39 @@ def test_baseline_options(tmp_path):
                            '--report',
                            '--baseline_order', '1'])
 
-    assert (tmp_path / 'legacy' / 'report.html').exists()
+    assert (tmp_path / 'legacy' / 'report.html').is_file()
+
+
+def test_fsl_mrs_with_spectrum_output(tmp_path):
+
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--h2o', data['water'],
+                           '--TE', '11',
+                           '--metab_groups', 'Mac',
+                           '--tissue_frac', '0.45', '0.45', '0.1',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--report',
+                           '--filename', 'test',
+                           '--export_baseline',
+                           '--export_no_baseline',
+                           '--export_separate'])
+
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
+    assert (tmp_path / 'quantification_info.csv').is_file()
+    assert (tmp_path / 'test.nii.gz').is_file()
+    assert (tmp_path / 'test_baseline.nii.gz').is_file()
+    assert (tmp_path / 'test_no_baseline.nii.gz').is_file()
+    assert (tmp_path / 'test_NAA.nii.gz').is_file()
+    assert (tmp_path / 'test_Cr.nii.gz').is_file()

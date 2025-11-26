@@ -134,7 +134,7 @@ def main():
     alignD_group.add_argument('--dim_diff', type=str, default='DIM_EDIT',
                               help='NIFTI-MRS dimension tag to difference across')
     alignD_group.add_argument('--ppm', type=float, nargs=2,
-                              metavar='<lower-limit upper-limit>',
+                              metavar=('<lower-limit>', '<upper-limit>'),
                               default=(0.2, 4.2),
                               help='ppm limits of alignment window'
                                    ' (default=0.2->4.2)')
@@ -162,7 +162,7 @@ def main():
     hlsvd_group.add_argument('--file', type=str, required=True,
                              help='Data file(s)')
     hlsvd_group.add_argument('--ppm', type=float, nargs=2,
-                             metavar='<lower-limit upper-limit>',
+                             metavar=('<lower-limit>', '<upper-limit>'),
                              default=[4.5, 4.8],
                              help='ppm limits of removal window.'
                                   ' Defaults to 4.5 to 4.8 ppm.'
@@ -177,7 +177,7 @@ def main():
     model_group.add_argument('--file', type=str, required=True,
                              help='Data file(s)')
     model_group.add_argument('--ppm', type=float, nargs=2,
-                             metavar='<lower-limit upper-limit>',
+                             metavar=('<lower-limit>', '<upper-limit>'),
                              default=[4.5, 4.8],
                              help='ppm limits of removal window')
     model_group.add_argument('--components', type=int,
@@ -276,7 +276,7 @@ def main():
     unlike_group.add_argument('--iter', type=int, default=2,
                               help='Iterations of algorithm.')
     unlike_group.add_argument('--ppm', type=float, nargs=2,
-                              metavar='<lower-limit upper-limit>',
+                              metavar=('<lower-limit', 'upper-limit>'),
                               default=None,
                               help='ppm limits of alignment window')
     unlike_group.add_argument('--outputbad', action="store_true",
@@ -292,7 +292,7 @@ def main():
     phase_group.add_argument('--file', type=str, required=True,
                              help='Data file(s) to shift')
     phase_group.add_argument('--ppm', type=float, nargs=2,
-                             metavar='<lower-limit upper-limit>',
+                             metavar=('<lower-limit', 'upper-limit>'),
                              default=(2.8, 3.2),
                              help='ppm limits of alignment window')
     phase_group.add_argument('--hlsvd', action="store_true",
@@ -352,8 +352,8 @@ def main():
     conj_group = conjparser.add_argument_group('Conjugation arguments')
     conj_group.add_argument('--file', type=str, required=True,
                             help='Data file(s) to conjugate')
-    conj_group.set_defaults(func=conj)
-    add_common_args(conj_group)
+    conjparser.set_defaults(func=conj)
+    add_common_args(conjparser)
 
     # mrsi-align - mrsi alignment across voxels
     malignparser = sp.add_parser(
@@ -388,7 +388,7 @@ def main():
     ml_group = mlipidparser.add_argument_group('MRSI alignment arguments')
     ml_group.add_argument('--file', type=str, required=True,
                           help='File to align.')
-    ml_group.add_argument('--mask', type=Image, required=False,
+    ml_group.add_argument('--mask', type=str, required=False,
                           help='Mask file, NIfTI formated, only align on voxels selected.')
     ml_group.add_argument('--beta', type=float, default=1E-5,
                           help='Regularisation scaling, default = 1E-5. Adjust to scale lipid removal strength')
