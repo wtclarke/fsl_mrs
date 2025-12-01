@@ -1,11 +1,16 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.4.11 (WIP)
+2.4.11 (Friday 28th November 2025)
 -----------------------------------
 - Fixed unnecessary warnings in `fsl_mrs_summarise` terminal output when viewing MH results.
 - Added mean baseline and residual traces to average plot in `fsl_mrs_summarise`.
 - Fixed bug in `fmrs_stats` for explicit group mean contrast (and other 1x1 matrices).
 - Fixed bug in `fmrs_stats` to allow list of directories to be passed rather than files.
+- Transferred `results_to_spectrum` into `fsl_mrs` functionality
+- Added seed option in `syntheticFID` for use on certain tests
+- Expanded CI tests to Python 3.10 - 3.14
+- Updated Windows installation instructions and support
+- Added OS-specific messages for missing FSL packages
 
 2.4.10 (Wednesday 20th August 2025)
 -----------------------------------

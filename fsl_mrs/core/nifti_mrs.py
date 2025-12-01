@@ -2,7 +2,7 @@
 # This module is primarily a shim around the niftimrs package
 # The intention is to extend the functionality of the
 # nifti-mrs package definitions for use in FSL-MRS
-# The need for this aroise when splitting these useful generic nifti-mrs
+# The need for this arise when splitting these useful generic nifti-mrs
 # tools off from fsl-mrs, but wanting to keep the original fsl-mrs api
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -57,7 +57,7 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         This is a wrapper around the nifti_mrs.nifti_mrs.NIFTI_MRS class to
          implement additional functionality for FSL-MRS
 
-        Aguments mirror those of the leveraged fsl.data.image.Image class.
+        Arguments mirror those of the leveraged fsl.data.image.Image class.
 
         :arg image:      A string containing the name of an image file to load,
                          or a Path object pointing to an image file, or a
