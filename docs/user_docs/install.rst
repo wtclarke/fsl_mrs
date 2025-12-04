@@ -3,7 +3,7 @@
 Installation Instructions
 =========================
 
-FSL-MRS should be installed via the main FSL installer (:ref:`Option 1 <mac-fsl-option>`) or using the conda package manager (:ref:`Option 2 <mac-conda-option>`). Building from source code is possible using the instructions in :ref:`Option 3 <mac-git-option>`. For installation on MS Windows machines please see :ref:`the specific setup instructions below <win-instructions>`
+FSL-MRS should be installed via the main FSL installer (:ref:`Option 1 <mac-fsl-option>`) or using the conda package manager (:ref:`Option 2 <mac-conda-option>`). Building from source code is possible using the instructions in :ref:`Option 3 <mac-git-option>`. For installation on MS Windows machines please see :ref:`the specific setup instructions below <win-instructions>`.
 
 
 .. _mac-fsl-option:
@@ -65,7 +65,7 @@ To access all features (those which rely on other FSL tools, e.g. the :code:`svs
     export FSLDIR="${CONDA_PREFIX}"
     export FSLOUTPUTTYPE="NIFTI_GZ"
 
-**Note**: You may need to run re-activate your conda environment to access the CLI tools.
+**Note**: You may need to re-activate your conda environment to access the CLI tools.
 
 
 .. _win-instructions:
