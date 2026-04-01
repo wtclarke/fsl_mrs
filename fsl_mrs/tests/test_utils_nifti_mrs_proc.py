@@ -11,7 +11,7 @@ from pytest import raises
 import numpy as np
 
 from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
-from fsl_mrs.utils.mrs_io import read_FID
+from fsl_mrs.utils.mrs_io import read_FID, read_basis
 from fsl_mrs.core.nifti_mrs import split
 from fsl_mrs import __version__
 
@@ -22,6 +22,7 @@ metab = data / 'metab_raw.nii.gz'
 wrefc = data / 'wref_raw.nii.gz'
 wrefq = data / 'quant_raw.nii.gz'
 ecc = data / 'ecc.nii.gz'
+basis = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis_no_mm'
 
 
 def test_update_processing_prov():
@@ -79,7 +80,7 @@ def test_average():
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.average, dim=DIM_DYN.'
 
 
-def test_align():
+def test_align_specreg():
     nmrs_obj = read_FID(metab)
     with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
     aligned1 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
@@ -87,7 +88,7 @@ def test_align():
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
     combined = nproc.coilcombine(nmrs_obj)
     aligned2 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
@@ -95,7 +96,7 @@ def test_align():
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
     # Align across all spectra
     aligned3 = nproc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1)
@@ -103,15 +104,80 @@ def test_align():
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
+
+def test_align_specreg_window():
     # Windowed alignment
+    nmrs_obj = read_FID(metab)
+    combined = nproc.coilcombine(nmrs_obj)
+
     aligned4 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, window=4)
 
     assert aligned4.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert aligned4.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=4, target used, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=4, target=None, ppmlim=(1.0, 4.0), niter=1.'
+
+
+def test_align_xcorr():
+    nmrs_obj = read_FID(metab)
+    with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
+
+    # Defaults
+    aligned1 = nproc.align(with_coils, 'DIM_DYN', method='xcorr')
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target=None, ppmlim=None, niter=2.'
+
+    # No target with ppm limit
+    aligned2 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), method='xcorr')
+    assert aligned2.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned2.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target=None, ppmlim=(1.0, 4.0), niter=2.'
+
+    # With nifti target
+    combined = nproc.coilcombine(nmrs_obj)
+    aligned3 = nproc.align(
+        combined,
+        'DIM_DYN',
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=nproc.average(combined, "DIM_DYN"))
+
+    assert aligned3.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned3.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
+
+    # With basis target
+    aligned4 = nproc.align(
+        combined,
+        'DIM_DYN',
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=read_basis(basis),
+        basis_ignore=['Ala', ])
+
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
+
+    # Singleton
+    aligned5 = nproc.align(
+        nproc.average(combined, "DIM_DYN"),
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=read_basis(basis),
+        basis_ignore=['Ala', ])
+
+    assert aligned5.hdr_ext['ProcessingApplied'][2]['Method'] == 'Frequency and phase correction'
+    assert aligned5.hdr_ext['ProcessingApplied'][2]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
 
 
 def test_aligndiff():

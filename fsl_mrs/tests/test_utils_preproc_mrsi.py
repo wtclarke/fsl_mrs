@@ -24,59 +24,91 @@ from fsl_mrs.core import nifti_mrs as ntools
 def test_data():
     fids, hdrs = syntheticFID(
         coilamps=[1, 1],
-        coilphase=[0, np.pi],
+        coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
-        chemicalshift=[1, 3])
+        chemicalshift=[1, 3],
+        linewidth=[10, 10])
 
     fids_shift, hdrs = syntheticFID(
         coilamps=[1, 1],
-        coilphase=[0, np.pi],
+        coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
-        chemicalshift=[1.1, 3.1])
+        chemicalshift=[1.05, 3.05],
+        linewidth=[10, 10])
 
     return np.concatenate((fids, fids_shift))
 
 
 def test_xcorr_align(test_data):
     # Test default
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        1 / 4000,
+        centralFrequency=123.2E6)
 
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    # import matplotlib.pyplot as plt
+    # from fsl_mrs.utils.plotting import FID2Spec
+    # plt.plot(FID2Spec(test_data.T), 'b')
+    # plt.plot(FID2Spec(test_data[0, :]), 'k')
+    # plt.plot(FID2Spec(sfids.T), 'r')
+    # plt.show()
+    # breakpoint()
+
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     # Test apodisation and zeropadding options
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, apodize_hz=5)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        1 / 4000,
+        centralFrequency=123.2E6,
+        apodize_hz=5)
 
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, zpad_factor=0)
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        1 / 4000,
+        centralFrequency=123.2E6,
+        zpad_factor=0)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, zpad_factor=2)
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        1 / 4000,
+        centralFrequency=123.2E6,
+        zpad_factor=2)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     # Test Target
-    sfids, shifts = mrsi.xcorr_align(
+    sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
         1 / 4000,
+        centralFrequency=123.2E6,
         target=test_data[0, :])
-    assert np.allclose(shifts, [0, 0, -12.3, -12.3], atol=1E0)
+    assert np.allclose(shifts, [0, 0, -6.16, -6.16], atol=1E0)
+    assert np.isclose(phases[-1], -10 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     with raises(ValueError):
-        sfids, shifts = mrsi.xcorr_align(
+        sfids, shifts, phases = mrsi.xcorr_align(
             test_data,
             1 / 4000,
+            centralFrequency=123.2E6,
             target=np.zeros(100))
 
 
 def test_phase_corr_max_real(test_data):
     pfids, phases = mrsi.phase_corr_max_real(test_data, 1 / 4000)
 
-    assert np.allclose(np.abs(phases), [0, np.pi, 0, np.pi], atol=1E-1)
+    assert np.allclose(np.abs(phases), [0, 10 * np.pi / 180, 0, 10 * np.pi / 180], atol=1E-1)
     assert pfids.shape == test_data.shape
 
 
@@ -92,7 +124,9 @@ def test_mrsi_freq_align():
     mrsi_data = read_FID(metab_path)
     mask = Image(mask_path)
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(mrsi_data, mask=mask)
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        mask=mask)
 
     assert aligned_data.shape == mrsi_data.shape
     assert shift_img.shape == mrsi_data.shape[:3]
@@ -101,7 +135,10 @@ def test_mrsi_freq_align():
     assert np.allclose(shift_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # Now with no mask and no zero padding and fixed apod
-    aligned_data, shift_img = mrsi.mrsi_freq_align(mrsi_data, zpad_factor=0, apodize=20)
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        zpad_factor=0,
+        apodize=20)
 
     assert aligned_data.shape == mrsi_data.shape
     assert shift_img.shape == mrsi_data.shape[:3]
@@ -115,7 +152,7 @@ def test_mrsi_freq_align():
         mrsi_data.dwelltime,
         mrsi_data.spectrometer_frequency[0]
     )
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target)
@@ -128,12 +165,12 @@ def test_mrsi_freq_align():
 
     # Test with basis
     target = read_basis(basis_path)
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target)
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target,
@@ -151,7 +188,7 @@ def test_mrsi_freq_align():
     mrsi_higher = ntools.reorder(mrsi_data, ['DIM_DYN', None, None])
     mrsi_higher = ntools.merge((mrsi_higher, mrsi_higher), 'DIM_DYN')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,
@@ -159,7 +196,7 @@ def test_mrsi_freq_align():
         apodize=0,
         higher_dimensions='separate')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,
@@ -167,7 +204,7 @@ def test_mrsi_freq_align():
         apodize=0,
         higher_dimensions='combine')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,

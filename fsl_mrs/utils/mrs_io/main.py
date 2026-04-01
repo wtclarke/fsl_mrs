@@ -12,6 +12,7 @@ import numpy as np
 
 from nifti_mrs.nifti_mrs import NotNIFTI_MRS
 
+from fsl_mrs.core.nifti_mrs import NIFTI_MRS
 from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
@@ -68,7 +69,7 @@ def _check_datatype(filename):
         return 'Unknown', ext
 
 
-def read_FID(filename):
+def read_FID(filename: str | Path) -> NIFTI_MRS:
     """
      Read FID file. Tries to detect type automatically
 
