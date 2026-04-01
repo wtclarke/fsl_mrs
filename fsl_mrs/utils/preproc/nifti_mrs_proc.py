@@ -11,10 +11,11 @@ from datetime import datetime
 import numpy as np
 
 from fsl_mrs.utils import preproc
+from fsl_mrs.utils.preproc.align_xcor import xcorr_align
 from fsl_mrs.core import NIFTI_MRS
 from fsl_mrs.core import nifti_mrs as ntools
+from fsl_mrs.core.basis import Basis
 from fsl_mrs import __version__
-from fsl_mrs.utils.misc import shift_FID
 
 
 class DimensionsDoNotMatch(Exception):
@@ -259,34 +260,86 @@ def average(data, dim, figure=False, report=None, report_all=False):
     return combined_obj
 
 
+def _process_target(
+        target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating],
+        data: NIFTI_MRS,
+        basis_ignore: list[str] | None) -> np.typing.NDArray[np.complexfloating] | None:
+    if isinstance(target, Basis):
+        return np.sum(
+            target.get_formatted_basis(
+                    data.bandwidth,
+                    data.shape[3],
+                    ignore=basis_ignore),
+            axis=-1)
+    elif isinstance(target, NIFTI_MRS):
+        if not np.isclose(target.dwelltime, data.dwelltime)\
+                or not np.isclose(target.shape[3], data.shape[3]):
+            raise ValueError('Target must have the same dwell time and number of points as data.')
+
+        if np.prod(target.shape[4:]) > 1:
+            raise ValueError('Target must not have any higher dimensions.')
+
+        if target.shape[:3] != (1, 1, 1):
+            raise ValueError('Target must be single voxel.')
+        else:
+            return target[0, 0, 0, :]
+    elif isinstance(target, np.ndarray):
+        if target.ndim > 1 or target.shape[0] != data.shape[3]:
+            raise ValueError('Target must be a vector the same length as data time dimension.')
+        return target
+    elif target is None:
+        return target
+    else:
+        raise TypeError('target must be a numpy array, NIFTI_MRS, Basis object, or None.')
+
+
 def align(
-        data,
-        dim,
-        window=None,
-        target=None,
-        ppmlim=None,
-        niter=2,
-        figure=False,
-        report=None,
-        report_all=False):
-    '''Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
+        data: NIFTI_MRS,
+        dim: str = "all",
+        method: str = 'specreg',
+        window: int | None = None,
+        target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating] = None,
+        ppmlim: None | tuple[float, float] = None,
+        niter: int = 2,
+        basis_ignore: None | list[str] = None,
+        figure: bool = False,
+        report: None | str = None,
+        report_all: bool = False) -> NIFTI_MRS:
+    """Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
     stored in higher dimensions.
 
-    Optionally define a window size to repeatedly align using hanning-weighted windows of spectra.
-    E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
+    Two methods are implemented:
+    - Spectral registration (specreg)
+        This can optionally define a window size to repeatedly align using hann-weighted windows of spectra.
+        E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
+    - Complex cross-correlation
+        It is recommended to provide a target with cross-correlation
 
-    :param NIFTI_MRS data: Data to align
-    :param str dim: NIFTI-MRS dimension tag, or 'all'
-    :param int window: Window size.
-    :param target: Optional target FID
-    :param ppmlim: ppm search limits.
-    :param int niter: Number of total iterations
-    :param figure: True to show figure.
-    :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
-
-    :return: Combined data in NIFTI_MRS format.
-    '''
+    :param data: Data to align
+    :type data: NIFTI_MRS
+    :param dim: NIFTI-MRS dimension tag, or 'all' (default)
+    :type dim: str
+    :param method: 'specreg' or 'xcorr', defaults to 'specreg'
+    :type method: str, optional
+    :param window: 'specreg' window width, defaults to None
+    :type window: int | None, optional
+    :param target: Target for alignment, can be complex FID, single spectrum NIfTI or basis, defaults to None
+    :type target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating], optional
+    :param ppmlim: ppm search limits, defaults to None
+    :type ppmlim: None | tuple[float, float], optional
+    :param niter: Spectral registration number of total iterations, defaults to 2
+    :type niter: int, optional
+    :param basis_ignore: List of any metabolites to leave out of target constructed from basis, defaults to None
+    :type basis_ignore: None | list[str], optional
+    :param figure: Show figure or not, defaults to False
+    :type figure: bool, optional
+    :param report: Path to generate HTML report, defaults to None
+    :type report: None | str, optional
+    :param report_all: Generate a report for all higher dimension elements? Defaults to False
+    :type report_all: bool, optional
+    :return: Aligned data
+    :rtype: NIFTI_MRS
+    """
 
     aligned_obj = data.copy()
 
@@ -302,7 +355,12 @@ def align(
                                            iterate_over_space=True,
                                            reduce_dim_index=False)
 
-    mrs = data.mrs()[0]
+    target = _process_target(
+        target,
+        data,
+        basis_ignore
+    )
+
     for dd, idx in generator:
 
         if dim == 'all':
@@ -310,92 +368,51 @@ def align(
             original_shape = dd.shape
             dd = dd.reshape(original_shape[0], -1)
 
-        if window is None:
-            # Use original single transient alignment
-            out = preproc.phase_freq_align(
-                dd.T,
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                nucleus=data.nucleus[0],
-                ppmlim=ppmlim,
-                niter=niter,
-                verbose=False,
-                target=target)
+        if method == 'specreg':
+            if window is None:
+                # Use original single transient alignment
+                out = preproc.phase_freq_align(
+                    dd.T,
+                    data.bandwidth,
+                    data.spectrometer_frequency[0],
+                    nucleus=data.nucleus[0],
+                    ppmlim=ppmlim,
+                    niter=niter,
+                    verbose=False,
+                    target=target)
+
+            else:
+                # Use iterative windowed alignment
+                out = preproc.phase_freq_align_windowed(
+                    window,
+                    dd.T,
+                    data.bandwidth,
+                    data.spectrometer_frequency[0],
+                    nucleus=data.nucleus[0],
+                    ppmlim=ppmlim,
+                    verbose=False,
+                    target=target)
 
             if dim == 'all':
                 aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
             else:
                 aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
 
-        else:
-            # Use iterative windowed alignment
-            curr_phs = np.zeros(dd.shape[1])
-            curr_eps = np.zeros(dd.shape[1])
-            curr_raw = dd.copy()
-
-            mean_eps = 1
-            nwiter = 0
-            win_size = window
-            if target is None:
-                set_target = True
-            else:
-                set_target = False
-            while mean_eps > 0.02:
-                if win_size % 2:
-                    # Odd window size: up the size of the window by two
-                    # discard the outer two zeros
-                    weighting_func = np.hanning(win_size + 2)
-                    weighting_func = weighting_func[1:-1]
-                    stride_size = win_size
-                else:
-                    # Even window size: up the size of the window by three
-                    # discard the outer two zeros
-                    weighting_func = np.hanning(win_size + 3)
-                    weighting_func = weighting_func[1:-1]
-                    stride_size = win_size + 1
-                half_win = int(win_size / 2)
-
-                # Handle window size 1 case
-                if win_size == 1:
-                    padded_data = curr_raw
-                else:
-                    padded_data = np.concatenate(
-                        (curr_raw[:, -half_win:], curr_raw[:, :], curr_raw[:, :half_win]),
-                        axis=1)
-
-                win_avg_data = np.lib.stride_tricks.sliding_window_view(
-                    padded_data,
-                    stride_size,
-                    axis=1) * weighting_func
-                win_avg_data = win_avg_data.mean(axis=-1)
-
-                if set_target:
-                    target = curr_raw.mean(axis=1)
-
-                _, phi, eps = preproc.phase_freq_align(
-                    win_avg_data.T,
-                    data.bandwidth,
-                    data.spectrometer_frequency[0],
-                    ppmlim=ppmlim,
-                    niter=niter,
-                    target=target)
-
-                for jdx, fid in enumerate(curr_raw.T):
-                    curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
-
-                curr_phs += phi
-                curr_eps += eps
-                mean_eps = np.abs(eps).mean()
-                nwiter += 1
-                print(f'{nwiter}: {np.abs(phi).mean()} deg, {mean_eps} Hz.')
-                if nwiter == 30:
-                    print('Reached windowed average iteration limit. Stopping.')
-                    break
+        elif method == 'xcorr':
+            out = xcorr_align(
+                dd.T,
+                data.dwelltime,
+                data.spectrometer_frequency[0]*1E6,
+                nucleus=data.nucleus[0],
+                ppmlim=ppmlim,
+                target=target)
 
             if dim == 'all':
-                aligned_obj[idx], phi, eps = curr_raw.reshape(original_shape), curr_phs, curr_eps
+                aligned_obj[idx], eps, phi = out[0].T.reshape(original_shape), out[1], out[2]
             else:
-                aligned_obj[idx], phi, eps = curr_raw, curr_phs, curr_eps
+                aligned_obj[idx], eps, phi = out[0].T, out[1], out[2]
+        else:
+            raise ValueError('Method must either be "specreg" or "xcorr".')
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
@@ -419,6 +436,7 @@ def align(
     # Update processing prov
     processing_info = f'{__name__}.align, '
     processing_info += f'dim={dim}, '
+    processing_info += f'method={method}, '
     processing_info += f'window={window}, '
     if target is not None:
         processing_info += 'target used, '

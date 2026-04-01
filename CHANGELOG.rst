@@ -1,5 +1,13 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.5.0 (WIP 2026)
+-----------------------------------
+- Add complex cross-correlation frequency/phase alignment functionality, similar to that described in https://doi.org/10.1002/mrm.30252 (Deelchand, MRM, 2024).
+- `fsl_mrs_proc mrsi-align` now uses complex cross-correlation to perform phase and frequency alignment.
+- A target spectrum for alignment can be created using the new `basis2spectrum` function.
+- `fsl_mrs_proc align` now has the option to use complex cross-correlation `--method xcorr` to perform phase and frequency alignment. It is recommended to use the `--reference` option to assign a target with this.
+- `fsl_mrs_proc align` now has a new default option for the `--dim` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
+
 2.4.12 (Tuesday 17th February 2026)
 -----------------------------------
 - Allow passing of model (fe, FLAME1/2) through to the FSL flameo wrapper via `fmrs_stats`.

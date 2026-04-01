@@ -1,6 +1,6 @@
 # Make core preprocessing functions availible at module level
 from fsl_mrs.utils.preproc.combine import combine_FIDs
-from fsl_mrs.utils.preproc.align import phase_freq_align, phase_freq_align_diff
+from fsl_mrs.utils.preproc.align import phase_freq_align, phase_freq_align_diff, phase_freq_align_windowed
 from fsl_mrs.utils.preproc.phasing import phaseCorrect, applyPhase, applyLinPhase
 from fsl_mrs.utils.preproc.eddycorrect import eddy_correct
 from fsl_mrs.utils.preproc.shifting import truncate, pad, timeshift, freqshift, shiftToRef
