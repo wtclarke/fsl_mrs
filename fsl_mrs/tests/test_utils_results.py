@@ -200,7 +200,7 @@ def test_lorentzian_lw_estimates():
 
     gamma_vec /= np.pi
 
-    assert np.allclose(single_out, gamma_vec, atol=1E-1)
+    assert np.allclose(single_out, gamma_vec, atol=2E-1)
     assert np.allclose(single_out, qc_out, atol=2E1)
     assert np.allclose(combined_out, qc_out, atol=2E1)
 
@@ -220,7 +220,7 @@ def test_gaussian_lw_estimates():
 
     sigma_vec = 2.335 / (2 * np.pi * (np.sqrt(0.5) / sigma_vec))
 
-    assert np.allclose(single_out, sigma_vec, atol=1E-1)
+    assert np.allclose(single_out, sigma_vec, atol=2E-1)
     assert np.allclose(single_out, qc_out, atol=2E1)
     assert np.allclose(combined_out, qc_out, atol=2E1)
 

@@ -65,8 +65,8 @@ def main():
                 nosubcortseg=True)
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, \
-                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fsl_anat not found. It is not installable on Windows, '\
+                    'unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fsl_anat not found. Please install FSL.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
@@ -96,8 +96,8 @@ def main():
                       superlevel='a')
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool applywarp not found. It is not installable on Windows, \
-                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool applywarp not found. It is not installable on Windows, '\
+                    'unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool applywarp not found. Please install FSL or fsl-fugue using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")
@@ -138,8 +138,8 @@ def main():
 
         except FileNotFoundError:
             if os_name in win_platforms:
-                msg = 'FSL tool fslmaths not found. It is not installable on Windows, \
-                    unless you follow the WSL instructions in the FSL-MRS documentation.'
+                msg = 'FSL tool fslmaths not found. It is not installable on Windows, '\
+                    'unless you follow the WSL instructions in the FSL-MRS documentation.'
             else:
                 msg = 'FSL tool fslmaths not found. Please install FSL or fsl-avwutils using conda.'
             raise FileNotFoundError("\033[91m"+msg+"\033[0m")

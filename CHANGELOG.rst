@@ -1,5 +1,11 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.13 (WIP)
+-----------------------------------
+- Improved test suite execution time
+- Added tests for fslpy wrappers: fsl_mrs, fsl_mrs_preproc, fsl_mrs_proc, svs_segment
+- Added folder validator util
+
 2.4.12 (Tuesday 17th February 2026)
 -----------------------------------
 - Allow passing of model (fe, FLAME1/2) through to the FSL flameo wrapper via `fmrs_stats`.

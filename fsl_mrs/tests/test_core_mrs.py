@@ -289,6 +289,7 @@ def test_parse_metab_groups():
 
 def test_fit_method():
     mrs = mrs_from_files(svs_metab, svs_basis)
+    mrs.processForFitting(ind_scaling=['Mac'])
 
     fitargs = {
         'metab_groups': mrs.parse_metab_groups('Mac'),
