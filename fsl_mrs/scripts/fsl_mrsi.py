@@ -177,7 +177,6 @@ def main():
     import datetime
     import nibabel as nib
     from functools import partial
-    import multiprocessing as mp
     from dask.distributed import Client, progress
     from fsl_mrs.utils import misc, mrs_io
     # ######################################################
@@ -346,9 +345,10 @@ def main():
             if args.parallel_workers:
                 n_workers = args.parallel_workers
             else:
-                n_workers = mp.cpu_count() - 1
+                from fsl_mrs.utils.cpu_mgmt import get_effective_cpu_count
+                n_workers = max(1, get_effective_cpu_count() - 1)
             verboseprint(f'    Parallelising over {n_workers} workers ')
-            client = Client(n_workers=n_workers)
+            client = Client(n_workers=n_workers, threads_per_worker=1)
 
         elif args.parallel == "cluster":
             if args.parallel_workers:
@@ -358,7 +358,8 @@ def main():
             verboseprint(f'    Parallelising over {n_workers} nodes ')
             from dask_jobqueue import slurm
             cluster = slurm.SLURMCluster(
-                config_name='fsl_mrsi')
+                config_name='fsl_mrsi',
+                dashboard_address=None)
             cluster.scale(n_workers)
 
             client = Client(cluster)

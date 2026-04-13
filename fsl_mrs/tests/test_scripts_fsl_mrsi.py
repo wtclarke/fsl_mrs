@@ -8,6 +8,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 import subprocess
 from pathlib import Path
 import re
+from fsl_mrs.utils.validate_results import compare_folders
 
 # Files
 testsPath = Path(__file__).parent
@@ -23,21 +24,21 @@ data = {'metab': testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
 def test_fsl_mrsi(tmp_path):
 
     print(' '.join(['fsl_mrsi',
-            '--data', str(data['metab']),
-            '--basis', str(data['basis']),
-            '--output', str(tmp_path / 'fit_out'),
-            '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
-            '--h2o', str(data['water']),
-            '--TE', '30',
-            '--TR', '2.0',
-            '--mask', str(data['mask']),
-            '--tissue_frac',
-            str(data['seg_wm']),
-            str(data['seg_gm']),
-            str(data['seg_csf']),
-            '--output_correlations',
-            '--overwrite',
-            '--combine', 'Cr', 'PCr']))
+                    '--data', str(data['metab']),
+                    '--basis', str(data['basis']),
+                    '--output', str(tmp_path / 'fit_out'),
+                    '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                    '--h2o', str(data['water']),
+                    '--TE', '30',
+                    '--TR', '2.0',
+                    '--mask', str(data['mask']),
+                    '--tissue_frac',
+                    str(data['seg_wm']),
+                    str(data['seg_gm']),
+                    str(data['seg_csf']),
+                    '--output_correlations',
+                    '--overwrite',
+                    '--combine', 'Cr', 'PCr']))
 
     subprocess.check_call(['fsl_mrsi',
                            '--data', data['metab'],
@@ -197,12 +198,13 @@ def test_alt_ref(tmp_path):
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
 
 
+# TODO create a separate test for possible baseline arguments
 def test_baseline_options(tmp_path):
 
     subprocess.check_call(['fsl_mrsi',
                            '--data', data['metab'],
                            '--basis', data['basis'],
-                           '--output', str(tmp_path / 'fit_out'),
+                           '--output', str(tmp_path / 'fit_out1'),
                            '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
                            '--h2o', data['water'],
                            '--TE', '30',
@@ -214,33 +216,14 @@ def test_baseline_options(tmp_path):
                            data['seg_csf'],
                            '--overwrite',
                            '--combine', 'Cr', 'PCr',
-                           '--baseline', 'polynomial, 3'])
+                           '--baseline', 'polynomial, 4'])
 
-    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
-
-    subprocess.check_call(['fsl_mrsi',
-                           '--data', data['metab'],
-                           '--basis', data['basis'],
-                           '--output', str(tmp_path / 'fit_out'),
-                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
-                           '--h2o', data['water'],
-                           '--TE', '30',
-                           '--TR', '2.0',
-                           '--mask', data['mask'],
-                           '--tissue_frac',
-                           data['seg_wm'],
-                           data['seg_gm'],
-                           data['seg_csf'],
-                           '--overwrite',
-                           '--combine', 'Cr', 'PCr',
-                           '--baseline', 'spline, flexible'])
-
-    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out1/concs/raw/NAA.nii.gz').exists()
 
     subprocess.check_call(['fsl_mrsi',
                            '--data', data['metab'],
                            '--basis', data['basis'],
-                           '--output', str(tmp_path / 'fit_out'),
+                           '--output', str(tmp_path / 'fit_out2'),
                            '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
                            '--h2o', data['water'],
                            '--TE', '30',
@@ -254,4 +237,6 @@ def test_baseline_options(tmp_path):
                            '--combine', 'Cr', 'PCr',
                            '--baseline_order', '4'])
 
-    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out2/concs/raw/NAA.nii.gz').exists()
+
+    assert compare_folders((tmp_path / 'fit_out2'), (tmp_path / 'fit_out1'), subdir=True)
