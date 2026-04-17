@@ -20,7 +20,7 @@ from fsl_mrs.utils.fitting import fit_FSLModel
 import numpy as np
 
 
-class MRS(object):
+class MRS():
     """
       MRS Class - The basic unit for fitting. Encapsulates a single spectrum, the basis spectra,
       and water reference information required to carry out fitting.
@@ -59,6 +59,7 @@ class MRS(object):
         self._conj_fid = False
         self._scaling_factor = None
         self._indept_scale = []
+        self._axes_obj = None
 
         # Read in class data input
         self.FID = FID
@@ -385,29 +386,34 @@ class MRS(object):
         first, last = self.ppmlim_to_range(ppmlim, shift=shift)
         return spectrum[first:last]
 
-    def getAxes(self, axis='ppmshift', ppmlim=None):
+    def getAxes(self, axis='ppmshift', limits=None):
         """Return x axis over defined limits
         Options: ppmshift, ppm, freq, or time
 
         :param axis: One of ppmshift, ppm, freq, or time, defaults to 'ppmshift'
         :type axis: str, optional
-        :param ppmlim: Chemical shift range over which to retun the axes, defaults to None
-            No effect on 'time'
-        :type ppmlim: 2-tuple of floats, optional
+        :param limits: Value range over which to return the axes, defaults to None
+        :type limits: 2-tuple of floats, optional
         :return: Returns the requested axis as numpy array
         :rtype: numpy.array
         """
+        if self._axes_obj is None:
+            raise AttributeError("'Axes' object is not created for this MRS object.")
         if axis.lower() == 'ppmshift':
-            first, last = self.ppmlim_to_range(ppmlim, shift=True)
-            return np.squeeze(self.ppmAxisShift[first:last])
+            # first, last = self.ppmlim_to_range(ppmlim, shift=True)
+            # return np.squeeze(self.ppmAxisShift[first:last])
+            return np.squeeze(self.ppmAxisShift[self._axes_obj.ppmShiftIndices(limits)])
         elif axis.lower() == 'ppm':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.ppmAxis[first:last])
+            # first, last = self.ppmlim_to_range(ppmlim, shift=False)
+            # return np.squeeze(self.ppmAxis[first:last])
+            return np.squeeze(self.ppmAxis[self._axes_obj.ppmIndices(limits)])
         elif axis.lower() == 'freq':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.frequencyAxis[first:last])
+            # first, last = self.ppmlim_to_range(ppmlim, shift=False)
+            # return np.squeeze(self.frequencyAxis[first:last])
+            return np.squeeze(self.frequencyAxis[self._axes_obj.frequencyIndices(limits)])
         elif axis.lower() == 'time':
-            return np.squeeze(self.timeAxis)
+            # return np.squeeze(self.timeAxis)
+            return np.squeeze(self.timeAxis[self._axes_obj.timeIndices(limits)])
         else:
             raise ValueError('axis must be one of ppmshift, '
                              'ppm, freq or time.')
@@ -488,17 +494,27 @@ class MRS(object):
                          f' central frequency is {cf_MHz} MHz.'
                          'Pass nucleus parameter explicitly.')
 
+    def _create_axes_object(self):
+        from nifti_mrs.axes import Axes
+        self._axes_obj = Axes(ResonantNucleus=self.nucleus,
+                              SpectrometerFrequency=self.centralFrequency/1E6,
+                              dwelltime=self.dwellTime,
+                              SpecFreqChemShift=self.default_ppm_shift,
+                              RxOffset=self.RxOffset,
+                              npoints=self.numPoints)
+
     def _calculate_axes(self):
         ''' Calculate axes'''
-        axes = misc.calculateAxes(self.bandwidth,
-                                  self.centralFrequency,
-                                  self.numPoints,
-                                  self.default_ppm_shift)
+        self._create_axes_object()
+        # axes = misc.calculateAxes(self.bandwidth,
+        #                           self.centralFrequency,
+        #                           self.numPoints,
+        #                           self.default_ppm_shift)
 
-        self.timeAxis = axes['time']
-        self.frequencyAxis = axes['freq']
-        self.ppmAxis = axes['ppm']
-        self.ppmAxisShift = axes['ppmshift']
+        self.timeAxis = self._axes_obj.timeAxis#['time']
+        self.frequencyAxis = self._axes_obj.frequencyAxis#['freq']
+        self.ppmAxis = self._axes_obj.ppmAxis#'ppm']
+        self.ppmAxisShift = self._axes_obj.ppmAxisShift#['ppmshift']
 
         # turn into column vectors
         self.timeAxis = self.timeAxis[:, None]

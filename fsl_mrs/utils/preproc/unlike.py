@@ -131,7 +131,7 @@ def identifyUnlikeFIDs_report(goodFIDs,
 
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,

@@ -531,7 +531,7 @@ class dynRes:
         dyn_fit_mean = np.mean(dyn_fit, axis=0)
         dyn_fit_sd = np.std(dyn_fit.real, axis=0) + 1j * np.std(dyn_fit.imag, axis=0)
 
-        x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
+        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])
 
         colors = dict(data='rgb(67,67,67)',
                       init='rgb(59,59,253)',
@@ -646,7 +646,7 @@ class dynRes:
             title='Free Parameter Correlations')
 
     def plot_residuals(self):
-        """Generate a 2D plot of residuals plu marginals.
+        """Generate a 2D plot of residuals plus marginals.
 
         :return: Matplotlib figure object
         :rtype: matplotlib.figure.Figure
@@ -659,13 +659,11 @@ class dynRes:
             dyn_fit.append(self._calc_fit_from_flatmapped(mp))
         dyn_fit = np.asarray(dyn_fit).mean(axis=0)
 
-        dyn_fit.shape
-
         residuals = np.asarray(self._dyn.data) - dyn_fit
         residuals /= dyn_fit.max()
         residuals *= 100
         ci95 = residuals.std() * 1.96
-        x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
+        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])[:-1]
         yaxis = np.arange(residuals.shape[0])
 
         dyn_titles = self._sensible_tval_strings()

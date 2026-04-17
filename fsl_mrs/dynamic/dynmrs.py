@@ -44,7 +44,7 @@ class dynMRSLoadError(dynMRSError):
     pass
 
 
-class dynMRS(object):
+class dynMRS():
     """Dynamic MRS class"""
 
     def __init__(

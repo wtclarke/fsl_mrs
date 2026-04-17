@@ -110,9 +110,9 @@ def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True)
     mrs = MRS(**MRSargs)
     spec = extract_spectrum(mrs, padFID, ppmlim=ppmlim, shift=shift)
     if shift:
-        extractedAxis = mrs.getAxes(ppmlim=ppmlim)
+        extractedAxis = mrs.getAxes(limits=ppmlim)
     else:
-        extractedAxis = mrs.getAxes(ppmlim=ppmlim, axis='ppm')
+        extractedAxis = mrs.getAxes(limits=ppmlim, axis='ppm')
 
     maxIndex = np.argmax(np.abs(spec))
     shiftAmount = extractedAxis[maxIndex] - target
@@ -193,12 +193,12 @@ def shift_report(inFID,
     fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
 
     # Add lines to figure
-    trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
+    trace1 = go.Scatter(x=plotIn.getAxes(limits=ppmlim),
                         y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
-    trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
+    trace2 = go.Scatter(x=plotOut.getAxes(limits=ppmlim),
                         y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
@@ -298,8 +298,8 @@ def reportStrings(funcName):
 
 #     fig,(ax1,ax2) = plt.subplots(1,2,figsize=(12,7))
 
-#     ax1.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
-#     ax1.plot(plotOut.getAxes(ppmlim=ppmlim),np.real(plotOut.get_spec(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
+#     ax1.plot(plotIn.getAxes(limits=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
+#     ax1.plot(plotOut.getAxes(limits=ppmlim),np.real(plotOut.get_spec(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
 #     styleSpectrumAxes(ax=ax1)
 #     ax1.legend()
 

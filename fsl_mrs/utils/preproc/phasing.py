@@ -110,7 +110,7 @@ def phaseCorrect_report(inFID,
 
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
@@ -125,10 +125,10 @@ def phaseCorrect_report(inFID,
         position = np.argmax(np.abs(plotIn.get_spec(ppmlim=ppmlim)))
 
     # Deal with rounding errors
-    if position >= len(plotIn.getAxes(ppmlim=ppmlim)):
-        position = len(plotIn.getAxes(ppmlim=ppmlim)) - 1
+    if position >= len(plotIn.getAxes(limits=ppmlim)):
+        position = len(plotIn.getAxes(limits=ppmlim)) - 1
 
-    axis    = [plotIn.getAxes(ppmlim=ppmlim)[position]]
+    axis    = [plotIn.getAxes(limits=ppmlim)[position]]
     y_data  = [np.real(plotIn.get_spec(ppmlim=ppmlim))[position]]
     trace = go.Scatter(x=axis, y=y_data,
                        mode='markers',

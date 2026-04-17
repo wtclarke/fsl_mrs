@@ -237,7 +237,7 @@ def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=None):
     sortind = np.argsort(props['prominences'])
 
     pkIndex = peaks[sortind[-1]]
-    pkPosition = mrs.getAxes(ppmlim=ppmlim)[pkIndex]
+    pkPosition = mrs.getAxes(limits=ppmlim)[pkIndex]
     fwhm = props['widths'][sortind[-1]] * (mrs.bandwidth / mrs.numPoints)
 
     return fwhm, pkIndex, pkPosition

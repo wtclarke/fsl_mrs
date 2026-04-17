@@ -305,7 +305,7 @@ def phase_freq_align_report(inFIDs,
         toPlotOut.append(toMRSobj(fid))
 
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),
                            y=np.real(mrs.get_spec(ppmlim=lim, shift=shift)),
                            mode='lines',
                            name=name,
@@ -445,7 +445,7 @@ def phase_freq_align_diff_report(inFIDs0,
         toPlotOut.append(toMRSobj(fid))
 
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),
                            y=np.real(mrs.get_spec(ppmlim=lim, shift=shift)),
                            mode='lines',
                            name=name,

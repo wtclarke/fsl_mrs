@@ -59,9 +59,8 @@ def eddy_correct_report(inFID,
 
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
-        y = np.real(mrs.get_spec(ppmlim=lim))
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
-                           y=y,
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
+                           y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
                            line=linestyle)

@@ -108,7 +108,7 @@ class RefIntegral(FIDIntegrator):
             mrs_obj, mode=metab, noBaseline=True, no_phase=True)
 
 
-class QuantificationInfo(object):
+class QuantificationInfo():
     """ Class encapsulating the information required to run internal water quantification scaling.
         Requires (arguments to init):
             Echo time

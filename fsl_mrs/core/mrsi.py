@@ -17,7 +17,7 @@ from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils import misc
 
 
-class MRSI(object):
+class MRSI():
 
     def __init__(self, FID, header=None,
                  cf=None, bw=None, nucleus='1H',
@@ -300,7 +300,7 @@ class MRSI(object):
                 if (not self.mask[i, j, k]) and mask:
                     continue
                 mrs = self.mrs_by_index([i, j, k])
-                ax.plot(mrs.getAxes(ppmlim=ppmlim), np.real(mrs.get_spec(ppmlim=ppmlim)))
+                ax.plot(mrs.getAxes(limits=ppmlim), np.real(mrs.get_spec(ppmlim=ppmlim)))
                 ax.invert_xaxis()
 
             for ax in axes.ravel():

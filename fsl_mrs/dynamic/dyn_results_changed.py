@@ -531,7 +531,7 @@ class dynRes:
         dyn_fit_mean = np.mean(dyn_fit, axis=0)
         dyn_fit_sd = np.std(dyn_fit.real, axis=0) + 1j * np.std(dyn_fit.imag, axis=0)
 
-        x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
+        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])
 
         colors = dict(data='rgb(67,67,67)',
                       init='rgb(59,59,253)',
@@ -665,7 +665,7 @@ class dynRes:
         residuals /= dyn_fit.max()
         residuals *= 100
         ci95 = residuals.std() * 1.96
-        x_axis = self._dyn.mrs_list[0].getAxes(ppmlim=self._dyn._fit_args['ppmlim'])
+        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])
         yaxis = np.arange(residuals.shape[0])
 
         dyn_titles = self._sensible_tval_strings()

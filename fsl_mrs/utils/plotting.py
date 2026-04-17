@@ -150,7 +150,7 @@ def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
 
     """
 
-    ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
+    ppmAxisShift = mrs.getAxes(limits=ppmlim)
 
     def axes_style(plt, ppmlim, label=None, xticks=None):
         plt.xlim(ppmlim)
@@ -245,7 +245,7 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
     max_basis = []
     for idx, n in enumerate(mrs.names):
         toplot = np.real(FID2Spec(mrs.basis[:, idx]))[first:last]
-        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+        ax.plot(mrs.getAxes(limits=ppmlim),
                 toplot,
                 label=n)
         max_basis.append(toplot.max())
@@ -254,7 +254,7 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
         spec = np.real(mrs.get_spec(ppmlim=ppmlim))
         if normalise:
             spec *= np.max(max_basis) / spec.max()
-        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+        ax.plot(mrs.getAxes(limits=ppmlim),
                 spec,
                 'k', label='Data')
 
@@ -340,7 +340,7 @@ def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True, legen
     avg = 0
     for idx, mrs in enumerate(MRSList):
         data = np.real(mrs.get_spec(ppmlim=ppmlim))
-        ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
+        ppmAxisShift = mrs.getAxes(limits=ppmlim)
         avg += data
         if legend:
             plt.plot(ppmAxisShift, data, linewidth=.7, linestyle='-', label=f'#{idx}')
@@ -1230,7 +1230,7 @@ def plot_references(mrs, res):
     min_val = np.min([res.ppmlim[0], quant_info.ref_limits[0], quant_info.h2o_limits[0]])
     max_val = np.max([res.ppmlim[1], quant_info.ref_limits[1], quant_info.h2o_limits[1]])
     data_range = (min_val, max_val)
-    axis = mrs.getAxes(ppmlim=data_range)
+    axis = mrs.getAxes(limits=data_range)
     first, last = mrs.ppmlim_to_range(ppmlim=data_range)
     water_first, water_last = res.concScalings['ref_info']['water_ref'].limits
     water_axis = mrs.getAxes()[water_first:water_last]

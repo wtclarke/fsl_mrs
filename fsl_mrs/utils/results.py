@@ -18,7 +18,7 @@ import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
 
 
-class FitRes(object):
+class FitRes():
     """
        Collects fitting results
     """

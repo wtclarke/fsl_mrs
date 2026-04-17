@@ -264,7 +264,7 @@ def combine_FIDs_report(inFIDs,
         legendOut.append('Combined')
 
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
@@ -353,8 +353,8 @@ def combine_FIDs_report(inFIDs,
 #     style = ['--']*len(colors)
 #     ax.set_prop_cycle(color =colors,linestyle=style)
 #     for fid in toPlotIn:
-#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)))
+#         ax.plot(fid.getAxes(limits=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)))
 #     for fid in toPlotOut:
-#         ax.plot(fid.getAxes(ppmlim=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'k-')
+#         ax.plot(fid.getAxes(limits=ppmlim),np.real(fid.get_spec(ppmlim=ppmlim)),'k-')
 #     styleSpectrumAxes(ax)
 #     plt.show()
