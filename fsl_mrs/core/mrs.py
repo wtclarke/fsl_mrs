@@ -520,10 +520,10 @@ class MRS():
         #                           self.numPoints,
         #                           self.default_ppm_shift)
 
-        self.timeAxis = self._axes_obj.timeAxis#['time']
-        self.frequencyAxis = self._axes_obj.frequencyAxis#['freq']
-        self.ppmAxis = self._axes_obj.ppmAxis#'ppm']
-        self.ppmAxisShift = self._axes_obj.ppmAxisShift#['ppmshift']
+        self.timeAxis = self._axes_obj.timeAxis  # ['time']
+        self.frequencyAxis = self._axes_obj.frequencyAxis  # ['freq']
+        self.ppmAxis = self._axes_obj.ppmAxis  # ['ppm']
+        self.ppmAxisShift = self._axes_obj.ppmAxisShift  # ['ppmshift']
 
         # turn into column vectors
         self.timeAxis = self.timeAxis[:, None]

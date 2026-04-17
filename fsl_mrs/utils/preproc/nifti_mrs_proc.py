@@ -12,7 +12,7 @@ import numpy as np
 from nifti_mrs.axes import Axes
 
 from fsl_mrs.utils import preproc
-from fsl_mrs.core import NIFTI_MRS, MRS, FIDtoMRSobj
+from fsl_mrs.core import NIFTI_MRS, FIDtoMRSobj
 from fsl_mrs.core import nifti_mrs as ntools
 from fsl_mrs import __version__
 from fsl_mrs.utils.misc import shift_FID
