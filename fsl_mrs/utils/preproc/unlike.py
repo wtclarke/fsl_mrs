@@ -5,16 +5,13 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-from fsl_mrs.core import MRS
+from fsl_mrs.core import FIDtoMRSobj
 import numpy as np
 from fsl_mrs.utils.preproc.general import get_target_FID
 from fsl_mrs.utils.misc import extract_spectrum, FIDToSpec
 
 
-def identifyUnlikeFIDs(FIDList,
-                       bandwidth,
-                       centralFrequency,
-                       nucleus='1H',
+def identifyUnlikeFIDs(mrs_list,
                        sdlimit=1.96,
                        iterations=2,
                        ppmlim=None,
@@ -22,9 +19,7 @@ def identifyUnlikeFIDs(FIDList,
     """ Identify FIDs in a list that are unlike the others
 
     Args:
-        FIDList (list of ndarray): Time domain data
-        bandwidth (float)        : Bandwidth in Hz
-        centralFrequency (float) : Central frequency in Hz
+        mrs_list (list of fsl_mrs.core.MRS): Time domain data plus metadata
         sdlimit (float,optional) : Exclusion limit (number of standard deviations). Default = 3.
         iterations (int,optional): Number of iterations to use.
         ppmlim (tuple,optional)  : Limit to this ppm range
@@ -38,14 +33,11 @@ def identifyUnlikeFIDs(FIDList,
     """
 
     # Calculate the FID to compare to
+    FIDList = [mrs.FID for mrs in mrs_list]
     target = get_target_FID(FIDList, target='median')
 
     if ppmlim is not None:
-        MRSargs = {'FID': target,
-                   'bw': bandwidth,
-                   'cf': centralFrequency,
-                   'nucleus': nucleus}
-        mrs = MRS(**MRSargs)
+        mrs = mrs_list[0]
 
         target = extract_spectrum(mrs, target, ppmlim=ppmlim, shift=shift)
         compareList = [extract_spectrum(mrs, f, ppmlim=ppmlim, shift=shift) for f in FIDList]
@@ -85,9 +77,7 @@ def identifyUnlikeFIDs_report(goodFIDs,
                               keepIndicies,
                               rmIndicies,
                               metric,
-                              bw,
-                              cf,
-                              nucleus='1H',
+                              ref_axes,
                               ppmlim=(0.2, 4.2),
                               sdlimit=1.96,
                               html=None):
@@ -108,21 +98,17 @@ def identifyUnlikeFIDs_report(goodFIDs,
     plotGood, plotBad = [], []
     gdLegend, bdLegend = [], []
 
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
     for idx in gdIndex:
         fid = goodFIDs[idx]
-        plotGood.append(toMRSobj(fid))
+        plotGood.append(FIDtoMRSobj(fid, ref_axes))
         gdLegend.append(f'Kept (SD={metricGd_SD[idx]:0.2f})')
     for idx in bdIndex:
         fid = badFIDs[idx]
-        plotBad.append(toMRSobj(fid))
+        plotBad.append(FIDtoMRSobj(fid, ref_axes))
         bdLegend.append(f'Removed (SD={metricBd_SD[idx]:0.2f})')
 
     target = get_target_FID(goodFIDs, target='median')
-    tgtmrs = toMRSobj(target)
+    tgtmrs = FIDtoMRSobj(target, ref_axes)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()

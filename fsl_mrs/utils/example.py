@@ -49,6 +49,7 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
     from fsl_mrs.utils.preproc.phasing import phaseCorrect
     from fsl_mrs.utils.preproc.align import phase_freq_align
     from fsl_mrs.utils.preproc.shifting import shiftToRef
+    from nifti_mrs.axes import Axes
     import numpy as np
 
     path = Path(path)
@@ -67,9 +68,13 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
         file = currentdir / f'high_b_{str(b)}.mat'
         tmp = loadmat(file)
         fid = np.squeeze(tmp['soustraction'].conj())
+        axes = Axes(
+            ResonantNucleus='1H',
+            SpectrometerFrequency=centralFrequency,
+            dwelltime=1/bandwidth,
+            npoints=fid.shape[0])
         fid, _, _ = phaseCorrect(fid,
-                                 bandwidth,
-                                 centralFrequency,
+                                 axes,
                                  ppmlim=(2.8, 3.2),
                                  shift=True)
         fidList.append(fid)
@@ -83,7 +88,12 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
 
     mrsList = []
     for fid, b in zip(alignedFids, blist):
-        fid, _ = shiftToRef(fid, 3.027, bandwidth, centralFrequency, ppmlim=(2.9, 3.1))
+        axes = Axes(
+            ResonantNucleus='1H',
+            SpectrometerFrequency=centralFrequency,
+            dwelltime=1/bandwidth,
+            npoints=fid.shape[0])
+        fid, _ = shiftToRef(fid, 3.027, axes, ppmlim=(2.9, 3.1))
         mrs = MRS(FID=fid,
                   cf=centralFrequency,
                   bw=bandwidth,

@@ -20,6 +20,15 @@ from fsl_mrs.utils.fitting import fit_FSLModel
 import numpy as np
 
 
+def FIDtoMRSobj(fid, ref_axes):
+    """Construct an MRS object for fid using acquisition params from ref_mrs."""
+    return MRS(
+        FID=fid,
+        cf=ref_axes.SpectrometerFrequency * 1E6,
+        bw=ref_axes.SpectralWidth,
+        nucleus=ref_axes.ResonantNucleus)
+
+
 class MRS():
     """
       MRS Class - The basic unit for fitting. Encapsulates a single spectrum, the basis spectra,

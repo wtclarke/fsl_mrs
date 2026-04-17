@@ -7,7 +7,7 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.core import MRS
+from fsl_mrs.core import FIDtoMRSobj
 from fsl_mrs.utils.misc import extract_spectrum
 
 
@@ -86,14 +86,12 @@ def freqshift_array(
     return fid_array * np.exp(1j * phaseRamp)
 
 
-def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True):
+def shiftToRef(FID, target, axes, ppmlim=(2.8, 3.2), shift=True):
     '''Find a maximum and shift that maximum to a reference position.
 
     :param FID: FID
     :param float target: reference position in ppm
-    :param float bw: Bandwidth or spectral width in Hz.
-    :param float cf: Central or spectrometer frequency (MHz)
-    :param str nucleus: Nucleus string, defaults to 1H
+    :param Axes axes: Metadata/axes source
     :param ppmlim: Search range for peak maximum
     :param bool shift: If True (default) ppm values include shift
 
@@ -103,22 +101,18 @@ def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True)
 
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(FID, FID.size * 3)
-    MRSargs = {'FID': padFID,
-               'bw': bw,
-               'cf': cf,
-               'nucleus': nucleus}
-    mrs = MRS(**MRSargs)
-    spec = extract_spectrum(mrs, padFID, ppmlim=ppmlim, shift=shift)
+    pad_mrs = FIDtoMRSobj(padFID, axes)
+    spec = extract_spectrum(pad_mrs, padFID, ppmlim=ppmlim, shift=shift)
     if shift:
-        extractedAxis = mrs.getAxes(limits=ppmlim)
+        extractedAxis = pad_mrs.getAxes(limits=ppmlim)
     else:
-        extractedAxis = mrs.getAxes(limits=ppmlim, axis='ppm')
+        extractedAxis = pad_mrs.getAxes(limits=ppmlim, axis='ppm')
 
     maxIndex = np.argmax(np.abs(spec))
     shiftAmount = extractedAxis[maxIndex] - target
-    shiftAmountHz = shiftAmount * mrs.centralFrequency / 1E6
+    shiftAmountHz = shiftAmount * axes.centralFrequency / 1E6
 
-    return freqshift(FID, 1 / bw, -shiftAmountHz), shiftAmount
+    return freqshift(FID, axes.dwellTime, -shiftAmountHz), shiftAmount
 
 
 def truncate(FID, k, first_or_last='last'):
@@ -169,10 +163,8 @@ def pad(FID, k, first_or_last='last'):
         raise ValueError("Last parameter must either be 'first' or 'last'")
 
 
-def shift_report(inFID,
-                 outFID,
-                 inHdr,
-                 outHdr,
+def shift_report(in_mrs,
+                 out_mrs,
                  ppmlim=(0.2, 4.2),
                  html=None,
                  function='shift'):
@@ -183,9 +175,6 @@ def shift_report(inFID,
     from plotly.subplots import make_subplots
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    plotIn = MRS(FID=inFID, header=inHdr)
-    plotOut = MRS(FID=outFID, header=outHdr)
-
     # Fetch line styles
     lines, _, _ = plotStyles()
 
@@ -193,13 +182,13 @@ def shift_report(inFID,
     fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
 
     # Add lines to figure
-    trace1 = go.Scatter(x=plotIn.getAxes(limits=ppmlim),
-                        y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
+    trace1 = go.Scatter(x=in_mrs.getAxes(limits=ppmlim),
+                        y=np.real(in_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
-    trace2 = go.Scatter(x=plotOut.getAxes(limits=ppmlim),
-                        y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
+    trace2 = go.Scatter(x=out_mrs.getAxes(limits=ppmlim),
+                        y=np.real(out_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])
@@ -207,13 +196,13 @@ def shift_report(inFID,
     fig.add_trace(trace2, row=1, col=1)
 
     # Add lines to figure
-    trace3 = go.Scatter(x=plotIn.getAxes(axis='time'),
-                        y=np.real(plotIn.FID),
+    trace3 = go.Scatter(x=in_mrs.getAxes(axis='time'),
+                        y=np.real(in_mrs.FID),
                         mode='lines',
                         name='Original',
                         line=lines['emph'])
-    trace4 = go.Scatter(x=plotOut.getAxes(axis='time'),
-                        y=np.real(plotOut.FID),
+    trace4 = go.Scatter(x=out_mrs.getAxes(axis='time'),
+                        y=np.real(out_mrs.FID),
                         mode='lines',
                         name='Shifted',
                         line=lines['diff'])

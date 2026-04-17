@@ -44,27 +44,15 @@ def apodize(FID, dwelltime, broadening, filter='exp'):
     return window * FID
 
 
-def apodize_report(inFID,
-                   outFID,
-                   bw,
-                   cf,
-                   nucleus='1H',
+def apodize_report(in_mrs,
+                   out_mrs,
                    plotlim=(0.2, 6),
                    html=None):
     """
     Generate report
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()
@@ -81,8 +69,8 @@ def apodize_report(inFID,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, plotlim, 'Uncorrected', lines['in'])
-    fig = addline(fig, plotOut, plotlim, 'Corrected', lines['out'])
+    fig = addline(fig, in_mrs, plotlim, 'Uncorrected', lines['in'])
+    fig = addline(fig, out_mrs, plotlim, 'Corrected', lines['out'])
 
     # Axes layout
     plotAxesStyle(fig, plotlim, title='Apodization summary')

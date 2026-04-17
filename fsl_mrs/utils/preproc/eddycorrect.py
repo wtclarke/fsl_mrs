@@ -27,29 +27,16 @@ def eddy_correct(FIDmet, FIDPhsRef):
     return np.abs(FIDmet) * np.exp(1j * (np.angle(FIDmet) - phsRef))
 
 
-def eddy_correct_report(inFID,
-                        outFID,
-                        phsRef,
-                        bw,
-                        cf,
-                        nucleus='1H',
+def eddy_correct_report(in_mrs,
+                        out_mrs,
+                        ref_mrs,
                         ppmlim=(0.2, 4.2),
                         html=None):
     """
     Generate Eddy correction report
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID)
-    plotRef = toMRSobj(phsRef)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()
@@ -66,8 +53,8 @@ def eddy_correct_report(inFID,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, ppmlim, 'Uncorrected', lines['in'])
-    fig = addline(fig, plotOut, ppmlim, 'Corrected', lines['out'])
+    fig = addline(fig, in_mrs, ppmlim, 'Uncorrected', lines['in'])
+    fig = addline(fig, out_mrs, ppmlim, 'Corrected', lines['out'])
 
     # Axes layout
     plotAxesStyle(fig, ppmlim, title='ECC summary')
@@ -82,9 +69,9 @@ def eddy_correct_report(inFID,
         return fig.add_trace(trace)
     # Make a new figure
     fig2 = go.Figure()
-    fig2 = addlinephs(fig2, plotIn, 'Uncorrected', lines['in'])
-    fig2 = addlinephs(fig2, plotOut, 'Corrected', lines['out'])
-    fig2 = addlinephs(fig2, plotRef, 'Reference', lines['diff'])
+    fig2 = addlinephs(fig2, in_mrs, 'Uncorrected', lines['in'])
+    fig2 = addlinephs(fig2, out_mrs, 'Corrected', lines['out'])
+    fig2 = addlinephs(fig2, ref_mrs, 'Reference', lines['diff'])
     fig2.layout.yaxis.update(title_text='Angle (radians)')
     fig2.layout.xaxis.update(title_text='Time (s)')
     fig2.layout.update({'title': 'FID Phase'})

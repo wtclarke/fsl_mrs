@@ -9,8 +9,8 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.core import MRS
-from fsl_mrs.utils.misc import extract_spectrum, checkCFUnits, FIDToSpec, SpecToFID
+from fsl_mrs.core import FIDtoMRSobj
+from fsl_mrs.utils.misc import extract_spectrum, FIDToSpec, SpecToFID
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
 from fsl_mrs.utils.preproc.filtering import apodize
@@ -30,15 +30,14 @@ def applyLinPhase(FID, frequency_axis, time):
     return SpecToFID(FIDToSpec(FID) * np.exp(1j * 2 * np.pi * frequency_axis * time))
 
 
-def phaseCorrect(FID, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True, use_hlsvd=False):
+def phaseCorrect(FID, axes, ppmlim=(2.8, 3.2), shift=True, use_hlsvd=False):
     """ Phase correction based on the phase of a maximum point.
 
     HLSVD is used to remove peaks outside the limits to flatten baseline first.
 
     Args:
         FID (ndarray): Time domain data
-        bw (float): bandwidth
-        cf (float): central frequency in Hz
+        axes (Axes): Metadata/axes source
         ppmlim (tuple,optional)  : Limit to this ppm range
         shift (bool,optional)    : Apply H20 shft
         use_hlsvd (bool,optional)    : Enable hlsvd step
@@ -49,13 +48,11 @@ def phaseCorrect(FID, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True, use_h
         index (int): Index of phased point
     """
 
-    cf = checkCFUnits(cf, units='Hz')
-
     if use_hlsvd:
         # Run HLSVD to remove peaks outside limits
         try:
-            fid_hlsvd = hlsvd(FID, 1 / bw, cf, (ppmlim[1] + 0.5, ppmlim[1] + 3.0), limitUnits='ppm+shift')
-            fid_hlsvd = hlsvd(fid_hlsvd, 1 / bw, cf, (ppmlim[0] - 3.0, ppmlim[0] - 0.5), limitUnits='ppm+shift')
+            fid_hlsvd = hlsvd(FID, axes, (ppmlim[1] + 0.5, ppmlim[1] + 3.0), limitUnits='ppm+shift')
+            fid_hlsvd = hlsvd(fid_hlsvd, axes, (ppmlim[0] - 3.0, ppmlim[0] - 0.5), limitUnits='ppm+shift')
         except Exception:
             fid_hlsvd = FID
             print('HLSVD in phaseCorrect failed, proceeding to phasing.')
@@ -64,12 +61,8 @@ def phaseCorrect(FID, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True, use_h
 
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(fid_hlsvd, FID.size * 3)
-    MRSargs = {'FID': padFID,
-               'bw': bw,
-               'cf': cf,
-               'nucleus': nucleus}
-    mrs = MRS(**MRSargs)
-    spec = extract_spectrum(mrs, padFID, ppmlim=ppmlim, shift=shift)
+    pad_mrs = FIDtoMRSobj(padFID, axes)
+    spec = extract_spectrum(pad_mrs, padFID, ppmlim=ppmlim, shift=shift)
 
     maxIndex = np.argmax(np.abs(spec))
     phaseAngle = -np.angle(spec[maxIndex])
@@ -77,28 +70,16 @@ def phaseCorrect(FID, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True, use_h
     return applyPhase(FID, phaseAngle), phaseAngle, int(np.round(maxIndex / 4))
 
 
-def phaseCorrect_report(inFID,
-                        outFID,
+def phaseCorrect_report(in_mrs,
+                        out_mrs,
                         position,
-                        bw,
-                        cf,
-                        nucleus='1H',
                         ppmlim=(2.8, 3.2),
                         html=None):
     """
     Generate report for phaseCorrect
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID)
 
     widelimit = (0, 6)
 
@@ -117,26 +98,26 @@ def phaseCorrect_report(inFID,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, widelimit, 'Unphased', lines['in'])
-    fig = addline(fig, plotIn, ppmlim, 'Search region', lines['emph'])
+    fig = addline(fig, in_mrs, widelimit, 'Unphased', lines['in'])
+    fig = addline(fig, in_mrs, ppmlim, 'Search region', lines['emph'])
 
     if position is None:
         # re-estimate here.
-        position = np.argmax(np.abs(plotIn.get_spec(ppmlim=ppmlim)))
+        position = np.argmax(np.abs(in_mrs.get_spec(ppmlim=ppmlim)))
 
     # Deal with rounding errors
-    if position >= len(plotIn.getAxes(limits=ppmlim)):
-        position = len(plotIn.getAxes(limits=ppmlim)) - 1
+    if position >= len(in_mrs.getAxes(limits=ppmlim)):
+        position = len(in_mrs.getAxes(limits=ppmlim)) - 1
 
-    axis    = [plotIn.getAxes(limits=ppmlim)[position]]
-    y_data  = [np.real(plotIn.get_spec(ppmlim=ppmlim))[position]]
+    axis    = [in_mrs.getAxes(limits=ppmlim)[position]]
+    y_data  = [np.real(in_mrs.get_spec(ppmlim=ppmlim))[position]]
     trace = go.Scatter(x=axis, y=y_data,
                        mode='markers',
                        name='max point',
                        marker=dict(color=colors['emph'], symbol='x', size=8))
     fig.add_trace(trace)
 
-    fig = addline(fig, plotOut, widelimit, 'Phased', lines['out'])
+    fig = addline(fig, out_mrs, widelimit, 'Phased', lines['out'])
 
     # Axes layout
     plotAxesStyle(fig, widelimit, title='Phase correction summary')

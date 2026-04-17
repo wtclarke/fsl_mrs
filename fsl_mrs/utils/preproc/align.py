@@ -10,7 +10,7 @@
 
 from fsl_mrs.utils.preproc.general import get_target_FID, add, subtract
 from fsl_mrs.utils.preproc.filtering import apodize as apod
-from fsl_mrs.core import MRS
+from fsl_mrs.core import MRS, FIDtoMRSobj
 from fsl_mrs.utils.misc import extract_spectrum, shift_FID
 from scipy.optimize import minimize
 import numpy as np
@@ -241,13 +241,10 @@ def phase_freq_align_diff(FIDlist0,
 
 
 # Reporting functions
-def phase_freq_align_report(inFIDs,
-                            outFIDs,
+def phase_freq_align_report(in_mrs,
+                            out_mrs,
                             phi,
                             eps,
-                            bw,
-                            cf,
-                            nucleus='1H',
                             ppmlim=None,
                             shift=True,
                             html=None):
@@ -283,26 +280,22 @@ def phase_freq_align_report(inFIDs,
     fig.layout.yaxis2.update(title_text='Shift (Hz)')
     fig.layout.xaxis2.update(title_text='Transient #')
 
+    inFIDs = np.asarray([mrs.FID for mrs in in_mrs])
+    outFIDs = np.asarray([mrs.FID for mrs in out_mrs])
+
     # Transpose so time dimension is first
     meanIn = combine_FIDs(inFIDs.T, 'mean')
     meanOut = combine_FIDs(outFIDs.T, 'mean')
-
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    meanIn = toMRSobj(meanIn)
-    meanOut = toMRSobj(meanOut)
+    meanIn = FIDtoMRSobj(meanIn, in_mrs[0]._axes_obj)
+    meanOut = FIDtoMRSobj(meanOut, out_mrs[0]._axes_obj)
 
     if shift:
         axis = 'ppmshift'
     else:
         axis = 'ppm'
 
-    toPlotIn, toPlotOut = [], []
-    for fid in inFIDs:
-        toPlotIn.append(toMRSobj(fid))
-    for fid in outFIDs:
-        toPlotOut.append(toMRSobj(fid))
+    toPlotIn = in_mrs
+    toPlotOut = out_mrs
 
     def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),
@@ -370,15 +363,12 @@ def phase_freq_align_report(inFIDs,
         return fig, fig2, fig3
 
 
-def phase_freq_align_diff_report(inFIDs0,
-                                 inFIDs1,
-                                 outFIDs0,
-                                 outFIDs1,
+def phase_freq_align_diff_report(in_mrs0,
+                                 in_mrs1,
+                                 out_mrs0,
+                                 out_mrs1,
                                  phi,
                                  eps,
-                                 bw,
-                                 cf,
-                                 nucleus='1H',
                                  ppmlim=None,
                                  diffType='add',
                                  shift=True,
@@ -414,35 +404,28 @@ def phase_freq_align_diff_report(inFIDs0,
 
     diffFIDListIn = []
     diffFIDListOut = []
-    for fid0i, fid1i, fid0o, fid1o in zip(inFIDs0, inFIDs1, outFIDs0, outFIDs1):
+    for fid0i, fid1i, fid0o, fid1o in zip(in_mrs0, in_mrs1, out_mrs0, out_mrs1):
         if diffType.lower() == 'add':
-            diffFIDListIn.append(add(fid1i, fid0i))
-            diffFIDListOut.append(add(fid1o, fid0o))
+            diffFIDListIn.append(add(fid1i.FID, fid0i.FID))
+            diffFIDListOut.append(add(fid1o.FID, fid0o.FID))
         elif diffType.lower() == 'sub':
-            diffFIDListIn.append(subtract(fid1i, fid0i))
-            diffFIDListOut.append(subtract(fid1o, fid0o))
+            diffFIDListIn.append(subtract(fid1i.FID, fid0i.FID))
+            diffFIDListOut.append(subtract(fid1o.FID, fid0o.FID))
         else:
             raise ValueError('diffType must be add or sub.')
 
     meanIn = combine_FIDs(diffFIDListIn, 'mean')
     meanOut = combine_FIDs(diffFIDListOut, 'mean')
-
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    meanIn = toMRSobj(meanIn)
-    meanOut = toMRSobj(meanOut)
+    meanIn = FIDtoMRSobj(meanIn, in_mrs0[0]._axes_obj)
+    meanOut = FIDtoMRSobj(meanOut, out_mrs0[0]._axes_obj)
 
     if shift:
         axis = 'ppmshift'
     else:
         axis = 'ppm'
 
-    toPlotIn, toPlotOut = [], []
-    for fid in diffFIDListIn:
-        toPlotIn.append(toMRSobj(fid))
-    for fid in diffFIDListOut:
-        toPlotOut.append(toMRSobj(fid))
+    toPlotIn = [FIDtoMRSobj(fid, in_mrs0[0]._axes_obj) for fid in diffFIDListIn]
+    toPlotOut = [FIDtoMRSobj(fid, out_mrs0[0]._axes_obj) for fid in diffFIDListOut]
 
     def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),

@@ -8,20 +8,19 @@
 
 import numpy as np
 import hlsvdpropy
-from fsl_mrs.utils.misc import checkCFUnits, limit_to_range, calculateAxes, FIDToSpec, SpecToFID
+from fsl_mrs.core import FIDtoMRSobj
+from fsl_mrs.utils.misc import checkCFUnits, FIDToSpec, SpecToFID
 from fsl_mrs.utils.constants import PPM_SHIFT
 H2O_PPM_TO_TMS = PPM_SHIFT['1H']
 
 
-def zero_spectrum(FID, dwelltime, centralFrequency, limits, limitUnits='ppmshift'):
+def zero_spectrum(FID, axes, limits, limitUnits='ppmshift'):
     """Zero part of a spectrum between limits
 
     :param FID: FID to modify
     :type FID: nump.array
-    :param dwelltime: Dwelltime in seconds
-    :type dwelltime: float
-    :param centralFrequency: Central imaging frequency in Hz or MHz
-    :type centralFrequency: float
+    :param axes: Metadata/axes source
+    :type axes: nifti_mrs.axes.Axes
     :param limits: ppm limits
     :type limits: tuple
     :param limitUnits: Whether limits include shift ('ppm' or 'ppmshift), defaults to 'ppmshift'
@@ -29,29 +28,31 @@ def zero_spectrum(FID, dwelltime, centralFrequency, limits, limitUnits='ppmshift
     :return: Modified FID
     :rtype: np.array
     """
-    ppm_axes = calculateAxes(
-        1 / dwelltime,
-        checkCFUnits(centralFrequency),
-        len(FID),
-        H2O_PPM_TO_TMS)[limitUnits]
-    first, last = limit_to_range(ppm_axes, limits)
+    axis_lookup = {
+        'ppm': lambda axes: axes.ppmIndices(limits),
+        'ppmshift': lambda axes: axes.ppmShiftIndices(limits),
+        'ppm+shift': lambda axes: axes.ppmShiftIndices(limits),
+        'hz': lambda axes: axes.frequencyIndices(limits)}
+    try:
+        indices = axis_lookup[limitUnits.lower()]
+    except KeyError as exc:
+        raise ValueError('limitUnits should be one of: ppm, ppmshift, ppm+shift or hz.') from exc
+
     spec = FIDToSpec(FID)
-    spec[first:last] = 0.0 + 1j * 0.0
+    spec[indices(axes)] = 0.0 + 1j * 0.0
     mod_fid = SpecToFID(spec)
     return mod_fid
 
 
-def model_fid_hlsvd(FID, dwelltime, centralFrequency, limits=None,
+def model_fid_hlsvd(FID, axes, limits=None,
                     limitUnits='ppm', numSingularValues=20):
     """Model a section of the FID using HLSVD. Optionally retain components
     only within the frequenccy/ppm limits.
 
     :param FID: Time domain data
     :type FID: numpy.array
-    :param dwelltime: dwell time in seconds
-    :type dwelltime: float
-    :param centralFrequency: Central frequency in Hz
-    :type centralFrequency: float
+    :param axes: Metadata/axes source
+    :type axes: nifti_mrs.axes.Axes
     :param limits: Frequency/ppm limits, defaults to None
     :type limits: tuple, optional
     :param limitUnits: Axis that limits are given in. By Default
@@ -64,21 +65,20 @@ def model_fid_hlsvd(FID, dwelltime, centralFrequency, limits=None,
 
     return _hlsvd(
         FID,
-        dwelltime,
-        centralFrequency,
+        axes.dwelltime,
+        axes.SpectrometerFrequency * 1E6,
         limits,
         limitUnits=limitUnits,
         numSingularValues=numSingularValues)
 
 
-def hlsvd(FID, dwelltime, centralFrequency, limits,
+def hlsvd(FID, axes, limits,
           limitUnits='ppm', numSingularValues=20, sparse_algo=False):
     """ Run HLSVDPRO on FID
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwell time in seconds
-        centralFrequency (float) : Central frequency in Hz
+        axes (Axes) : Metadata/axes source
         limits (tuple): Limit deletion of singular values in this range.
         limitUnits (str,optional): Axis that limits are given in. By Default
         in ppm, relative to receiver frequency (no shift). Can be 'Hz', 'ppm'
@@ -90,8 +90,8 @@ def hlsvd(FID, dwelltime, centralFrequency, limits,
     """
     sumFID = _hlsvd(
         FID,
-        dwelltime,
-        centralFrequency,
+        axes.dwelltime,
+        axes.SpectrometerFrequency * 1E6,
         limits,
         limitUnits=limitUnits,
         numSingularValues=numSingularValues,
@@ -162,37 +162,26 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
     return sumFID
 
 
-def hlsvd_report(inFID,
-                 outFID,
+def hlsvd_report(in_mrs,
+                 out_mrs,
                  limits,
-                 bw,
-                 cf,
-                 nucleus='1H',
                  limitUnits='ppm',
                  plotlim=(0.2, 6),
                  html=None):
     """
     Generate hlsvd report
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID)
-    plotDiff = toMRSobj(outFID - inFID)
+    plotDiff = FIDtoMRSobj(out_mrs.FID - in_mrs.FID, in_mrs._axes_obj)
 
     if limitUnits.lower() == 'ppm':
         limits = np.array(limits) + H2O_PPM_TO_TMS
     elif limitUnits.lower() == 'ppm+shift':
         pass
     elif limitUnits.lower() == 'hz':
-        limits = (np.array(limits) / (plotIn.centralFrequency / 1E6)) + \
+        limits = (np.array(limits) / (in_mrs.centralFrequency / 1E6)) + \
             H2O_PPM_TO_TMS
     else:
         raise ValueError('limitUnits should be one of: ppm, ppm+shift or hz.')
@@ -212,9 +201,9 @@ def hlsvd_report(inFID,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, plotlim, 'Uncorrected', lines['in'])
-    fig = addline(fig, plotIn, limits, 'Limits', lines['emph'])
-    fig = addline(fig, plotOut, plotlim, 'Corrected', lines['out'])
+    fig = addline(fig, in_mrs, plotlim, 'Uncorrected', lines['in'])
+    fig = addline(fig, in_mrs, limits, 'Limits', lines['emph'])
+    fig = addline(fig, out_mrs, plotlim, 'Corrected', lines['out'])
     fig = addline(fig, plotDiff, plotlim, 'Difference', lines['diff'])
 
     # Axes layout

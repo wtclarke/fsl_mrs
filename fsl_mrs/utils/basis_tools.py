@@ -8,6 +8,7 @@ Copyright (C) 2021 University of Oxford
 from pathlib import Path
 
 import numpy as np
+from nifti_mrs.axes import Axes
 
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.core import MRS
@@ -306,13 +307,17 @@ def difference_basis_sets(basis_1, basis_2, add_or_subtract='add', missing_metab
 
 
 def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
+    axes = Axes(
+        ResonantNucleus='1H',
+        SpectrometerFrequency=basis.cf,
+        dwelltime=basis.original_dwell,
+        npoints=basis.original_basis_array.shape[0])
 
     def removal_func(fid):
         if use_hlsvd:
             return hlsvd(
                 fid,
-                basis.original_dwell,
-                basis.cf * 1E6,
+                axes,
                 limits,
                 limitUnits='ppm+shift',
                 numSingularValues=5,
@@ -320,8 +325,7 @@ def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
         else:
             return zero_spectrum(
                 fid,
-                basis.original_dwell,
-                basis.cf * 1E6,
+                axes,
                 limits,
                 limitUnits='ppmshift')
 

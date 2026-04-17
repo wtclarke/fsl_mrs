@@ -210,11 +210,8 @@ def combine_FIDs(FIDlist, method, do_prewhiten=False, do_dephase=False, weights=
             "Should be either 'mean', 'svd', 'svd_weights', or 'weighted'.")
 
 
-def combine_FIDs_report(inFIDs,
-                        outFID,
-                        bw,
-                        cf,
-                        nucleus='1H',
+def combine_FIDs_report(in_mrs,
+                        out_mrs,
                         ncha=2,
                         ppmlim=(0.0, 6.0),
                         method='not specified',
@@ -224,43 +221,39 @@ def combine_FIDs_report(inFIDs,
 
     If uncombined data it will display ncha channels (default 2).
     """
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
     from matplotlib.pyplot import cm
-
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
 
     # Assemble data to plot
     toPlotIn = []
     colourVecIn = []
     legendIn = []
-    if isinstance(inFIDs, list):
-        for idx, fid in enumerate(inFIDs):
-            if inFIDs[0].ndim > 1 and dim == 'DIM_COIL':
-                toPlotIn.extend([toMRSobj(f) for f in fid[:, :ncha].T])
-                colourVecIn.extend([idx / len(inFIDs)] * ncha)
+    if isinstance(in_mrs, list):
+        for idx, mrs in enumerate(in_mrs):
+            if isinstance(in_mrs[0], list) and dim == 'DIM_COIL':
+                toPlotIn.extend(mrs[:ncha])
+                colourVecIn.extend([idx / len(in_mrs)] * ncha)
                 legendIn.extend([f'FID #{idx}: CHA #{jdx}' for jdx in range(ncha)])
             else:
-                toPlotIn.append(toMRSobj(fid))
-                colourVecIn.append(idx / len(inFIDs))
+                toPlotIn.append(mrs)
+                colourVecIn.append(idx / len(in_mrs))
                 legendIn.append(f'FID #{idx}')
     else:
-        toPlotIn.extend([toMRSobj(f) for f in inFIDs[:, :ncha].T])
+        toPlotIn.extend(in_mrs[:ncha])
         colourVecIn.extend([float(jdx) / ncha for jdx in range(ncha)])
-        if inFIDs.ndim > 1 and dim == 'DIM_COIL':
+        if dim == 'DIM_COIL':
             legendIn.extend([f'FID #0: CHA #{jdx}' for jdx in range(ncha)])
-        elif inFIDs.ndim > 1:
+        else:
             legendIn.extend([f'FID #{jdx}' for jdx in range(ncha)])
 
     toPlotOut = []
     legendOut = []
-    if outFID.ndim > 1:
-        toPlotOut.extend([toMRSobj(f) for f in outFID[:, :ncha].T])
+    if isinstance(out_mrs, list):
+        toPlotOut.extend(out_mrs[:ncha])
         legendOut.extend([f'Combined: CHA #{jdx}' for jdx in range(ncha)])
     else:
-        toPlotOut.append(toMRSobj(outFID))
+        toPlotOut.append(out_mrs)
         legendOut.append('Combined')
 
     def addline(fig, mrs, lim, name, linestyle):

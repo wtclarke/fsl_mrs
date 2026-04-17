@@ -118,20 +118,13 @@ def align_by_dynamic_fit_report(indata, aligned_data, eps, phi, ppmlim=(0.0, 4.2
     :rtype: tuple
     """
 
-    inFIDs = np.asarray([mrs.FID for mrs in indata.mrs()])
-    outFIDs = np.asarray([mrs.FID for mrs in aligned_data.mrs()])
-
-    bw = indata.bandwidth
-    cf = indata.spectrometer_frequency[0] * 1E6
-    nucleus = indata.nucleus[0]
+    in_mrs = indata.mrs()
+    out_mrs = aligned_data.mrs()
 
     return phase_freq_align_report(
-        inFIDs,
-        outFIDs,
+        in_mrs,
+        out_mrs,
         phi,
         eps,
-        bw,
-        cf,
-        nucleus=nucleus,
         ppmlim=ppmlim,
         html=html)
