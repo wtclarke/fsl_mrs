@@ -110,9 +110,9 @@ def shiftToRef(FID, target, axes, ppmlim=(2.8, 3.2), shift=True):
 
     maxIndex = np.argmax(np.abs(spec))
     shiftAmount = extractedAxis[maxIndex] - target
-    shiftAmountHz = shiftAmount * axes.centralFrequency / 1E6
+    shiftAmountHz = shiftAmount * pad_mrs.centralFrequency / 1E6
 
-    return freqshift(FID, axes.dwellTime, -shiftAmountHz), shiftAmount
+    return freqshift(FID, pad_mrs.dwellTime, -shiftAmountHz), shiftAmount
 
 
 def truncate(FID, k, first_or_last='last'):

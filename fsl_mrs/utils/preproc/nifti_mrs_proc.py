@@ -683,9 +683,10 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
+            from copy import copy
 
             axes = Axes.from_nifti_mrs(data)
-            shifted_axes = axes.copy()
+            shifted_axes = copy(axes)
             shifted_axes._dwelltime = newDT
             fig = shift_report(FIDtoMRSobj(dd, axes),
                                FIDtoMRSobj(shifted_obj[idx], shifted_axes),

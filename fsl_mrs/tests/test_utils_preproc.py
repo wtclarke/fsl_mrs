@@ -8,6 +8,7 @@ import fsl_mrs.utils.preproc as preproc
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.core import MRS
+from nifti_mrs.axes import Axes
 import numpy as np
 
 
@@ -227,10 +228,14 @@ def test_remove():
         damping=[3, 3])
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 
+    axes = Axes(ResonantNucleus='1H',
+                SpectrometerFrequency=testHdrs['centralFrequency'],
+                dwelltime=testHdrs['dwelltime'],
+                npoints=testFIDs[0].size)
+
     removedFID = preproc.zero_spectrum(
         testFIDs[0],
-        testHdrs['dwelltime'],
-        testHdrs['centralFrequency'],
+        axes,
         limits,
         limitUnits='ppm')
 
@@ -247,9 +252,12 @@ def test_hlsvd():
     limits = [-2.5, -1.5]
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 
+    axes = Axes(ResonantNucleus=None,
+            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+            dwelltime=testHdrs['dwelltime'])
+
     removedFID = preproc.hlsvd(testFIDs[0],
-                               testHdrs['dwelltime'],
-                               testHdrs['centralFrequency'],
+                               axes,
                                limits,
                                limitUnits='ppm',
                                numSingularValues=20)
@@ -267,9 +275,12 @@ def test_model_fid_hlsvd():
 
     limits = [-1.5, 1.5]
 
+    axes = Axes(ResonantNucleus=None,
+            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+            dwelltime=testHdrs['dwelltime'])
+
     modelledFID = preproc.model_fid_hlsvd(testFIDs[0],
-                                          testHdrs['dwelltime'],
-                                          testHdrs['centralFrequency'],
+                                          axes,
                                           limits,
                                           limitUnits='ppm',
                                           numSingularValues=5)
@@ -303,9 +314,12 @@ def test_phaseCorrect():
                                           phase=[np.pi / 2],
                                           noisecovariance=[[1E-5]])
 
+    axes = Axes(ResonantNucleus=None,
+            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+            dwelltime=testHdrs['dwelltime'])
+    
     corrected, phs, pos = preproc.phaseCorrect(testFIDs[0],
-                                               testHdrs['bandwidth'],
-                                               testHdrs['centralFrequency'],
+                                               axes,
                                                ppmlim=(-0.5, 0.5),
                                                shift=False)
     assert np.isclose(phs, -np.pi / 2, atol=1E-2)
@@ -364,10 +378,13 @@ def test_shiftToRef():
     testFIDs, testHdrs = syn.syntheticFID(
         amplitude=[1, 0], chemicalshift=[-2.1, 0], phase=[0, 0], points=1024, noisecovariance=[[1E-3]])
 
+    axes = Axes(ResonantNucleus=None,
+                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                dwelltime=testHdrs['dwelltime'])
+
     shiftFID, _ = preproc.shiftToRef(testFIDs[0],
                                      -2.0,
-                                     testHdrs['bandwidth'],
-                                     testHdrs['centralFrequency'],
+                                     axes,
                                      ppmlim=(-2.2, -2.0),
                                      shift=False)
 
