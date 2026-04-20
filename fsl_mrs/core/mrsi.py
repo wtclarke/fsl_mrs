@@ -22,7 +22,8 @@ class MRSI():
     def __init__(self, FID, header=None,
                  cf=None, bw=None, nucleus='1H',
                  mask=None, basis=None, names=None,
-                 basis_hdr=None, H2O=None):
+                 basis_hdr=None, H2O=None, axes=None,
+                 chemShift=None, RxOffset=0.0):
 
         # process H2O
         if H2O is None:
@@ -40,6 +41,10 @@ class MRSI():
 
         if header is not None:
             self.header = header
+        elif axes is not None:
+            self.header = {'centralFrequency': axes.SpectrometerFrequency * 1E6,
+                           'bandwidth': axes.SpectralWidth,
+                           'ResonantNucleus': axes.ResonantNucleus}
         elif cf is not None\
                 and bw is not None:
             self.header = {'centralFrequency': cf,
@@ -47,6 +52,17 @@ class MRSI():
                            'ResonantNucleus': nucleus}
         else:
             raise ValueError('Either header or cf and bw must not be None.')
+
+        # Set Axes info
+        self._axes_obj = axes
+        if self._axes_obj is None:
+            from nifti_mrs.axes import Axes
+            self._axes_obj = Axes(ResonantNucleus=self.header['ResonantNucleus'],
+                                  SpectrometerFrequency=self.header['centralFrequency']/1E6,
+                                  dwelltime=1/self.header['bandwidth'],
+                                  SpecFreqChemShift=chemShift,
+                                  RxOffset=RxOffset,
+                                  npoints=self.data.shape[3])
 
         # Basis
         if basis is not None:
@@ -158,7 +174,10 @@ class MRSI():
                 mrs_out = MRS(FID=self.data[idx],
                               header=self.header,
                               basis=self._basis,
-                              H2O=self.H2O[idx])
+                              H2O=self.H2O[idx],
+                              axes=self._axes_obj,
+                              chemShift=self.SpecFreqChemShift,
+                              RxOffset=self.RxOffset)
 
                 self._process_mrs(mrs_out)
                 self._store_scalings.append(mrs_out.scaling)
@@ -203,7 +222,10 @@ class MRSI():
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
                       basis=self._basis,
-                      H2O=H2O)
+                      H2O=H2O,
+                      axes=self._axes_obj,
+                      chemShift=self.SpecFreqChemShift,
+                      RxOffset=self.RxOffset)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -223,7 +245,10 @@ class MRSI():
         mrs_out = MRS(FID=FID,
                       header=self.header,
                       basis=self._basis,
-                      H2O=H2O)
+                      H2O=H2O,
+                      axes=self._axes_obj,
+                      chemShift=self.SpecFreqChemShift,
+                      RxOffset=self.RxOffset)
         self._process_mrs(mrs_out)
         return mrs_out
 

@@ -20,13 +20,11 @@ from fsl_mrs.utils.fitting import fit_FSLModel
 import numpy as np
 
 
-def FIDtoMRSobj(fid, ref_axes):
+def FIDtoMRSobj(fid, axes):
     """Construct an MRS object for fid using acquisition params from ref_mrs."""
     return MRS(
         FID=fid,
-        cf=ref_axes.SpectrometerFrequency * 1E6,
-        bw=ref_axes.SpectralWidth,
-        nucleus=ref_axes.ResonantNucleus)
+        axes=axes)
 
 
 class MRS():
@@ -34,8 +32,9 @@ class MRS():
       MRS Class - The basic unit for fitting. Encapsulates a single spectrum, the basis spectra,
       and water reference information required to carry out fitting.
     """
-    def __init__(self, FID=None, header=None, basis=None, names=None,
-                 basis_hdr=None, H2O=None, cf=None, bw=None, nucleus=None):
+    def __init__(self, FID=None, header=None, basis=None, names=None, basis_hdr=None,
+                 axes=None, H2O=None, cf=None, bw=None, nucleus=None, chemShift=None,
+                 RxOffset=0.0):
         """Main init for the MRS class
 
         :param FID: [description], defaults to None
@@ -48,6 +47,8 @@ class MRS():
         :type names: [type], optional
         :param basis_hdr: [description], defaults to None
         :type basis_hdr: [type], optional
+        :param axes: [description], defaults to None
+        :type axes: [type], optional
         :param H2O: [description], defaults to None
         :type H2O: [type], optional
         :param cf: [description], defaults to None
@@ -56,6 +57,10 @@ class MRS():
         :type bw: [type], optional
         :param nucleus: [description], defaults to None
         :type nucleus: [type], optional
+        :param chemShift: [description], defaults to None
+        :type chemShift: [type], optional
+        :param RxOffset: [description], defaults to 0.0
+        :type RxOffset: [type], optional
         :raises ValueError: [description]
         :raises TypeError: [description]
         """
@@ -68,7 +73,6 @@ class MRS():
         self._conj_fid = False
         self._scaling_factor = None
         self._indept_scale = []
-        self._axes_obj = None
 
         # Read in class data input
         self.FID = FID
@@ -79,23 +83,40 @@ class MRS():
             self.set_acquisition_params(
                 header['centralFrequency'],
                 header['bandwidth'])
-
             self.set_nucleus(header=header, nucleus=nucleus)
-            self._calculate_axes()
+
+        elif axes is not None:
+            self.set_acquisition_params(
+                axes.SpectrometerFrequency * 1E6,
+                axes.SpectralWidth)
+            self.set_nucleus(nucleus=axes.ResonantNucleus)
 
         elif (cf is not None) and (bw is not None):
             self.set_acquisition_params(
                 cf,
                 bw)
             self.set_nucleus(nucleus=nucleus)
-            self._calculate_axes()
         else:
-            raise ValueError('You must pass a header'
-                             ' or bandwidth, nucleus, and central frequency.')
+            raise ValueError('You must pass a header or axes object,'
+                             ' or bandwidth & nucleus & central frequency.')
+
+        # Set Axes info
+        self._axes_obj = axes
+        if self._axes_obj is None:
+            from nifti_mrs.axes import Axes
+            if chemShift is None:
+                chemShift = self.default_ppm_shift
+            self._axes_obj = Axes(ResonantNucleus=self.nucleus,
+                                  SpectrometerFrequency=self.centralFrequency/1E6,
+                                  dwelltime=self.dwellTime,
+                                  SpecFreqChemShift=chemShift,
+                                  RxOffset=RxOffset,
+                                  npoints=self.numPoints)
+        self._calculate_axes()
 
         # Set Basis info
         # After refactor still handle the old syntax of basis, names, headers
-        # But also handle a Basis obejct
+        # But also handle a Basis object
         if basis is not None:
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
@@ -110,6 +131,7 @@ class MRS():
         cf_MHz = self.centralFrequency / 1e6
         cf_T = self.centralFrequency / self.gyromagnetic_ratio / 1e6
 
+        # TODO update this with the new attributes
         out = '------- MRS Object ---------\n'
         out += f'     FID.shape             = {self.FID.shape}\n'
         out += f'     FID.centralFreq (MHz) = {cf_MHz:0.3f}\n'
@@ -409,32 +431,25 @@ class MRS():
         if self._axes_obj is None:
             raise AttributeError("'Axes' object is not created for this MRS object.")
         if axis.lower() == 'ppmshift':
-            # first, last = self.ppmlim_to_range(ppmlim, shift=True)
-            # return np.squeeze(self.ppmAxisShift[first:last])
             return np.squeeze(self.ppmAxisShift[self._axes_obj.ppmShiftIndices(limits)])
         elif axis.lower() == 'ppm':
-            # first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            # return np.squeeze(self.ppmAxis[first:last])
             return np.squeeze(self.ppmAxis[self._axes_obj.ppmIndices(limits)])
         elif axis.lower() == 'freq':
-            # first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            # return np.squeeze(self.frequencyAxis[first:last])
             return np.squeeze(self.frequencyAxis[self._axes_obj.frequencyIndices(limits)])
         elif axis.lower() == 'time':
-            # return np.squeeze(self.timeAxis)
             return np.squeeze(self.timeAxis[self._axes_obj.timeIndices(limits)])
         else:
             raise ValueError('axis must be one of ppmshift, '
                              'ppm, freq or time.')
 
-    # Initilisation/setting methods
+    # Initialisation/setting methods
     def set_acquisition_params(self, centralFrequency, bandwidth):
         """
           Set useful params for fitting
 
           Parameters
           ----------
-          centralFrequency : float  (unit=Hz)
+          centralFrequency : float (unit=Hz)
           bandwidth : float (unit=Hz)
 
         """
@@ -503,27 +518,12 @@ class MRS():
                          f' central frequency is {cf_MHz} MHz.'
                          'Pass nucleus parameter explicitly.')
 
-    def _create_axes_object(self):
-        from nifti_mrs.axes import Axes
-        self._axes_obj = Axes(ResonantNucleus=self.nucleus,
-                              SpectrometerFrequency=self.centralFrequency/1E6,
-                              dwelltime=self.dwellTime,
-                              SpecFreqChemShift=self.default_ppm_shift,
-                              RxOffset=self.RxOffset,
-                              npoints=self.numPoints)
-
     def _calculate_axes(self):
         ''' Calculate axes'''
-        self._create_axes_object()
-        # axes = misc.calculateAxes(self.bandwidth,
-        #                           self.centralFrequency,
-        #                           self.numPoints,
-        #                           self.default_ppm_shift)
-
-        self.timeAxis = self._axes_obj.timeAxis  # ['time']
-        self.frequencyAxis = self._axes_obj.frequencyAxis  # ['freq']
-        self.ppmAxis = self._axes_obj.ppmAxis  # ['ppm']
-        self.ppmAxisShift = self._axes_obj.ppmAxisShift  # ['ppmshift']
+        self.timeAxis = self._axes_obj.timeAxis
+        self.frequencyAxis = self._axes_obj.frequencyAxis
+        self.ppmAxis = self._axes_obj.ppmAxis
+        self.ppmAxisShift = self._axes_obj.ppmAxisShift
 
         # turn into column vectors
         self.timeAxis = self.timeAxis[:, None]

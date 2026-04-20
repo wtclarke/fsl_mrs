@@ -253,8 +253,8 @@ def test_hlsvd():
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 
     axes = Axes(ResonantNucleus=None,
-            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
-            dwelltime=testHdrs['dwelltime'])
+                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                dwelltime=testHdrs['dwelltime'])
 
     removedFID = preproc.hlsvd(testFIDs[0],
                                axes,
@@ -276,8 +276,8 @@ def test_model_fid_hlsvd():
     limits = [-1.5, 1.5]
 
     axes = Axes(ResonantNucleus=None,
-            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
-            dwelltime=testHdrs['dwelltime'])
+                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                dwelltime=testHdrs['dwelltime'])
 
     modelledFID = preproc.model_fid_hlsvd(testFIDs[0],
                                           axes,
@@ -315,9 +315,9 @@ def test_phaseCorrect():
                                           noisecovariance=[[1E-5]])
 
     axes = Axes(ResonantNucleus=None,
-            SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
-            dwelltime=testHdrs['dwelltime'])
-    
+                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                dwelltime=testHdrs['dwelltime'])
+
     corrected, phs, pos = preproc.phaseCorrect(testFIDs[0],
                                                axes,
                                                ppmlim=(-0.5, 0.5),
