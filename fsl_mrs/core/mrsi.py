@@ -175,9 +175,7 @@ class MRSI():
                               header=self.header,
                               basis=self._basis,
                               H2O=self.H2O[idx],
-                              axes=self._axes_obj,
-                              chemShift=self.SpecFreqChemShift,
-                              RxOffset=self.RxOffset)
+                              axes=self._axes_obj)
 
                 self._process_mrs(mrs_out)
                 self._store_scalings.append(mrs_out.scaling)
@@ -223,9 +221,7 @@ class MRSI():
                       header=self.header,
                       basis=self._basis,
                       H2O=H2O,
-                      axes=self._axes_obj,
-                      chemShift=self.SpecFreqChemShift,
-                      RxOffset=self.RxOffset)
+                      axes=self._axes_obj)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -246,9 +242,7 @@ class MRSI():
                       header=self.header,
                       basis=self._basis,
                       H2O=H2O,
-                      axes=self._axes_obj,
-                      chemShift=self.SpecFreqChemShift,
-                      RxOffset=self.RxOffset)
+                      axes=self._axes_obj)
         self._process_mrs(mrs_out)
         return mrs_out
 

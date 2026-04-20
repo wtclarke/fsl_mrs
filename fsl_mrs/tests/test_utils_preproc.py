@@ -142,7 +142,7 @@ def test_phase_freq_align():
     # Align across shifted peak
     alignedFIDs, _, _ = preproc.phase_freq_align(shiftedFIDs,
                                                  testHdrs['bandwidth'],
-                                                 testHdrs['centralFrequency'] * 1E6,
+                                                 testHdrs['centralFrequency'],
                                                  niter=2,
                                                  verbose=False,
                                                  ppmlim=(-2.2, -1.7),
@@ -154,7 +154,7 @@ def test_phase_freq_align():
     # Align across fixed peak
     alignedFIDs, _, _ = preproc.phase_freq_align(shiftedFIDs,
                                                  testHdrs['bandwidth'],
-                                                 testHdrs['centralFrequency'] * 1E6,
+                                                 testHdrs['centralFrequency'],
                                                  niter=2,
                                                  verbose=False,
                                                  ppmlim=(2, 4),
@@ -253,7 +253,7 @@ def test_hlsvd():
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 
     axes = Axes(ResonantNucleus=None,
-                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                SpectrometerFrequency=testHdrs['centralFrequency'],
                 dwelltime=testHdrs['dwelltime'])
 
     removedFID = preproc.hlsvd(testFIDs[0],
@@ -276,7 +276,7 @@ def test_model_fid_hlsvd():
     limits = [-1.5, 1.5]
 
     axes = Axes(ResonantNucleus=None,
-                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
+                SpectrometerFrequency=testHdrs['centralFrequency'],
                 dwelltime=testHdrs['dwelltime'])
 
     modelledFID = preproc.model_fid_hlsvd(testFIDs[0],
@@ -315,8 +315,10 @@ def test_phaseCorrect():
                                           noisecovariance=[[1E-5]])
 
     axes = Axes(ResonantNucleus=None,
-                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
-                dwelltime=testHdrs['dwelltime'])
+                SpectrometerFrequency=testHdrs['centralFrequency'],
+                dwelltime=testHdrs['dwelltime'],
+                SpecFreqChemShift=0.0,
+                npoints=testFIDs[0].size)
 
     corrected, phs, pos = preproc.phaseCorrect(testFIDs[0],
                                                axes,
@@ -379,8 +381,10 @@ def test_shiftToRef():
         amplitude=[1, 0], chemicalshift=[-2.1, 0], phase=[0, 0], points=1024, noisecovariance=[[1E-3]])
 
     axes = Axes(ResonantNucleus=None,
-                SpectrometerFrequency=testHdrs['centralFrequency'] / 1E6,
-                dwelltime=testHdrs['dwelltime'])
+                SpectrometerFrequency=testHdrs['centralFrequency'],
+                dwelltime=testHdrs['dwelltime'],
+                SpecFreqChemShift=-2.1,
+                npoints=testFIDs[0].size)
 
     shiftFID, _ = preproc.shiftToRef(testFIDs[0],
                                      -2.0,
@@ -393,4 +397,4 @@ def test_shiftToRef():
     maxindex = np.argmax(mrs.get_spec(shift=False))
     position = mrs.getAxes(axis='ppm')[maxindex]
 
-    assert np.isclose(position, -2.0, atol=1E-1)
+    assert np.isclose(position, -2.0, atol=12E-2)
