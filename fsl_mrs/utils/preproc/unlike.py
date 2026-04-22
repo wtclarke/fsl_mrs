@@ -5,8 +5,8 @@
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
 
-from fsl_mrs.core import FIDtoMRSobj
 import numpy as np
+from fsl_mrs.core import MRS
 from fsl_mrs.utils.preproc.general import get_target_FID
 from fsl_mrs.utils.misc import extract_spectrum, FIDToSpec
 
@@ -100,15 +100,15 @@ def identifyUnlikeFIDs_report(goodFIDs,
 
     for idx in gdIndex:
         fid = goodFIDs[idx]
-        plotGood.append(FIDtoMRSobj(fid, ref_axes))
+        plotGood.append(MRS.from_axes(fid, ref_axes))
         gdLegend.append(f'Kept (SD={metricGd_SD[idx]:0.2f})')
     for idx in bdIndex:
         fid = badFIDs[idx]
-        plotBad.append(FIDtoMRSobj(fid, ref_axes))
+        plotBad.append(MRS.from_axes(fid, ref_axes))
         bdLegend.append(f'Removed (SD={metricBd_SD[idx]:0.2f})')
 
     target = get_target_FID(goodFIDs, target='median')
-    tgtmrs = FIDtoMRSobj(target, ref_axes)
+    tgtmrs = MRS.from_axes(target, ref_axes)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()

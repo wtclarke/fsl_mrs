@@ -16,15 +16,9 @@ from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import nucleus_constants, GYRO_MAG_RATIO
 from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
+from nifti_mrs.axes import Axes
 
 import numpy as np
-
-
-def FIDtoMRSobj(fid, axes):
-    """Construct an MRS object for fid using acquisition params from ref_mrs."""
-    return MRS(
-        FID=fid,
-        axes=axes)
 
 
 class MRS():
@@ -103,7 +97,6 @@ class MRS():
         # Set Axes info
         self._axes_obj = axes
         if self._axes_obj is None:
-            from nifti_mrs.axes import Axes
             if chemShift is None:
                 chemShift = self.default_ppm_shift
             self._axes_obj = Axes(ResonantNucleus=self.nucleus,
@@ -152,6 +145,16 @@ class MRS():
     def __repr__(self) -> str:
         return str(self)
 
+    @classmethod
+    def from_axes(cls, fid: np.typing.NDArray[np.complex64], axes: Axes,
+                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None):
+        """Construct an MRS object for fid using acquisition params from ref_mrs."""
+        return MRS(
+            FID=fid,
+            axes=axes,
+            basis=basis,
+            H2O=H2O)
+
     # Properties
     @property
     def FID(self):
@@ -171,6 +174,10 @@ class MRS():
                              f' FID shape is {FID.shape}.')
         self._FID = FID.copy()
         self._fid_scaling = 1.0
+
+    @property
+    def axes(self):
+        return self._axes_obj
 
     @property
     def numPoints(self):
@@ -403,7 +410,7 @@ class MRS():
                 'basis': self.basis_scaling[0]}
 
     # Get methods
-    def get_spec(self, ppmlim=None, shift=True):
+    def get_spec(self, ppmlim: tuple = None, shift=True):
         """Returns spectrum over defined ppm limits
 
         :param ppmlim: Chemical shift range over which to retun the spectrum, defaults to None
@@ -417,6 +424,7 @@ class MRS():
         first, last = self.ppmlim_to_range(ppmlim, shift=shift)
         return spectrum[first:last]
 
+    # TODO add new methods that call getAxes with correct 'axis' and limits
     def getAxes(self, axis='ppmshift', limits=None):
         """Return x axis over defined limits
         Options: ppmshift, ppm, freq, or time
@@ -428,16 +436,16 @@ class MRS():
         :return: Returns the requested axis as numpy array
         :rtype: numpy.array
         """
-        if self._axes_obj is None:
+        if self.axes is None:
             raise AttributeError("'Axes' object is not created for this MRS object.")
         if axis.lower() == 'ppmshift':
-            return np.squeeze(self.ppmAxisShift[self._axes_obj.ppmShiftIndices(limits)])
+            return np.squeeze(self.ppmAxisShift[self.axes.ppmShiftIndices(limits)])
         elif axis.lower() == 'ppm':
-            return np.squeeze(self.ppmAxis[self._axes_obj.ppmIndices(limits)])
+            return np.squeeze(self.ppmAxis[self.axes.ppmIndices(limits)])
         elif axis.lower() == 'freq':
-            return np.squeeze(self.frequencyAxis[self._axes_obj.frequencyIndices(limits)])
+            return np.squeeze(self.frequencyAxis[self.axes.frequencyIndices(limits)])
         elif axis.lower() == 'time':
-            return np.squeeze(self.timeAxis[self._axes_obj.timeIndices(limits)])
+            return np.squeeze(self.timeAxis[self.axes.timeIndices(limits)])
         else:
             raise ValueError('axis must be one of ppmshift, '
                              'ppm, freq or time.')
@@ -520,10 +528,10 @@ class MRS():
 
     def _calculate_axes(self):
         ''' Calculate axes'''
-        self.timeAxis = self._axes_obj.timeAxis
-        self.frequencyAxis = self._axes_obj.frequencyAxis
-        self.ppmAxis = self._axes_obj.ppmAxis
-        self.ppmAxisShift = self._axes_obj.ppmAxisShift
+        self.timeAxis = self.axes.timeAxis
+        self.frequencyAxis = self.axes.frequencyAxis
+        self.ppmAxis = self.axes.ppmAxis
+        self.ppmAxisShift = self.axes.ppmAxisShift
 
         # turn into column vectors
         self.timeAxis = self.timeAxis[:, None]
@@ -550,6 +558,7 @@ class MRS():
         from fsl_mrs.utils.misc import parse_metab_groups
         return parse_metab_groups(self, metab_grp_str)
 
+    # TODO replace this with the axes code
     def ppmlim_to_range(self, ppmlim=None, shift=True):
         """
            turns ppmlim into data range

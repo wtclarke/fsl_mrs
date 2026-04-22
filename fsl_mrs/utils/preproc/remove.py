@@ -8,10 +8,8 @@
 
 import numpy as np
 import hlsvdpropy
-from fsl_mrs.core import FIDtoMRSobj
-from fsl_mrs.utils.misc import checkCFUnits, FIDToSpec, SpecToFID
-from fsl_mrs.utils.constants import PPM_SHIFT
-H2O_PPM_TO_TMS = PPM_SHIFT['1H']
+from fsl_mrs.core import MRS
+from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
 
 
 def zero_spectrum(FID, axes, limits, limitUnits='ppmshift'):
@@ -65,8 +63,7 @@ def model_fid_hlsvd(FID, axes, limits=None,
 
     return _hlsvd(
         FID,
-        axes.dwelltime,
-        axes.SpectrometerFrequency * 1E6,
+        axes,
         limits,
         limitUnits=limitUnits,
         numSingularValues=numSingularValues)
@@ -90,8 +87,7 @@ def hlsvd(FID, axes, limits,
     """
     sumFID = _hlsvd(
         FID,
-        axes.dwelltime,
-        axes.SpectrometerFrequency * 1E6,
+        axes,
         limits,
         limitUnits=limitUnits,
         numSingularValues=numSingularValues,
@@ -100,16 +96,14 @@ def hlsvd(FID, axes, limits,
     return FID - sumFID
 
 
-def _hlsvd(FID, dwelltime, centralFrequency, limits,
+def _hlsvd(FID, axes, limits,
            limitUnits='ppm', numSingularValues=20, sparse_algo=False):
     """Run hlsvdpro on FID and return spectrum modeled by HLSVD.
 
     :param FID: Time domain data
     :type FID: numpy.array
-    :param dwelltime: dwell time in seconds
-    :type dwelltime: float
-    :param centralFrequency: Central frequency in Hz
-    :type centralFrequency: float
+    :param axes: Metadata/axes source
+    :type Axes: nifti_mrs.axes.Axes
     :param limits: Frequency/ppm limits, defaults to None
     :type limits: tuple, optional
     :param limitUnits: Axis that limits are given in. By Default
@@ -123,7 +117,7 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
     """
     m = FID.size // 2
     r = hlsvdpropy.hlsvdpro(FID, numSingularValues, m=m, sparse=sparse_algo)
-    r = hlsvdpropy.convert_hlsvd_result(r, dwelltime)
+    r = hlsvdpropy.convert_hlsvd_result(r, axes.dwelltime)
     nsv_found, singular_values, frequencies, damping_factors, amplitudes, \
         phases = r[0:6]
 
@@ -135,11 +129,9 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
 
     # Limit by frequencies
     if limitUnits.lower() == 'ppm':
-        centralFrequency = checkCFUnits(centralFrequency, units='MHz')
-        frequencylimit = np.array(limits) * centralFrequency
+        frequencylimit = np.array(limits) * axes.SpectrometerFrequency
     elif limitUnits.lower() == 'ppm+shift':
-        centralFrequency = checkCFUnits(centralFrequency, units='MHz')
-        frequencylimit = (np.array(limits) - H2O_PPM_TO_TMS) * centralFrequency
+        frequencylimit = (np.array(limits) - axes.ppmshift) * axes.SpectrometerFrequency
     elif limitUnits.lower() == 'hz':
         frequencylimit = limits
     else:
@@ -148,7 +140,8 @@ def _hlsvd(FID, dwelltime, centralFrequency, limits,
                     (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape, dtype=np.complex128)
-    timeAxis = np.linspace(0, dwelltime * (FID.size - 1), FID.size)
+    # TODO replace this with axes.timeAxis
+    timeAxis = np.linspace(0, axes.dwelltime * (FID.size - 1), FID.size)
 
     for use, f, d, a, p in zip(limitIndicies,
                                frequencies,
@@ -174,15 +167,15 @@ def hlsvd_report(in_mrs,
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    plotDiff = FIDtoMRSobj(out_mrs.FID - in_mrs.FID, in_mrs._axes_obj)
+    plotDiff = MRS.from_axes(out_mrs.FID - in_mrs.FID, in_mrs.axes)
 
     if limitUnits.lower() == 'ppm':
-        limits = np.array(limits) + H2O_PPM_TO_TMS
+        limits = np.array(limits) + in_mrs.axes.ppmshift
     elif limitUnits.lower() == 'ppm+shift':
         pass
     elif limitUnits.lower() == 'hz':
         limits = (np.array(limits) / (in_mrs.centralFrequency / 1E6)) + \
-            H2O_PPM_TO_TMS
+            in_mrs.axes.ppmshift
     else:
         raise ValueError('limitUnits should be one of: ppm, ppm+shift or hz.')
 

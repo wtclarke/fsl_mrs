@@ -10,7 +10,7 @@
 
 from fsl_mrs.utils.preproc.general import get_target_FID, add, subtract
 from fsl_mrs.utils.preproc.filtering import apodize as apod
-from fsl_mrs.core import MRS, FIDtoMRSobj
+from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum, shift_FID
 from scipy.optimize import minimize
 import numpy as np
@@ -286,8 +286,8 @@ def phase_freq_align_report(in_mrs,
     # Transpose so time dimension is first
     meanIn = combine_FIDs(inFIDs.T, 'mean')
     meanOut = combine_FIDs(outFIDs.T, 'mean')
-    meanIn = FIDtoMRSobj(meanIn, in_mrs[0]._axes_obj)
-    meanOut = FIDtoMRSobj(meanOut, out_mrs[0]._axes_obj)
+    meanIn = MRS.from_axes(meanIn, in_mrs[0].axes)
+    meanOut = MRS.from_axes(meanOut, out_mrs[0].axes)
 
     if shift:
         axis = 'ppmshift'
@@ -416,16 +416,16 @@ def phase_freq_align_diff_report(in_mrs0,
 
     meanIn = combine_FIDs(diffFIDListIn, 'mean')
     meanOut = combine_FIDs(diffFIDListOut, 'mean')
-    meanIn = FIDtoMRSobj(meanIn, in_mrs0[0]._axes_obj)
-    meanOut = FIDtoMRSobj(meanOut, out_mrs0[0]._axes_obj)
+    meanIn = MRS.from_axes(meanIn, in_mrs0[0].axes)
+    meanOut = MRS.from_axes(meanOut, out_mrs0[0].axes)
 
     if shift:
         axis = 'ppmshift'
     else:
         axis = 'ppm'
 
-    toPlotIn = [FIDtoMRSobj(fid, in_mrs0[0]._axes_obj) for fid in diffFIDListIn]
-    toPlotOut = [FIDtoMRSobj(fid, out_mrs0[0]._axes_obj) for fid in diffFIDListOut]
+    toPlotIn = [MRS.from_axes(fid, in_mrs0[0].axes) for fid in diffFIDListIn]
+    toPlotOut = [MRS.from_axes(fid, out_mrs0[0].axes) for fid in diffFIDListOut]
 
     def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),

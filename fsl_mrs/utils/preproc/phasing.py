@@ -9,8 +9,8 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.core import FIDtoMRSobj
-from fsl_mrs.utils.misc import extract_spectrum, FIDToSpec, SpecToFID
+from fsl_mrs.core import MRS
+from fsl_mrs.utils.misc import FIDToSpec, SpecToFID
 from fsl_mrs.utils.preproc.shifting import pad
 from fsl_mrs.utils.preproc.remove import hlsvd
 from fsl_mrs.utils.preproc.filtering import apodize
@@ -61,9 +61,10 @@ def phaseCorrect(FID, axes, ppmlim=(2.8, 3.2), shift=True, use_hlsvd=False):
 
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(fid_hlsvd, FID.size * 3)
-    pad_mrs = FIDtoMRSobj(padFID, axes)
-    spec = extract_spectrum(pad_mrs, padFID, ppmlim=ppmlim, shift=shift)
-
+    padAxes = axes.copy()
+    padAxes._npoints = padFID.size
+    pad_mrs = MRS.from_axes(padFID, padAxes)
+    spec = pad_mrs.get_spec(ppmlim=ppmlim, shift=shift)
     maxIndex = np.argmax(np.abs(spec))
     phaseAngle = -np.angle(spec[maxIndex])
 
@@ -106,8 +107,11 @@ def phaseCorrect_report(in_mrs,
         position = np.argmax(np.abs(in_mrs.get_spec(ppmlim=ppmlim)))
 
     # Deal with rounding errors
-    if position >= len(in_mrs.getAxes(limits=ppmlim)):
-        position = len(in_mrs.getAxes(limits=ppmlim)) - 1
+    # TODO put this back later
+    if position >= len(in_mrs.get_spec(ppmlim=ppmlim)):
+        position = len(in_mrs.get_spec(ppmlim=ppmlim)) - 1
+    # if position >= len(in_mrs.getAxes(limits=ppmlim)):
+    #     position = len(in_mrs.getAxes(limits=ppmlim)) - 1
 
     axis    = [in_mrs.getAxes(limits=ppmlim)[position]]
     y_data  = [np.real(in_mrs.get_spec(ppmlim=ppmlim))[position]]

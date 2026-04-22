@@ -254,7 +254,8 @@ def test_hlsvd():
 
     axes = Axes(ResonantNucleus=None,
                 SpectrometerFrequency=testHdrs['centralFrequency'],
-                dwelltime=testHdrs['dwelltime'])
+                dwelltime=testHdrs['dwelltime'],
+                npoints=testFIDs[0].size)
 
     removedFID = preproc.hlsvd(testFIDs[0],
                                axes,
@@ -277,7 +278,8 @@ def test_model_fid_hlsvd():
 
     axes = Axes(ResonantNucleus=None,
                 SpectrometerFrequency=testHdrs['centralFrequency'],
-                dwelltime=testHdrs['dwelltime'])
+                dwelltime=testHdrs['dwelltime'],
+                npoints=testFIDs[0].size)
 
     modelledFID = preproc.model_fid_hlsvd(testFIDs[0],
                                           axes,

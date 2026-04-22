@@ -7,7 +7,7 @@
 # SHBASECOPYRIGHT
 
 import numpy as np
-from fsl_mrs.core import FIDtoMRSobj
+from fsl_mrs.core import MRS
 from fsl_mrs.utils.misc import extract_spectrum
 
 
@@ -101,7 +101,7 @@ def shiftToRef(FID, target, axes, ppmlim=(2.8, 3.2), shift=True):
 
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(FID, FID.size * 3)
-    pad_mrs = FIDtoMRSobj(padFID, axes)
+    pad_mrs = MRS.from_axes(padFID, axes)
     spec = extract_spectrum(pad_mrs, padFID, ppmlim=ppmlim, shift=shift)
     if shift:
         extractedAxis = pad_mrs.getAxes(limits=ppmlim)

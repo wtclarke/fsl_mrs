@@ -256,6 +256,7 @@ def combine_FIDs_report(in_mrs,
         toPlotOut.append(out_mrs)
         legendOut.append('Combined')
 
+    # TODO turn this function into a util
     def addline(fig, mrs, lim, name, linestyle):
         trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),

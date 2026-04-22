@@ -6,13 +6,13 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
+
 from datetime import datetime
-
 import numpy as np
-from nifti_mrs.axes import Axes
 
+from nifti_mrs.axes import Axes
 from fsl_mrs.utils import preproc
-from fsl_mrs.core import NIFTI_MRS, FIDtoMRSobj
+from fsl_mrs.core import NIFTI_MRS, MRS
 from fsl_mrs.core import nifti_mrs as ntools
 from fsl_mrs import __version__
 from fsl_mrs.utils.misc import shift_FID
@@ -153,10 +153,10 @@ def coilcombine(
                                                     reduce_dim_index=True):
 
                 if (report_all or first_index(idx)):
-                    axes = data.mrs()[0]._axes_obj
+                    axes = data.mrs()[0].axes
                     fig = combine_FIDs_report(
-                        [FIDtoMRSobj(fid, axes) for fid in main.T],
-                        FIDtoMRSobj(combinedc_obj[idx], axes),
+                        [MRS.from_axes(fid, axes) for fid in main.T],
+                        MRS.from_axes(combinedc_obj[idx], axes),
                         ncha=data.shape[data.dim_position('DIM_COIL')],
                         ppmlim=(0.0, 6.0),
                         method='svd',
@@ -182,10 +182,10 @@ def coilcombine(
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            axes = data.mrs()[0]._axes_obj
+            axes = data.mrs()[0].axes
             fig = combine_FIDs_report(
-                [FIDtoMRSobj(fid, axes) for fid in main.T],
-                FIDtoMRSobj(combinedc_obj[idx], axes),
+                [MRS.from_axes(fid, axes) for fid in main.T],
+                MRS.from_axes(combinedc_obj[idx], axes),
                 ncha=data.shape[data.dim_position('DIM_COIL')],
                 ppmlim=(0.0, 6.0),
                 method='svd',
@@ -235,9 +235,9 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            axes = data.mrs()[0]._axes_obj
-            fig = combine_FIDs_report([FIDtoMRSobj(fid, axes) for fid in dd.T],
-                                      FIDtoMRSobj(combined_obj[idx], axes),
+            axes = data.mrs()[0].axes
+            fig = combine_FIDs_report([MRS.from_axes(fid, axes) for fid in dd.T],
+                                      MRS.from_axes(combined_obj[idx], axes),
                                       ncha=data.shape[data.dim_position(dim)],
                                       ppmlim=(0.0, 6.0),
                                       method=f'Mean along dim = {dim}',
@@ -399,8 +399,8 @@ def align(
             else:
                 output_for_report = aligned_obj[idx]
             axes = Axes.from_nifti_mrs(data)
-            in_mrs = [FIDtoMRSobj(fid, axes) for fid in dd.T]
-            out_mrs = [FIDtoMRSobj(fid, axes) for fid in output_for_report.T]
+            in_mrs = [MRS.from_axes(fid, axes) for fid in dd.T]
+            out_mrs = [MRS.from_axes(fid, axes) for fid in output_for_report.T]
             fig = phase_freq_align_report(in_mrs,
                                           out_mrs,
                                           phi,
@@ -484,10 +484,10 @@ def aligndiff(data,
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report
             axes = Axes.from_nifti_mrs(data)
-            in_mrs0 = [FIDtoMRSobj(fid, axes) for fid in d0.T]
-            in_mrs1 = [FIDtoMRSobj(fid, axes) for fid in d1.T]
-            out_mrs0 = [FIDtoMRSobj(fid, axes) for fid in aligned_obj[idx].T]
-            out_mrs1 = [FIDtoMRSobj(fid, axes) for fid in d1.T]
+            in_mrs0 = [MRS.from_axes(fid, axes) for fid in d0.T]
+            in_mrs1 = [MRS.from_axes(fid, axes) for fid in d1.T]
+            out_mrs0 = [MRS.from_axes(fid, axes) for fid in aligned_obj[idx].T]
+            out_mrs1 = [MRS.from_axes(fid, axes) for fid in d1.T]
             fig = phase_freq_align_diff_report(in_mrs0,
                                                in_mrs1,
                                                out_mrs0,
@@ -548,9 +548,9 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.eddycorrect import eddy_correct_report
             axes = Axes.from_nifti_mrs(data)
-            fig = eddy_correct_report(FIDtoMRSobj(dd, axes),
-                                      FIDtoMRSobj(corrected_obj[idx], axes),
-                                      FIDtoMRSobj(ref, axes),
+            fig = eddy_correct_report(MRS.from_axes(dd, axes),
+                                      MRS.from_axes(corrected_obj[idx], axes),
+                                      MRS.from_axes(ref, axes),
                                       html=report)
             if figure:
                 for ff in fig:
@@ -588,8 +588,8 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
             axes = Axes.from_nifti_mrs(data)
-            fig = hlsvd_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(corrected_obj[idx], axes),
+            fig = hlsvd_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(corrected_obj[idx], axes),
                                limits,
                                limitUnits=limit_units,
                                html=report)
@@ -633,8 +633,8 @@ def hlsvd_model_peaks(data, limits,
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
             axes = Axes.from_nifti_mrs(data)
-            fig = hlsvd_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(corrected_obj[idx], axes),
+            fig = hlsvd_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(corrected_obj[idx], axes),
                                limits,
                                limitUnits=limit_units,
                                html=report)
@@ -683,13 +683,12 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            from copy import copy
 
             axes = Axes.from_nifti_mrs(data)
-            shifted_axes = copy(axes)
+            shifted_axes = axes.copy()
             shifted_axes._dwelltime = newDT
-            fig = shift_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(shifted_obj[idx], shifted_axes),
+            fig = shift_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(shifted_obj[idx], shifted_axes),
                                html=report,
                                function='timeshift')
             if figure:
@@ -744,8 +743,8 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
             axes = Axes.from_nifti_mrs(data)
-            fig = shift_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(trunc_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(trunc_obj[idx], axes),
                                html=report,
                                function=rep_func)
             if figure:
@@ -784,8 +783,8 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.filtering import apodize_report
             axes = Axes.from_nifti_mrs(data)
-            fig = apodize_report(FIDtoMRSobj(dd, axes),
-                                 FIDtoMRSobj(apod_obj[idx], axes),
+            fig = apodize_report(MRS.from_axes(dd, axes),
+                                 MRS.from_axes(apod_obj[idx], axes),
                                  html=report)
             if figure:
                 fig.show()
@@ -837,8 +836,8 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
             axes = Axes.from_nifti_mrs(data)
-            fig = shift_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(shift_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(shift_obj[idx], axes),
                                html=report,
                                function='freqshift')
             if figure:
@@ -905,8 +904,8 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
             axes = Axes.from_nifti_mrs(data)
-            fig = shift_report(FIDtoMRSobj(dd, axes),
-                               FIDtoMRSobj(shift_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, axes),
+                               MRS.from_axes(shift_obj[idx], axes),
                                html=report,
                                function='shiftToRef')
             if figure:
@@ -955,7 +954,7 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
                                         gIndicies,
                                         bIndicies,
                                         metric,
-                                        data.mrs()[0]._axes_obj,
+                                        data.mrs()[0].axes,
                                         ppmlim=ppmlim,
                                         sdlimit=sdlimit,
                                         html=report)
@@ -1049,8 +1048,8 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
             axes = Axes.from_nifti_mrs(data)
-            fig = phaseCorrect_report(FIDtoMRSobj(dd, axes),
-                                      FIDtoMRSobj(phs_obj[idx], axes),
+            fig = phaseCorrect_report(MRS.from_axes(dd, axes),
+                                      MRS.from_axes(phs_obj[idx], axes),
                                       pos,
                                       ppmlim=ppmlim,
                                       html=report)
@@ -1111,8 +1110,8 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.general import generic_report
             axes = Axes.from_nifti_mrs(data)
-            fig = generic_report(FIDtoMRSobj(dd, axes),
-                                 FIDtoMRSobj(phs_obj[idx], axes),
+            fig = generic_report(MRS.from_axes(dd, axes),
+                                 MRS.from_axes(phs_obj[idx], axes),
                                  ppmlim=(0.2, 4.2),
                                  html=report,
                                  function='fixed phase')
@@ -1159,9 +1158,9 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
                 axes = Axes.from_nifti_mrs(data0)
-                fig = add_subtract_report(FIDtoMRSobj(dd.T[0], axes),
-                                          FIDtoMRSobj(dd.T[1], axes),
-                                          FIDtoMRSobj(sub_ob[idx], axes),
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], axes),
+                                          MRS.from_axes(dd.T[1], axes),
+                                          MRS.from_axes(sub_ob[idx], axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='subtract')
@@ -1221,9 +1220,9 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
                 axes = Axes.from_nifti_mrs(data0)
-                fig = add_subtract_report(FIDtoMRSobj(dd.T[0], axes),
-                                          FIDtoMRSobj(dd.T[1], axes),
-                                          FIDtoMRSobj(add_ob[idx], axes),
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], axes),
+                                          MRS.from_axes(dd.T[1], axes),
+                                          MRS.from_axes(add_ob[idx], axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='add')
@@ -1273,8 +1272,8 @@ def conjugate(data, figure=False, report=None, report_all=False):
             if report_all or first_index(idx):
                 from fsl_mrs.utils.preproc.general import generic_report
                 axes = Axes.from_nifti_mrs(data)
-                fig = generic_report(FIDtoMRSobj(dd, axes),
-                                     FIDtoMRSobj(conj_data[idx], axes),
+                fig = generic_report(MRS.from_axes(dd, axes),
+                                     MRS.from_axes(conj_data[idx], axes),
                                      ppmlim=(0.2, 4.2),
                                      html=report,
                                      function='conjugate')
