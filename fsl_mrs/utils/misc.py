@@ -132,7 +132,7 @@ def checkCFUnits(cf, units='Hz'):
             raise ValueError('Only Hz or MHz defined')
     return cf
 
-
+# TODO replace this function with the axes one
 def limit_to_range(axis, limit):
     """turns limit (ppm, frequency, or time) into data range
 

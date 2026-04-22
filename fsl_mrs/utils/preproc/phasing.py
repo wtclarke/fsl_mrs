@@ -107,11 +107,8 @@ def phaseCorrect_report(in_mrs,
         position = np.argmax(np.abs(in_mrs.get_spec(ppmlim=ppmlim)))
 
     # Deal with rounding errors
-    # TODO put this back later
-    if position >= len(in_mrs.get_spec(ppmlim=ppmlim)):
-        position = len(in_mrs.get_spec(ppmlim=ppmlim)) - 1
-    # if position >= len(in_mrs.getAxes(limits=ppmlim)):
-    #     position = len(in_mrs.getAxes(limits=ppmlim)) - 1
+    if position >= len(in_mrs.getAxes(limits=ppmlim)):
+        position = len(in_mrs.getAxes(limits=ppmlim)) - 1
 
     axis    = [in_mrs.getAxes(limits=ppmlim)[position]]
     y_data  = [np.real(in_mrs.get_spec(ppmlim=ppmlim))[position]]

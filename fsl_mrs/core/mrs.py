@@ -421,8 +421,11 @@ class MRS():
         :rtype: numpy.array
         """
         spectrum = misc.FIDToSpec(self.FID)
-        first, last = self.ppmlim_to_range(ppmlim, shift=shift)
-        return spectrum[first:last]
+        if shift:
+            indices = self.axes.ppmShiftIndices(ppmlim)
+        else:
+            indices = self.axes.ppmIndices(ppmlim)
+        return spectrum[indices]
 
     # TODO add new methods that call getAxes with correct 'axis' and limits
     def getAxes(self, axis='ppmshift', limits=None):
