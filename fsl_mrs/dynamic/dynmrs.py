@@ -438,7 +438,7 @@ class dynMRS():
 
     def _get_constants(self, mrs: "MRS") -> tuple:
         """collect constants for forward model per mrs object"""
-        first, last = mrs.ppmlim_to_range(self._fit_args['ppmlim'])
+        indices = mrs.axes.ppmShiftIndices(self._fit_args['ppmlim'])
         return (
             mrs.frequencyAxis,
             mrs.timeAxis,
@@ -446,12 +446,12 @@ class dynMRS():
             self._baseline_object(mrs).regressor,
             self._fit_args['metab_groups'],
             max(self._fit_args['metab_groups']) + 1,
-            first, last)
+            indices)
 
     def _prepare_data(self, ppmlim):
         """FID to Spec and slice for fitting"""
-        first, last = self.mrs_list[0].ppmlim_to_range(ppmlim)
-        data = [mrs.get_spec().copy()[first:last] for mrs in self.mrs_list]
+        indices = self.mrs_list[0].axes.ppmShiftIndices(ppmlim)
+        data = [mrs.get_spec().copy()[indices] for mrs in self.mrs_list]
         return data
 
     def _get_forward(self):
@@ -459,8 +459,8 @@ class dynMRS():
         forward = models.getModelForward(self._fit_args['model'])
 
         def raiser(const):
-            first, last = const[-2:]
-            return lambda x: forward(x, *const[:-2])[first:last]
+            indices = const[-1:]
+            return lambda x: forward(x, *const[:-2])[indices]
 
         return [raiser(self._get_constants(mrs)) for mrs in self.mrs_list]
 

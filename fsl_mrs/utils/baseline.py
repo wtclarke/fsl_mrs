@@ -45,7 +45,7 @@ class Baseline:
         # Store information needed from mrs object
         self._spectral_points = mrs.numPoints
         self._ppm_limits = ppmlim
-        self._ppm_range  = mrs.ppmlim_to_range(ppmlim)
+        self._ppm_range  = mrs.axes.ppmShiftIndices(ppmlim)
 
         # Defaults
         self._spline_description = None
@@ -256,7 +256,7 @@ def _spline_basis(n_points: int, n_spline: int, degree: int = 3) -> np.ndarray:
 def prepare_pspline_regressor(
         n_points: int,
         ppmlim: tuple,
-        ppmlim_points: tuple,
+        ppmlim_points: slice,
         bases_per_ppm: int = 15) -> np.ndarray:
     """Creates the complex spline basis matrix.
 
@@ -265,25 +265,24 @@ def prepare_pspline_regressor(
     :param ppmlim: limits over which to construct basis (outside set to zero)
     :type ppmlim: tuple
     :param ppmlim_points: indices that correspond to the ppm limits
-    :type ppmlim_points: tuple
+    :type ppmlim_points: slice
     :param bases_per_ppm: Number of spine bases per ppm, defaults to 15
     :type bases_per_ppm: int, optional
     :return: Complex basis array
     :rtype: np.ndarray
     """
 
-    first, last = ppmlim_points
     ppm_range = ppmlim[1] - ppmlim[0]
     single_basis = _spline_basis(
-        last - first,
+        ppmlim_points.stop - ppmlim_points.start,
         int(bases_per_ppm * ppm_range))
 
     # Insert the single basis twice into the output
     # First is real, second is imaginary
     n_basis = single_basis.shape[1]
     full_complex_basis = np.zeros((n_points, n_basis * 2), complex)
-    full_complex_basis[first:last, :n_basis] = single_basis
-    full_complex_basis[first:last, n_basis:] = 1j * single_basis
+    full_complex_basis[ppmlim_points, :n_basis] = single_basis
+    full_complex_basis[ppmlim_points, n_basis:] = 1j * single_basis
 
     return full_complex_basis
 
@@ -466,7 +465,7 @@ def calculate_lap_cov_penalty_term(
 def prepare_polynomial_regressor(
         n_points: int,
         baseline_order: int,
-        ppmlim_points: tuple | None) -> np.ndarray:
+        ppmlim_points: slice | None) -> np.ndarray:
     """Prepare a set of polynomial baseline regressors
 
     Real regressors then imaginary of order `baseline_order`
@@ -476,20 +475,17 @@ def prepare_polynomial_regressor(
     :param baseline_order: The polynomial order of regressors
     :type baseline_order: int
     :param ppmlim_points: Indices of the polynomial range in the frequency direction
-    :type ppmlim_points: tuple | None
+    :type ppmlim_points: slice | None
     :return: Matrix of regressors.
     :rtype: np.ndarray
     """
 
-    if ppmlim_points:
-        first, last = ppmlim_points
-    else:
-        first = 0
-        last = n_points
+    if ppmlim_points is None:
+        ppmlim_points = slice(0, n_points)
 
     B = []
     x = np.zeros(n_points, complex)
-    x[first:last] = np.linspace(-1, 1, last - first)
+    x[ppmlim_points] = np.linspace(-1, 1, ppmlim_points.stop - ppmlim_points.start)
 
     for i in range(baseline_order + 1):
         regressor  = x**i
@@ -501,6 +497,6 @@ def prepare_polynomial_regressor(
     B = np.asarray(B).T
     tmp = B.copy()
     B   = 0 * B
-    B[first:last, :] = tmp[first:last, :].copy()
+    B[ppmlim_points, :] = tmp[ppmlim_points, :].copy()
 
     return B

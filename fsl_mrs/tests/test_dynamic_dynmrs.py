@@ -136,8 +136,8 @@ def test_get_constants(fixed_ratio_mrs):
     assert consts[3].shape == (2048, 2)
     assert consts[4] == [0, 0]
     assert consts[5] == 1
-    assert consts[6] == mrs_list[0].ppmlim_to_range((0.2, 4.2), True)[0]
-    assert consts[7] == mrs_list[0].ppmlim_to_range((0.2, 4.2), True)[1]
+    assert consts[6] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2), True).start
+    assert consts[7] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2), True).stop
 
 
 def test_dynMRS_fit(fixed_ratio_mrs):

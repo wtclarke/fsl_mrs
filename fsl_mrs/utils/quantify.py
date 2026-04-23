@@ -33,11 +33,8 @@ class FIDIntegrator:
         self.t_axis = mrs_obj.getAxes('time')
         self.ppm_axis = mrs_obj.getAxes()
 
-        if limits is not None:
-            first, last = mrs_obj.ppmlim_to_range(limits)
-            self.limits = (first, last)
-        else:
-            self.limits = (0, self.t_axis.size)
+        indices = mrs_obj.axes.ppmShiftIndices(limits)
+        self.limits = (indices.start, indices.stop)
 
         self.fid = None
 

@@ -376,8 +376,7 @@ def all_shift(args):
 
     if detect_conjugation(
             basis.original_basis_array.T,
-            basis.original_ppm_shift_axis,
-            ppmlims):
+            basis.axes.ppmShiftIndices(ppmlims)):
         from fsl_mrs.utils.basis_tools import conjugate_basis
         basis = conjugate_basis(basis)
         basis = apply_shifts(basis)
@@ -463,8 +462,7 @@ def add_peak_set(args):
     if basis.nucleus == "1H" and\
             detect_conjugation(
                 basis.original_basis_array.T,
-                basis.original_ppm_shift_axis,
-                PPM_RANGE['1H']):
+                basis.axes.ppmShiftIndices(PPM_RANGE['1H'])):
         conjugate = True
     else:
         conjugate = False

@@ -53,9 +53,9 @@ def mrsi_phase_corr(
         mask = mask[:].astype(bool)
 
     if data.ndim > 4:
-        limits = data.mrs()[0].mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
+        limits = data.mrs()[0].mrs_from_average().axes.ppmShiftIndices(ppmlim)
     else:
-        limits = data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
+        limits = data.mrs().mrs_from_average().axes.ppmShiftIndices(ppmlim)
 
     if apodize == "auto":
         apodize = calc_aprox_t2decay(

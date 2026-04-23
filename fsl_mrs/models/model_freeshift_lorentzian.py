@@ -205,7 +205,7 @@ def forward(x, nu, t, m, B, G, g):
     return S.flatten()
 
 
-def err(x, nu, t, m, B, G, g, data, first, last):
+def err(x, nu, t, m, B, G, g, data, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -216,17 +216,17 @@ def err(x, nu, t, m, B, G, g, data, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice object defining the range for the fitting
 
     returns scalar error
     """
     pred = forward(x, nu, t, m, B, G, g)
-    err = data[first:last] - pred[first:last]
+    err = data[indices] - pred[indices]
     sse = np.real(np.sum(err * np.conj(err)))
     return sse
 
 
-def grad(x, nu, t, m, B, G, g, data, first, last):
+def grad(x, nu, t, m, B, G, g, data, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -237,7 +237,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice object defining the range for the fitting
 
     returns gradient vector
     """
@@ -266,7 +266,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     Fmetcon = Fmet @ con[:, None]
     Ftmetcon = Ftmet @ np.diag(con)
 
-    Spec = data[first:last, None]
+    Spec = data[indices, None]
 
     # Forward model
     S = (phi_term * Fmetcon)
@@ -282,13 +282,13 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     dSdb = B
 
     # Only compute within a range
-    S = S[first:last]
-    dSdc = dSdc[first:last, :]
-    dSdgamma = dSdgamma[first:last, :]
-    dSdeps = dSdeps[first:last, :]
-    dSdphi0 = dSdphi0[first:last]
-    dSdphi1 = dSdphi1[first:last]
-    dSdb = dSdb[first:last]
+    S = S[indices]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
 
     dS = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 
@@ -297,7 +297,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     return grad
 
 
-def jac(x, nu, t, m, B, G, g, first, last):
+def jac(x, nu, t, m, B, G, g, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -308,7 +308,7 @@ def jac(x, nu, t, m, B, G, g, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice object defining the range for the fitting
 
     returns gradient vector
     """
@@ -345,12 +345,12 @@ def jac(x, nu, t, m, B, G, g, first, last):
     dSdb = B
 
     # Only compute within a range
-    dSdc = dSdc[first:last, :]
-    dSdgamma = dSdgamma[first:last, :]
-    dSdeps = dSdeps[first:last, :]
-    dSdphi0 = dSdphi0[first:last]
-    dSdphi1 = dSdphi1[first:last]
-    dSdb = dSdb[first:last]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
 
     dS = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 

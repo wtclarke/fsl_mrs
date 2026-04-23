@@ -561,27 +561,6 @@ class MRS():
         from fsl_mrs.utils.misc import parse_metab_groups
         return parse_metab_groups(self, metab_grp_str)
 
-    # TODO replace this with the axes code
-    def ppmlim_to_range(self, ppmlim=None, shift=True):
-        """
-           turns ppmlim into data range
-
-           Parameters:
-           -----------
-
-           ppmlim : tuple
-
-           Outputs:
-           --------
-
-           int : first position
-           int : last position
-        """
-        if shift:
-            return misc.limit_to_range(self.ppmAxisShift, ppmlim)
-        else:
-            return misc.limit_to_range(self.ppmAxis, ppmlim)
-
     def processForFitting(self, ppmlim=None, ind_scaling=None):
         """ Apply rescaling and run the conjugation checks"""
         if ppmlim is None:
@@ -628,8 +607,7 @@ class MRS():
 
         if misc.detect_conjugation(
                 self.FID,
-                self.ppmAxisShift,
-                ppmlim):
+                self.axes.ppmShiftIndices(ppmlim)):
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
                 return -1
@@ -659,8 +637,7 @@ class MRS():
 
         if misc.detect_conjugation(
                 self.basis.T,
-                self.ppmAxisShift,
-                ppmlim):
+                self.axes.ppmShiftIndices(ppmlim)):
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1

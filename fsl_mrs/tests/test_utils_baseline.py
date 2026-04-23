@@ -133,7 +133,7 @@ def test_polynomial_regressor_creation():
     B = baseline.prepare_polynomial_regressor(
         mrs.numPoints,
         baseline_order,
-        mrs.ppmlim_to_range(ppmlim))
+        mrs.axes.ppmShiftIndices(ppmlim))
 
     assert B.shape == (mrs.numPoints, 2 * (baseline_order + 1))
     assert np.sum(B[:, 0]) == 100
@@ -150,7 +150,7 @@ def test_baseline_class_init():
         None)
 
     assert obj._spectral_points == mrs.numPoints
-    assert obj._ppm_range == mrs.ppmlim_to_range((0, 5))
+    assert obj._ppm_range == mrs.axes.ppmShiftIndices((0, 5))
     assert obj._ppm_limits == (0, 5)
 
     obj = baseline.Baseline(

@@ -230,7 +230,7 @@ def synthetic_from_fwd_model(fwd_model,
     b = prepare_polynomial_regressor(
         mrs.numPoints,
         baseline_order,
-        mrs.ppmlim_to_range(ppmlim))
+        mrs.axes.ppmShiftIndices(ppmlim))
 
     basespec = fwd_model(model_params,
                          freq,

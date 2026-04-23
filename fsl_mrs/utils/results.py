@@ -60,8 +60,8 @@ class FitRes():
         self._pred = self.predictedFID(mrs, mode='Full')
         self._baseline = self.predictedFID(mrs, mode='Baseline')
         self._residuals = mrs.FID - self.pred
-        first, last = mrs.ppmlim_to_range(self.ppmlim)
-        self._mse = np.mean(np.abs(FIDToSpec(self._residuals)[first:last])**2)
+        indices = mrs.axes.ppmShiftIndices(self.ppmlim)
+        self._mse = np.mean(np.abs(FIDToSpec(self._residuals)[indices])**2)
 
         # Calculate single point crlb and cov
         _, _, forward, _, _ = models.getModelFunctions(self.model)
@@ -76,7 +76,7 @@ class FitRes():
                 mrs.basis,
                 self.base_poly,
                 self.metab_groups,
-                self.g)[first:last]
+                self.g)[indices]
 
         def jac_lim(p):
             return jac(
@@ -87,7 +87,7 @@ class FitRes():
                 self.base_poly,
                 self.metab_groups,
                 self.g,
-                first, last)
+                indices)
 
         # Calculate uncertainties using covariance derived from Fisher information
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
@@ -307,9 +307,12 @@ class FitRes():
         else:
             raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
 
-        first, last = mrs.ppmlim_to_range(ppmlim=ppmlim, shift=shift)
+        if shift:
+            indices = mrs.axes.ppmShiftIndices(ppmlim)
+        else:
+            indices = mrs.axes.ppmIndices(ppmlim)
 
-        return out[first:last]
+        return out[indices]
 
     def predictedFID(self, mrs, mode='Full', noBaseline=False, no_phase=False):
         """Return the predicted FID generated from the fitted model.

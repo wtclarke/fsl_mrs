@@ -12,6 +12,7 @@ from pathlib import Path
 import fsl_mrs.utils.mrs_io as mrs_io
 from fsl_mrs.utils.mrs_io import fsl_io
 from fsl_mrs.utils import misc
+from nifti_mrs.axes import Axes
 
 
 class BasisError(Exception):
@@ -81,6 +82,14 @@ class Basis:
         else:
             self.nucleus = '1H'
 
+        # Create Axes object
+        self._axes_obj = Axes(ResonantNucleus=self.nucleus,
+                              SpectrometerFrequency=self.cf,
+                              dwelltime=self.original_dwell,
+                              npoints=self.original_points,
+                              SpecFreqChemShift=headers[0].get('centralShift', None),
+                              RxOffset=0.0)
+
         # Default interpolation is Fourier Transform based.
         self._use_fourier_interp = True
 
@@ -107,6 +116,10 @@ class Basis:
 
     def __repr__(self) -> str:
         return str(self)
+
+    @property
+    def axes(self):
+        return self._axes_obj
 
     @property
     def cf(self):
@@ -151,22 +164,22 @@ class Basis:
     @property
     def original_time_axis(self):
         """Return the time axis of the raw basis set"""
-        return misc.calculateAxes(self.original_bw, self.cf * 1E6, self.original_points, 0.0)['time']
+        return self.axes.timeAxis
+
+    @property
+    def original_freq_axis(self):
+        """Return the frequency axis of the raw basis set"""
+        return self.axes.frequencyAxis
 
     @property
     def original_ppm_axis(self):
         """Return the ppm axis of the raw basis set"""
-        return misc.calculateAxes(self.original_bw, self.cf * 1E6, self.original_points, 0.0)['ppm']
+        return self.axes.ppmAxis
 
     @property
     def original_ppm_shift_axis(self):
         """Return the ppm axis (with offset) of the raw basis set"""
-        from fsl_mrs.utils.constants import PPM_SHIFT
-        if self.nucleus in PPM_SHIFT:
-            shift = PPM_SHIFT[self.nucleus]
-            return misc.calculateAxes(self.original_bw, self.cf * 1E6, self.original_points, shift)['ppmshift']
-        else:
-            return self.original_ppm_axis
+        return self.axes.ppmAxisShift
 
     @property
     def nucleus(self):

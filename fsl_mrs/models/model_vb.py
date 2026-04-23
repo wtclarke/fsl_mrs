@@ -14,7 +14,7 @@ from model_voigt import x2param as x2param_voigt
 
 # ########### For VB
 # Exponentiate positive params
-def FSLModel_forward_vb(x, nu, t, m, B, G, g, first, last):
+def FSLModel_forward_vb(x, nu, t, m, B, G, g, indices: slice):
     n = m.shape[1]    # get number of basis functions
 
     logcon, loggamma, eps, phi0, phi1, b = x2param(x, n, g)
@@ -36,7 +36,7 @@ def FSLModel_forward_vb(x, nu, t, m, B, G, g, first, last):
     if B is not None:
         S += B @ b[:, None]
 
-    S = S.flatten()[first:last]
+    S = S.flatten()[indices]
 
     return np.concatenate((np.real(S), np.imag(S)))
 
@@ -45,7 +45,7 @@ def FSLModel_forward_vb(x, nu, t, m, B, G, g, first, last):
 #  dfdlogx = x*dfdx
 
 
-def FSLModel_grad_vb(x, nu, t, m, B, G, g, first, last):
+def FSLModel_grad_vb(x, nu, t, m, B, G, g, indices: slice):
     n = m.shape[1]    # get number of basis functions
 
     logcon, loggamma, eps, phi0, phi1, b = x2param(x, n, g)
@@ -85,12 +85,12 @@ def FSLModel_grad_vb(x, nu, t, m, B, G, g, first, last):
     dSdb = B
 
     # Only compute within a range
-    dSdc = dSdc[first:last, :]
-    dSdgamma = dSdgamma[first:last, :]
-    dSdeps = dSdeps[first:last, :]
-    dSdphi0 = dSdphi0[first:last]
-    dSdphi1 = dSdphi1[first:last]
-    dSdb = dSdb[first:last]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
 
     dS = np.concatenate((dSdc * con[None, :],
                          dSdgamma * gamma[None, :],
@@ -104,7 +104,7 @@ def FSLModel_grad_vb(x, nu, t, m, B, G, g, first, last):
     return dS
 
 
-def FSLModel_forward_vb_voigt(x, nu, t, m, B, G, g, first, last):
+def FSLModel_forward_vb_voigt(x, nu, t, m, B, G, g, indices: slice):
     n = m.shape[1]    # get number of basis functions
 
     logcon, loggamma, logsigma, eps, phi0, phi1, b = x2param_voigt(x, n, g)
@@ -127,6 +127,6 @@ def FSLModel_forward_vb_voigt(x, nu, t, m, B, G, g, first, last):
     if B is not None:
         S += B @ b[:, None]
 
-    S = S.flatten()[first:last]
+    S = S.flatten()[indices]
 
     return np.concatenate((np.real(S), np.imag(S)))

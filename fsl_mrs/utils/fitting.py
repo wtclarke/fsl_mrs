@@ -75,7 +75,7 @@ def fit_FSLModel(mrs: "MRS",
             'Please specify a fitting range (ppmlim): '
             f'No ppmlim specified and no default found for nucleus {mrs.nucleus}.')
 
-    first, last = mrs.ppmlim_to_range(ppmlim)  # data range
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
 
     if metab_groups is None:
         metab_groups = [0] * len(mrs.names)
@@ -95,7 +95,7 @@ def fit_FSLModel(mrs: "MRS",
         g = 1
     else:
         g = max(metab_groups) + 1
-    constants = (freq, time, basis, baseline_obj.regressor, metab_groups, g, data, first, last)
+    constants = (freq, time, basis, baseline_obj.regressor, metab_groups, g, data, indices)
 
     if x0 is None:
         # Initialise all params
@@ -135,9 +135,9 @@ def fit_FSLModel(mrs: "MRS",
         from fsl_mrs.utils.stats import mh, dist
 
         def forward_mh(p):
-            return forward(p, freq, time, basis, baseline_obj.regressor, metab_groups, g)[first:last]
-        numPoints_over_2 = (last - first) / 2.0
-        y = data[first:last]
+            return forward(p, freq, time, basis, baseline_obj.regressor, metab_groups, g)[indices]
+        numPoints_over_2 = (indices.stop - indices.start) / 2.0
+        y = data[indices]
 
         if fit_baseline_mh and baseline_obj.mode == 'spline':
             penalty_function = baseline_obj.mh_penalty_term()

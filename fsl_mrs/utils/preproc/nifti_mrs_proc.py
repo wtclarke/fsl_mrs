@@ -1094,12 +1094,8 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
                     p1,
                     samples=data.shape[3])
             elif p1_type.lower() == 'linphase':
-                from fsl_mrs.utils.misc import calculateAxes
-                faxis = calculateAxes(
-                    data.spectralwidth,
-                    data.spectrometer_frequency[0],
-                    data.shape[3],
-                    0.0)['freq']
+                from nifti_mrs.axes import Axes
+                faxis = Axes.from_nifti_mrs(data).frequencyAxis
                 phs_obj[idx] = preproc.applyLinPhase(
                     phs_obj[idx],
                     faxis,
