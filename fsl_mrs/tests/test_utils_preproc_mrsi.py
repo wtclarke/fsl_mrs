@@ -22,13 +22,13 @@ from fsl_mrs.core import nifti_mrs as ntools
 # Algorithm tests
 @fixture
 def test_data():
-    fids, hdrs = syntheticFID(
+    fids, _, _ = syntheticFID(
         coilamps=[1, 1],
         coilphase=[0, np.pi],
         noisecovariance=np.zeros((2, 2)),
         chemicalshift=[1, 3])
 
-    fids_shift, hdrs = syntheticFID(
+    fids_shift, _, _ = syntheticFID(
         coilamps=[1, 1],
         coilphase=[0, np.pi],
         noisecovariance=np.zeros((2, 2)),
@@ -213,7 +213,7 @@ def test_mrsi_phase_corr():
 
 @fixture
 def lipid_test_data():
-    fid_met, hdrs = syntheticFID(
+    fid_met, _, _ = syntheticFID(
         coilamps=[1],
         coilphase=[0],
         noisecovariance=[[0]],
@@ -221,7 +221,7 @@ def lipid_test_data():
         points=512,
         bandwidth=1000)
 
-    fid_lipid, hdrs = syntheticFID(
+    fid_lipid, _, _ = syntheticFID(
         coilamps=[100],
         coilphase=[0],
         noisecovariance=[[0]],

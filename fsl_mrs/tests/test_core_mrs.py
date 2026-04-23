@@ -26,42 +26,24 @@ svs_basis = testsPath / 'testdata/fsl_mrs/steam_basis'
 @pytest.fixture
 def synth_data():
 
-    fid, hdr = syn.syntheticFID()
+    fid, hdr, axes = syn.syntheticFID()
     hdr['json'] = {'ResonantNucleus': '1H'}
 
-    basis_1, bhdr_1 = syn.syntheticFID(noisecovariance=[[0.0]],
-                                       chemicalshift=[-2, ],
-                                       amplitude=[0.1, ],
-                                       damping=[5, ])
+    basis_1, bhdr_1, _ = syn.syntheticFID(noisecovariance=[[0.0]],
+                                          chemicalshift=[-2, ],
+                                          amplitude=[0.1, ],
+                                          damping=[5, ])
 
-    basis_2, bhdr_2 = syn.syntheticFID(noisecovariance=[[0.0]],
-                                       chemicalshift=[3, ],
-                                       amplitude=[0.1, ],
-                                       damping=[5, ])
+    basis_2, bhdr_2, _ = syn.syntheticFID(noisecovariance=[[0.0]],
+                                          chemicalshift=[3, ],
+                                          amplitude=[0.1, ],
+                                          damping=[5, ])
 
     bhdr_1['fwhm'] = 1.0
     bhdr_2['fwhm'] = 1.0
     basis = np.concatenate((basis_1, basis_2)).T
     bheader = [bhdr_1, bhdr_2]
     names = ['ppm_2', 'ppm3']
-
-    timeAxis = np.linspace(hdr['dwelltime'],
-                           hdr['dwelltime'] * 2048,
-                           2048)
-    frequencyAxis = np.linspace(-hdr['bandwidth'] / 2,
-                                hdr['bandwidth'] / 2,
-                                2048)
-    ppmAxis = hz2ppm(hdr['centralFrequency'] * 1E6,
-                     frequencyAxis,
-                     shift=False)
-    ppmAxisShift = hz2ppm(hdr['centralFrequency'] * 1E6,
-                          frequencyAxis,
-                          shift=True)
-
-    axes = {'time': timeAxis,
-            'freq': frequencyAxis,
-            'ppm': ppmAxis,
-            'ppm_shift': ppmAxisShift}
 
     return fid[0], hdr, basis, names, bheader, axes
 
