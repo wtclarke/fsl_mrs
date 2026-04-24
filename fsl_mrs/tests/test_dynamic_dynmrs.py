@@ -129,15 +129,14 @@ def test_get_constants(fixed_ratio_mrs):
 
     consts = dyn_obj._get_constants(mrs_list[0])
 
-    assert len(consts) == 8
+    assert len(consts) == 7
     assert np.allclose(consts[0], mrs_list[0].frequencyAxis)
     assert np.allclose(consts[1], mrs_list[0].timeAxis)
     assert np.allclose(consts[2], mrs_list[0].basis)
     assert consts[3].shape == (2048, 2)
     assert consts[4] == [0, 0]
     assert consts[5] == 1
-    assert consts[6] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2), True).start
-    assert consts[7] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2), True).stop
+    assert consts[6] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2))
 
 
 def test_dynMRS_fit(fixed_ratio_mrs):

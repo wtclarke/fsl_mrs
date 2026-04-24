@@ -100,6 +100,7 @@ def checkCFUnits(cf, units='Hz'):
             raise ValueError('Only Hz or MHz defined')
     return cf
 
+
 def filter(mrs, FID, ppmlim, filter_type='bandpass'):
     """
        Filter in/out frequencies defined in ppm
@@ -752,9 +753,6 @@ def detect_conjugation(
     :return: True if FIDs should be conjugated to maximise signal in limits.
     :rtype: bool
     """
-    if data.shape[-1] != ppmaxis.size:
-        raise ValueError("data's last dimension must matcht he size of ppmaxis.")
-
 
     def conj_or_not(x):
         Spec1 = np.real(FIDToSpec(x))[indices]

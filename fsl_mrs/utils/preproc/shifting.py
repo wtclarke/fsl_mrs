@@ -48,7 +48,7 @@ def freqshift(FID, dwelltime, shift):
     Returns:
         FID (ndarray): Shifted FID
     """
-    tAxis = np.linspace(0, dwelltime * FID.size, FID.size)
+    tAxis = 0 + dwelltime * np.arange(FID.size)
     phaseRamp = 2 * np.pi * tAxis * shift
     FID = FID * np.exp(1j * phaseRamp)
     return FID
@@ -64,7 +64,7 @@ def freqshift_array(
     :type fid_array: np.ndarray
     :param dwelltime: Dwell time (1/bandwidth) in seconds
     :type dwelltime: float
-    :param shift_array: Either a single value or an array matching fid)array spatial size
+    :param shift_array: Either a single value or an array matching fid_array spatial size
     :type shift_array: np.ndarray | float
     :return: Shifted FIDs
     :rtype: np.ndarray
@@ -73,10 +73,7 @@ def freqshift_array(
             and shift_array.shape != fid_array.shape[:-1]:
         raise ValueError('shift_array must be float or array matching spatial size of fid_array.')
 
-    tAxis = np.linspace(
-        0,
-        dwelltime * fid_array.shape[-1],
-        fid_array.shape[-1])
+    tAxis = 0 + dwelltime * np.arange(fid_array.shape[-1])
 
     if isinstance(shift_array, float):
         phaseRamp = 2 * np.pi * tAxis * shift_array

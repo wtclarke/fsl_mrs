@@ -663,7 +663,7 @@ class dynRes:
         residuals /= dyn_fit.max()
         residuals *= 100
         ci95 = residuals.std() * 1.96
-        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])[:-1]
+        x_axis = self._dyn.mrs_list[0].getAxes(limits=self._dyn._fit_args['ppmlim'])
         yaxis = np.arange(residuals.shape[0])
 
         dyn_titles = self._sensible_tval_strings()

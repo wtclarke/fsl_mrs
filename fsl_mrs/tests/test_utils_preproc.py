@@ -8,7 +8,6 @@ import fsl_mrs.utils.preproc as preproc
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.core import MRS
-from nifti_mrs.axes import Axes
 import numpy as np
 
 
@@ -27,14 +26,14 @@ def test_freqshift():
 
 
 def test_freqshift_array():
-    testFID, _, testAxes = syn.syntheticFID(
+    testFID, _, _ = syn.syntheticFID(
         amplitude=[0.0, 1.0],
         noisecovariance=[[0]],
         bandwidth=2000,
         points=1000,
-        centralfrequency=100)  # Single peak at 3 ppm
+        centralfrequency=100.0)  # Single peak at 3 ppm
 
-    testFID_2, _, _ = syn.syntheticFID(
+    testFID_2, testHdrs, testAxes = syn.syntheticFID(
         amplitude=[0.0, 1.0],
         chemicalshift=[0.0, 2.0],
         noisecovariance=[[0]],
@@ -90,8 +89,8 @@ def test_combine_FIDs():
     assert np.allclose(combfids, 0)
 
     testFIDs, _, _ = syn.syntheticFID(noisecovariance=np.zeros((4, 4)),
-                                          coilamps=[1.0, 1.0, 1.0, 1.0],
-                                          coilphase=[0.0, 0.0, 0.0, 0.0])
+                                      coilamps=[1.0, 1.0, 1.0, 1.0],
+                                      coilphase=[0.0, 0.0, 0.0, 0.0])
 
     weigths = [np.exp(1j * 0), np.exp(1j * np.pi / 2), np.exp(1j * np.pi), np.exp(1j * 3 * np.pi / 2)]
     combfids = preproc.combine_FIDs(testFIDs, 'weighted', weights=weigths)
@@ -105,9 +104,9 @@ def test_combine_FIDs():
     coilphs = np.random.rand(2) * np.pi * 2
 
     testFIDs, _, _ = syn.syntheticFID(noisecovariance=noiseCov,
-                                          coilamps=coilamps,
-                                          coilphase=coilphs,
-                                          points=4096)
+                                      coilamps=coilamps,
+                                      coilphase=coilphs,
+                                      points=4096)
 
     invcovMat = coilvar * np.linalg.inv(noiseCov)
     analyticalRoemer = []
@@ -217,14 +216,16 @@ def test_remove():
         noisecovariance=[[1E-6]],
         amplitude=[1.0, 1.0],
         chemicalshift=[-6, 0],
-        damping=[3, 3])
+        damping=[3, 3],
+        seed=1)
     limits = [-7, -5]
 
     testFIDs_single, _, _ = syn.syntheticFID(
         noisecovariance=[[0]],
         amplitude=[0.0, 1.0],
         chemicalshift=[-6, 0],
-        damping=[3, 3])
+        damping=[3, 3],
+        seed=2)
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 
     removedFID = preproc.zero_spectrum(
@@ -242,7 +243,9 @@ def test_remove():
 # Test hlsvd by removing one peak from a two peak fid
 def test_hlsvd():
     # low noise
-    testFIDs, testHdrs, testAxes = syn.syntheticFID(noisecovariance=[[1E-6]], amplitude=[1.0, 1.0], chemicalshift=[-2, 0])
+    testFIDs, testHdrs, testAxes = syn.syntheticFID(noisecovariance=[[1E-6]],
+                                                    amplitude=[1.0, 1.0],
+                                                    chemicalshift=[-2, 0])
     limits = [-2.5, -1.5]
     # (FID,dwelltime,centralFrequency,limits,limitUnits = 'ppm',numSingularValues=50)
 

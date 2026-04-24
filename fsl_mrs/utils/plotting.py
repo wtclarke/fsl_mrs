@@ -83,10 +83,7 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
     if baseline is not None:
         baseline = FID2Spec(res.baseline)
 
-    if shift:
-        indices = mrs.axes.ppmShiftIndices(res.ppmlim)
-    else:
-        indices = mrs.axes.ppmIndices(res.ppmlim)
+    indices = mrs.axes.ppmShiftIndices(res.ppmlim)
 
     # turn to real numbers
     data = data_proj(data, proj)

@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
 from pytest import fixture
 import numpy as np
@@ -30,29 +31,29 @@ def data():
     basisFIDs = []
     basisHdr = []
     for idx, _ in enumerate(amplitude):
-        tmp, hdr = syntheticFID(noisecovariance=[[0.0]],
-                                chemicalshift=[chemshift[idx]],
-                                amplitude=[1.0],
-                                linewidth=[lw[idx] / 5],
-                                phase=[phases[idx]],
-                                g=[g[idx]])
+        tmp, hdr, _ = syntheticFID(noisecovariance=[[0.0]],
+                                   chemicalshift=[chemshift[idx]],
+                                   amplitude=[1.0],
+                                   linewidth=[lw[idx] / 5],
+                                   phase=[phases[idx]],
+                                   g=[g[idx]])
         hdr['fwhm'] = lw[idx] / 5
         basisFIDs.append(tmp[0])
         basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
 
-    synFID, synHdr = syntheticFID(noisecovariance=[[noiseCov]],
-                                  chemicalshift=chemshift,
-                                  amplitude=amplitude,
-                                  linewidth=lw,
-                                  phase=phases,
-                                  g=g)
+    synFID, synHdr, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
+                                           chemicalshift=chemshift,
+                                           amplitude=amplitude,
+                                           linewidth=lw,
+                                           phase=phases,
+                                           g=g)
 
-    synMRS = MRS(FID=synFID[0],
-                 header=synHdr,
-                 basis=basisFIDs,
-                 basis_hdr=basisHdr,
-                 names=basisNames)
+    synMRS = MRS.from_axes(synFID[0],
+                           axes=synAxes,
+                           basis=Basis(basisFIDs, headers=basisHdr, names=basisNames))
+
+    synMRS.header = synHdr
 
     return synMRS, amplitude
 

@@ -236,12 +236,6 @@ def test_detect_conjugation():
         FIDs,
         axes.ppmIndices((0, -4)))
 
-    # Test wrong orientation of data raises error
-    with pytest.raises(ValueError):
-        misc.detect_conjugation(
-            FIDs.T,
-            axes.ppmIndices((0, -4)))
-
 
 def test_check_nucleus_format():
     for correct_value in ["1H", "31P", "23Na", "129Xe"]:

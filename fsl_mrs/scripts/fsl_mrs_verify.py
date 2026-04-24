@@ -89,7 +89,7 @@ def main():
     assert (Path('fsl_mrs_test_results') / 'voxel_location.png').is_file()
 
     svs_results = pd.read_csv(Path('fsl_mrs_test_results') / 'summary.csv', index_col=0)
-    assert np.isclose(svs_results.loc['NAA+NAAG', 'mM'], 13.18, atol=1E-2)
+    assert np.isclose(svs_results.loc['NAA+NAAG', 'mM'], 13.21, atol=1E-2)
 
     print('SVS fitting checks passed')
     print('All done')

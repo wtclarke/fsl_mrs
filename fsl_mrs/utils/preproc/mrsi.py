@@ -106,7 +106,7 @@ def phase_corr_max_real(
     :param dwelltime: Dwelltime (1 / spectral bandwidth)
     :type dwelltime: float
     :param limits: limits over which to maximise real part, index of array, defaults to None
-    :type limits: tuple, optional
+    :type limits: slice, optional
     :param apodization: Apply apodization, defaults to 0 (no apodization)
     :type apodization: float, optional
     :return: Phased FIDs, array of applied phases
@@ -115,7 +115,7 @@ def phase_corr_max_real(
 
     data_apod = [apodize(fid, dwelltime, apodization) for fid in fids]
 
-    limits = slice(None) if limits is None else slice(limits[0], limits[1])
+    limits = slice(None) if limits is None else limits
 
     phases = []
     for fid in data_apod:

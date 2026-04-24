@@ -11,9 +11,9 @@ import pytest
 import numpy as np
 
 from fsl_mrs.core import MRS, mrs_from_files
-from fsl_mrs.core.basis import BasisHasInsufficentCoverage
+from fsl_mrs.core.basis import BasisHasInsufficentCoverage, Basis
 from fsl_mrs.utils import synthetic as syn
-from fsl_mrs.utils.misc import FIDToSpec, hz2ppm
+from fsl_mrs.utils.misc import FIDToSpec
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO
 
 # Files
@@ -63,11 +63,9 @@ def test_load(synth_data):
 
     fid, hdr, basis, names, bheader, axes = synth_data
 
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis,
-              names=names,
-              basis_hdr=bheader)
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=Basis(basis, names, bheader))
 
     assert mrs.FID.shape == (2048,)
     assert mrs.basis.shape == (2048, 2)
@@ -81,20 +79,18 @@ def test_access(synth_data):
 
     fid, hdr, basis, names, bheader, axes = synth_data
 
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis,
-              names=names,
-              basis_hdr=bheader)
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=Basis(basis, names, bheader))
 
     assert np.allclose(mrs.FID, fid)
     assert np.allclose(mrs.get_spec(), FIDToSpec(fid))
     assert np.allclose(mrs.basis, basis)
 
-    assert np.allclose(mrs.getAxes(axis='ppmshift'), axes['ppm_shift'])
-    assert np.allclose(mrs.getAxes(axis='ppm'), axes['ppm'])
-    assert np.allclose(mrs.getAxes(axis='freq'), axes['freq'])
-    assert np.allclose(mrs.getAxes(axis='time'), axes['time'])
+    assert np.allclose(mrs.getAxes(axis='ppmshift'), axes.ppmAxisShift)
+    assert np.allclose(mrs.getAxes(axis='ppm'), axes.ppmAxis)
+    assert np.allclose(mrs.getAxes(axis='freq'), axes.frequencyAxis)
+    assert np.allclose(mrs.getAxes(axis='time'), axes.timeAxis)
 
     mrs.rescaleForFitting()
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'], FIDToSpec(fid))
@@ -111,11 +107,9 @@ def test_basis_manipulations(synth_data):
 
     fid, hdr, basis, names, bheader, axes = synth_data
 
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis,
-              names=names,
-              basis_hdr=bheader)
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=Basis(basis, names, bheader))
 
     assert mrs.basis.shape == (2048, 2)
     assert mrs.numBasis == 2
@@ -217,11 +211,9 @@ def test_process_for_fitting(synth_data):
 
     fid, hdr, basis, names, bheader, axes = synth_data
 
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis,
-              names=names,
-              basis_hdr=bheader)
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=Basis(basis, names, bheader))
 
     mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)

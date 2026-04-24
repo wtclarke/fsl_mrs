@@ -160,7 +160,7 @@ def phaseCorrect_report(in_mrs,
 def phasta(
         data: np.ndarray,
         dwelltime: float,
-        limits: tuple[int, int] | None = None,
+        limits: slice | None = None,
         indices_to_use: list[int] | slice = slice(None),
         apodization: float = 0) -> tuple[np.ndarray, float]:
     """Phase correction of a FID or an array of FIDs based on LCModel's Phasta algorithm
@@ -172,7 +172,7 @@ def phasta(
     :param dwelltime: Dwelltime (1 / spectral bandwidth)
     :type dwelltime: float
     :param limits: Index limits to limit range over which algorithm is run, defaults to None
-    :type limits: tuple, optional
+    :type limits: slice, optional
     :param indices_to_use: Phase all FIDs based on mean of subset, defaults to slice(None) (use all in mean).
     :type indices_to_use: list[int] | slice, optional
     :param apodization: Apply apodization, defaults to 0 (no apodization)
@@ -183,7 +183,7 @@ def phasta(
     if data.ndim == 1:
         data = data[:, np.newaxis]
 
-    limits = slice(None) if limits is None else slice(limits[0], limits[1])
+    limits = slice(None) if limits is None else limits
 
     data_apod = np.asarray([
         apodize(fid, dwelltime, apodization) for fid in data.T]).T

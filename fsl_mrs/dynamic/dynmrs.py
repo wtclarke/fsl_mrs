@@ -460,7 +460,7 @@ class dynMRS():
 
         def raiser(const):
             indices = const[-1:]
-            return lambda x: forward(x, *const[:-2])[indices]
+            return lambda x: forward(x, *const[:-1])[indices]
 
         return [raiser(self._get_constants(mrs)) for mrs in self.mrs_list]
 
