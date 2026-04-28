@@ -30,7 +30,7 @@ def apodize(FID, dwelltime, broadening, filter='exp'):
     if not all(broadening):
         return FID
 
-    taxis = np.linspace(0, dwelltime * (FID.size - 1), FID.size)
+    taxis  = 0 + dwelltime * np.arange(FID.size)
     if filter == 'exp':
         Tl = 1 / broadening[0]
         window = np.exp(-taxis / Tl)
@@ -120,10 +120,7 @@ def calc_aprox_t2decay(
     :return: Apodisation amount in hertz
     :rtype: float
     """
-    timeaxis = np.arange(
-        0,
-        dwelltime * fids.shape[-1],
-        dwelltime)
+    timeaxis = 0 + dwelltime * np.arange(fids.shape[-1])
 
     avg_data = np.mean(np.abs(fids), axis=0)
     avg_data /= avg_data[0]

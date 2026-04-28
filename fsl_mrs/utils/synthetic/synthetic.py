@@ -51,7 +51,7 @@ def syntheticFID(coilamps=[1.0],
         dwelltime=1/bandwidth)
     syntheticFID = np.zeros(points, dtype=np.complex128)
     # zero start the timeAxis and shift by begintime
-    ttrue = axes.timeAxis - min(axes.timeAxis) + begintime
+    ttrue = axes.timeAxis - axes.timeAxis[0] + begintime
 
     if linewidth is not None:
         damping = np.asarray(linewidth) * np.pi
