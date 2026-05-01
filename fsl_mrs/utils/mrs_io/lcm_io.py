@@ -11,6 +11,7 @@ import os
 import re
 from fsl_mrs.utils.misc import checkCFUnits
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+from fsl_mrs.core import basis as bmod
 
 
 # Raw file reading
@@ -163,8 +164,21 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # Duplicate header so that it matches all the other basis read functions
     headers = [header] * len(metabo)
 
-    return data, metabo, headers
+    # Sort by name to match sorted filenames of other formats
+    so = np.argsort(metabo)
+    data = data[:, so]
+    metabo = list(np.array(metabo)[so])
+    headers = list(np.array(headers)[so])
 
+    # Add missing hdr field
+    for hdr in headers:
+        hdr['fwhm'] = None
+        
+    # Handle single basis spectra
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+
+    return bmod.Basis(data, metabo, headers)
 
 # Utility functions for above functions
 def tidy(x):

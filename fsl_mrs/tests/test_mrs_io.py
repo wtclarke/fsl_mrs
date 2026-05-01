@@ -111,11 +111,10 @@ def test_read_Basis():
 def test_fslBasisRegen():
     pointsToGen = 100
     basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
-    basis_fsl2, names_fsl2, headers_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
-                                                                   readoutShift=4.65,
-                                                                   bandwidth=4000,
-                                                                   points=pointsToGen)
-    basis_fsl2 = Basis(basis_fsl2, names_fsl2, headers_fsl2)
+    basis_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
+                                         readoutShift=4.65,
+                                         bandwidth=4000,
+                                         points=pointsToGen)
 
     assert basis_fsl2.names == basis_fsl.names
     assert basis_fsl2.original_bw == basis_fsl.original_bw
@@ -143,39 +142,47 @@ def test_check_datatype():
 def test_fsl_io_save_load_basis(tmp_path):
     """Test the read and write basis functions for the fsl io module."""
 
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl'])
-    assert basis.shape == (2048, 21)
-    assert np.iscomplexobj(basis)
-    assert len(names) == basis.shape[1]
-    assert hdrs[0]['centralFrequency'] == 123218995.6
-    assert hdrs[0]['bandwidth'] == 4000
-    assert hdrs[0]['dwelltime'] == 0.00025
-    assert hdrs[0]['fwhm'] == 2
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl'])
+    assert basis.original_basis_array.shape == (2048, 21)
+    assert np.iscomplexobj(basis.original_basis_array)
+    assert len(basis.names) == basis.original_basis_array.shape[1]
+    assert basis.cf == 123218995.6 / 1E6
+    assert basis.original_bw == 4000
+    assert basis.original_dwell == 0.00025
+    assert basis.basis_fwhm[0] == 2
 
-    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
-    assert (tmp_path / (names[0] + '.json')).exists()
+    basis.save(tmp_path)
+    assert (tmp_path / (basis.names[0] + '.json')).exists()
 
-    nbasis, nnames, nhdr = fslio.readFSLBasisFiles(tmp_path)
-    assert np.allclose(nbasis[:, 0], basis[:, 0])
-    assert nnames[0] == names[0]
-    assert nhdr[0] == hdrs[0]
+    nbasis = fslio.readFSLBasisFiles(tmp_path)
+    assert np.allclose(nbasis.original_basis_array[:, 0], basis.original_basis_array[:, 0])
+    assert nbasis.names[0] == basis.names[0]
+    assert nbasis.cf == basis.cf
+    assert nbasis.original_bw == basis.original_bw
+    assert nbasis.original_dwell == basis.original_dwell
+    assert nbasis.basis_fwhm == basis.basis_fwhm
+    assert nbasis.nucleus == basis.nucleus
 
 
 def test_fsl_io_save_load_basis_nucleus(tmp_path):
 
     # With nucleus information
     # Test that read directly ["basis"]["basis_nucleus"] works
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_nuc'])
-    assert hdrs[0]['nucleus'] == "31P"
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl_nuc'])
+    assert basis.nucleus == "31P"
 
     # Test that read from ["seq"]["Nucleus"] works
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_seq_nuc'])
-    assert hdrs[0]['nucleus'] == "31P"
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl_seq_nuc'])
+    assert basis.nucleus == "31P"
 
-    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
-    _, _, nhdr = fslio.readFSLBasisFiles(tmp_path)
-    assert nhdr[0] == hdrs[0]
-    assert nhdr[0]['nucleus'] == "31P"
+    basis.save(tmp_path)
+    nbasis = fslio.readFSLBasisFiles(tmp_path)
+    assert nbasis.cf == basis.cf
+    assert nbasis.original_bw == basis.original_bw
+    assert nbasis.original_dwell == basis.original_dwell
+    assert nbasis.basis_fwhm == basis.basis_fwhm
+    assert nbasis.nucleus == basis.nucleus
+    assert nbasis.nucleus == "31P"
 
 
 def test_load_symlink(tmp_path):

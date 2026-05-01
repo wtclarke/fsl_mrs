@@ -28,7 +28,7 @@ def identifyUnlikeFIDs(mrs_list,
     Returns:
         goodFIDS (list of ndarray): FIDs that passed the criteria
         badFIDS (list of ndarray): FIDs that failed the likeness critera
-        rmIndicies (list of int): Indicies of those FIDs that have been removed
+        rmIndices (list of int): indices of those FIDs that have been removed
         metric (list of floats): Likeness metric of each FID
     """
 
@@ -54,14 +54,14 @@ def identifyUnlikeFIDs(mrs_list,
         metric_avg = np.mean(metric)
         metric_std = np.std(metric)
 
-        goodFIDs, badFIDs, rmIndicies, keepIndicies = [], [], [], []
+        goodFIDs, badFIDs, rmIndices, keepIndices = [], [], [], []
         for iDx, (data, m) in enumerate(zip(FIDList, metric)):
             if m > ((sdlimit * metric_std) + metric_avg) or m < (-(sdlimit * metric_std) + metric_avg):
                 badFIDs.append(data)
-                rmIndicies.append(iDx)
+                rmIndices.append(iDx)
             else:
                 goodFIDs.append(data)
-                keepIndicies.append(iDx)
+                keepIndices.append(iDx)
 
         target = get_target_FID(goodFIDs, target='median')
         if ppmlim is not None:
@@ -69,13 +69,13 @@ def identifyUnlikeFIDs(mrs_list,
         else:
             target = FIDToSpec(target)
 
-    return goodFIDs, badFIDs, keepIndicies, rmIndicies, metric.tolist()
+    return goodFIDs, badFIDs, keepIndices, rmIndices, metric.tolist()
 
 
 def identifyUnlikeFIDs_report(goodFIDs,
                               badFIDs,
-                              keepIndicies,
-                              rmIndicies,
+                              keepIndices,
+                              rmIndices,
                               metric,
                               ref_axes,
                               ppmlim=(0.2, 4.2),
@@ -84,8 +84,8 @@ def identifyUnlikeFIDs_report(goodFIDs,
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    metricGd = np.array(metric)[keepIndicies]
-    metricBd = np.array(metric)[rmIndicies]
+    metricGd = np.array(metric)[keepIndices]
+    metricBd = np.array(metric)[rmIndices]
     metric_avg = np.mean(metric)
     metric_std = np.std(metric)
 

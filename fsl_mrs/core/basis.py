@@ -30,7 +30,7 @@ class BasisHasInsufficentCoverage(BasisError):
 class Basis:
     """A Basis object is the FSL-MRS basis spectra handling class.
     """
-    def __init__(self, fid_array, names, headers):
+    def __init__(self, fid_array, names, headers=None, axes : Axes = None):
         """Generate a Basis object from an array of fids, names and header information.
 
         :param fid_array: 2D array of basis FIDs (time x metabs)
@@ -38,17 +38,23 @@ class Basis:
         :param names: List of metabolite names corresponding to second dimension of fid_array
         :type names: List of str
         :param headers: List of basis headers for each column of fid_array
-        :type headers: List of dict
+        :type headers: List of dict, optional
+        :param axes: Axes object as metadata source. Defaults to None.
+        :type axes: Axes, optional
         """
+        if headers is None and axes is None:
+            raise BasisError("'headers' or 'axes' should be provided in the constructor.")
+
         # Check all the basis headers match
         def hdr_match(hdr1, hdr2):
             return np.isclose(hdr1['dwelltime'], hdr2['dwelltime'])\
                 and np.isclose(hdr1['bandwidth'], hdr2['bandwidth'])\
                 and np.isclose(hdr1['centralFrequency'], hdr2['centralFrequency'])\
-
-        for hdr, name in zip(headers, names):
-            if not hdr_match(hdr, headers[0]):
-                raise BasisError(f'Basis headers must match, {name} does not match')
+        
+        if headers:
+            for hdr, name in zip(headers, names):
+                if not hdr_match(hdr, headers[0]):
+                    raise BasisError(f'Basis headers must match, {name} does not match')
 
         # Check for duplicate names
         for name in names:
@@ -57,6 +63,7 @@ class Basis:
                 for idx, ddx in enumerate(dupes[1:]):
                     names[ddx] = names[ddx] + f'_{idx + 1}'
                     print(f'Found duplicate basis name "{name}", renaming to "{names[ddx]}".')
+        self._names = names
 
         # Checks on shape of fids
         if fid_array.ndim == 1:
@@ -68,27 +75,39 @@ class Basis:
             fid_array = fid_array.T
 
         self._raw_fids = fid_array
-        self._dt = headers[0]['dwelltime']
-        self._cf = misc.checkCFUnits(headers[0]['centralFrequency'], units='MHz')
-        self._names = names
-        self._widths = [hdr['fwhm'] for hdr in headers]
+        if axes:
+            self._dt = axes.dwelltime
+            self._cf = axes.SpectrometerFrequency
+            self._widths = [[None for n in names]]
+        elif headers:
+            self._dt = headers[0]['dwelltime']
+            self._cf = misc.checkCFUnits(headers[0]['centralFrequency'], units='MHz')
+            self._widths = [hdr['fwhm'] for hdr in headers]
+        else:
+            raise BasisError("'headers' or 'axes' should be provided in the constructor.")
 
         # Try to read nucleus from basis file.
         # If not found assume Nucleus is 1H
         # This only has baring on the plotting but causes difficulty in checking basis
         # suitability
-        if 'nucleus' in headers[0] and headers[0]['nucleus'] is not None:
-            self.nucleus = headers[0]['nucleus']
+        if axes:
+            self.nucleus = axes.ResonantNucleus
         else:
-            self.nucleus = '1H'
+            if headers and 'nucleus' in headers[0] and headers[0]['nucleus'] is not None:
+                self.nucleus = headers[0]['nucleus']
+            else:
+                self.nucleus = '1H'
 
         # Create Axes object
-        self._axes_obj = Axes(ResonantNucleus=self.nucleus,
-                              SpectrometerFrequency=self.cf,
-                              dwelltime=self.original_dwell,
-                              npoints=self.original_points,
-                              SpecFreqChemShift=headers[0].get('centralShift', None),
-                              RxOffset=0.0)
+        if axes:
+            self._axes_obj = axes
+        else:
+            self._axes_obj = Axes(ResonantNucleus=self.nucleus,
+                                SpectrometerFrequency=self.cf,
+                                dwelltime=self.original_dwell,
+                                npoints=self.original_points,
+                                SpecFreqChemShift=headers[0].get('centralShift', None),
+                                RxOffset=0.0)            
 
         # Default interpolation is Fourier Transform based.
         self._use_fourier_interp = True
@@ -256,7 +275,7 @@ class Basis:
         formatted_basis = self._resampled_basis(1 / bandwidth, points)
 
         # 2. Select the correct basis using the ignore syntax
-        ind_out = self._ignore_indicies(ignore)
+        ind_out = self._ignore_indices(ignore)
         formatted_basis = formatted_basis[:, ind_out]
 
         # 3. Rescale
@@ -277,17 +296,17 @@ class Basis:
         :return: Retained names
         :rtype: List of strings
         """
-        ind_out = self._ignore_indicies(ignore)
+        ind_out = self._ignore_indices(ignore)
 
         return np.asarray(self.names)[ind_out].tolist()
 
     def get_rescale_values(self, bandwidth, points, ignore=[], scale_factor=None, indept_scale=[]):
-        """Return the rescaling values usingt he same syntax as get_formatted_basis"""
+        """Return the rescaling values using the same syntax as get_formatted_basis"""
         # 1. Resample
         formatted_basis = self._resampled_basis(1 / bandwidth, points)
 
         # 2. Select the correct basis using the ignore syntax
-        ind_out = self._ignore_indicies(ignore)
+        ind_out = self._ignore_indices(ignore)
         formatted_basis = formatted_basis[:, ind_out]
 
         # 3. Rescale
@@ -300,8 +319,8 @@ class Basis:
         else:
             return [1.0, ]
 
-    def _ignore_indicies(self, ignore):
-        """Returns indicies of metabolites that should be used given
+    def _ignore_indices(self, ignore):
+        """Returns indices of metabolites that should be used given
         the loaded basis set and the ignore options passed.
 
         :param ignore: [description]
@@ -314,12 +333,12 @@ class Basis:
                 raise ValueError(f'{im} not in current list of metabolites'
                                  f' ({self.names}).')
 
-        indicies_keep = []
+        indices_keep = []
         for idx, metab in enumerate(self.names):
             if metab not in ignore:
-                indicies_keep.append(idx)
+                indices_keep.append(idx)
 
-        return indicies_keep
+        return indices_keep
 
     def _resampled_basis(self, target_dwell, target_points):
         """
@@ -349,7 +368,7 @@ class Basis:
 
     @staticmethod
     def _rescale_basis(basis, names, scale, indept):
-        """Calculate the recaled basis also return the scaling factor
+        """Calculate the rescaled basis also return the scaling factor
 
         :param basis: Basis to rescale
         :type basis: numpy.ndarray

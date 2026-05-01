@@ -205,7 +205,7 @@ def main():
         log_dir.mkdir(exist_ok=True)
 
         jids = []
-        for idx in tmp_mrsi.get_indicies_in_order():
+        for idx in tmp_mrsi.get_indices_in_order():
             sidx = ' '.join(str(x) for x in idx)
             name = 'vox' + '_'.join(str(x) for x in idx)
             curr_args = input_args + ['--spatial-index', sidx]

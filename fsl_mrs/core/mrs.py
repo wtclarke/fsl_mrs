@@ -148,7 +148,7 @@ class MRS():
     @classmethod
     def from_axes(cls, fid: np.typing.NDArray[np.complex64], axes: Axes,
                   basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None):
-        """Construct an MRS object for fid using acquisition params from ref_mrs."""
+        """Construct an MRS object from fid using metadata from axes."""
         return MRS(
             FID=fid,
             axes=axes,

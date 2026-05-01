@@ -12,9 +12,10 @@ import nibabel as nib
 import os
 import glob
 import re
-from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from pathlib import Path
 from datetime import datetime
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+from fsl_mrs.core import basis as bmod
 
 
 # NIFTI I/O
@@ -115,7 +116,8 @@ def readFSLBasisFiles(basisFolder, readoutShift=4.65, bandwidth=None, points=Non
             header.append(h)
 
     basis = np.array(basis).conj().T
-    return basis, names, header
+
+    return bmod.Basis(basis, names, header)
 
 
 # Read the FID within the FSL basis json file. Returns equivalent outputs to the LCModel style basis files.

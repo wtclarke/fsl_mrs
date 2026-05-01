@@ -75,7 +75,7 @@ def coilcombine(
     :param no_prewhiten: True to disable prewhitening
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Combined data in NIFTI_MRS format.
     '''
@@ -217,7 +217,7 @@ def average(data, dim, figure=False, report=None, report_all=False):
     :param str dim: NIFTI-MRS dimension tag
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Combined data in NIFTI_MRS format.
     '''
@@ -278,7 +278,7 @@ def align(
     :param int niter: Number of total iterations
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Combined data in NIFTI_MRS format.
     '''
@@ -446,7 +446,7 @@ def aligndiff(data,
     :param ppmlim: ppm search limits.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Aligned data in NIFTI_MRS format.
     '''
@@ -522,7 +522,7 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
     :param NIFTI_MRS reference: reference dataset to calculate phase
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
@@ -573,7 +573,7 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
     :param str limit_units: Can be 'Hz', 'ppm' or 'ppm+shift'.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
@@ -617,7 +617,7 @@ def hlsvd_model_peaks(data, limits,
     :param int components: Number of lorentzian components to model
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
@@ -663,7 +663,7 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
     :param float samples: Resample to this many points
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
@@ -720,7 +720,7 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
     start or end of the FID
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Padded or truncated data in NIFTI_MRS format.
     '''
@@ -776,7 +776,7 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
     :param str filter: 'exp' or 'l2g'. Choose exponential or Lorentzian to Gaussian filter
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Filtered data in NIFTI_MRS format.
     '''
@@ -819,7 +819,7 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
     :param amount: Shift amount in Hz, can be array matching data size
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
@@ -876,7 +876,7 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
         use the average of all the higher dimension spectra to calculate shift correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
@@ -951,7 +951,7 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     elif data.ndim < 5:
         raise ValueError('remove_unlike only makes sense for data with a dynamic dimension')
 
-    goodFIDs, badFIDs, gIndicies, bIndicies, metric = \
+    goodFIDs, badFIDs, gindices, bindices, metric = \
         preproc.identifyUnlikeFIDs(data.mrs(),
                                    ppmlim=ppmlim,
                                    sdlimit=sdlimit,
@@ -962,8 +962,8 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         from fsl_mrs.utils.preproc.unlike import identifyUnlikeFIDs_report
         fig = identifyUnlikeFIDs_report(goodFIDs,
                                         badFIDs,
-                                        gIndicies,
-                                        bIndicies,
+                                        gindices,
+                                        bindices,
                                         metric,
                                         data.mrs()[0].axes,
                                         ppmlim=ppmlim,
@@ -979,19 +979,19 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         bad_out, good_out  = ntools.split(
             data,
             data.dim_tags[0],
-            gIndicies)
+            gindices)
     else:
         good_out = data.copy()
 
     good_out.add_hdr_field(
         f'{data.dim_tags[0]} Indices',
-        gIndicies,
+        gindices,
         doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
 
     if len(badFIDs) > 0:
         bad_out.add_hdr_field(
             f'{data.dim_tags[0]} Indices',
-            bIndicies,
+            bindices,
             doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
     else:
         bad_out = None
@@ -1020,7 +1020,7 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         use the average of all the higher dimension spectra to calculate phase correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Phased data in NIFTI_MRS format.
     '''
@@ -1087,7 +1087,7 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
     :param str p1_type: 'shift' for interpolated time-shift, 'linphase' for frequency-domain phasing.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Phased data in NIFTI_MRS format.
     '''
@@ -1146,7 +1146,7 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
     :param dim: If specified index 1 will be subtracted from 0 across this dimension.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Subtracted data in NIFTI_MRS format.
     '''
@@ -1210,7 +1210,7 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
     :param dim: If specified index 1 will be added to 0 across this dimension.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Subtracted data in NIFTI_MRS format.
     '''
@@ -1271,7 +1271,7 @@ def conjugate(data, figure=False, report=None, report_all=False):
     :param NIFTI_MRS data: Data to truncate or pad
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Conjugated data in NIFTI_MRS format.
     '''

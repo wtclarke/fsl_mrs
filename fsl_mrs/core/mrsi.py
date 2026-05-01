@@ -196,7 +196,7 @@ class MRSI():
     def __len__(self) -> int:
         return self.num_masked_voxels
 
-    def get_indicies_in_order(self, mask=True):
+    def get_indices_in_order(self, mask=True):
         """Return a list of iteration indices in order"""
         out = []
         shape = self.data.shape
@@ -371,11 +371,11 @@ class MRSI():
         self.gm = gm
         self.tissue_seg_loaded = True
 
-    def list_to_matched_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+    def list_to_matched_array(self, data_list, indices=None, cleanup=True, dtype=float):
         '''Convert 3D or 4D array of data indexed from an mrsi object
         to a  numpy array matching the shape of the mrsi data.'''
-        if indicies is None:
-            indicies = self.get_indicies_in_order()
+        if indices is None:
+            indices = self.get_indices_in_order()
 
         # Deal with the variable types (float vs np.float64) that pandas
         # seems to generate depending on (python?) version.
@@ -389,7 +389,7 @@ class MRSI():
         else:
             data = np.zeros(self.spatial_shape, dtype=dtype)
 
-        for d, ind in zip(data_list, indicies):
+        for d, ind in zip(data_list, indices):
             data[ind] = d
 
         if cleanup:
@@ -400,19 +400,19 @@ class MRSI():
 
         return data
 
-    def list_to_correlation_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+    def list_to_correlation_array(self, data_list, indices=None, cleanup=True, dtype=float):
         '''Convert 5D array of correlation matrices indexed from an MRSI object
         to a numpy array with the shape of the first three dimensions matching
         that of the MRSI object.'''
-        if indicies is None:
-            indicies = self.get_indicies_in_order()
+        if indices is None:
+            indices = self.get_indices_in_order()
 
         size_m, size_n = data_list[0].shape
         if size_m != size_n:
             raise ValueError(f'Only symmetric matrices are handled, size is ({size_m},{size_n}).')
         data = np.zeros(self.spatial_shape + (size_m, size_n), dtype=dtype)
 
-        for d, ind in zip(data_list, indicies):
+        for d, ind in zip(data_list, indices):
             data[ind] = d
 
         if cleanup:

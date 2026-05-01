@@ -5,7 +5,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Restructured code to utilise `Axes` class from nifti-mrs-tools.
 - Axes and Spec limits are now inclusive across all methods.
 - `NIFTI_MRS` object can be generated with an `Axes` object.
-- `MRS` and `MRSI` classes can be constructed with an `Axes` object.
+- `MRS`, `MRSI` and `Basis` classes can be constructed with an `Axes` object.
 - `MRS` method `getAxes` now takes `limits` (previously called `ppmlim`) in each axis's units.
 - `MRS` method `ppmlim_to_range` is removed.
 - `calculateAxes` and `limit_to_range` functions in `fsl_mrs/utils/misc.py` are removed.
@@ -14,6 +14,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `timeAxis` in `fsl_mrs/utils/preproc/shifting.py` is now correctly defined with `dwelltime` steps.
 - `syntheticFID` in `fsl_mrs/utils/synthetic/synhtetic.py` now returns an `Axes` object as 3rd output.
 - Model methods in `fsl_mrs/models` now take a slice object argument rather than `first` and `last` values.
+- `io` utils have been updated to return a `Basis` object rather than `(FID, names, headers)`
 - `fsl_mrs_verify` target value has been updated to match the above changes.
 - Tests have been updated to match the above changes.
 

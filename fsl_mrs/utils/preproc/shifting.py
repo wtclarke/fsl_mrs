@@ -68,7 +68,7 @@ def freqshift_array(
     :param fid_array: ND array of FIDs. Last dimension is time.
     :type fid_array: np.ndarray
     :param axes: Metadata/axes source
-    :type axes: MRS
+    :type axes: Axes
     :param shift_array: Either a single value or an array matching fid_array spatial size
     :type shift_array: np.ndarray | float
     :return: Shifted FIDs

@@ -128,7 +128,7 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         :type spatial_index: tuple of ints, optional
         :param axes: Axes object for spectral axes. If not provided, created from NIFTI_MRS metadata.
             Defaults to None.
-        :type axes: nifti_mrs.axes.Axes, optional
+        :type axes: Axes, optional
         :param chemShift: Nominal chemical shift in ppm. If not provided, uses Axes default, defaults to None
         :type chemShift: float, optional
         :param RxOffset: Receiver chemical shift in ppm, defaults to 0.0

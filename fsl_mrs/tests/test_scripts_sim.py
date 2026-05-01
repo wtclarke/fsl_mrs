@@ -51,10 +51,7 @@ def test_sim(spinsys, seqparams, tmp_path):
                      '-a', seqfile])
 
     # Load the data
-    basis_j, names_j, header = fsl_io.readFSLBasisFiles(outfile)
-    rawfiles = [op.join(tmp_path, 'simulated', 'sys1.RAW'),
-                op.join(tmp_path, 'simulated', 'sys2.RAW')]
-    basis_r, names = lcm_io.read_basis_files(rawfiles)
+    basis = fsl_io.readFSLBasisFiles(outfile)
 
     # Check that this matches what is simulated manually
     directSim = []
@@ -67,8 +64,8 @@ def test_sim(spinsys, seqparams, tmp_path):
     directSim1 = directSim[0] + directSim[2]
     directSim2 = directSim[1] + directSim[2]
 
-    assert np.allclose(basis_j[:, names_j.index('sys1')], directSim1)
-    assert np.allclose(basis_j[:, names_j.index('sys2')], directSim2)
+    assert np.allclose(basis.original_basis_array[:, basis.names.index('sys1')], directSim1)
+    assert np.allclose(basis.original_basis_array[:, basis.names.index('sys2')], directSim2)
 
 
 def test_sim_workers(spinsys, seqparams, tmp_path):

@@ -9,6 +9,7 @@ import numpy as np
 import re
 import os.path as op
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+from fsl_mrs.core import basis as bmod
 
 
 def readjMRUItxt_fid(txtfile):
@@ -78,7 +79,7 @@ def read_txtBasis_files(txtfiles):
     # Strip any file extensions in the names.
     names = [name.replace('.txt', '') for name in names]
 
-    return basis, names, header
+    return bmod.Basis(basis, names, header)
 
 
 # generically read jMRUI style text files

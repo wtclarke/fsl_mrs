@@ -23,8 +23,7 @@ lcm_basis_encrypted = testsPath / 'testdata' / 'mrs_io' / 'press_te25_3t_v3.basi
 
 def test_load_and_constructors():
 
-    basis, names, bhdrs = fslio.readFSLBasisFiles(fsl_basis_path)
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual = fslio.readFSLBasisFiles(fsl_basis_path)
 
     from_file = basis_mod.Basis.from_file(fsl_basis_path)
 
@@ -50,7 +49,7 @@ def test_load_and_constructors():
     assert from_file.original_basis_array.dtype == complex
 
     # Test 1D FID
-    manual1D = basis_mod.Basis(basis[:, 0], [names[0]], [bhdrs[0]])
+    manual1D = basis_mod.Basis(manual.original_basis_array[:, [0]], manual.names, axes=manual.axes)
     assert manual1D.cf == 123.2189956
     assert manual1D.original_bw == 4000.0
     assert manual1D.original_dwell == 0.00025
@@ -60,7 +59,7 @@ def test_load_and_constructors():
     assert manual1D.original_basis_array.dtype == complex
 
     # Test transposed array
-    manual = basis_mod.Basis(basis.T, names, bhdrs)
+    manual = basis_mod.Basis(manual.original_basis_array.T, manual.names, axes=manual.axes)
     assert manual.cf == 123.2189956
     assert manual.original_bw == 4000.0
     assert manual.original_dwell == 0.00025
@@ -71,25 +70,17 @@ def test_load_and_constructors():
 
 
 def test_nuc_in_hdr():
-    basis, names, bhdrs = fslio.readFSLBasisFiles(fsl_basis_path)
-    manual = basis_mod.Basis(basis, names, bhdrs)
-
+    manual = fslio.readFSLBasisFiles(fsl_basis_path)
     assert manual.nucleus == "1H"
 
-    for hdr in bhdrs:
-        hdr['nucleus'] = "1H"
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual.nucleus = "1H"
     assert manual.nucleus == "1H"
 
-    for hdr in bhdrs:
-        hdr['nucleus'] = "31P"
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual.nucleus = "31P"
     assert manual.nucleus == "31P"
 
     with pytest.raises(ValueError):
-        for hdr in bhdrs:
-            hdr['nucleus'] = "not_a_nuc"
-        manual = basis_mod.Basis(basis, names, bhdrs)
+        manual.nucleus = "not_a_nuc"
 
 
 def test_lcm_load():

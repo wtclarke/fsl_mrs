@@ -1633,7 +1633,7 @@ def plot_world_orient(t1file, voxfile):
         [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5]]
     voxel_corners_mm = [transform(vcw, vox.voxToWorldMat) for vcw in voxel_corners_world]
 
-    # What indicies does this correspond to in the T1 img?
+    # What indices does this correspond to in the T1 img?
     centre_vox_t1 = transform(centre_mm, t1img.worldToVoxMat)
     centre_vox_t1_int = centre_vox_t1.astype(int)
     voxel_corners_t1 = np.asarray([transform(vcm, t1img.worldToVoxMat) for vcm in voxel_corners_mm])

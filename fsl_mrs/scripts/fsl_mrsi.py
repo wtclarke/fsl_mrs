@@ -398,7 +398,7 @@ def main():
     os.mkdir(misc_folder)
 
     # Extract concentrations
-    indicies = [res[1] for res in results]
+    indices = [res[1] for res in results]
     scalings = ['raw']
     if results[0][0].concScalings['internal'] is not None:
         scalings.append('internal')
@@ -426,7 +426,7 @@ def main():
             save_img_output(file_nm,
                             mrsi.list_to_matched_array(
                                 metab_conc_list,
-                                indicies=indicies,
+                                indices=indices,
                                 cleanup=True,
                                 dtype=float))
 
@@ -438,7 +438,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_sd_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -449,7 +449,7 @@ def main():
     save_img_output(file_p0,
                     mrsi.list_to_matched_array(
                         p0_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=float))
 
@@ -458,7 +458,7 @@ def main():
     save_img_output(file_p1,
                     mrsi.list_to_matched_array(
                         p1_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=float))
 
@@ -469,7 +469,7 @@ def main():
         save_img_output(file_sn,
                         mrsi.list_to_matched_array(
                             shiftn_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -478,7 +478,7 @@ def main():
         save_img_output(file_comb,
                         mrsi.list_to_matched_array(
                             comb_n_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -487,7 +487,7 @@ def main():
         save_img_output(file_gam,
                         mrsi.list_to_matched_array(
                             gamma_n_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -497,7 +497,7 @@ def main():
             save_img_output(file_sig,
                             mrsi.list_to_matched_array(
                                 sigma_n_list,
-                                indicies=indicies,
+                                indices=indices,
                                 cleanup=False,
                                 dtype=float))
 
@@ -509,7 +509,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_fwhm_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -519,7 +519,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_snr_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -532,7 +532,7 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         pred_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
 
@@ -543,7 +543,7 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         res_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
 
@@ -554,7 +554,7 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         baseline_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
 
@@ -572,7 +572,7 @@ def main():
         corr_list = [res[0].corr for res in results]
         corr_mats = mrsi.list_to_correlation_array(
             corr_list,
-            indicies=indicies,
+            indices=indices,
             cleanup=True)
         # Save
         file_nm = os.path.join(misc_folder, 'fit_correlations.nii.gz')

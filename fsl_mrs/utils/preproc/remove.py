@@ -18,7 +18,7 @@ def zero_spectrum(FID, axes, limits, limitUnits='ppmshift'):
     :param FID: FID to modify
     :type FID: nump.array
     :param axes: Metadata/axes source
-    :type axes: nifti_mrs.axes.Axes
+    :type axes: Axes
     :param limits: ppm limits
     :type limits: tuple
     :param limitUnits: Whether limits include shift ('ppm' or 'ppmshift), defaults to 'ppmshift'
@@ -50,7 +50,7 @@ def model_fid_hlsvd(FID, axes, limits=None,
     :param FID: Time domain data
     :type FID: numpy.array
     :param axes: Metadata/axes source
-    :type axes: nifti_mrs.axes.Axes
+    :type axes: Axes
     :param limits: Frequency/ppm limits, defaults to None
     :type limits: tuple, optional
     :param limitUnits: Axis that limits are given in. By Default
@@ -103,7 +103,7 @@ def _hlsvd(FID, axes, limits,
     :param FID: Time domain data
     :type FID: numpy.array
     :param axes: Metadata/axes source
-    :type Axes: nifti_mrs.axes.Axes
+    :type axes: Axes
     :param limits: Frequency/ppm limits, defaults to None
     :type limits: tuple, optional
     :param limitUnits: Axis that limits are given in. By Default
@@ -136,12 +136,12 @@ def _hlsvd(FID, axes, limits,
         frequencylimit = limits
     else:
         raise ValueError('limitUnits should be one of: ppm, ppm+shift or hz.')
-    limitIndicies = (frequencies > frequencylimit[0]) & \
+    limitIndices = (frequencies > frequencylimit[0]) & \
                     (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape, dtype=np.complex128)
 
-    for use, f, d, a, p in zip(limitIndicies,
+    for use, f, d, a, p in zip(limitIndices,
                                frequencies,
                                damping_factors,
                                amplitudes,

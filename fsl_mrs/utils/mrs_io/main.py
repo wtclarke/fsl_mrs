@@ -8,13 +8,11 @@
 from pathlib import Path
 import re
 
-import numpy as np
 
 from nifti_mrs.nifti_mrs import NotNIFTI_MRS
 
 from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io as jmrui, lcm_io as lcm
 from fsl_mrs.core import nifti_mrs as fsl_nmrs
-from fsl_mrs.core import basis as bmod
 import fsl.utils.path as fslpath
 
 
@@ -128,18 +126,9 @@ def read_basis(filename):
     # LCModel BASIS format format
     if filename.is_file():
         if filename.suffix.lower() == '.basis':
-            basis, names, header = lcm.readLCModelBasis(filename)
-            # Sort by name to match sorted filenames of other formats
-            so = np.argsort(names)
-            basis = basis[:, so]
-            names = list(np.array(names)[so])
-            header = list(np.array(header)[so])
-
-            # Add missing hdr field
-            for hdr in header:
-                hdr['fwhm'] = None
+            basis = lcm.readLCModelBasis(filename)
         elif filename.suffix.lower() == '.txt':
-            basis, names, header = jmrui.read_txtBasis_files([filename, ])
+            basis = jmrui.read_txtBasis_files([filename, ])
         else:
             raise UnknownBasisFormat(f'Cannot read data format {filename.suffix}')
 
@@ -148,9 +137,9 @@ def read_basis(filename):
         rawfiles = sorted(list(filename.glob('*.RAW')) + list(filename.glob('*.raw')))
         txtfiles = sorted(list(filename.glob('*.txt')))
         if fslfiles:
-            basis, names, header = fsl.readFSLBasisFiles(filename)
+            basis = fsl.readFSLBasisFiles(filename)
         elif txtfiles:
-            basis, names, header = jmrui.read_txtBasis_files(txtfiles)
+            basis = jmrui.read_txtBasis_files(txtfiles)
         elif rawfiles:
             raise IncompatibleBasisFormat("LCModel raw files don't contain enough information"
                                           " to generate a Basis object. Please use fsl_mrs.utils.mrs_io"
@@ -160,8 +149,4 @@ def read_basis(filename):
     else:
         raise UnknownBasisFormat(f'{filename} is neither a file nor a folder!')
 
-    # Handle single basis spectra
-    if basis.ndim == 1:
-        basis = basis[:, np.newaxis]
-
-    return bmod.Basis(basis, names, header)
+    return basis

@@ -26,8 +26,7 @@ svs_basis = testsPath / 'testdata/fsl_mrs/steam_basis'
 @pytest.fixture
 def synth_data():
 
-    fid, hdr, axes = syn.syntheticFID()
-    hdr['json'] = {'ResonantNucleus': '1H'}
+    fid, _, axes = syn.syntheticFID()
 
     basis_1, bhdr_1, _ = syn.syntheticFID(noisecovariance=[[0.0]],
                                           chemicalshift=[-2, ],
@@ -45,7 +44,9 @@ def synth_data():
     bheader = [bhdr_1, bhdr_2]
     names = ['ppm_2', 'ppm3']
 
-    return fid[0], hdr, basis, names, bheader, axes
+    basis = Basis(basis, names, bheader)
+
+    return fid[0], basis, axes
 
 
 def test_load_from_file():
@@ -61,11 +62,11 @@ def test_load_from_file():
 
 def test_load(synth_data):
 
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
     mrs = MRS.from_axes(fid,
                         axes,
-                        basis=Basis(basis, names, bheader))
+                        basis=basis)
 
     assert mrs.FID.shape == (2048,)
     assert mrs.basis.shape == (2048, 2)
@@ -77,15 +78,15 @@ def test_load(synth_data):
 
 def test_access(synth_data):
 
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
     mrs = MRS.from_axes(fid,
                         axes,
-                        basis=Basis(basis, names, bheader))
+                        basis=basis)
 
     assert np.allclose(mrs.FID, fid)
     assert np.allclose(mrs.get_spec(), FIDToSpec(fid))
-    assert np.allclose(mrs.basis, basis)
+    assert np.allclose(mrs.basis, basis.original_basis_array)
 
     assert np.allclose(mrs.getAxes(axis='ppmshift'), axes.ppmAxisShift)
     assert np.allclose(mrs.getAxes(axis='ppm'), axes.ppmAxis)
@@ -94,22 +95,22 @@ def test_access(synth_data):
 
     mrs.rescaleForFitting()
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'], FIDToSpec(fid))
-    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis)
+    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.original_basis_array)
 
     mrs.conj_Basis = True
     mrs.conj_FID = True
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'],
                        FIDToSpec(fid.conj()))
-    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.conj())
+    assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.original_basis_array.conj())
 
 
 def test_basis_manipulations(synth_data):
 
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
     mrs = MRS.from_axes(fid,
                         axes,
-                        basis=Basis(basis, names, bheader))
+                        basis=basis)
 
     assert mrs.basis.shape == (2048, 2)
     assert mrs.numBasis == 2
@@ -178,14 +179,13 @@ def test_nucleus_identification():
 
 
 def test_basis_size(synth_data):
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
     # Truncate basis to test error reporting
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis[:512, :],
-              names=names,
-              basis_hdr=bheader)
+    basis._raw_fids = basis._raw_fids[:512, :]
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=basis)
 
     with pytest.raises(BasisHasInsufficentCoverage):
         mrs.basis
@@ -193,13 +193,11 @@ def test_basis_size(synth_data):
 
 def test_rescale(synth_data):
 
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
-    mrs = MRS(FID=fid,
-              header=hdr,
-              basis=basis,
-              names=names,
-              basis_hdr=bheader)
+    mrs = MRS.from_axes(fid,
+                        axes,
+                        basis=basis)
 
     mrs.rescaleForFitting()
 
@@ -209,11 +207,11 @@ def test_rescale(synth_data):
 
 def test_process_for_fitting(synth_data):
 
-    fid, hdr, basis, names, bheader, axes = synth_data
+    fid, basis, axes = synth_data
 
     mrs = MRS.from_axes(fid,
                         axes,
-                        basis=Basis(basis, names, bheader))
+                        basis=basis)
 
     mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
