@@ -80,11 +80,11 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
         fidList.append(fid)
 
     # Align and shift to Cr reference.
-    alignedFids, _, _ = phase_freq_align(fidList,
-                                         bandwidth,
-                                         centralFrequency,
-                                         ppmlim=(0.2, 4.2),
-                                         niter=2)
+    if fidList:
+        alignedFids, _, _ = phase_freq_align(fidList,
+                                            axes,
+                                            ppmlim=(0.2, 4.2),
+                                            niter=2)
 
     mrsList = []
     for fid, b in zip(alignedFids, blist):
@@ -104,7 +104,8 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
         mrs.ignore = ['Gly']
         mrsList.append(mrs)
 
-    mrsList[0].rescaleForFitting()
+    if mrsList:
+        mrsList[0].rescaleForFitting()
     for i, mrs in enumerate(mrsList):
         if i > 0:
             mrs.FID *= mrsList[0].scaling['FID']

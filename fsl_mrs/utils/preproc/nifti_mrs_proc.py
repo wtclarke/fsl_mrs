@@ -312,9 +312,7 @@ def align(
             # Use original single transient alignment
             out = preproc.phase_freq_align(
                 dd.T,
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                nucleus=data.nucleus[0],
+                axes,
                 ppmlim=ppmlim,
                 niter=niter,
                 verbose=False,
@@ -372,8 +370,7 @@ def align(
 
                 _, phi, eps = preproc.phase_freq_align(
                     win_avg_data.T,
-                    data.bandwidth,
-                    data.spectrometer_frequency[0],
+                    axes,
                     ppmlim=ppmlim,
                     niter=niter,
                     target=target)
@@ -477,9 +474,7 @@ def aligndiff(data,
         out = preproc.phase_freq_align_diff(
             d0.T,
             d1.T,
-            data.bandwidth,
-            data.spectrometer_frequency[0],
-            nucleus=data.nucleus[0],
+            axes,
             diffType=diff_type,
             ppmlim=ppmlim,
             target=target)

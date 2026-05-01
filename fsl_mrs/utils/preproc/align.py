@@ -111,9 +111,7 @@ def align_FID_diff(mrs, src_FID0, src_FID1, tgt_FID, diffType='add', ppmlim=None
 # The functions to call
 # 1) For normal FIDs
 def phase_freq_align(FIDlist,
-                     bandwidth,
-                     centralFrequency,
-                     nucleus='1H',
+                     axes,
                      ppmlim=None,
                      niter=2,
                      apodize=0,
@@ -128,15 +126,14 @@ def phase_freq_align(FIDlist,
 
     Parameters:
     -----------
-    FIDlist          : list
-    bandwidth        : float (unit=Hz)
-    centralFrequency : float (unit=Hz)
-    ppmlim           : tuple
-    niter            : int
-    apodize          : float (unit=Hz)
-    verbose          : bool
-    shift            : apply H20 shift to ppm limit
-    ref              : reference data to align to
+    FIDlist         : list
+    axes            : Axes
+    ppmlim          : tuple
+    niter           : int
+    apodize         : float (unit=Hz)
+    verbose         : bool
+    shift           : apply H20 shift to ppm limit
+    target          : reference data to align to
 
     Returns:
     --------
@@ -152,8 +149,7 @@ def phase_freq_align(FIDlist,
         if target is None:
             target = get_target_FID(all_FIDs, target='nearest_to_mean')
 
-        MRSargs = {'FID': target, 'bw': bandwidth, 'cf': centralFrequency, 'nucleus': nucleus}
-        mrs = MRS(**MRSargs)
+        mrs = MRS.from_axes(target, axes)
 
         if apodize > 0:
             target = apod(target, mrs.dwellTime, [apodize])
@@ -184,9 +180,7 @@ def phase_freq_align(FIDlist,
 # 2) To align spectra from different groups with optional processing applied.
 def phase_freq_align_diff(FIDlist0,
                           FIDlist1,
-                          bandwidth,
-                          centralFrequency,
-                          nucleus='1H',
+                          axes,
                           diffType='add',
                           ppmlim=None,
                           shift=True,
@@ -197,15 +191,13 @@ def phase_freq_align_diff(FIDlist0,
 
     Parameters:
     -----------
-    FIDlist0         : list - shifted
-    FIDlist1         : list - fixed
-    bandwidth        : float (unit=Hz)
-    centralFrequency : float (unit=Hz)
-    nucleus          : str
-    diffType         : string - add or subtract
-    ppmlim           : tuple
-    shift            : apply H20 shift to ppm limit
-    ref              : reference data to align to
+    FIDlist0        : list - shifted
+    FIDlist1        : list - fixed
+    axes            : Axes
+    diffType        : string - add or subtract
+    ppmlim          : tuple
+    shift           : apply H20 shift to ppm limit
+    target          : reference data to align to
 
     Returns:
     --------
@@ -226,7 +218,7 @@ def phase_freq_align_diff(FIDlist0,
         tgt_FID = get_target_FID(diffFIDList, target='nearest_to_mean')
 
     # Pass to phase_freq_align
-    mrs = MRS(FID=FIDlist0[0], cf=centralFrequency, bw=bandwidth, nucleus=nucleus)
+    mrs = MRS.from_axes(FIDlist0[0], axes)
     phiOut, epsOut = [], []
     alignedFIDs0 = []
     for fid0, fid1 in zip(FIDlist0, FIDlist1):

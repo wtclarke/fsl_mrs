@@ -139,8 +139,7 @@ def test_phase_freq_align():
 
     # Align across shifted peak
     alignedFIDs, _, _ = preproc.phase_freq_align(shiftedFIDs,
-                                                 testAxes.SpectralWidth,
-                                                 testAxes.SpectrometerFrequency,
+                                                 testAxes,
                                                  niter=2,
                                                  verbose=False,
                                                  ppmlim=(-2.2, -1.7),
@@ -151,8 +150,7 @@ def test_phase_freq_align():
 
     # Align across fixed peak
     alignedFIDs, _, _ = preproc.phase_freq_align(shiftedFIDs,
-                                                 testAxes.SpectralWidth,
-                                                 testAxes.SpectrometerFrequency,
+                                                 testAxes,
                                                  niter=2,
                                                  verbose=False,
                                                  ppmlim=(2, 4),
@@ -347,8 +345,7 @@ def test_align_diff():
 
     sub0_aa, sub1_aa, phi, eps = preproc.phase_freq_align_diff(shiftedFIDs0,
                                                                shiftedFIDs1,
-                                                               testAxes.SpectralWidth,
-                                                               testAxes.SpectrometerFrequency,
+                                                               testAxes,
                                                                target=tgt,
                                                                shift=False,
                                                                ppmlim=(-5, 5))

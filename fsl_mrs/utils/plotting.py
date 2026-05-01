@@ -761,10 +761,10 @@ def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
 
     fids, _, _ = proc.phase_freq_align(
         all_specs,
-        mrs_list[0].bandwidth, mrs_list[0].centralFrequency)
+        mrs_list[0].axes)
     pred, pred_phi, pred_eps = proc.phase_freq_align(
         all_pred,
-        mrs_list[0].bandwidth, mrs_list[0].centralFrequency,
+        mrs_list[0].axes,
         target=np.asarray(fids).mean(axis=0))
 
     all_baseline = [
