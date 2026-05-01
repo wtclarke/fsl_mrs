@@ -74,7 +74,8 @@ def test_xcorr_align(test_data):
 
 
 def test_phase_corr_max_real(test_data):
-    pfids, phases = mrsi.phase_corr_max_real(test_data, 1 / 4000)
+    timeaxis = 0 + (1 / 4000) * np.arange(test_data.shape[1])
+    pfids, phases = mrsi.phase_corr_max_real(test_data, timeaxis)
 
     assert np.allclose(np.abs(phases), [0, np.pi, 0, np.pi], atol=1E-1)
     assert pfids.shape == test_data.shape

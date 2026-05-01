@@ -10,14 +10,14 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-def apodize(FID, dwelltime, broadening, filter='exp'):
+def apodize(FID, timeaxis, broadening, filter='exp'):
     """ Apodize FID
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwelltime in seconds
+        timeaxis (ndarray): Time axis
         broadening (tuple,float): apodisation in Hz
-        filter (str,optional):'exp','l2g'
+        filter (str,optional): 'exp','l2g'
 
     Returns:
         FID (ndarray): Apodised FID
@@ -30,14 +30,13 @@ def apodize(FID, dwelltime, broadening, filter='exp'):
     if not all(broadening):
         return FID
 
-    taxis  = 0 + dwelltime * np.arange(FID.size)
     if filter == 'exp':
         Tl = 1 / broadening[0]
-        window = np.exp(-taxis / Tl)
+        window = np.exp(-timeaxis / Tl)
     elif filter == 'l2g':
         Tl = 1 / broadening[0]
         Tg = 1 / broadening[1]
-        window = np.exp(taxis / Tl) * np.exp(taxis**2 / Tg**2)
+        window = np.exp(timeaxis / Tl) * np.exp(timeaxis**2 / Tg**2)
     else:
         print('Filter not recognised, should be "exp" or "l2g".')
         window = 1
@@ -110,17 +109,16 @@ def apodize_report(in_mrs,
 
 def calc_aprox_t2decay(
         fids: np.ndarray,
-        dwelltime: float) -> float:
+        timeaxis: np.ndarray) -> float:
     """Fits an exponential decay to mean of data to extract a rough T2*.
 
     :param fids: Array of FID data
     :type fids: np.ndarray
-    :param dwelltime: dwelltime (1/bandwidth) of FIDs
-    :type dwelltime: float
+    :param timeaxis: Time axis
+    :type timeaxis: np.ndarray
     :return: Apodisation amount in hertz
     :rtype: float
     """
-    timeaxis = 0 + dwelltime * np.arange(fids.shape[-1])
 
     avg_data = np.mean(np.abs(fids), axis=0)
     avg_data /= avg_data[0]

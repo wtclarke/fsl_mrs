@@ -17,7 +17,7 @@ def test_freqshift():
     # Shift to 0 ppm
     dt = 1 / testAxes.SpectralWidth
     shift = testAxes.SpectrometerFrequency * -3.0
-    shiftedFID = preproc.freqshift(testFID[0], dt, shift)
+    shiftedFID = preproc.freqshift(testFID[0], testAxes, shift)
 
     maxindex = np.argmax(np.abs(FIDToSpec(shiftedFID)))
     freqOfMax = testAxes.frequencyAxis[maxindex]
@@ -48,14 +48,14 @@ def test_freqshift_array():
     from fsl_mrs.utils.preproc.shifting import freqshift_array
     shifted = freqshift_array(
         fid_array,
-        testAxes.dwelltime,
+        testAxes,
         -testAxes.SpectrometerFrequency)
 
     assert np.allclose(shifted[..., :10], test_array[..., :10], rtol=1e-2)
 
     shifted_array = freqshift_array(
         fid_array,
-        testAxes.dwelltime,
+        testAxes,
         np.tile(-testAxes.SpectrometerFrequency, (2, 2, 2)))
     assert np.allclose(shifted_array, shifted)
 
@@ -68,7 +68,7 @@ def test_timeshift():
 
     # Reduce points and pad to remove first order phase
     shiftedFID, _ = preproc.timeshift(testFID[0],
-                                      1 / testAxes.SpectralWidth,
+                                      testAxes,
                                       0.001,
                                       0.0,
                                       samples=4096)
@@ -181,19 +181,20 @@ def test_pad():
 def test_apodize():
     mockFID = np.full((1024), 1.0)
     dt = 1 / 2000
-    apodFID = preproc.apodize(mockFID, dt, [10])
+    timeAxis = 0 + dt * np.arange(1024)
+    apodFID = preproc.apodize(mockFID, timeAxis, [10])
     assert apodFID[-1] == np.exp(-dt * 1023 * 10)
     assert apodFID[0] == 1.0
 
-    apodFID = preproc.apodize(mockFID, dt, 10)
+    apodFID = preproc.apodize(mockFID, timeAxis, 10)
     assert apodFID[-1] == np.exp(-dt * 1023 * 10)
     assert apodFID[0] == 1.0
 
-    apodFID = preproc.apodize(mockFID, dt, 10.0)
+    apodFID = preproc.apodize(mockFID, timeAxis, 10.0)
     assert apodFID[-1] == np.exp(-dt * 1023 * 10)
     assert apodFID[0] == 1.0
 
-    apodFID = preproc.apodize(mockFID, dt, [10, 0.01], 'l2g')
+    apodFID = preproc.apodize(mockFID, timeAxis, [10, 0.01], 'l2g')
 
     t = dt * 1023
     Tl = 1 / 10
@@ -205,7 +206,7 @@ def test_apodize():
 def test_calc_aprox_t2decay():
     from fsl_mrs.utils.preproc.filtering import calc_aprox_t2decay
     testFIDs, _, testAxes = syn.syntheticFID(linewidth=(10, 10), noisecovariance=[[0.001]])
-    approx_t2 = calc_aprox_t2decay(np.asarray(testFIDs), testAxes.dwelltime)
+    approx_t2 = calc_aprox_t2decay(np.asarray(testFIDs), testAxes.timeAxis)
     assert np.isclose(approx_t2, 10, atol=5)
 
 

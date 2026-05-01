@@ -51,7 +51,7 @@ def syntheticFID(coilamps=[1.0],
         dwelltime=1/bandwidth)
     syntheticFID = np.zeros(points, dtype=np.complex128)
     # zero start the timeAxis and shift by begintime
-    ttrue = axes.timeAxis - axes.timeAxis[0] + begintime
+    ttrue = axes.timeAxis + begintime
 
     if linewidth is not None:
         damping = np.asarray(linewidth) * np.pi
@@ -71,7 +71,7 @@ def syntheticFID(coilamps=[1.0],
     # TODO simplify the header and its usage throughout since Axes holds a lot of this info
     headers = {'noiseless': syntheticFID,
                'cov': noisecovariance,
-               'taxis': ttrue - begintime,
+               'taxis': axes.timeAxis,
                'faxis': axes.frequencyAxis,
                'ppmaxis': axes.ppmAxis,
                'inputopts': inputs,

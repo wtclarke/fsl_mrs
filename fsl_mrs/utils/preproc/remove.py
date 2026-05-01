@@ -140,7 +140,6 @@ def _hlsvd(FID, axes, limits,
                     (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape, dtype=np.complex128)
-    timeAxis = axes.timeAxis - axes.timeAxis[0]
 
     for use, f, d, a, p in zip(limitIndicies,
                                frequencies,
@@ -148,9 +147,9 @@ def _hlsvd(FID, axes, limits,
                                amplitudes,
                                phases):
         if use:
-            sumFID += a * np.exp((timeAxis / d)
+            sumFID += a * np.exp((axes.timeAxis / d)
                                  + 1j * 2 * np.pi
-                                 * (f * timeAxis + p / 360.0))
+                                 * (f * axes.timeAxis + p / 360.0))
     return sumFID
 
 
@@ -168,7 +167,7 @@ def hlsvd_report(in_mrs,
 
     plotDiff = MRS.from_axes(out_mrs.FID - in_mrs.FID, in_mrs.axes)
 
-    # convert 'limits' in ppmshift axis to the respective axis's limits
+    # convert 'limits' to be always in ppmshift units for plotting
     if limitUnits.lower() == 'ppm':
         limits = np.array(limits) + in_mrs.axes.ppmshift
     elif limitUnits.lower() == 'ppm+shift':

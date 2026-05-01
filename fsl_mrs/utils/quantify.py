@@ -29,12 +29,11 @@ class FieldStrengthInfoError(Exception):
 
 
 class FIDIntegrator:
-    def __init__(self, mrs_obj, limits=None):
+    def __init__(self, mrs_obj, limits: tuple = None):
         self.t_axis = mrs_obj.getAxes('time')
         self.ppm_axis = mrs_obj.getAxes()
 
-        indices = mrs_obj.axes.ppmShiftIndices(limits)
-        self.limits = (indices.start, indices.stop)
+        self.limits = mrs_obj.axes.ppmShiftIndices(limits)
 
         self.fid = None
 
@@ -46,7 +45,7 @@ class FIDIntegrator:
         """
             Calculate area of the abs real part of the spectrum between two limits
         """
-        spec = FIDToSpec(FID, axis=0)[self.limits[0]:self.limits[1]]
+        spec = FIDToSpec(FID, axis=0)[self.limits]
         try:
             return np.trapezoid(np.abs(np.real(spec)), axis=0)
         except AttributeError:
@@ -55,7 +54,7 @@ class FIDIntegrator:
 
 
 class WaterRef(FIDIntegrator):
-    def __init__(self, mrs_obj, limits=None):
+    def __init__(self, mrs_obj, limits: tuple = None):
         super().__init__(mrs_obj, limits)
 
         self.original_fid = mrs_obj.H2O
@@ -97,7 +96,7 @@ class WaterRef(FIDIntegrator):
 
 
 class RefIntegral(FIDIntegrator):
-    def __init__(self, mrs_obj, res_obj, metab, limits):
+    def __init__(self, mrs_obj, res_obj, metab, limits: tuple = None):
         super().__init__(mrs_obj, limits)
         self.original_fid = res_obj.predictedFID(
             mrs_obj, mode=metab, noBaseline=False, no_phase=False)

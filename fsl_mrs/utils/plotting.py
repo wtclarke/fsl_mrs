@@ -1228,17 +1228,17 @@ def plot_references(mrs, res):
     data_range = (min_val, max_val)
     axis = mrs.getAxes(limits=data_range)
     indices = mrs.axes.ppmShiftIndices(data_range)
-    water_first, water_last = res.concScalings['ref_info']['water_ref'].limits
-    water_axis = mrs.getAxes()[water_first:water_last]
-    metab_first, metab_last = res.concScalings['ref_info']['metab_ref'].limits
-    metab_axis = mrs.getAxes()[metab_first:metab_last]
+    water_indices = res.concScalings['ref_info']['water_ref'].limits
+    water_axis = mrs.getAxes()[water_indices]
+    metab_indices = res.concScalings['ref_info']['metab_ref'].limits
+    metab_axis = mrs.getAxes()[metab_indices]
 
     y_data = np.real(FIDToSpec(mrs.H2O))[indices]
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='data',
                         line=dict(color='rgb(0,0,0)', width=1))
-    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['water_ref'].fid))[water_first:water_last]
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['water_ref'].fid))[water_indices]
     trace2 = go.Scatter(x=water_axis, y=y_data,
                         mode='lines',
                         name='Fitted, integrated water',
@@ -1257,7 +1257,7 @@ def plot_references(mrs, res):
                         mode='lines',
                         name='Fitted Reference',
                         line=dict(color='rgb(0,0,255)', width=1))
-    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].fid))[metab_first:metab_last]
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].fid))[metab_indices]
     trace5 = go.Scatter(x=metab_axis, y=y_data,
                         mode='lines',
                         name='Metabolite integrated',

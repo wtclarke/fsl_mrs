@@ -10,6 +10,7 @@ from scipy.signal import correlate
 
 from fsl_mrs.utils.preproc import freqshift, pad, apodize
 from fsl_mrs.utils.misc import FIDToSpec
+from nifti_mrs.axes import Axes
 
 
 def xcorr_align(
@@ -41,9 +42,13 @@ def xcorr_align(
 
     def prep_spec(x):
         x = zpad(x)
+        axes = Axes(npoints=x.size,
+                    ResonantNucleus=None,
+                    SpectrometerFrequency=100,
+                    dwelltime=dwelltime)
         x = apodize(
             x,
-            dwelltime,
+            axes.timeAxis,
             apodize_hz)
         return np.abs(FIDToSpec(x))
 
@@ -60,7 +65,10 @@ def xcorr_align(
             np.argmax(correlate(prep_spec(fid), target, mode='same')))
     shifts = np.asarray(shifts)
     shifts -= int(fids_in.shape[1] * 0.5 * (1 + zpad_factor))
-    bandwidth = 1 / dwelltime
-    shifts_hz = - shifts.astype(float) * bandwidth / (fids_in.shape[1] * (1 + zpad_factor))
+    shifts_hz = - shifts.astype(float) / dwelltime / (fids_in.shape[1] * (1 + zpad_factor))
 
-    return np.stack([freqshift(fid, dwelltime, s) for fid, s in zip(fids_in, shifts_hz)]), shifts_hz
+    axes = Axes(npoints=fid.size,
+                ResonantNucleus=None,
+                SpectrometerFrequency=100,
+                dwelltime=dwelltime)
+    return np.stack([freqshift(fid, axes, s) for fid, s in zip(fids_in, shifts_hz)]), shifts_hz

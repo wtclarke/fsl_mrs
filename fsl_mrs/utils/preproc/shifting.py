@@ -8,62 +8,67 @@
 
 import numpy as np
 from fsl_mrs.core import MRS
+from nifti_mrs.axes import Axes
 from fsl_mrs.utils.misc import extract_spectrum
 
 
-def timeshift(FID, dwelltime, shiftstart, shiftend, samples=None):
+def timeshift(FID: np.ndarray,
+              axes: Axes,
+              shiftstart: float,
+              shiftend: float,
+              samples: int = None) -> tuple[np.ndarray, float]:
     """ Shift data on time axis
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwell time in seconds
+        axes (Axes): Metadata/axes source
         shiftstart (float): Shift start point in seconds
         shiftend (float): Shift end point in seconds
         samples (int, optional): Resample to this number of points
 
     Returns:
         FID (ndarray): Shifted FID
+        newDT (float): New dwell time
     """
-    originalAcqTime = dwelltime * (FID.size - 1)
-    originalTAxis = np.linspace(0, originalAcqTime, FID.size)
     if samples is None:
-        newDT = dwelltime
+        newDT = axes.dwelltime
     else:
-        totalacqTime = originalAcqTime - shiftstart + shiftend
+        totalacqTime = axes.timeAxis[-1] - axes.timeAxis[0] - shiftstart + shiftend
         newDT = totalacqTime / samples
-    newTAxis = np.arange(originalTAxis[0] + shiftstart, originalTAxis[-1] + shiftend, newDT)
-    FID = np.interp(newTAxis, originalTAxis, FID, left=0.0 + 1j * 0.0, right=0.0 + 1j * 0.0)
+    newTAxis = np.arange(axes.timeAxis[0] + shiftstart, axes.timeAxis[-1] + shiftend, newDT)
+    FID = np.interp(newTAxis, axes.timeAxis, FID, left=0.0 + 1j * 0.0, right=0.0 + 1j * 0.0)
 
     return FID, newDT
 
 
-def freqshift(FID, dwelltime, shift):
+def freqshift(FID: np.ndarray,
+              axes: Axes,
+              shift: float) -> np.ndarray:
     """ Shift data on frequency axis
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwelltime in seconds
+        axes (Axes): Metadata/axes source
         shift (float): shift in Hz
 
     Returns:
         FID (ndarray): Shifted FID
     """
-    tAxis = 0 + dwelltime * np.arange(FID.size)
-    phaseRamp = 2 * np.pi * tAxis * shift
+    phaseRamp = 2 * np.pi * axes.timeAxis * shift
     FID = FID * np.exp(1j * phaseRamp)
     return FID
 
 
 def freqshift_array(
         fid_array: np.ndarray,
-        dwelltime: float,
+        axes: Axes,
         shift_array: np.ndarray | float) -> np.ndarray:
     """Apply shifts to a grid of data without looping
 
     :param fid_array: ND array of FIDs. Last dimension is time.
     :type fid_array: np.ndarray
-    :param dwelltime: Dwell time (1/bandwidth) in seconds
-    :type dwelltime: float
+    :param axes: Metadata/axes source
+    :type axes: MRS
     :param shift_array: Either a single value or an array matching fid_array spatial size
     :type shift_array: np.ndarray | float
     :return: Shifted FIDs
@@ -73,17 +78,19 @@ def freqshift_array(
             and shift_array.shape != fid_array.shape[:-1]:
         raise ValueError('shift_array must be float or array matching spatial size of fid_array.')
 
-    tAxis = 0 + dwelltime * np.arange(fid_array.shape[-1])
-
     if isinstance(shift_array, float):
-        phaseRamp = 2 * np.pi * tAxis * shift_array
+        phaseRamp = 2 * np.pi * axes.timeAxis * shift_array
     else:
-        phaseRamp = 2 * np.pi * tAxis * shift_array[..., np.newaxis]
+        phaseRamp = 2 * np.pi * axes.timeAxis * shift_array[..., np.newaxis]
 
     return fid_array * np.exp(1j * phaseRamp)
 
 
-def shiftToRef(FID, target, axes, ppmlim=(2.8, 3.2), shift=True):
+def shiftToRef(FID: np.ndarray,
+               target: float,
+               axes: Axes,
+               ppmlim: tuple = (2.8, 3.2),
+               shift: bool = True) -> tuple[np.ndarray, float]:
     '''Find a maximum and shift that maximum to a reference position.
 
     :param FID: FID
@@ -109,7 +116,7 @@ def shiftToRef(FID, target, axes, ppmlim=(2.8, 3.2), shift=True):
     shiftAmount = extractedAxis[maxIndex] - target
     shiftAmountHz = shiftAmount * pad_mrs.centralFrequency / 1E6
 
-    return freqshift(FID, pad_mrs.dwellTime, -shiftAmountHz), shiftAmount
+    return freqshift(FID, pad_mrs.axes, -shiftAmountHz), shiftAmount
 
 
 def truncate(FID, k, first_or_last='last'):

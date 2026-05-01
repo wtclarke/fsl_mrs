@@ -42,6 +42,8 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     :return: Tuple with the aligned data, shift, and phase
     :rtype: tuple
     """
+    from nifti_mrs.axes import Axes
+
     if not isinstance(data, NIFTI_MRS):
         raise TypeError('Data must be a NIFTI_MRS object.')
     if data.ndim < 5:
@@ -78,7 +80,7 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     dyn_res = dyn.fit(init=init, verbose=verbose)
 
     def correctfid(fid, hz_shift, phase_shift):
-        fid_shift = proc.freqshift(fid, data.dwelltime, hz_shift)
+        fid_shift = proc.freqshift(fid, axes, hz_shift)
         fid_phased = proc.applyPhase(fid_shift, phase_shift)
         return fid_phased
 
@@ -87,6 +89,10 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
 
     aligned_obj = data.copy()
     generator = data.iterate_over_dims()
+
+    # Create an Axes object
+    axes = Axes.from_nifti_mrs(data)
+
     for (dd, idx), ei, pi in zip(generator, eps, phi):
         aligned_obj[idx] = correctfid(dd, ei, pi)
 

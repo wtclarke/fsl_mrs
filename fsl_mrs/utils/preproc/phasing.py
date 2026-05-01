@@ -159,7 +159,7 @@ def phaseCorrect_report(in_mrs,
 
 def phasta(
         data: np.ndarray,
-        dwelltime: float,
+        timeaxis: np.ndarray,
         limits: slice | None = None,
         indices_to_use: list[int] | slice = slice(None),
         apodization: float = 0) -> tuple[np.ndarray, float]:
@@ -169,8 +169,8 @@ def phasta(
 
     :param data: FID or 2D array of FIDS, time is first dimension
     :type data: np.ndarray
-    :param dwelltime: Dwelltime (1 / spectral bandwidth)
-    :type dwelltime: float
+    :param timeaxis: Time axis
+    :type timeaxis: np.ndarray
     :param limits: Index limits to limit range over which algorithm is run, defaults to None
     :type limits: slice, optional
     :param indices_to_use: Phase all FIDs based on mean of subset, defaults to slice(None) (use all in mean).
@@ -186,7 +186,7 @@ def phasta(
     limits = slice(None) if limits is None else limits
 
     data_apod = np.asarray([
-        apodize(fid, dwelltime, apodization) for fid in data.T]).T
+        apodize(fid, timeaxis, apodization) for fid in data.T]).T
 
     deg_search = np.arange(0, 359, 1)
     range_6 = []

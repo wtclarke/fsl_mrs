@@ -12,9 +12,7 @@ import numpy as np
 
 from nifti_mrs.nifti_mrs import NotNIFTI_MRS
 
-from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io
-from fsl_mrs.utils.mrs_io import lcm_io as lcm
-from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
+from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io as jmrui, lcm_io as lcm
 from fsl_mrs.core import nifti_mrs as fsl_nmrs
 from fsl_mrs.core import basis as bmod
 import fsl.utils.path as fslpath
@@ -141,7 +139,7 @@ def read_basis(filename):
             for hdr in header:
                 hdr['fwhm'] = None
         elif filename.suffix.lower() == '.txt':
-            basis, names, header = jmrui_io.read_txtBasis_files([filename, ])
+            basis, names, header = jmrui.read_txtBasis_files([filename, ])
         else:
             raise UnknownBasisFormat(f'Cannot read data format {filename.suffix}')
 
