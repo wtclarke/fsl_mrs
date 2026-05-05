@@ -82,9 +82,9 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
     # Align and shift to Cr reference.
     if fidList:
         alignedFids, _, _ = phase_freq_align(fidList,
-                                            axes,
-                                            ppmlim=(0.2, 4.2),
-                                            niter=2)
+                                             axes,
+                                             ppmlim=(0.2, 4.2),
+                                             niter=2)
 
     mrsList = []
     for fid, b in zip(alignedFids, blist):

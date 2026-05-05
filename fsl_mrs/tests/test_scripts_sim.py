@@ -10,7 +10,7 @@ import json
 import numpy as np
 import os.path as op
 import subprocess
-from fsl_mrs.utils.mrs_io import fsl_io, lcm_io
+from fsl_mrs.utils.mrs_io import fsl_io
 from fsl_mrs.denmatsim import simseq as sim
 seqfile = op.join(op.dirname(__file__), 'testdata/sim/example.json')
 

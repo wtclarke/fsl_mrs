@@ -137,7 +137,7 @@ def _hlsvd(FID, axes, limits,
     else:
         raise ValueError('limitUnits should be one of: ppm, ppm+shift or hz.')
     limitIndices = (frequencies > frequencylimit[0]) & \
-                    (frequencies < frequencylimit[1])
+                   (frequencies < frequencylimit[1])
 
     sumFID = np.zeros(FID.shape, dtype=np.complex128)
 

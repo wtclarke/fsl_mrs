@@ -173,12 +173,13 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # Add missing hdr field
     for hdr in headers:
         hdr['fwhm'] = None
-        
+
     # Handle single basis spectra
     if data.ndim == 1:
         data = data[:, np.newaxis]
 
     return bmod.Basis(data, metabo, headers)
+
 
 # Utility functions for above functions
 def tidy(x):

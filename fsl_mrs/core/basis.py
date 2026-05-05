@@ -30,7 +30,7 @@ class BasisHasInsufficentCoverage(BasisError):
 class Basis:
     """A Basis object is the FSL-MRS basis spectra handling class.
     """
-    def __init__(self, fid_array, names, headers=None, axes : Axes = None):
+    def __init__(self, fid_array, names, headers=None, axes: Axes = None):
         """Generate a Basis object from an array of fids, names and header information.
 
         :param fid_array: 2D array of basis FIDs (time x metabs)
@@ -50,7 +50,7 @@ class Basis:
             return np.isclose(hdr1['dwelltime'], hdr2['dwelltime'])\
                 and np.isclose(hdr1['bandwidth'], hdr2['bandwidth'])\
                 and np.isclose(hdr1['centralFrequency'], hdr2['centralFrequency'])\
-        
+
         if headers:
             for hdr, name in zip(headers, names):
                 if not hdr_match(hdr, headers[0]):
@@ -75,16 +75,10 @@ class Basis:
             fid_array = fid_array.T
 
         self._raw_fids = fid_array
-        if axes:
-            self._dt = axes.dwelltime
-            self._cf = axes.SpectrometerFrequency
-            self._widths = [[None for n in names]]
-        elif headers:
-            self._dt = headers[0]['dwelltime']
-            self._cf = misc.checkCFUnits(headers[0]['centralFrequency'], units='MHz')
+        if headers:
             self._widths = [hdr['fwhm'] for hdr in headers]
         else:
-            raise BasisError("'headers' or 'axes' should be provided in the constructor.")
+            self._widths = [[None for n in names]]
 
         # Try to read nucleus from basis file.
         # If not found assume Nucleus is 1H
@@ -92,22 +86,25 @@ class Basis:
         # suitability
         if axes:
             self.nucleus = axes.ResonantNucleus
-        else:
+            self._dt = axes.dwelltime
+            self._cf = axes.SpectrometerFrequency
+            self._axes_obj = axes
+        elif headers:
             if headers and 'nucleus' in headers[0] and headers[0]['nucleus'] is not None:
                 self.nucleus = headers[0]['nucleus']
             else:
                 self.nucleus = '1H'
-
-        # Create Axes object
-        if axes:
-            self._axes_obj = axes
-        else:
+            self._dt = headers[0]['dwelltime']
+            self._cf = misc.checkCFUnits(headers[0]['centralFrequency'], units='MHz')
+            # Create Axes object
             self._axes_obj = Axes(ResonantNucleus=self.nucleus,
-                                SpectrometerFrequency=self.cf,
-                                dwelltime=self.original_dwell,
-                                npoints=self.original_points,
-                                SpecFreqChemShift=headers[0].get('centralShift', None),
-                                RxOffset=0.0)            
+                                  SpectrometerFrequency=self.cf,
+                                  dwelltime=self.original_dwell,
+                                  npoints=self.original_points,
+                                  SpecFreqChemShift=headers[0].get('centralShift', None),
+                                  RxOffset=0.0)
+        else:
+            raise BasisError("'headers' or 'axes' should be provided in the constructor.")
 
         # Default interpolation is Fourier Transform based.
         self._use_fourier_interp = True
@@ -179,6 +176,11 @@ class Basis:
     def basis_fwhm(self):
         """Get the original input data fwhm"""
         return self._widths
+
+    @basis_fwhm.setter
+    def basis_fwhm(self, widths):
+        """Set the original input data fwhm values."""
+        self._widths = list(widths)
 
     @property
     def original_time_axis(self):

@@ -215,7 +215,7 @@ def test_create_peak():
 
 
 def test_detect_conjugation():
-    FIDs, headers, axes = synth.syntheticFID(
+    FIDs, _, axes = synth.syntheticFID(
         chemicalshift=[-2, -3])
     FID = FIDs[0]
     FIDs = np.stack((FIDs[0], FIDs[0], FIDs[0].conj()))

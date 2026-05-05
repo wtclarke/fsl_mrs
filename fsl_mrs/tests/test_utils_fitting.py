@@ -29,31 +29,30 @@ def data():
     basisNames = ['Cr', 'PCr', 'NAA']
 
     basisFIDs = []
-    basisHdr = []
+    basis_fwhm = []
     for idx, _ in enumerate(amplitude):
-        tmp, hdr, _ = syntheticFID(noisecovariance=[[0.0]],
-                                   chemicalshift=[chemshift[idx]],
-                                   amplitude=[1.0],
-                                   linewidth=[lw[idx] / 5],
-                                   phase=[phases[idx]],
-                                   g=[g[idx]])
-        hdr['fwhm'] = lw[idx] / 5
+        tmp, _, axes = syntheticFID(noisecovariance=[[0.0]],
+                                    chemicalshift=[chemshift[idx]],
+                                    amplitude=[1.0],
+                                    linewidth=[lw[idx] / 5],
+                                    phase=[phases[idx]],
+                                    g=[g[idx]])
+        basis_fwhm.append(lw[idx] / 5)
         basisFIDs.append(tmp[0])
-        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
+    bset = Basis(basisFIDs, axes=axes, names=basisNames)
+    bset.basis_fwhm = basis_fwhm
 
-    synFID, synHdr, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
-                                           chemicalshift=chemshift,
-                                           amplitude=amplitude,
-                                           linewidth=lw,
-                                           phase=phases,
-                                           g=g)
+    synFID, _, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
+                                      chemicalshift=chemshift,
+                                      amplitude=amplitude,
+                                      linewidth=lw,
+                                      phase=phases,
+                                      g=g)
 
     synMRS = MRS.from_axes(synFID[0],
                            axes=synAxes,
-                           basis=Basis(basisFIDs, headers=basisHdr, names=basisNames))
-
-    synMRS.header = synHdr
+                           basis=bset)
 
     return synMRS, amplitude
 

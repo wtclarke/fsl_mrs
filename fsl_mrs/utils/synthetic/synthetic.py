@@ -68,17 +68,9 @@ def syntheticFID(coilamps=[1.0],
     for cDx, (camp, cphs) in enumerate(zip(coilamps, coilphase)):
         FIDs.append((camp * np.exp(1j * cphs) * syntheticFID) + noise[:, cDx])
 
-    # TODO simplify the header and its usage throughout since Axes holds a lot of this info
     headers = {'noiseless': syntheticFID,
                'cov': noisecovariance,
-               'taxis': axes.timeAxis,
-               'faxis': axes.frequencyAxis,
-               'ppmaxis': axes.ppmAxis,
                'inputopts': inputs,
-               'centralFrequency': axes.SpectrometerFrequency,
-               'bandwidth': axes.SpectralWidth,
-               'dwelltime': axes.dwelltime,
-               'ResonantNucleus': axes.ResonantNucleus
                }
 
     return FIDs, headers, axes

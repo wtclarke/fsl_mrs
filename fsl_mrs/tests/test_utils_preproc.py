@@ -15,7 +15,6 @@ import numpy as np
 def test_freqshift():
     testFID, _, testAxes = syn.syntheticFID(amplitude=[0.0, 1.0])  # Single peak at 3 ppm
     # Shift to 0 ppm
-    dt = 1 / testAxes.SpectralWidth
     shift = testAxes.SpectrometerFrequency * -3.0
     shiftedFID = preproc.freqshift(testFID[0], testAxes, shift)
 
@@ -33,7 +32,7 @@ def test_freqshift_array():
         points=1000,
         centralfrequency=100.0)  # Single peak at 3 ppm
 
-    testFID_2, testHdrs, testAxes = syn.syntheticFID(
+    testFID_2, _, testAxes = syn.syntheticFID(
         amplitude=[0.0, 1.0],
         chemicalshift=[0.0, 2.0],
         noisecovariance=[[0]],

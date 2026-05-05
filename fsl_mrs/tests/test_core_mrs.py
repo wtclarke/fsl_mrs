@@ -28,23 +28,21 @@ def synth_data():
 
     fid, _, axes = syn.syntheticFID()
 
-    basis_1, bhdr_1, _ = syn.syntheticFID(noisecovariance=[[0.0]],
-                                          chemicalshift=[-2, ],
-                                          amplitude=[0.1, ],
-                                          damping=[5, ])
+    basis_1, _, baxes_1 = syn.syntheticFID(noisecovariance=[[0.0]],
+                                           chemicalshift=[-2, ],
+                                           amplitude=[0.1, ],
+                                           damping=[5, ])
 
-    basis_2, bhdr_2, _ = syn.syntheticFID(noisecovariance=[[0.0]],
-                                          chemicalshift=[3, ],
-                                          amplitude=[0.1, ],
-                                          damping=[5, ])
+    basis_2, _, _ = syn.syntheticFID(noisecovariance=[[0.0]],
+                                     chemicalshift=[3, ],
+                                     amplitude=[0.1, ],
+                                     damping=[5, ])
 
-    bhdr_1['fwhm'] = 1.0
-    bhdr_2['fwhm'] = 1.0
     basis = np.concatenate((basis_1, basis_2)).T
-    bheader = [bhdr_1, bhdr_2]
     names = ['ppm_2', 'ppm3']
 
-    basis = Basis(basis, names, bheader)
+    basis = Basis(basis, names, axes=baxes_1)
+    basis.basis_fwhm = [1.0, 1.0]
 
     return fid[0], basis, axes
 

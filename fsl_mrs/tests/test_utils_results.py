@@ -8,6 +8,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
 import fsl_mrs.utils.mrs_io as mrsio
 
@@ -31,35 +32,34 @@ def data():
     begintime = 0.00005
 
     basisFIDs = []
-    basisHdr = []
+    basis_fwhm = []
     for idx, _ in enumerate(amplitude):
-        tmp, hdr, _ = syntheticFID(noisecovariance=[[0.0]],
-                                   chemicalshift=[chemshift[idx] + 0.1],
-                                   amplitude=[1.0],
-                                   linewidth=[lw[idx] / 5],
-                                   phase=[0.0],
-                                   g=[g[idx]],
-                                   begintime=0,
-                                   seed=20+idx)
-        hdr['fwhm'] = lw[idx] / 5
+        tmp, _, axes = syntheticFID(noisecovariance=[[0.0]],
+                                    chemicalshift=[chemshift[idx] + 0.1],
+                                    amplitude=[1.0],
+                                    linewidth=[lw[idx] / 5],
+                                    phase=[0.0],
+                                    g=[g[idx]],
+                                    begintime=0,
+                                    seed=20+idx)
+        basis_fwhm.append(lw[idx] / 5)
         basisFIDs.append(tmp[0])
-        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
+    bset = Basis(basisFIDs, axes=axes, names=basisNames)
+    bset.basis_fwhm = basis_fwhm
 
-    synFID, synHdr, _ = syntheticFID(noisecovariance=[[noiseCov]],
-                                     chemicalshift=chemshift,
-                                     amplitude=amplitude,
-                                     linewidth=lw,
-                                     phase=phases,
-                                     g=g,
-                                     begintime=begintime,
-                                     seed=1)
+    synFID, _, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
+                                      chemicalshift=chemshift,
+                                      amplitude=amplitude,
+                                      linewidth=lw,
+                                      phase=phases,
+                                      g=g,
+                                      begintime=begintime,
+                                      seed=1)
 
-    synMRS = MRS(FID=synFID[0],
-                 header=synHdr,
-                 basis=basisFIDs,
-                 basis_hdr=basisHdr,
-                 names=basisNames)
+    synMRS = MRS.from_axes(fid=synFID[0],
+                           axes=synAxes,
+                           basis=bset)
 
     metab_groups = [0] * synMRS.numBasis
     Fitargs = {'ppmlim': [0.2, 5.2],

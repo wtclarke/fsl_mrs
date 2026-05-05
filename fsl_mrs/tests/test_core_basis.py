@@ -197,6 +197,20 @@ def test_add_fid():
     assert original.n_metabs == 22
 
 
+def test_basis_fwhm_setter():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+    new_widths = [float(idx) for idx in range(original.n_metabs)]
+    original.basis_fwhm = new_widths
+    assert original.basis_fwhm == new_widths
+
+    original.add_fid_to_basis(
+        np.ones((original.original_points,), dtype=complex),
+        'test',
+        width=5.0,
+    )
+    assert original.basis_fwhm[-1] == 5.0
+
+
 def test_remove_fid():
     original = basis_mod.Basis.from_file(fsl_basis_path)
 
