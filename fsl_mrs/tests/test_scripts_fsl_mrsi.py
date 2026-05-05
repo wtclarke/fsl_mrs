@@ -68,6 +68,7 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
+    assert (tmp_path / 'fit_out/mrsi.tree').exists()
 
     assert (tmp_path / 'fit_out/nuisance/p0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/p1.nii.gz').exists()
@@ -151,6 +152,7 @@ def test_fsl_mrsi_noh2o(tmp_path):
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
+    assert (tmp_path / 'fit_out/mrsi.tree').exists()
 
     assert (tmp_path / 'fit_out/nuisance/p0.nii.gz').exists()
     assert (tmp_path / 'fit_out/nuisance/p1.nii.gz').exists()

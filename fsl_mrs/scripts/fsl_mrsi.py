@@ -558,6 +558,31 @@ def main():
                         cleanup=False,
                         dtype=np.complex64))
 
+    # Save a file-tree of the output file structure
+    tree_file = os.path.join(args.output, 'mrsi.tree')
+    tree_text = """
+concs
+    raw
+        {metab}.nii.gz                      (raw-concentrations)
+    internal
+        {metab}.nii.gz                      (conc-internal)
+    molarity
+        {metab}.nii.gz                      (conc-molarity)
+    molality
+        {metab}.nii.gz                      (conc-molality)
+fit
+    fit.nii.gz                              (fit-fit)
+    baseline.nii.gz                         (fit-baseline)
+    residual.nii.gz                         (fit-residual)
+uncertainties
+    {metab}_sd.nii.gz                       (sd)
+qc
+    {metab}_snr.nii.gz                      (SNR)
+    {metab}_fwhm.nii.gz                     (FWHM)
+""".lstrip()
+    with open(tree_file, 'w') as f:
+        f.write(tree_text)
+
     # Save a parameter mappings of:
     # 1) metabolites to groups
     results[0][0].metab_in_group_json(
