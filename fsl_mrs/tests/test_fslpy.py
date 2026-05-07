@@ -9,7 +9,8 @@ Copyright (C) 2026 University of Oxford
 
 import subprocess
 from pathlib import Path
-
+import sys
+from unittest.mock import patch
 import shutil
 import pytest
 pytest.importorskip('fsl.data.image')
@@ -17,10 +18,10 @@ pytest.importorskip('fsl.wrappers')
 
 from fsl.data.image import Image
 from fsl.wrappers import fsl_mrs, fsl_mrs_preproc, fsl_mrs_proc, svs_segment
-
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.validate_results import compare_folders
 
+fsl_bin = str(Path(sys.prefix) / 'bin')
 
 testsPath = Path(__file__).parent
 
@@ -230,29 +231,31 @@ def test_fsl_mrs(tmp_path):
     assert (cli_out / 'summary.csv').exists()
 
     #  fslpy call
-    fsl_mrs(
-        data=fsl_mrs_data['metab'],
-        h2o=fsl_mrs_data['water'],
-        output=wrapper_out,
-        tissue_frac=fsl_mrs_data['seg'],
-        overwrite=True,
-        TE='11',
-        metab_groups='Mac',
-        basis=fsl_mrs_data['basis'],
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs(
+            data=fsl_mrs_data['metab'],
+            h2o=fsl_mrs_data['water'],
+            output=wrapper_out,
+            tissue_frac=fsl_mrs_data['seg'],
+            overwrite=True,
+            TE='11',
+            metab_groups='Mac',
+            basis=fsl_mrs_data['basis'],
+        )
     assert (wrapper_out / 'summary.csv').exists()
 
     #  fslpy call with objects
-    fsl_mrs(
-        data=Image(fsl_mrs_data['metab']),
-        h2o=Image(fsl_mrs_data['water']),
-        output=object_out,
-        tissue_frac=fsl_mrs_data['seg'],
-        overwrite=True,
-        TE='11',
-        metab_groups='Mac',
-        basis=mrs_io.read_basis(fsl_mrs_data['basis']),
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs(
+            data=Image(fsl_mrs_data['metab']),
+            h2o=Image(fsl_mrs_data['water']),
+            output=object_out,
+            tissue_frac=fsl_mrs_data['seg'],
+            overwrite=True,
+            TE='11',
+            metab_groups='Mac',
+            basis=mrs_io.read_basis(fsl_mrs_data['basis']),
+        )
     assert (object_out / 'summary.csv').exists()
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
@@ -278,28 +281,30 @@ def test_fsl_mrs_preproc(tmp_path):
     ])
     assert (cli_out / 'metab.nii.gz').exists()
 
-    fsl_mrs_preproc(
-        data=preproc_data['metab'],
-        reference=preproc_data['water'],
-        quant=preproc_data['quant'],
-        output=wrapper_out,
-        truncate_fid='1',
-        remove_water=True,
-        report=True,
-        overwrite=True,
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs_preproc(
+            data=preproc_data['metab'],
+            reference=preproc_data['water'],
+            quant=preproc_data['quant'],
+            output=wrapper_out,
+            truncate_fid='1',
+            remove_water=True,
+            report=True,
+            overwrite=True,
+        )
     assert (wrapper_out / 'metab.nii.gz').exists()
 
-    fsl_mrs_preproc(
-        data=Image(preproc_data['metab']),
-        reference=Image(preproc_data['water']),
-        quant=Image(preproc_data['quant']),
-        output=object_out,
-        truncate_fid='1',
-        remove_water=True,
-        report=True,
-        overwrite=True,
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs_preproc(
+            data=Image(preproc_data['metab']),
+            reference=Image(preproc_data['water']),
+            quant=Image(preproc_data['quant']),
+            output=object_out,
+            truncate_fid='1',
+            remove_water=True,
+            report=True,
+            overwrite=True,
+        )
     assert (object_out / 'metab.nii.gz').exists()
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
@@ -322,19 +327,21 @@ def test_svs_segment(tmp_path):
     assert (cli_out / 'segmentation.json').exists()
 
     wrapper_out.mkdir()
-    svs_segment(
-        svs=svs_segment_data['metab'],
-        anat=svs_segment_data['anat'],
-        output=wrapper_out,
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        svs_segment(
+            svs=svs_segment_data['metab'],
+            anat=svs_segment_data['anat'],
+            output=wrapper_out,
+        )
     assert (wrapper_out / 'segmentation.json').exists()
 
     object_out.mkdir()
-    svs_segment(
-        svs=Image(svs_segment_data['metab']),
-        anat=svs_segment_data['anat'],
-        output=object_out,
-    )
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        svs_segment(
+            svs=Image(svs_segment_data['metab']),
+            anat=svs_segment_data['anat'],
+            output=object_out,
+        )
     assert (object_out / 'segmentation.json').exists()
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
@@ -352,11 +359,13 @@ def test_fsl_mrs_proc(tmp_path):
     assert (cli_out / 'metab.nii.gz').exists()
 
     wrapper_out.mkdir()
-    _run_fsl_mrs_proc_wrapper(preproc_data, wrapper_out)
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        _run_fsl_mrs_proc_wrapper(preproc_data, wrapper_out)
     assert (wrapper_out / 'metab.nii.gz').exists()
 
     object_out.mkdir()
-    _run_fsl_mrs_proc_wrapper(preproc_data, object_out, use_objects=True)
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        _run_fsl_mrs_proc_wrapper(preproc_data, object_out, use_objects=True)
     assert (object_out / 'metab.nii.gz').exists()
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
