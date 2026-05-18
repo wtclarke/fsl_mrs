@@ -384,7 +384,7 @@ class MRS():
 
     @basis_scaling_target.setter
     def basis_scaling_target(self, scale):
-        """Set ccaling target for basis"""
+        """Set scaling target for basis"""
         self._scaling_factor = scale
 
     @property
@@ -413,9 +413,9 @@ class MRS():
     def get_spec(self, ppmlim: tuple = None, shift=True):
         """Returns spectrum over defined ppm limits
 
-        :param ppmlim: Chemical shift range over which to retun the spectrum, defaults to None
+        :param ppmlim: Chemical shift range over which to return the spectrum, defaults to None
         :type ppmlim: 2-tuple of floats, optional
-        :param shift: Applies referenciing shift if True, defaults to True
+        :param shift: Applies referencing shift if True, defaults to True
         :type shift: bool, optional
         :return: Complex spectrum over requested range
         :rtype: numpy.array
@@ -522,7 +522,7 @@ class MRS():
                (cf_MHz > ninefourt_range[0] and cf_MHz < ninefourt_range[1]) or \
                (cf_MHz > elevensevent_range[0] and cf_MHz < elevensevent_range[1]):
                 # print(f'Identified as {key} nucleus data.'
-                #      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
+                #      f' Estimated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
                 return key
 
         raise ValueError(f'Unidentified nucleus,'
@@ -553,7 +553,7 @@ class MRS():
                 * integers : output same as input
                 * strings : each string is interpreted as metab name and has own group
 
-        :param metab_grp_str:metabolite groups
+        :param metab_grp_str: metabolite groups
         :type metab_grp_str: str or list
         :return: metabolite group indices
         :rtype: list

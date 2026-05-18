@@ -1,8 +1,8 @@
-# NIFTI_MRS.py - NFITI_MRS class definition
+# NIFTI_MRS.py - NIFTI_MRS class definition
 # This module is primarily a shim around the niftimrs package
 # The intention is to extend the functionality of the
 # nifti-mrs package definitions for use in FSL-MRS
-# The need for this arise when splitting these useful generic nifti-mrs
+# The need for this arises when splitting these useful generic nifti-mrs
 # tools off from fsl-mrs, but wanting to keep the original fsl-mrs api
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -44,7 +44,7 @@ def gen_nifti_mrs(*args, **kwargs):
     :return: NIfTI-MRS object
     :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
     """
-    # To ensure the additional FSL-MRS functionallity present.
+    # To ensure the additional FSL-MRS functionality is present.
     return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
 
 

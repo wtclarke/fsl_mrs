@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# fsl_mrs_veridy - script to verify fsl_mrs sucessfull installation
+# fsl_mrs_verify - script to verify fsl_mrs successful installation
 #
 # Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
 #         Saad Jbabdi <saad@fmrib.ox.ac.uk>

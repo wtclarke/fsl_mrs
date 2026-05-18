@@ -41,7 +41,7 @@ def convert_lcm_basis(path_to_basis, output_location=None, nucleus=None):
     # 1. Read LCModel basis
     basis = mrs_io.read_basis(path_to_basis)
 
-    # 2. Conjugate to preserve the sense w.r.t. FSL-MRS useage.
+    # 2. Conjugate to preserve the sense w.r.t. FSL-MRS usage.
     basis = conjugate_basis(basis)
 
     # 3. Update nucleus information if provided
@@ -150,7 +150,7 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
         if not pad:
             raise IncompatibleBasisError('The new basis FID covers too little time, try padding.')
         else:
-            # Pad fid to sufficent length
+            # Pad fid to sufficient length
             required_time = (target.original_points - 1) * target_dt
             fid_dt = 1 / bw
             required_points = int(np.ceil(required_time / fid_dt)) + 1

@@ -631,7 +631,7 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
         if args.combine is not None:
             res.combine(args.combine)
     except Exception as exc:
-        print(f'Exception ({exc}) occured in index {index}.')
+        print(f'Exception ({exc}) occurred in index {index}.')
         raise exc
 
     return res, index

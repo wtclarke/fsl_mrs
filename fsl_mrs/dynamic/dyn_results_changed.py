@@ -25,11 +25,11 @@ class ResultLoadError(Exception):
 def load_dyn_result(load_dir, dyn_obj=None):
     """Load a saved dynamic fitting result from directory.
 
-    The directory should cointain two csv files (dyn_results and init_results).
-    And either the user must pass the asociated dynMRS object as the dyn_obj
-    argument, or the directory must also contain a dyn.pkl file.s
+    The directory should contain two csv files (dyn_results and init_results).
+    And either the user must pass the associated dynMRS object as the dyn_obj
+    argument, or the directory must also contain a dyn.pkl file.
 
-    :param load_dir: Directory to load. Creaed using dynMRS.save method
+    :param load_dir: Directory to load. Created using dynMRS.save method
     :type load_dir: str or pathlib.Path
     :param dyn_obj: Associated dynMRS object or if None will attempt to load a
      nested dynmrs_obj directory, defaults to None
@@ -55,7 +55,7 @@ def load_dyn_result(load_dir, dyn_obj=None):
         dyn_obj = dynMRS.load(load_dir / 'dynmrs_obj')
         return cls(sample_df, dyn_obj, init_df)
     else:
-        raise ResultLoadError('Dynamic object required. Pass directly or ensure dyn.pkl is availible')
+        raise ResultLoadError('Dynamic object required. Pass directly or ensure dyn.pkl is available')
 
 
 # Plotting functions:
@@ -94,7 +94,7 @@ class dynRes:
         :type init: pd.DataFrame
         :param dyn: Copy of dynMRS class object.
         :type dyn: fsl_mrs.dynamic.dynMRS
-        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :param init: Results of the initialisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         :type init: pd.DataFrame
         """
@@ -264,12 +264,12 @@ class dynRes:
         """Mapped names from stored dynamic object"""
         return self._dyn.mapped_names
 
-    '''Views of the initilisation parameters.
+    '''Views of the initialisation parameters.
     Includes methods to vieww as both mapped and free parameter sets'''
 
     @property
     def init_mapped_params(self):
-        """Mapped parameters from initilisation as dataframe
+        """Mapped parameters from initialisation as dataframe
 
         :return: Pandas dataframe containing the mapped parameters for each time point
         :rtype: pandas.DataFrame
@@ -278,28 +278,28 @@ class dynRes:
 
     @property
     def init_mapped_parameters_array(self):
-        """Mapped parameters from initilisation
+        """Mapped parameters from initialisation
         Shape is timepoints x parameters.
 
-        :return: Array of mapped parameters from initilisation
+        :return: Array of mapped parameters from initialisation
         :rtype: np.array
         """
         return self._init_x.to_numpy()
 
     @property
     def init_free_parameters(self):
-        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
+        """Free parameters calculated from the inversion of the dynamic model using the initialisation as input.
 
-        :return: Free parameters estimated from initilisation
+        :return: Free parameters estimated from initialisation
         :rtype: np.array
         """
         return self._dyn.vm.mapped_to_free(self.init_mapped_parameters_array)
 
     @property
     def init_free_dataframe(self):
-        """Free parameters calculated from the inversion of the dynamic model using the initilisation as input.
+        """Free parameters calculated from the inversion of the dynamic model using the initialisation as input.
 
-        :return: Free parameters estimated from initilisation
+        :return: Free parameters estimated from initialisation
         :rtype: pandas.Series
         """
         return pd.Series(data=self.init_free_parameters, index=self._dyn.free_names)
@@ -316,7 +316,7 @@ class dynRes:
 
     @property
     def init_mapped_params_fitted(self):
-        """Mapped parameters arising from fitting the initilisation parameters to the model.
+        """Mapped parameters arising from fitting the initialisation parameters to the model.
 
         :return: Pandas dataframe containing the mean mapped parameters for each time point
         :rtype: pandas.DataFrame
@@ -429,7 +429,7 @@ class dynRes:
 
         :param tvals: 'time' values on x axis, defaults to None / those stored in results object
         :type tvals: list, optional
-        :param fit_to_init: Plot the mapped parameters as per initilisation, defaults to False
+        :param fit_to_init: Plot the mapped parameters as per initialisation, defaults to False
         :type fit_to_init: bool, optional
         :param ground_truth: If a ground truth exists (from simulation) plot the mapped parameters
             as calculated from this vector, defaults to None
@@ -508,7 +508,7 @@ class dynRes:
     def plot_spectra(self, init=False, fit_to_init=False, indices=None, tvals=None):
         """Plot individual spectra as fitted using the dynamic model
 
-        :param init: Plot the spectra as per initilisation, defaults to False
+        :param init: Plot the spectra as per initialisation, defaults to False
         :type init: bool, optional
         :param fit_to_init: Plot the spectra as per fitting the dynamic model to init, defaults to False
         :type fit_to_init: bool, optional
@@ -716,7 +716,7 @@ class dynRes_mcmc(dynRes):
     Derived from parent dynRes class.
     """
     def __init__(self, samples, dyn, init):
-        """Initilise MCMC dynamic fitting results object.
+        """Initialise MCMC dynamic fitting results object.
 
         Simply calls parent class init.
 
@@ -724,7 +724,7 @@ class dynRes_mcmc(dynRes):
         :type samples: numpy.ndarray
         :param dyn: Copy of dynMRS class object.
         :type dyn: fsl_mrs.dynamic.dynMRS
-        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :param init: Results of the initialisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         """
         super().__init__(samples, dyn, init)
@@ -781,7 +781,7 @@ class dynRes_mcmc(dynRes):
 class dynRes_newton(dynRes):
 
     def __init__(self, samples, dyn, init):
-        """Initilise TNC optimised dynamic fitting results object.
+        """Initialise TNC optimised dynamic fitting results object.
 
         Calculates the covariance, correlation and standard deviations using the Fisher information matrix.
 
@@ -789,7 +789,7 @@ class dynRes_newton(dynRes):
         :type samples: numpy.ndarray
         :param dyn: Copy of dynMRS class object.
         :type dyn: fsl_mrs.dynamic.dynMRS
-        :param init: Results of the initilisation optimisation, containing 'resList' and 'x'.
+        :param init: Results of the initialisation optimisation, containing 'resList' and 'x'.
         :type init: dict
         """
         if isinstance(samples, pd.DataFrame):

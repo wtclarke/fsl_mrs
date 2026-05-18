@@ -507,7 +507,7 @@ class QuantificationInfo():
     @property
     def relax_corr_water_molal(self):
         """Relaxation (T1, T2) corrected water molality (mmol/kg).
-        If volume fractions aren't availible then relaxation correction will be based on
+        If volume fractions aren't available then relaxation correction will be based on
         a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
 
         :return: concentration
@@ -522,8 +522,8 @@ class QuantificationInfo():
 
     @property
     def relax_corr_water_molar(self):
-        """Relaxation (T1, T2) corrected water molariyt (mmol/dm^3 = mM).
-        If volume fractions aren't availible then relaxation correction will be based on
+        """Relaxation (T1, T2) corrected water molarity (mmol/dm^3 = mM).
+        If volume fractions aren't available then relaxation correction will be based on
         a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
 
         :return: concentration

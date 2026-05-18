@@ -118,7 +118,7 @@ def align_by_dynamic_fit_report(indata, aligned_data, eps, phi, ppmlim=(0.0, 4.2
     :type phi: list
     :param ppmlim: PPM limit, defaults to (0.0, 4.2)
     :type ppmlim: tuple, optional
-    :param html: Path to html to write, if None nothing writen. Defaults to None
+    :param html: Path to html to write, if None nothing written. Defaults to None
     :type html: Str, optional
     :return: tuple of figures
     :rtype: tuple

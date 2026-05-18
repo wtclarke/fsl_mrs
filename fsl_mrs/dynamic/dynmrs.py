@@ -388,7 +388,7 @@ class dynMRS():
         return fitting.fit_FSLModel(mean_mrs, method='Newton', **self._fit_args).params
 
     def initialise(self, indiv_init='mean', verbose=False):
-        """Initialise the dynamic fitting using seperate fits of each spectrum.
+        """Initialise the dynamic fitting using separate fits of each spectrum.
 
         :param indiv_init: Optional initialisation of individual fits.
             Can be a numpy array of mapped parameters, 'mean' (fits the mean spectrum), or None (independent).

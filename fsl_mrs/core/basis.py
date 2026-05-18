@@ -82,7 +82,7 @@ class Basis:
 
         # Try to read nucleus from basis file.
         # If not found assume Nucleus is 1H
-        # This only has baring on the plotting but causes difficulty in checking basis
+        # This only has bearing on the plotting but causes difficulty in checking basis
         # suitability
         if axes:
             self.nucleus = axes.ResonantNucleus
@@ -229,11 +229,11 @@ class Basis:
     def save(self, out_path, overwrite=False, info_str=''):
         """Saves basis held in memory to a directory in FSL-MRS format.
 
-        :param out_path: Directory to save files to, will be created if neccessary.
+        :param out_path: Directory to save files to, will be created if necessary.
         :type out_path: str or pathlib.Path
         :param overwrite: Overwrite existing files, defaults to False.
         :type overwrite: bool, optional
-        :param sim_info: Information to write to meta.SimVersion field, defaults to empy string
+        :param sim_info: Information to write to meta.SimVersion field, defaults to empty string
         :type sim_info: str, optional
         """
         out_path = Path(out_path)

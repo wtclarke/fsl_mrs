@@ -583,7 +583,7 @@ class FitRes():
 
         :param save_path: Optional path to save json to, defaults to None
         :type save_path: str, optional
-        :return: Returns json formmatted string of metabolite groups
+        :return: Returns JSON formatted string of metabolite groups
         :rtype: str or Pathlib.Path
         """
         dict_repr = {idx: ml for idx, ml in enumerate(self.metabs_in_groups())}
@@ -637,17 +637,17 @@ class FitRes():
             return rawConc
         elif scaling == 'internal':
             if self.concScalings['internal'] is None:
-                raise ValueError('Internal concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Internal concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['internal']
 
         elif scaling == 'molality':
             if self.concScalings['molality'] is None:
-                raise ValueError('Molality concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molality concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molality']
 
         elif scaling == 'molarity':
             if self.concScalings['molarity'] is None:
-                raise ValueError('Molarity concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molarity concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molarity']
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')

@@ -203,7 +203,7 @@ class Baseline:
         :return: Calculation function
         :rtype: typing.Callable
         """
-        return calculate_mh_liklihood_term(
+        return calculate_mh_likelihood_term(
             self.spline_penalty,
             self.regressor)
 
@@ -391,7 +391,7 @@ def prepare_penalised_functions(
     return penalised_error, penalised_grad
 
 
-def calculate_mh_liklihood_term(
+def calculate_mh_likelihood_term(
         penalty: float,
         basis: np.ndarray
 ) -> typing.Callable:
@@ -414,7 +414,7 @@ def calculate_mh_liklihood_term(
         basis[:, :n_basis])
 
     def mh_penalty(p) -> float:
-        """Returns the liklihood penalty term
+        """Returns the likelihood penalty term
 
         :param p: All fit parameters, last section is baseline
         :type p: np.ndarray
