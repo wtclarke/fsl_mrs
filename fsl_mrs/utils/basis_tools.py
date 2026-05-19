@@ -108,6 +108,87 @@ def convert_jmrui_basis(indir, outdir):
     in_basis.save(outdir)
 
 
+def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
+    """Convert a Osprey Matlab file (.mat) to FSL-MRS format.
+
+    :param infile: Input filename
+    :type infile: pathlib.Path or str
+    :param outdir: Output location
+    :type outdir: pathlib.Path or str
+    :param nucleus: Resonant nucleus (e.g. 1H, 31P, 2H, etc)
+    :type nucleus: str, optional
+    :param description: Description for the FID repetitions
+    :type description: list of str, optional
+    """
+    from scipy.io import loadmat
+    from fsl_mrs.utils.constants import GYRO_MAG_RATIO, PPM_SHIFT
+    in_basis = loadmat(infile)
+
+    # get nucleus information
+    gamma = GYRO_MAG_RATIO.get(nucleus, GYRO_MAG_RATIO['1H'])
+    ppmshift = PPM_SHIFT.get(nucleus, PPM_SHIFT['1H'])
+
+    # Extract fields from Osprey basis
+    input_dict = {}
+    for idx, field in enumerate(in_basis['BASIS'][0].dtype.descr):
+        input_dict[field[0]] = in_basis['BASIS'][0][0][idx].squeeze()
+    basis_fids = input_dict['fids']
+    names = [str(x[0]) for x in input_dict['name']]
+    dwell = 1 / float(input_dict['spectralwidth'])
+    bandwidth = float(input_dict['spectralwidth'])
+    time_axis = input_dict['t']
+    time_axis -= time_axis[0]  # Start from 0 so not to introduce zero-order phase
+    b0 = float(input_dict['Bo'])
+    central_freq_shift = (ppmshift - float(input_dict['centerFreq'])) * (b0 * gamma)
+    fwhm = float(input_dict['linewidth'])
+
+    # Reorder FID matrix depending on the dimensions
+    time_index  = basis_fids.shape.index(input_dict['n'])
+    metab_index = basis_fids.shape.index(len(names))
+    if basis_fids.ndim == 3:
+        reps_index  = [i for i in range(3) if i not in (time_index, metab_index)][0]
+        basis_fids = basis_fids.transpose((reps_index, metab_index, time_index))
+    elif basis_fids.ndim == 2:
+        basis_fids = basis_fids.transpose((metab_index, time_index))
+    else:
+        raise ValueError("Unexpected number of dimensions in Osprey basis FIDs. "
+                         f"Expected 2 or 3, got {basis_fids.ndim}.")
+
+    # Ensure that basis spectra are centred at expected frequency
+    def shift(x):
+        return (x * np.exp(1j * time_axis * np.pi * 2 * central_freq_shift))
+
+    if basis_fids.ndim == 3:
+        # Create description if not provided
+        if description is None:
+            description = [f'FID_{i+1}' for i in range(basis_fids.shape[0])]
+        # Convert each repetition to an FSL-MRS Basis
+        for fids, desc in zip(basis_fids, description):
+            # Use single conjugation as basis_tools vis conjugates by default dir inputs
+            Basis(
+                shift(fids.conj()),
+                names,
+                headers=[{
+                    'dwelltime': dwell,
+                    'bandwidth': bandwidth,
+                    'centralFrequency': b0 * gamma,
+                    'fwhm': fwhm
+                    },] * len(names))\
+                .save(f'{outdir}_{desc}', overwrite=True)
+    else:
+        # Use single conjugation as basis_tools vis conjugates by default dir inputs
+        Basis(
+            shift(basis_fids.conj()),
+            names,
+            headers=[{
+                'dwelltime': dwell,
+                'bandwidth': bandwidth,
+                'centralFrequency': b0 * gamma,
+                'fwhm': fwhm
+                },] * len(names))\
+            .save(f'{outdir}', overwrite=True)
+
+
 def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pad=False):
     """Add an additional basis spectrum to an existing FSL formatted basis set.
 
