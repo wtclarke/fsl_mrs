@@ -56,10 +56,7 @@ def mrsi_phase_corr(
     # Create an Axes object to get the timeAxis and ppm limits
     # (Note that you should use the Axes and not the MRS timeAxis,
     # because we need them to be 1D arrays)
-    if data.ndim > 4:
-        axes = data.mrs()[0].mrs_from_average().axes
-    else:
-        axes = data.mrs().mrs_from_average().axes
+    axes = data.axes
     limits = axes.ppmShiftIndices(ppmlim)
 
     if apodize == "auto":

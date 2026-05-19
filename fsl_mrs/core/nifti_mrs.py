@@ -15,7 +15,6 @@ import numpy as np
 from nifti_mrs import nifti_mrs
 from nifti_mrs import create_nmrs
 from nifti_mrs import tools
-from nifti_mrs.axes import Axes
 import fsl_mrs.core as core
 
 
@@ -110,8 +109,7 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         """
         return NIFTI_MRS(super().copy(remove_dim=remove_dim))
 
-    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None, spatial_index=None,
-                     axes=None, chemShift=None, RxOffset=0.0):
+    def generate_mrs(self, dim=None, basis_file=None, basis=None, ref_data=None, spatial_index=None):
         """Generator for MRS or MRSI objects from the data, optionally returning a whole dimension as a list.
 
         :param dim: Dimension to generate over, dimension index (4, 5, 6) or tag. None iterates over all indices,
@@ -126,13 +124,6 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         :param spatial_index: x,y,z spatial voxel coordinates for MRSI.
             If given returns MRS rather than MRSI object. Defaults to None.
         :type spatial_index: tuple of ints, optional
-        :param axes: Axes object for spectral axes. If not provided, created from NIFTI_MRS metadata.
-            Defaults to None.
-        :type axes: Axes, optional
-        :param chemShift: Nominal chemical shift in ppm. If not provided, uses Axes default, defaults to None
-        :type chemShift: float, optional
-        :param RxOffset: Receiver chemical shift in ppm, defaults to 0.0
-        :type RxOffset: float, optional
         :yield: MRS or MRSI object
         :rtype: fsl_mrs.core.MRS or fsl_mrs.core.MRSI
         """
@@ -152,10 +143,6 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                 raise TypeError('ref_data must be a path to a NIFTI-MRS file,'
                                 'a NIFTI_MRS object, or a numpy array.')
 
-        # Create Axes object from NIFTI_MRS if not provided
-        if axes is None:
-            axes = Axes.from_nifti_mrs(self, SpecFreqChemShift=chemShift, RxOffset=RxOffset)
-
         for data, _ in self.iterate_over_dims(dim=dim, voxel_index=spatial_index):
             if np.prod(data.shape[:3]) > 1:
                 # Generate MRSI objects
@@ -166,13 +153,13 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                         out.append(core.MRSI(FID=dd,
                                              basis=basis,
                                              H2O=ref_data,
-                                             axes=axes))
+                                             axes=self.axes))
                     yield out
                 else:
                     yield core.MRSI(FID=data,
                                     basis=basis,
                                     H2O=ref_data,
-                                    axes=axes)
+                                    axes=self.axes)
             else:
                 if ref_data is not None:
                     ref_data = ref_data.squeeze()
@@ -184,13 +171,13 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                         out.append(core.MRS(FID=dd.squeeze(),
                                             basis=basis,
                                             H2O=ref_data,
-                                            axes=axes))
+                                            axes=self.axes))
                     yield out
                 else:
                     yield core.MRS(FID=data.squeeze(),
                                    basis=basis,
                                    H2O=ref_data,
-                                   axes=axes)
+                                   axes=self.axes)
 
     def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))

@@ -7,12 +7,13 @@ FSL-MRS inherits and extends the :class:`NIFTI_MRS` from `nifti-mrs-tools`.
 | - Resonant nucleus (`NIFTI_MRS.nucleus`)
 | - Spectrometer frequency (`NIFTI_MRS.spectrometer_frequency`)
 | - Dwell time (`NIFTI_MRS.dwelltime`)
-| - Bandwidth (`NIFTI_MRS.spectralwidth` or `NIFTI_MRS.bandwidth`)
+| - Spectral bandwidth (`NIFTI_MRS.spectralwidth` or `NIFTI_MRS.bandwidth`)
 | - Field strength (`NIFTI_MRS.field_strength`)
+| - Axes object (`NIFTI_MRS.axes`)
 | - NIfTI header (`NIFTI_MRS.header`)
 | - MRS JSON header extension (`NIFTI_MRS.hdr_ext`)
 
-The main extension in FSL-MRS is a method to generate an `MRS` object directly from a `NIfTI-MRS` object (`generate_mrs()` or `mrs()`, see :ref:`mrs-section` for more details).
+The main extension in FSL-MRS is a method to generate an `MRS` object directly from a `NIfTI-MRS` object (`NIFTI_MRS.generate_mrs()` or `NIFTI_MRS.mrs()`, see :ref:`mrs-section` for more details).
 
 
 Loading data
@@ -29,17 +30,17 @@ Valid NIfTI-MRS files can be loaded like this:
 The above command, takes a boolean argument `validate_on_creation`. If `True` (default), then the code will validate the header extension and `SpectralWidth` fields upon creation.
 
 | Independent of this option, the `NIFTI_MRS` constructor will test if the input file is a valid NIfTI-MRS:
-| 1) The header contains a non-empty intent code.
-| 2) The intent code is of the format `mrs_v<number>_<number>` and not older than 0.2 version.
+| 1) The header contains a non-empty intent code of the format `mrs_vM_m` (M=major version, m=minor version).
+| 2) The file is not created with an older than NIfTI-MRS 0.2 version.
 | 3) The header contains a header extension with code '44'.
 
-If the first two reasons cause a failure in loading the file as `NIfTI-MRS`, then you can use :code:`spec2nii clean` command to update the file:
+If the intent code format (option 1) causes a failure in loading the file as `NIfTI-MRS`, then you can use :code:`spec2nii clean` command to update the file:
 
 ::
 
     spec2nii clean <file> [-f <output_file> -o <output_folder>]
 
-If the header extension causes a failure, then you can read and write the file as follows:
+If the header extension (option 3) causes a failure, then you can read and write the file as follows:
 
 .. code-block:: python
 
@@ -52,24 +53,13 @@ If the header extension causes a failure, then you can read and write the file a
 Axes class
 ----------
 
-A NIfTI-MRS object can be used to generate an `Axes` object:
-
-.. code-block:: python
-
-    from fsl_mrs.core.nifti_mrs import NIFTI_MRS
-    from nifti_mrs.axes import Axes
-
-    nmrs = NIFTI_MRS('path/to/data.nii.gz')
-    axes = Axes.from_nifti_mrs(nmrs,
-                               SpecFreqChemShift=4.65
-                               RxOffset=-3.0)
-
+A NIfTI-MRS object by default creates an `Axes` object that can be accessed by `NIFTI_MRS.axes`.
 
 | An `Axes` object stores information for plotting and key spectroscopy parameters, like:
 | - Resonant nucleus (`Axes.ResonantNucleus`)
 | - Spectrometer frequency in MHz (`Axes.SpectrometerFrequency`)
-| - Dwell time in seconds (`Axes.dwelltime`)
-| - Bandwidth (`Axes.SpectralWidth`)
+| - Dwell time (`Axes.dwelltime`)
+| - Spectral bandwidth (`Axes.SpectralWidth`)
 | - Chemical shift (`Axes.ppmshift`)
 | - Number of points (`Axes.npoints`)
 | - Time axis (`Axes.timeAxis`)
@@ -85,7 +75,7 @@ A NIfTI-MRS object can be used to generate an `Axes` object:
 
 .. note::
 
-    PPM axis and indices with no shift mean the values are zero-centred, whereas with shift mean the values are centred around the chemical shift value.
+    PPM axis and indices with no shift mean the values are zero-centred, whereas with shift mean the values are centred around the chemical shift reference value.
 
 
 .. _mrs-section:
@@ -104,7 +94,7 @@ A NIfTI-MRS object can be used to generate an `MRS` or `MRSI` object.
     nmrs = NIFTI_MRS('path/to/data.nii.gz')
     mrs = nmrs.mrs()
 
-The `NIFTI_MRS.mrs()` (and `NIFTI_MRS.generate_mrs()`) methods may also take `dim`, `basis_file`, `basis`, `ref_data`, `spatial_index`, `axes`, `chemShift`, and `RxOffset` arguments. See the code docstring for more details.
+The `NIFTI_MRS.mrs()` (and `NIFTI_MRS.generate_mrs()`) methods may also take `dim`, `basis_file`, `basis`, `ref_data`, and `spatial_index` arguments. See the code docstring for more details.
 
 An `MRS` object can also be created from `FID` and `Axes` variables:
 
@@ -135,7 +125,7 @@ An `MRS` object can also be created from `FID` and `Axes` variables:
 Plotting data
 -------------
 
-:class:`NIFTI_MRS` class provides a plotting method for MR spectra:
+A NIfTI-MRS object has a plotting method for MR spectra:
 
 .. code-block:: python
 
@@ -152,10 +142,10 @@ This method may also take `display_dim` (Dim tag), `ppmlim` (ppm range), `plot_a
 | Additional plotting methods exist for an `MRS` object:
 | - `plot(ppmlim)`: plots the spectrum within the given ppm range (default: `ppmlim=None`)
 | - `plot_ref(ppmlim)`: plots the reference (i.e. H20) spectrum within the given ppm range
-| - `plot_fid(tlim)`: plots the time-domain data (FID) within the given time range
+| - `plot_fid(tlim)`: plots the time-domain data (i.e. FID) within the given time range
 | - `plot_basis(add_spec, ppmlim)`: plots the formatted basis along with the spectrum (if `add_spec=True`)
 
 .. note::
-    For SVS data, `MRS.plot()` is not equivalent to `NIFTI_MRS.plot()`, as the latter plots multiple spectra on the same axes.
+    For SVS data, `MRS.plot()` is similar but not equivalent to `NIFTI_MRS.plot()`, as the latter plots multiple spectra on the same figure.
 
 NIfTI-MRS data can also be viewed in FSLeyes with `the MRS plugin <https://open.oxcin.ox.ac.uk/pages/wclarke/fsleyes-plugin-mrs/viewing.html>`_

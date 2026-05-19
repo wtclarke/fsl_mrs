@@ -153,7 +153,7 @@ def coilcombine(
                                                     reduce_dim_index=True):
 
                 if (report_all or first_index(idx)):
-                    axes = data.mrs()[0].axes
+                    axes = data.axes
                     fig = combine_FIDs_report(
                         [MRS.from_axes(fid, axes) for fid in main.T],
                         MRS.from_axes(combinedc_obj[idx], axes),
@@ -182,7 +182,7 @@ def coilcombine(
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            axes = data.mrs()[0].axes
+            axes = data.axes
             fig = combine_FIDs_report(
                 [MRS.from_axes(fid, axes) for fid in main.T],
                 MRS.from_axes(combinedc_obj[idx], axes),
@@ -235,7 +235,7 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            axes = data.mrs()[0].axes
+            axes = data.axes
             fig = combine_FIDs_report([MRS.from_axes(fid, axes) for fid in dd.T],
                                       MRS.from_axes(combined_obj[idx], axes),
                                       ncha=data.shape[data.dim_position(dim)],
@@ -965,7 +965,7 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
                                         gindices,
                                         bindices,
                                         metric,
-                                        data.mrs()[0].axes,
+                                        data.axes,
                                         ppmlim=ppmlim,
                                         sdlimit=sdlimit,
                                         html=report)
