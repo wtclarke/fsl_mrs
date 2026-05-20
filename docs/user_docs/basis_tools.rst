@@ -21,9 +21,15 @@ vis
 
 convert
 *******
-| *Example* :code:`basis_tools convert path/to/my/lcmbasis.BASIS path/to/my/fslbasis`
-| Convert LCModel (.Basis), LCModel (directory of .raw) or JMRUI format basis sets to FSL-MRS (.json) format.
-| Note that the bandwidth and fieldstrength must be supplied manually to the CLI for the .raw format.
+| *Example* :code:`basis_tools convert path/to/my/otherbasis path/to/my/fslbasis`
+| Convert LCModel (.Basis), LCModel (directory of .raw), Osprey (.mat) or JMRUI (.txt) format basis sets to FSL-MRS (.json) format.
+| Note that for .Basis or .mat formats, the absolute path to the file should be provided; whereas for .raw or .txt formats, the path to the parent folder should.
+| Available options are:
+|   - `--bandwidth` and `--fieldstrength` must be provided for defining the spectral bandwidth and field strength in .raw format
+|   - `--nucleus` may be provided for defining the resonant nucleus in LCmodel format (.Basis or .raw)
+|   - `--description` may be provided for naming the FID repetitions in .mat format
+|   - `--remove_reference` may be provided for removing the reference peak from the basis sets
+|   - `--hlsvd` may be provided for using HLSVD peak removal (to be used in conjunction with `--remove_reference`)
 
 add
 ***
@@ -48,7 +54,7 @@ diff
 add_set
 *******
 | *Example* :code:`basis_tools add_set --add_MM basis_without_mm/ basis_with_default_mm/`
-| Add a (predefined) set of Gaussian peaks to a basis set. Three defualt sets are defined:
+| Add a (predefined) set of Gaussian peaks to a basis set. Three default sets are defined:
 | 1) The FSL 'default' with peaks at 0.9, 1.2, 1.4, 1.7 ppm and a linked set at 2.08 & 3.0 ppm
 | 2) The (experimental) MEGA edited MM peaks at 0.915 & 3.0 ppm (ratio of 3.75:2.0).
 | 3) A water peak at 4.65 ppm

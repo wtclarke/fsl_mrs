@@ -17,7 +17,8 @@ pytest.importorskip('fsl.data.image')
 pytest.importorskip('fsl.wrappers')
 
 from fsl.data.image import Image
-from fsl.wrappers import fsl_mrs, fsl_mrs_preproc, fsl_mrs_proc, svs_segment
+from fsl.wrappers import fsl_mrs, fsl_mrsi, fsl_mrs_preproc, fsl_mrs_preproc_edit, \
+                         fsl_mrs_proc, svs_segment, mrsi_segment
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.validate_results import compare_folders
 
@@ -33,20 +34,40 @@ def requires_cli(command):
 
 
 fsl_mrs_data = {
-    'metab': testsPath / 'testdata/fsl_mrs/metab.nii.gz',
-    'water': testsPath / 'testdata/fsl_mrs/wref.nii.gz',
-    'basis': testsPath / 'testdata/fsl_mrs/steam_basis',
-    'seg':   testsPath / 'testdata/fsl_mrs/segmentation.json'}
+    'metab':    testsPath / 'testdata/fsl_mrs/metab.nii.gz',
+    'water':    testsPath / 'testdata/fsl_mrs/wref.nii.gz',
+    'basis':    testsPath / 'testdata/fsl_mrs/steam_basis',
+    'seg':      testsPath / 'testdata/fsl_mrs/segmentation.json'}
+
+fsl_mrsi_data = {
+    'metab':    testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
+    'water':    testsPath / 'testdata/fsl_mrsi/FID_ref.nii.gz',
+    'basis':    testsPath / 'testdata/fsl_mrsi/3T_slaser_32vespa_1250_wmm',
+    'mask':     testsPath / 'testdata/fsl_mrsi/small_mask.nii.gz',
+    'seg_wm':   testsPath / 'testdata/fsl_mrsi/mrsi_seg_wm.nii.gz',
+    'seg_gm':   testsPath / 'testdata/fsl_mrsi/mrsi_seg_gm.nii.gz',
+    'seg_csf':  testsPath / 'testdata/fsl_mrsi/mrsi_seg_csf.nii.gz'}
 
 preproc_data = {
-    'metab': testsPath / 'testdata/fsl_mrs_preproc/metab_raw.nii.gz',
-    'water': testsPath / 'testdata/fsl_mrs_preproc/wref_raw.nii.gz',
-    'quant': testsPath / 'testdata/fsl_mrs_preproc/quant_raw.nii.gz',
-    'ecc':   testsPath / 'testdata/fsl_mrs_preproc/ecc.nii.gz'}
+    'metab':    testsPath / 'testdata/fsl_mrs_preproc/metab_raw.nii.gz',
+    'water':    testsPath / 'testdata/fsl_mrs_preproc/wref_raw.nii.gz',
+    'quant':    testsPath / 'testdata/fsl_mrs_preproc/quant_raw.nii.gz',
+    'ecc':      testsPath / 'testdata/fsl_mrs_preproc/ecc.nii.gz'}
+
+preproc_edit_data = {
+    'metab':    testsPath / 'testdata/fsl_mrs_preproc_edit/metab_raw.nii.gz',
+    'wrefc':    testsPath / 'testdata/fsl_mrs_preproc_edit/wref_internal.nii.gz',
+    'wrefq':    testsPath / 'testdata/fsl_mrs_preproc_edit/wref_quant.nii.gz',
+    'ecc':      testsPath / 'testdata/fsl_mrs_preproc_edit/wref_internal.nii.gz',
+    't1':       testsPath / 'testdata/svs_segment/T1.anat/T1_biascorr.nii.gz'}
 
 svs_segment_data = {
-    'metab': testsPath / 'testdata/fsl_mrs/metab.nii.gz',
-    'anat':  testsPath / 'testdata/svs_segment/T1.anat'}
+    'metab':    testsPath / 'testdata/fsl_mrs/metab.nii.gz',
+    'anat':     testsPath / 'testdata/svs_segment/T1.anat'}
+
+mrsi_segment_data = {
+    'metab':    testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
+    'anat':     testsPath / 'testdata/mrsi_segment/T1.anat'}
 
 
 def _run_fsl_mrs_proc_cli(input_dir, output_dir):
@@ -210,7 +231,6 @@ def _run_fsl_mrs_proc_wrapper(input_dir, output_dir, use_objects=False):
     fsl_mrs_proc.phase(file, output_dir, filename=filename, ppm=(4.6, 4.7))
 
 
-# TODO add tests for fsl_mrsi, mrsi_segment and fsl_mrs_preproc_edit
 @requires_cli('fsl_mrs')
 def test_fsl_mrs(tmp_path):
     cli_out     = tmp_path / 'fit_cli'
@@ -230,7 +250,7 @@ def test_fsl_mrs(tmp_path):
     ])
     assert (cli_out / 'summary.csv').exists()
 
-    #  fslpy call
+    # fslpy call
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrs(
             data=fsl_mrs_data['metab'],
@@ -244,7 +264,7 @@ def test_fsl_mrs(tmp_path):
         )
     assert (wrapper_out / 'summary.csv').exists()
 
-    #  fslpy call with objects
+    # fslpy call with objects
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrs(
             data=Image(fsl_mrs_data['metab']),
@@ -260,6 +280,76 @@ def test_fsl_mrs(tmp_path):
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
     assert compare_folders(cli_out, object_out,  subdir=False)
+
+
+@requires_cli('fsl_mrsi')
+def test_fsl_mrsi(tmp_path):
+    cli_out     = tmp_path / 'fit_cli'
+    wrapper_out = tmp_path / 'fit_wrapper'
+    object_out  = tmp_path / 'fit_object'
+
+    subprocess.check_call([
+        'fsl_mrsi',
+        '--data', fsl_mrsi_data['metab'],
+        '--basis', fsl_mrsi_data['basis'],
+        '--output', cli_out,
+        '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+        '--h2o', fsl_mrsi_data['water'],
+        '--TE', '30',
+        '--TR', '2.0',
+        '--mask', fsl_mrsi_data['mask'],
+        '--tissue_frac',
+        fsl_mrsi_data['seg_wm'],
+        fsl_mrsi_data['seg_gm'],
+        fsl_mrsi_data['seg_csf'],
+        '--output_correlations',
+        '--overwrite',
+        '--combine', 'Cr', 'PCr',
+    ])
+    assert (cli_out / 'fit').exists()
+
+    # fslpy call
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrsi(
+            data=fsl_mrsi_data['metab'],
+            basis=fsl_mrsi_data['basis'],
+            output=wrapper_out,
+            metab_groups=['MM09', 'MM12', 'MM14', 'MM17', 'MM21'],
+            h2o=fsl_mrsi_data['water'],
+            TE='30',
+            TR='2.0',
+            mask=fsl_mrsi_data['mask'],
+            tissue_frac=[fsl_mrsi_data['seg_wm'],
+                         fsl_mrsi_data['seg_gm'],
+                         fsl_mrsi_data['seg_csf']],
+            output_correlations=True,
+            overwrite=True,
+            combine=['Cr', 'PCr'],
+        )
+    assert (wrapper_out / 'fit').exists()
+
+    # fslpy call with objects
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrsi(
+            data=Image(fsl_mrsi_data['metab']),
+            basis=mrs_io.read_basis(fsl_mrsi_data['basis']),
+            output=object_out,
+            metab_groups=['MM09', 'MM12', 'MM14', 'MM17', 'MM21'],
+            h2o=Image(fsl_mrsi_data['water']),
+            TE='30',
+            TR='2.0',
+            mask=Image(fsl_mrsi_data['mask']),
+            tissue_frac=[fsl_mrsi_data['seg_wm'],
+                         fsl_mrsi_data['seg_gm'],
+                         fsl_mrsi_data['seg_csf']],
+            output_correlations=True,
+            overwrite=True,
+            combine=['Cr', 'PCr'],
+        )
+    assert (object_out / 'fit').exists()
+
+    assert compare_folders(cli_out, wrapper_out, subdir=True)
+    assert compare_folders(cli_out, object_out,  subdir=True)
 
 
 @requires_cli('fsl_mrs_preproc')
@@ -311,6 +401,61 @@ def test_fsl_mrs_preproc(tmp_path):
     assert compare_folders(cli_out, object_out,  subdir=False)
 
 
+@requires_cli('fsl_mrs_preproc_edit')
+def test_fsl_mrs_preproc_edit(tmp_path):
+    cli_out     = tmp_path / 'processed_cli'
+    wrapper_out = tmp_path / 'processed_wrapper'
+    object_out  = tmp_path / 'processed_object'
+
+    subprocess.check_call([
+        'fsl_mrs_preproc_edit',
+        '--data', preproc_edit_data['metab'],
+        '--reference', preproc_edit_data['wrefc'],
+        '--quant', preproc_edit_data['wrefq'],
+        '--ecc', preproc_edit_data['ecc'],
+        '--t1', preproc_edit_data['t1'],
+        '--output', cli_out,
+        '--truncate-fid', '2',
+        '--remove-water',
+        '--report',
+        '--overwrite',
+    ])
+    assert (cli_out / 'diff.nii.gz').exists()
+
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs_preproc_edit(
+            data=preproc_edit_data['metab'],
+            reference=preproc_edit_data['wrefc'],
+            quant=preproc_edit_data['wrefq'],
+            ecc=preproc_edit_data['ecc'],
+            t1=preproc_edit_data['t1'],
+            output=wrapper_out,
+            truncate_fid='2',
+            remove_water=True,
+            report=True,
+            overwrite=True,
+        )
+    assert (wrapper_out / 'diff.nii.gz').exists()
+
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        fsl_mrs_preproc_edit(
+            data=Image(preproc_edit_data['metab']),
+            reference=Image(preproc_edit_data['wrefc']),
+            quant=Image(preproc_edit_data['wrefq']),
+            ecc=Image(preproc_edit_data['ecc']),
+            t1=Image(preproc_edit_data['t1']),
+            output=object_out,
+            truncate_fid='2',
+            remove_water=True,
+            report=True,
+            overwrite=True,
+        )
+    assert (object_out / 'diff.nii.gz').exists()
+
+    assert compare_folders(cli_out, wrapper_out, subdir=False)
+    assert compare_folders(cli_out, object_out,  subdir=False)
+
+
 @requires_cli('svs_segment')
 def test_svs_segment(tmp_path):
     cli_out     = tmp_path / 'out_cli'
@@ -343,6 +488,43 @@ def test_svs_segment(tmp_path):
             output=object_out,
         )
     assert (object_out / 'segmentation.json').exists()
+
+    assert compare_folders(cli_out, wrapper_out, subdir=False)
+    assert compare_folders(cli_out, object_out,  subdir=False)
+
+
+@requires_cli('mrsi_segment')
+def test_mrsi_segment(tmp_path):
+    cli_out     = tmp_path / 'out_cli'
+    wrapper_out = tmp_path / 'out_wrapper'
+    object_out  = tmp_path / 'out_object'
+
+    cli_out.mkdir()
+    subprocess.check_call([
+        'mrsi_segment',
+        mrsi_segment_data['metab'],
+        '-a', mrsi_segment_data['anat'],
+        '-o', cli_out,
+    ])
+    assert (cli_out / 'mrsi_seg_wm.nii.gz').exists()
+
+    wrapper_out.mkdir()
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        mrsi_segment(
+            mrsi=mrsi_segment_data['metab'],
+            anat=mrsi_segment_data['anat'],
+            output=wrapper_out,
+        )
+    assert (wrapper_out / 'mrsi_seg_wm.nii.gz').exists()
+
+    object_out.mkdir()
+    with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
+        mrsi_segment(
+            mrsi=Image(mrsi_segment_data['metab']),
+            anat=mrsi_segment_data['anat'],
+            output=object_out,
+        )
+    assert (object_out / 'mrsi_seg_wm.nii.gz').exists()
 
     assert compare_folders(cli_out, wrapper_out, subdir=False)
     assert compare_folders(cli_out, object_out,  subdir=False)

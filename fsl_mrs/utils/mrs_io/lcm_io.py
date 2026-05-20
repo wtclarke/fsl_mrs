@@ -74,9 +74,9 @@ def read_lcm_raw_h2o(filename):
 # Read .RAW basis files
 def read_basis_files(basisfiles, ignore=[]):
     """
-     Reads basis files and extracts name of metabolite from file name
-     Assumes .RAW files are FIDs (not spectra)
-     Comes without any header information unfortunately.
+    Reads basis files and extracts name of metabolite from file name
+    Assumes .RAW files are FIDs (not spectra)
+    Comes without any header information unfortunately.
 
     :param basisfiles: List of path strings to raw files
     :type basisfiles: list

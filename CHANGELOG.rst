@@ -18,10 +18,12 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrs_verify` target value has been updated to match the above changes.
 - Tests have been updated to match the above changes.
 
-2.4.13 (WIP)
+2.4.13 (Wednesday 20th May 2026)
 -----------------------------------
+- Added Osprey .mat file conversion to FSL-MRS Basis in `basis_tools convert`.
+- `fsl_mrsi` now creates a file-tree file in the output folder (mrsi.tree) to be used in `fsleyes-plugin-mrs`.
 - Improved test suite execution time
-- Added tests for fslpy wrappers: fsl_mrs, fsl_mrs_preproc, fsl_mrs_proc, svs_segment
+- Added tests for fslpy wrappers: fsl_mrs, fsl_mrsi, fsl_mrs_preproc, fsl_mrs_preproc_edit, fsl_mrs_proc, svs_segment, mrsi_segment
 - Added folder validator util
 
 2.4.12 (Tuesday 17th February 2026)
