@@ -34,13 +34,13 @@ The above command, takes a boolean argument `validate_on_creation`. If `True` (d
 | 2) The file is not created with an older than NIfTI-MRS 0.2 version.
 | 3) The header contains a header extension with code '44'.
 
-If the intent code format (option 1) causes a failure in loading the file as `NIfTI-MRS`, then you can use :code:`spec2nii clean` command to update the file:
+If the intent code format (condition 1) causes a failure during loading, then you can use :code:`spec2nii clean` command to update the file:
 
 ::
 
     spec2nii clean <file> [-f <output_file> -o <output_folder>]
 
-If the header extension (option 3) causes a failure, then you can read and write the file as follows:
+If the header extension (condition 3) causes a failure, then you can read and write the file as follows - **as long as the file has a valid JSON sidecar**:
 
 .. code-block:: python
 
@@ -48,6 +48,10 @@ If the header extension (option 3) causes a failure, then you can read and write
 
     nmrs = fsl_io.readNIFTI('path/to/data.nii.gz')
     nmrs.save('path/to/fixed_data.nii.gz')
+
+.. note::
+
+    This method may also work for the other failure modes too.
 
 
 Axes class
