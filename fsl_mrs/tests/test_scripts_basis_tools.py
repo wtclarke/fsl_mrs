@@ -114,6 +114,7 @@ def test_convert_osprey_2d(tmp_path):
     assert np.allclose(ref_json['basis']['basis_centre'], est_json['basis']['basis_centre'], atol=0.0001)
     assert np.allclose(ref_json['basis']['basis_width'], est_json['basis']['basis_width'], atol=0.0001)
     assert ref_json['basis']['basis_name'] == est_json['basis']['basis_name']
+    assert np.allclose(ref_json['basis']['centralShift'], est_json['basis']['centralShift'], atol=0.0001)
 
 
 def test_convert_osprey_3d(tmp_path):
@@ -147,6 +148,7 @@ def test_convert_osprey_3d(tmp_path):
         assert np.allclose(ref_json['basis']['basis_centre'], est_json['basis']['basis_centre'], atol=0.0001)
         assert np.allclose(ref_json['basis']['basis_width'], est_json['basis']['basis_width'], atol=0.0001)
         assert ref_json['basis']['basis_name'] == est_json['basis']['basis_name']
+        assert np.allclose(ref_json['basis']['centralShift'], est_json['basis']['centralShift'], atol=0.0001)
 
 
 def test_add(tmp_path):

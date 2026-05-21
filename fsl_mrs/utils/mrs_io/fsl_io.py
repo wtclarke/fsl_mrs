@@ -152,10 +152,17 @@ def readFSLBasis(filename, N=None, dofft=False):
                     and 'Nucleus' in basisFileParams['seq']:
                 header['nucleus'] = basisFileParams["seq"]["Nucleus"]
 
+            if 'centralShift' in basis:
+                header['centralShift'] = basis['centralShift']
+            elif 'seq' in basisFileParams \
+                    and basisFileParams['seq'] is not None \
+                    and 'centralShift' in basisFileParams['seq']:
+                header['centralShift'] = basisFileParams["seq"]["centralShift"]
+
             metabo = basis['basis_name']
 
         else:  # No basis information found
-            raise ValueError('FSL basis file must have a ''basis'' field.')
+            raise ValueError("FSL basis file must have a 'basis' field.")
 
     return data, metabo, header
 
@@ -196,6 +203,8 @@ def write_fsl_basis_file(basis, name, header, out_dir, info=''):
 
     if "nucleus" in header:
         bs_dict['basis']['basis_nucleus'] = header["nucleus"]
+    if "centralShift" in header:
+        bs_dict['basis']['centralShift'] = header["centralShift"]
 
     # 6. Write dict to json
     writeJSON(out_dir / (name + '.json'), bs_dict)

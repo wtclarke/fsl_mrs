@@ -150,6 +150,8 @@ def test_fsl_io_save_load_basis(tmp_path):
     assert basis.original_bw == 4000
     assert basis.original_dwell == 0.00025
     assert basis.basis_fwhm[0] == 2
+    assert basis.nucleus == "1H"
+    assert basis.axes.ppmshift == 4.65
 
     basis.save(tmp_path)
     assert (tmp_path / (basis.names[0] + '.json')).exists()
@@ -162,6 +164,7 @@ def test_fsl_io_save_load_basis(tmp_path):
     assert nbasis.original_dwell == basis.original_dwell
     assert nbasis.basis_fwhm == basis.basis_fwhm
     assert nbasis.nucleus == basis.nucleus
+    assert nbasis.axes.ppmshift == basis.axes.ppmshift
 
 
 def test_fsl_io_save_load_basis_nucleus(tmp_path):
@@ -183,6 +186,7 @@ def test_fsl_io_save_load_basis_nucleus(tmp_path):
     assert nbasis.basis_fwhm == basis.basis_fwhm
     assert nbasis.nucleus == basis.nucleus
     assert nbasis.nucleus == "31P"
+    assert nbasis.axes.ppmshift == 4.65
 
 
 def test_load_symlink(tmp_path):

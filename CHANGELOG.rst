@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
 3.0.0 (WIP)
------------------------------------
+-----------
 - Restructured code to utilise `Axes` class from nifti-mrs-tools.
 - Axes and Spec limits are now inclusive across all methods.
 - `NIFTI_MRS` object can be generated with an `Axes` object.
@@ -19,7 +19,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Tests have been updated to match the above changes.
 
 2.4.13 (Wednesday 20th May 2026)
------------------------------------
+--------------------------------
 - Added Osprey .mat file conversion to FSL-MRS Basis in `basis_tools convert`.
 - `fsl_mrsi` now creates a file-tree file in the output folder (mrsi.tree) to be used in `fsleyes-plugin-mrs`.
 - Improved test suite execution time

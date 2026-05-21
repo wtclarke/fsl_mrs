@@ -193,13 +193,15 @@ def unpackHeader(header):
     """
        Extracts useful info from header into dict
 
-       Including central frequency, dwelltime, echotime
+       Including central frequency, dwelltime, bandwidth, echotime, chemical shift
     """
 
     tidy_header = {
         'centralFrequency': None,
         'bandwidth': None,
-        'echotime': None}
+        'dwelltime': None,
+        'echotime': None,
+        'centralShift': None}
     pattern = re.compile(r"\s([A-Za-z]+)\s*=[\s]*([0-9eE\-\.]+)\s*")
     for line in header:
         search_result = pattern.search(line)
@@ -218,6 +220,8 @@ def unpackHeader(header):
         if groups[0].lower() == 'badelt':
             tidy_header['dwelltime'] = float(groups[1])
             tidy_header['bandwidth'] = 1 / float(groups[1])
+        if groups[0].lower() == 'ppmsep':
+            tidy_header['centralShift'] = float(groups[1])
 
     return tidy_header
 

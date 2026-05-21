@@ -243,7 +243,8 @@ class Basis:
                     'bandwidth': self.original_bw,
                     'dwelltime': self.original_dwell,
                     'fwhm': width,
-                    'nucleus': self.nucleus}
+                    'nucleus': self.nucleus,
+                    'centralShift': self.axes.ppmshift}
 
         for name, basis, width in zip(self.names, self.original_basis_array.T, self.basis_fwhm):
             hdr = out_hdr(width)

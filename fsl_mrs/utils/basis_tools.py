@@ -56,7 +56,8 @@ def convert_lcm_basis(path_to_basis, output_location=None, nucleus=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None, nucleus=None):
+def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None,
+                          nucleus=None, chemical_shift=None):
     """Converts an existing LCModel set of .Raw basis files to FSL format (a directory of json files).
 
     The generated FSL format will only contain a subset of the information that it normaly does
@@ -72,6 +73,8 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     :type output_location: _tpathlib.Path or str, optional
     :param nucleus: String to update nucleus field with (e.g. 31P, 2H, etc)
     :type nucleus: str, optional.
+    :param chemical_shift: Chemical shift of the basis in ppm, defaults to None.
+    :type chemical_shift: float, optional.
     """
     from fsl_mrs.utils.mrs_io.lcm_io import read_basis_files
 
@@ -86,6 +89,7 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     header['centralFrequency'] = central_frequency
     header['fwhm'] = None
     header['nucleus'] = nucleus
+    header['centralShift'] = chemical_shift
 
     basis = Basis(basis_array, names, [header, ] * len(names))
 
@@ -127,6 +131,7 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
 
     # get nucleus information
     gamma = GYRO_MAG_RATIO.get(nucleus, GYRO_MAG_RATIO['1H'])
+    # TODO review if this should be read later from input_dict['centerFreq']
     ppmshift = PPM_SHIFT.get(nucleus, PPM_SHIFT['1H'])
 
     # Extract fields from Osprey basis
@@ -166,6 +171,8 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
         # Convert each repetition to an FSL-MRS Basis
         for fids, desc in zip(basis_fids, description):
             # Use single conjugation as basis_tools vis conjugates by default dir inputs
+            # TODO Osprey data are assumed to be zero-centred.
+            # review if 'centralShift' here should change to central_freq_shift
             Basis(
                 shift(fids.conj()),
                 names,
@@ -173,11 +180,14 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
                     'dwelltime': dwell,
                     'bandwidth': bandwidth,
                     'centralFrequency': b0 * gamma,
-                    'fwhm': fwhm
+                    'fwhm': fwhm,
+                    'centralShift': 0,
                     },] * len(names))\
                 .save(f'{outdir}_{desc}', overwrite=True)
     else:
         # Use single conjugation as basis_tools vis conjugates by default dir inputs
+        # TODO Osprey data are assumed to be zero-centred.
+        # review if 'centralShift' here should change to central_freq_shift
         Basis(
             shift(basis_fids.conj()),
             names,
@@ -185,7 +195,8 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
                 'dwelltime': dwell,
                 'bandwidth': bandwidth,
                 'centralFrequency': b0 * gamma,
-                'fwhm': fwhm
+                'fwhm': fwhm,
+                'centralShift': 0,
                 },] * len(names))\
             .save(f'{outdir}', overwrite=True)
 
