@@ -9,6 +9,8 @@ FSL-MRS inherits and extends the :class:`NIFTI_MRS` from `nifti-mrs-tools`.
 | - Dwell time (`NIFTI_MRS.dwelltime`)
 | - Spectral bandwidth (`NIFTI_MRS.spectralwidth` or `NIFTI_MRS.bandwidth`)
 | - Field strength (`NIFTI_MRS.field_strength`)
+| - Nominal chemical shift (`NIFTI_MRS.SpecFreqChemShift`)
+| - Receiver chemical shift (`NIFTI_MRS.RxOffset`)
 | - Axes object (`NIFTI_MRS.axes`)
 | - NIfTI header (`NIFTI_MRS.header`)
 | - MRS JSON header extension (`NIFTI_MRS.hdr_ext`)
@@ -57,7 +59,7 @@ If the header extension (condition 3) causes a failure, then you can read and wr
 Axes class
 ----------
 
-A NIfTI-MRS object by default creates an `Axes` object that can be accessed by `NIFTI_MRS.axes`.
+A NIfTI-MRS object by default creates an `Axes` object that can be accessed by `NIFTI_MRS.axes`. Alternatively, you may create an Axes object from a NIfTI-MRS object via the constructor `Axes.from_nifti_mrs(nmrs)`
 
 | An `Axes` object stores information for plotting and key spectroscopy parameters, like:
 | - Resonant nucleus (`Axes.ResonantNucleus`)
