@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.14 (Wednesday 27th May 2026)
+-----------------------------------
+- Updated requirements list
+
 2.4.13 (Wednesday 20th May 2026)
 -----------------------------------
 - Added Osprey .mat file conversion to FSL-MRS Basis in `basis_tools convert`.
