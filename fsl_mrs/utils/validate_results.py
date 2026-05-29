@@ -111,6 +111,8 @@ class FolderTester:
         ref_path = Path(ref_path)
         est_path = Path(est_path)
         for file in ref_path.glob('*'):
+            if file.name.startswith('.'):
+                continue
             if subdir and file.is_dir():
                 for subfile in file.glob('*'):
                     if subfile.is_dir():
