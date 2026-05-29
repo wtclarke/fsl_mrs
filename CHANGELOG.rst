@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.15 (WIP)
+-----------------------------------
+- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`
+
 2.4.14 (Wednesday 27th May 2026)
 -----------------------------------
 - Updated requirements list

@@ -4,6 +4,7 @@
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>
+#         Vasilis Karlaftis <vasilis.karlaftis@ndcn.ox.ac.uk>
 #
 # Copyright (C) 2019 University of Oxford
 # SHBASECOPYRIGHT
@@ -89,6 +90,22 @@ def main():
                           help='Print verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
+    # --single_proc is depreciated for --parallel but retained for backward compatibility
+    optional.add_argument('--single_proc', action="store_true",
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--parallel',
+                          type=str,
+                          default='local',
+                          help="Control parallelisation. Set to: "
+                          "'off', 'local' (default), or 'cluster'. "
+                          "'off' forces serial processing, "
+                          "'local' parallelises over local CPUs, "
+                          "'cluster' distributes over HPC SLURM nodes. "
+                          "See documentation for cluster configuration.")
+    optional.add_argument('--parallel-workers',
+                          type=int,
+                          default=None,
+                          help="Number of cores (local), or workers (cluster) to use.")
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis.')
     optional.add_argument('--save-fit', action="store_true",
@@ -107,40 +124,22 @@ def main():
         nargs=3,
         metavar=('X', 'Y', 'Z'),
         help='Spatial index of an MRSI grid to fit. Ignored if single voxel. Defaults to all voxels.')
-    optional.add_argument(
-        '--fslsub-queue',
-        type=str,
-        default=None,
-        help='Specify the queue that MRSI subtasks should be submitted to.')
-    optional.add_argument(
-        '--merge_spatial',
-        action="store_true",
-        help=configargparse.SUPPRESS)
     optional.add('--config', required=False, is_config_file=True,
                  help='configuration file')
 
     # Parse command-line arguments
     args = p.parse_args()
 
-    if args.merge_spatial:
-        merge_mrsi_results(args)
-        return
-
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
-    import time
     import shutil
-    import json
     import warnings
     import matplotlib
     import numpy as np
     matplotlib.use('agg')
-    from fsl_mrs.dynamic import dynMRS
     from fsl_mrs.utils import mrs_io
-    from fsl_mrs.utils import report
-    from fsl_mrs.utils import plotting
-    from fsl_mrs.utils import misc
-    import datetime
+    from functools import partial
+    from dask.distributed import Client, progress
     # ######################################################
     if not args.verbose:
         warnings.filterwarnings("ignore")
@@ -165,9 +164,6 @@ def main():
             exit()
         else:
             shutil.rmtree(out_dir)
-            out_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        out_dir.mkdir(parents=True, exist_ok=True)
 
     # Do the work
     def verbose_print(x):
@@ -186,53 +182,184 @@ def main():
     verbose_print(f'data shape : {data.shape}')
     verbose_print(f'data tags  : {data.dim_tags}')
 
+    # Get dynmrs time variables
+    def load_tvar_file(fp):
+        if fp.suffix in ['.csv']:
+            return np.loadtxt(fp, delimiter=',')
+        return np.loadtxt(fp)
+
+    if len(args.time_variables) == 1:
+        time_variables = load_tvar_file(args.time_variables[0])
+    else:
+        time_variables = [load_tvar_file(v) for v in args.time_variables]
+
+    # Main code block that processes single vs multiple voxels
     is_mrsi = np.prod(data.shape[:3]) > 1
     if is_mrsi and args.spatial_index is None:
         # MRSI and no index specified
         verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
-        import fsl_sub
         from fsl.data.image import Image
-        import sys
 
         tmp_mrsi = data.mrs()[0]
         if args.spatial_mask is not None:
             tmp_mrsi.set_mask(
                 Image(args.spatial_mask)[:])
 
-        input_args = sys.argv
+        # The voxel jobs are executed directly by dask workers. Each worker
+        # reconstructs its own MRS object and writes its own output folder.
+        func = partial(
+            process_single_voxel,
+            args=args,
+            out_dir=out_dir,
+            time_variables=time_variables,
+            parser_values=p.format_values(),
+            is_mrsi=True
+        )
 
-        log_dir = args.output / 'logs'
-        log_dir.mkdir(exist_ok=True)
+        if args.parallel == "off" or args.single_proc:
+            from tqdm import tqdm
+            _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
+        elif args.parallel in ("local", "cluster"):
+            if args.parallel == "local":
+                if args.parallel_workers:
+                    n_workers = args.parallel_workers
+                else:
+                    from fsl_mrs.utils.cpu_mgmt import get_effective_cpu_count
+                    n_workers = max(1, get_effective_cpu_count() - 1)
+                verbose_print(f'    Parallelising over {n_workers} workers ')
+                client = Client(n_workers=n_workers, threads_per_worker=1)
 
-        jids = []
-        for idx in tmp_mrsi.get_indicies_in_order():
-            sidx = ' '.join(str(x) for x in idx)
-            name = 'vox' + '_'.join(str(x) for x in idx)
-            curr_args = input_args + ['--spatial-index', sidx]
-            jids.append(
-                fsl_sub.submit(
-                    ' '.join(curr_args),
-                    logdir=log_dir,
-                    name=name,
-                    queue=args.fslsub_queue))
+            elif args.parallel == "cluster":
+                if args.parallel_workers:
+                    n_workers = args.parallel_workers
+                else:
+                    n_workers = 2
+                verbose_print(f'    Parallelising over {n_workers} nodes ')
+                from dask_jobqueue import slurm
+                cluster = slurm.SLURMCluster(
+                    config_name='fsl_dynmrs',
+                    dashboard_address=None)
+                cluster.scale(n_workers)
+
+                client = Client(cluster)
+
+            result_futures = client.map(func, tmp_mrsi.get_indicies_in_order())
+            progress(result_futures, notebook=False)
+            _ = client.gather(result_futures)
+        else:
+            raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
-        verbose_print(f'\nMerge job will be held for jobs: {jids}')
-        fsl_sub.submit(
-            ' '.join(input_args + ['--merge_spatial']),
-            logdir=log_dir,
-            name='merge',
-            queue=args.fslsub_queue,
-            jobhold=jids)
-
+        merge_mrsi_results(args)
         return
 
-    elif is_mrsi:
-        # MRSI and spatial index defined, treat as a single voxel
-        from fsl.data.image import Image
+    else:
+        process_single_voxel(idx=args.spatial_index,
+                             args=args,
+                             out_dir=out_dir,
+                             time_variables=time_variables,
+                             parser_values=p.format_values(),
+                             is_mrsi=is_mrsi)
 
-        # Ensure that rescaling is consistent
+
+def merge_mrsi_results(args):
+    """Auxiliary function to reassemble MRSI data into image results
+
+    :param args: Argparse arguments object
+    """
+    from fsl_mrs.utils import mrs_io
+    from fsl.data.image import Image
+    import numpy as np
+    import pandas as pd
+
+    original_data = mrs_io.read_FID(args.data)
+    if np.prod(original_data.shape[:3]) == 1:
+        raise ValueError('--merge_spatial cannot be used with svs data.')
+
+    indiv_path = Path(args.output / 'voxels')
+    if not indiv_path.exists():
+        raise ValueError('--merge_spatial can only be used with a directory of already generated results.')
+
+    # loop to load the data from each voxel
+    mean_data = {}
+    var_data = {}
+    for pp in indiv_path.rglob('free_parameters.csv'):
+        index = pp.parent.stem
+        df = pd.read_csv(pp, index_col=0, header=0)
+        mean_data[index] = df['mean']
+        var_data[index] = df['sd'].pow(2)
+
+    # Form dataframes for mean and variance of each free parameter
+    mean_df = pd.DataFrame.from_dict(mean_data).T
+    var_df = pd.DataFrame.from_dict(var_data).T
+
+    # Now save to NIfTI images
+    def empty_img():
+        return Image(
+            np.zeros(original_data.shape[:3], dtype=float),
+            xform=original_data.voxToWorldMat)
+
+    def form_img(df, key):
+        cimg = empty_img()
+        for idx, val in df[key].items():
+            idx = [int(x) for x in idx.split('_')]
+            cimg[idx[0], idx[1], idx[2]] = val
+
+        return cimg
+
+    out_dir_mean = indiv_path / '..' / 'mean'
+    out_dir_mean.mkdir(exist_ok=True)
+    for param in mean_df:
+        form_img(mean_df, param).save(out_dir_mean / f'{param}.nii.gz')
+
+    out_dir_var = indiv_path / '..' / 'var'
+    out_dir_var.mkdir(exist_ok=True)
+    for param in var_df:
+        form_img(var_df, param).save(out_dir_var / f'{param}.nii.gz')
+
+    # Combine the fits to a single MRSI object
+    if args.save_fit:
+        from fsl_mrs.core.nifti_mrs import create_nmrs
+        pred_data = np.zeros_like(original_data[:])
+        for pp in indiv_path.rglob('fit.nii.gz'):
+            cdata = mrs_io.read_FID(pp)
+            idx_str = pp.parent.stem
+            idx = tuple([int(x) for x in idx_str.split('_')]) + (Ellipsis, )
+            pred_data[idx] = cdata[0, 0, 0, :, :]
+
+        pred = create_nmrs.gen_nifti_mrs(
+            pred_data,
+            original_data.dwelltime,
+            original_data.spectrometer_frequency[0],
+            nucleus=original_data.nucleus[0],
+            dim_tags=original_data.dim_tags,
+            affine=original_data.voxToWorldMat)
+        pred.save(args.output / 'fit.nii.gz')
+
+
+def process_single_voxel(idx, args, out_dir, time_variables, parser_values, is_mrsi=False):
+    """Run the dynamic MRS analysis on a single voxel."""
+    import time
+    import json
+    import numpy as np
+    from fsl_mrs.dynamic import dynMRS
+    from fsl_mrs.utils import mrs_io
+    from fsl_mrs.utils import misc
+    from fsl.data.image import Image
+    from fsl_mrs.utils import report
+    from fsl_mrs.utils import plotting
+    import datetime
+
+    def verbose_print(x):
+        if args.verbose:
+            print(x)
+
+    data = mrs_io.read_FID(args.data)
+
+    if is_mrsi:
+        assert idx is not None, "Spatial index must be provided for MRSI data."
+
         if not args.no_rescale:
             if args.spatial_mask is not None:
                 norm_mask = Image(args.spatial_mask)[:].astype(bool)
@@ -247,14 +374,13 @@ def main():
 
         # After consistent data scaling, generate the mrslist
         mrslist = data.mrs(
-            basis_file=args.basis,
-            spatial_index=args.spatial_index)
+                basis_file=args.basis,
+                spatial_index=idx)
 
         # Now ensure basis is scaled appropriately if rescaling not disabled
         if not args.no_rescale:
             for mrs in mrslist:
                 mrs.basis_scaling_target = 100.0
-
             # Finally disable further rescaling (within dynMRS class)
             args.no_rescale = True
 
@@ -266,17 +392,13 @@ def main():
     for mrs in mrslist:
         mrs.check_Basis(repair=True)
 
-    # Get dynmrs time variables
-    def load_tvar_file(fp):
-        if fp.suffix in ['.csv', ]:
-            return np.loadtxt(fp, delimiter=',')
-        else:
-            return np.loadtxt(fp)
-
-    if len(args.time_variables) == 1:
-        time_variables = load_tvar_file(args.time_variables[0])
+    # Create output folder
+    if is_mrsi:
+        vox_idx_str = f'{idx[0]}_{idx[1]}_{idx[2]}'
+        out_dir = args.output / 'voxels' / vox_idx_str
     else:
-        time_variables = [load_tvar_file(v) for v in args.time_variables]
+        out_dir = args.output
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # Do the fitting here
     verbose_print('--->> Start fitting\n\n')
@@ -359,7 +481,7 @@ def main():
                 var_print[key] = vars(args)[key]
         f.write(json.dumps(var_print))
         f.write("\n--------\n")
-        f.write(p.format_values())
+        f.write(parser_values)
 
     # dump output to folder
     dyn_res.save(out_dir, save_dyn_obj=args.full_save)
@@ -416,81 +538,6 @@ def main():
             location_fig=location_fig)
 
     verbose_print('\n\n\nDone.')
-
-
-def merge_mrsi_results(args):
-    """Auxiliary function to reassemble MRSI data into image results
-
-    :param args: Argparse arguments object
-    """
-    from fsl_mrs.utils import mrs_io
-    from fsl.data.image import Image
-    import numpy as np
-    import pandas as pd
-
-    original_data = mrs_io.read_FID(args.data)
-    if np.prod(original_data.shape[:3]) == 1:
-        raise ValueError('--merge_spatial cannot be used with svs data.')
-
-    indiv_path = Path(args.output / 'voxels')
-    if not indiv_path.exists():
-        raise ValueError('--merge_spatial can only be used with a directory of already generated results.')
-
-    # loop to load the data from each voxel
-    mean_data = {}
-    var_data = {}
-    for pp in indiv_path.rglob('free_parameters.csv'):
-        index = pp.parent.stem
-        df = pd.read_csv(pp, index_col=0, header=0)
-        mean_data[index] = df['mean']
-        var_data[index] = df['sd'].pow(2)
-
-    # Form dataframes for mean and variance of each free parameter
-    mean_df = pd.DataFrame.from_dict(mean_data).T
-    var_df = pd.DataFrame.from_dict(var_data).T
-
-    # Now save to NIfTI images
-    def empty_img():
-        return Image(
-            np.zeros(original_data.shape[:3], dtype=float),
-            xform=original_data.voxToWorldMat)
-
-    def form_img(df, key):
-        cimg = empty_img()
-        for idx, val in df[key].items():
-            idx = [int(x) for x in idx.split('_')]
-            cimg[idx[0], idx[1], idx[2]] = val
-
-        return cimg
-
-    out_dir_mean = indiv_path / '..' / 'mean'
-    out_dir_mean.mkdir(exist_ok=True)
-    for param in mean_df:
-        form_img(mean_df, param).save(out_dir_mean / f'{param}.nii.gz')
-
-    out_dir_var = indiv_path / '..' / 'var'
-    out_dir_var.mkdir(exist_ok=True)
-    for param in var_df:
-        form_img(var_df, param).save(out_dir_var / f'{param}.nii.gz')
-
-    # Combine the fits to a single MRSI object
-    if args.save_fit:
-        from fsl_mrs.core.nifti_mrs import create_nmrs
-        pred_data = np.zeros_like(original_data[:])
-        for pp in indiv_path.rglob('fit.nii.gz'):
-            cdata = mrs_io.read_FID(pp)
-            idx_str = pp.parent.stem
-            idx = tuple([int(x) for x in idx_str.split('_')]) + (Ellipsis, )
-            pred_data[idx] = cdata[0, 0, 0, :, :]
-
-        pred = create_nmrs.gen_nifti_mrs(
-            pred_data,
-            original_data.dwelltime,
-            original_data.spectrometer_frequency[0],
-            nucleus=original_data.nucleus[0],
-            dim_tags=original_data.dim_tags,
-            affine=original_data.voxToWorldMat)
-        pred.save(args.output / 'fit.nii.gz')
 
 
 def str_or_int_arg(x):
