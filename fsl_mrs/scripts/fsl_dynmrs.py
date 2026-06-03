@@ -275,11 +275,9 @@ def merge_mrsi_results(args):
 
     original_data = mrs_io.read_FID(args.data)
     if np.prod(original_data.shape[:3]) == 1:
-        raise ValueError('--merge_spatial cannot be used with svs data.')
+        raise ValueError("'Merge_mrsi_results' cannot be used with svs data.")
 
     indiv_path = Path(args.output / 'voxels')
-    if not indiv_path.exists():
-        raise ValueError('--merge_spatial can only be used with a directory of already generated results.')
 
     # loop to load the data from each voxel
     mean_data = {}

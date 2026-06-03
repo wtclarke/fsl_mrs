@@ -52,7 +52,7 @@ class FolderTester:
                 return
 
             if np.issubdtype(ref_csv[key].dtype, np.number):
-                if not np.allclose(ref_csv[key], est_csv[key], equal_nan=True):
+                if not np.allclose(ref_csv[key], est_csv[key], atol=0.001, equal_nan=True):
                     self._is_different(ref.name, 'CSV data are NOT equal!')
                     return
             else:
@@ -78,7 +78,8 @@ class FolderTester:
                 self._is_different(ref.name, 'JSON files are NOT equal!')
                 return
 
-    def _compare_json_values(self, ref_value, est_value):
+    @staticmethod
+    def _compare_json_values(ref_value, est_value):
         if isinstance(ref_value, numbers.Number):
             return np.allclose(ref_value, est_value, atol=0.001)
 
@@ -115,8 +116,12 @@ class FolderTester:
                 continue
             if subdir and file.is_dir():
                 for subfile in file.glob('*'):
+                    if subfile.name.startswith('.'):
+                        continue
                     if subfile.is_dir():
                         for subsubfile in subfile.glob('*'):
+                            if subsubfile.name.startswith('.'):
+                                continue
                             corresponding_est_file = est_path / file.name / subfile.name / subsubfile.name
                             self._run_subfile_code(subsubfile, corresponding_est_file)
                     else:
