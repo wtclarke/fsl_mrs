@@ -90,9 +90,6 @@ def main():
                           help='Print verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
-    # --single_proc is depreciated for --parallel but retained for backward compatibility
-    optional.add_argument('--single_proc', action="store_true",
-                          help=configargparse.SUPPRESS)
     optional.add_argument('--parallel',
                           type=str,
                           default='local',
@@ -114,6 +111,8 @@ def main():
                           help='Save the full data to reconstruct the '
                                'dynamic fitting object in memory. '
                                'Useful for in depth debugging and model exploration.')
+    optional.add_argument('--mean_mrsi', action="store_true",
+                          help='For MRSI data, fit the mean FID across voxels.')
     optional.add_argument(
         '--spatial-mask',
         type=str,
@@ -197,9 +196,51 @@ def main():
     is_mrsi = np.prod(data.shape[:3]) > 1
     if is_mrsi and args.spatial_index is None:
         # MRSI and no index specified
-        verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
         from fsl.data.image import Image
 
+        if args.mean_mrsi:
+            verbose_print('Fitting average MRSI voxel.')
+            from fsl_mrs.utils.preproc import combine_FIDs
+            from fsl_mrs.core.nifti_mrs import create_nmrs
+            import copy
+
+            # mask data if spatial_mask is not None
+            if args.spatial_mask is not None:
+                norm_mask = Image(args.spatial_mask)[:].astype(bool)
+            else:
+                norm_mask = np.ones(data.shape[:3]).astype(bool)
+            # these are masked and flattened data across spatial dimensions
+            masked_data = data[:][norm_mask]
+            # move dim to average into last position
+            masked_data = np.moveaxis(masked_data, 0, -1)
+            # run combine_FIDs on them (equivalent to nifti_mrs_proc.average)
+            avg_fids = combine_FIDs(masked_data, 'mean').T
+            # expand dims back to original shape
+            avg_fids = np.expand_dims(avg_fids, axis=0)
+            avg_fids = np.expand_dims(avg_fids, axis=0)
+            avg_fids = np.expand_dims(avg_fids, axis=0)
+
+            avg_data = create_nmrs.gen_nifti_mrs(
+                avg_fids,
+                data.dwelltime,
+                data.spectrometer_frequency[0],
+                nucleus=data.nucleus[0],
+                dim_tags=data.dim_tags,
+                affine=data.voxToWorldMat)
+
+            # copy and update the args to reflect the correct data to read
+            mean_args = copy.copy(args)
+            mean_args.data = avg_data
+            mean_args.spatial_mask = None
+            mean_args.output = args.output / 'mean_voxel'
+            process_single_voxel(
+                idx=(0, 0, 0),
+                args=mean_args,
+                time_variables=time_variables,
+                parser_values=p.format_values(),
+                is_mrsi=False)
+
+        verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
         tmp_mrsi = data.mrs()[0]
         if args.spatial_mask is not None:
             tmp_mrsi.set_mask(
@@ -210,13 +251,12 @@ def main():
         func = partial(
             process_single_voxel,
             args=args,
-            out_dir=out_dir,
             time_variables=time_variables,
             parser_values=p.format_values(),
             is_mrsi=True
         )
 
-        if args.parallel == "off" or args.single_proc:
+        if args.parallel == "off":
             from tqdm import tqdm
             _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
         elif args.parallel in ("local", "cluster"):
@@ -257,7 +297,6 @@ def main():
     else:
         process_single_voxel(idx=args.spatial_index,
                              args=args,
-                             out_dir=out_dir,
                              time_variables=time_variables,
                              parser_values=p.format_values(),
                              is_mrsi=is_mrsi)
@@ -336,7 +375,7 @@ def merge_mrsi_results(args):
         pred.save(args.output / 'fit.nii.gz')
 
 
-def process_single_voxel(idx, args, out_dir, time_variables, parser_values, is_mrsi=False):
+def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False):
     """Run the dynamic MRS analysis on a single voxel."""
     import time
     import json
@@ -347,13 +386,17 @@ def process_single_voxel(idx, args, out_dir, time_variables, parser_values, is_m
     from fsl.data.image import Image
     from fsl_mrs.utils import report
     from fsl_mrs.utils import plotting
+    from nifti_mrs.nifti_mrs import NIFTI_MRS
     import datetime
 
     def verbose_print(x):
         if args.verbose:
             print(x)
-
-    data = mrs_io.read_FID(args.data)
+    
+    if isinstance(args.data, NIFTI_MRS):
+        data = args.data
+    else:
+        data = mrs_io.read_FID(args.data)
 
     if is_mrsi:
         assert idx is not None, "Spatial index must be provided for MRSI data."
