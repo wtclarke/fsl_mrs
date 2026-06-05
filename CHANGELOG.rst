@@ -17,6 +17,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `io` utils have been updated to return a `Basis` object rather than `(FID, names, headers)`
 - `fsl_mrs_verify` target value has been updated to match the above changes.
 - Tests have been updated to match the above changes.
+- Added basis set read and conversion for `.mrui` formatted files.
 
 2.4.14 (Wednesday 27th May 2026)
 -----------------------------------

@@ -78,7 +78,7 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     """
     from fsl_mrs.utils.mrs_io.lcm_io import read_basis_files
 
-    files = [str(x) for x in path_to_basis.glob('*.raw')]
+    files = [str(x) for x in sorted(path_to_basis.iterdir()) if x.is_file() and x.suffix.lower() == '.raw']
 
     basis_array, names = read_basis_files(files)
     basis_array = basis_array.conj()
