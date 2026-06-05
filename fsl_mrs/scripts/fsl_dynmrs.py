@@ -201,7 +201,7 @@ def main():
         if args.mean_mrsi:
             verbose_print('Fitting average MRSI voxel.')
             from fsl_mrs.utils.preproc import combine_FIDs
-            from fsl_mrs.core.nifti_mrs import create_nmrs
+            from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
             import copy
 
             # mask data if spatial_mask is not None
@@ -220,7 +220,7 @@ def main():
             avg_fids = np.expand_dims(avg_fids, axis=0)
             avg_fids = np.expand_dims(avg_fids, axis=0)
 
-            avg_data = create_nmrs.gen_nifti_mrs(
+            avg_data = gen_nifti_mrs(
                 avg_fids,
                 data.dwelltime,
                 data.spectrometer_frequency[0],
@@ -386,13 +386,13 @@ def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False
     from fsl.data.image import Image
     from fsl_mrs.utils import report
     from fsl_mrs.utils import plotting
-    from nifti_mrs.nifti_mrs import NIFTI_MRS
+    from fsl_mrs.core.nifti_mrs import NIFTI_MRS
     import datetime
 
     def verbose_print(x):
         if args.verbose:
             print(x)
-    
+
     if isinstance(args.data, NIFTI_MRS):
         data = args.data
     else:
