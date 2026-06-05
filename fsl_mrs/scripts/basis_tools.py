@@ -256,7 +256,7 @@ def vis(args):
     plt.show()
 
 
-def convert(args):
+def convert(args: argparse.Namespace) -> None:
     """Converter for lcm/jmrui basis sets
     :param args: Argparse interpreted arguments
     :type args: Namespace
@@ -276,19 +276,27 @@ def convert(args):
         else:
             raise ValueError(f"Unsupported file type {filetype}. "
                              "Currently only .mat (Osprey) and .basis (LCModel) files are supported.")
-    elif args.input.is_dir()\
-            and (len(list(args.input.glob('*.raw'))) > 0 or len(list(args.input.glob('*.RAW'))) > 0):
-        basis_tools.convert_lcm_raw_basis(
-            args.input,
-            args.bandwidth,
-            args.fieldstrength * GYRO_MAG_RATIO['1H'],
-            args.output,
-            nucleus=args.nucleus)
-    elif args.input.is_dir()\
-            and len(list(args.input.glob('*.txt'))) > 0:
-        basis_tools.convert_jmrui_basis(
-            args.input,
-            args.output)
+    elif args.input.is_dir():
+        suffixes = {file.suffix.lower() for file in args.input.iterdir() if file.is_file()}
+
+        if '.raw' in suffixes:
+            basis_tools.convert_lcm_raw_basis(
+                args.input,
+                args.bandwidth,
+                args.fieldstrength * GYRO_MAG_RATIO['1H'],
+                args.output,
+                nucleus=args.nucleus)
+        elif suffixes.intersection({'.txt', '.mrui'}):
+            basis_tools.convert_jmrui_basis(
+                args.input,
+                args.output)
+        else:
+            raise ValueError(
+                "Unsupported basis directory contents. "
+                "Currently only LCModel RAW (.raw/.RAW) and jMRUI (.txt/.mrui) "
+                "basis directories are supported.")
+    else:
+        raise FileNotFoundError(f"Input basis path {args.input} is neither a file nor a directory.")
 
     if args.remove_reference:
         # TODO sort this conjugation mess out.

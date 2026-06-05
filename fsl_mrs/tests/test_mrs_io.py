@@ -11,6 +11,7 @@ from pathlib import Path
 
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
+import fsl_mrs.utils.mrs_io.jmrui_io as jmruiio
 from fsl_mrs.utils.mrs_io.main import _check_datatype, IncompatibleBasisFormat
 from fsl_mrs.core.basis import Basis
 
@@ -63,11 +64,12 @@ BasisTestData = {
     'fsl_seq_nuc': op.join(testsPath, 'testdata/mrs_io/basisset_FSL_seq_nuc'),   # Includes a seq->nucleus field (31P)
     'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
     'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
+    'mrui': op.join(testsPath, 'testdata/mrs_io/basisset_mrui'),
     'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
     'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
 
 
-def test_read_Basis():
+def test_read_Basis() -> None:
     # Test the loading of the four types of data we handle for basis specta
     # fsl_mrs - folder of json
     # lcmodel - .basis file
@@ -84,12 +86,14 @@ def test_read_Basis():
 
     basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
     basis_txt = mrsio.read_basis(BasisTestData['txt'])
+    basis_mrui = mrsio.read_basis(BasisTestData['mrui'])
     basis_txt_single = mrsio.read_basis(BasisTestData['txt_single'])
     basis_lcm = mrsio.read_basis(BasisTestData['lcm'])
 
     # Check each returns a basis object
     assert isinstance(basis_fsl, Basis)
     assert isinstance(basis_txt, Basis)
+    assert isinstance(basis_mrui, Basis)
     assert isinstance(basis_txt_single, Basis)
     assert isinstance(basis_lcm, Basis)
 
@@ -97,6 +101,7 @@ def test_read_Basis():
     # Test that all contain the same amount of data.
     assert basis_fsl.original_points == 2048
     assert basis_txt.original_points == 2048
+    assert basis_mrui.original_points == 1024
     assert basis_txt_single.original_points == 2048
     assert basis_lcm.original_points == (2 * 2048)
 
@@ -104,8 +109,23 @@ def test_read_Basis():
     numNames = 21
     assert len(basis_fsl.names) == numNames
     assert len(basis_txt.names) == numNames
+    assert len(basis_mrui.names) == 13
     assert len(basis_txt_single.names) == 17
     assert len(basis_lcm.names) == numNames
+
+
+def test_read_mruiBasis_files() -> None:
+    mruifiles = sorted(Path(BasisTestData['mrui']).glob('*.mrui'))
+    basis = jmruiio.read_mruiBasis_files(mruifiles)
+
+    assert isinstance(basis, Basis)
+    assert basis.original_basis_array.shape == (1024, 13)
+    assert basis.names == [file.stem for file in mruifiles]
+    assert np.isclose(basis.cf, 127728513.0 / 1E6)
+    assert np.isclose(basis.original_bw, 2000)
+    assert np.isclose(basis.original_dwell, 0.0005)
+    assert basis.basis_fwhm == [None, ] * 13
+    assert basis.nucleus == '1H'
 
 
 def test_fslBasisRegen():

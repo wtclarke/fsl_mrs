@@ -23,6 +23,7 @@ diff1 = testsPath / 'testdata/basis_tools/low_res_off'
 diff2 = testsPath / 'testdata/basis_tools/low_res_on'
 raw = testsPath / 'testdata/basis_tools/RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
 jmrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI'
+mrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_mrui'
 osprey_2d = testsPath / 'testdata' / 'basis_tools' / 'basis_philips_slaser35.mat'
 osprey_3d = testsPath / 'testdata' / 'basis_tools' / 'basis_philips_hercules-press.mat'
 
@@ -77,6 +78,16 @@ def test_convert_jmrui(tmp_path):
 
     assert (tmp_path / 'new_jmrui').is_dir()
     assert (tmp_path / 'new_jmrui' / 'NAA.json').is_file()
+
+
+def test_convert_mrui(tmp_path: Path) -> None:
+    subprocess.check_call(['basis_tools', 'convert',
+                           str(mrui_basis_path),
+                           str(tmp_path / 'new_mrui')])
+
+    assert (tmp_path / 'new_mrui').is_dir()
+    assert (tmp_path / 'new_mrui' / 'NAcetylAspartate (NAA).json').is_file()
+    assert len(list((tmp_path / 'new_mrui').glob('*.json'))) == 13
 
 
 def test_convert_with_remove(tmp_path):
