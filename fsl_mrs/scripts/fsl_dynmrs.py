@@ -260,13 +260,17 @@ def main():
             from tqdm import tqdm
             _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
         elif args.parallel in ("local", "cluster"):
+            import os
+            # insist on the suppression of matplotlib outputs to avoid warnings on task loss
+            os.environ.setdefault('MPLBACKEND', 'Agg')
+            matplotlib.use('Agg')
             if args.parallel == "local":
                 if args.parallel_workers:
                     n_workers = args.parallel_workers
                 else:
                     from fsl_mrs.utils.cpu_mgmt import get_effective_cpu_count
                     n_workers = max(1, get_effective_cpu_count() - 1)
-                verbose_print(f'    Parallelising over {n_workers} workers ')
+                verbose_print(f'    Parallelising over {n_workers} workers')
                 client = Client(n_workers=n_workers, threads_per_worker=1)
 
             elif args.parallel == "cluster":
@@ -274,7 +278,7 @@ def main():
                     n_workers = args.parallel_workers
                 else:
                     n_workers = 2
-                verbose_print(f'    Parallelising over {n_workers} nodes ')
+                verbose_print(f'    Parallelising over {n_workers} nodes')
                 from dask_jobqueue import slurm
                 cluster = slurm.SLURMCluster(
                     config_name='fsl_dynmrs',
@@ -287,7 +291,7 @@ def main():
             progress(result_futures, notebook=False)
             _ = client.gather(result_futures)
         else:
-            raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
+            raise ValueError("--parallel should be 'off', 'local', or 'cluster'.")
 
         # Finally launch process to reassemble the individual voxels
         verbose_print('\n\n Assemble MRSI data.')
@@ -398,6 +402,7 @@ def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False
     else:
         data = mrs_io.read_FID(args.data)
 
+    no_rescale = args.no_rescale
     if is_mrsi:
         assert idx is not None, "Spatial index must be provided for MRSI data."
 
@@ -423,7 +428,7 @@ def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False
             for mrs in mrslist:
                 mrs.basis_scaling_target = 100.0
             # Finally disable further rescaling (within dynMRS class)
-            args.no_rescale = True
+            no_rescale = True
 
     else:
         # Single voxel
@@ -478,7 +483,7 @@ def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False
         mrslist,
         time_variables,
         config_file=args.dyn_config,
-        rescale=not args.no_rescale,
+        rescale=not no_rescale,
         **Fitargs)
 
     verbose_print('Fitting args:')
