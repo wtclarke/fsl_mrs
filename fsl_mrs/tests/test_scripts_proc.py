@@ -34,18 +34,18 @@ def svs_data(tmp_path):
     noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     FID = np.asarray(FID).T
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
     nmrs = gen_nifti_mrs(
         FID,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_DYN', None, None])
 
     testname = 'svsdata.nii'
@@ -62,18 +62,18 @@ def mrsi_data(tmp_path):
     noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     FID = np.asarray(FID).T
     FID = np.tile(FID, (2, 2, 2, 1, 1))
 
     nmrs = gen_nifti_mrs(
         FID,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_DYN', None, None])
 
     testname = 'mrsidata.nii'
@@ -89,18 +89,18 @@ def svs_data_uncomb(tmp_path):
     noiseconv = 0.1 * np.eye(coils)
     coilamps = np.random.randn(coils)
     coilphs = np.random.random(coils) * 2 * np.pi
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     FID = np.asarray(FID).T
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
     nmrs = gen_nifti_mrs(
         FID,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_COIL', None, None])
 
     testname = 'svsdata_uncomb.nii'
@@ -116,18 +116,18 @@ def mrsi_data_uncomb(tmp_path):
     noiseconv = 0.1 * np.eye(coils)
     coilamps = np.random.randn(coils)
     coilphs = np.random.random(coils) * 2 * np.pi
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     FID = np.asarray(FID).T
     FID = np.tile(FID, (2, 2, 2, 1, 1))
 
     nmrs = gen_nifti_mrs(
         FID,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_COIL', None, None])
 
     testname = 'mrsidata_uncomb.nii'
@@ -143,17 +143,17 @@ def svs_data_diff(tmp_path):
     noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     coilamps = -1 * np.ones(reps)
     coilphs = np.random.randn(reps)
-    FID2, hdr = syntheticFID(noisecovariance=noiseconv,
-                             coilamps=coilamps,
-                             coilphase=coilphs,
-                             points=512)
+    FID2, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                 coilamps=coilamps,
+                                 coilphase=coilphs,
+                                 points=512)
 
     FID = np.asarray(FID).T
     FID2 = np.asarray(FID2).T
@@ -162,8 +162,8 @@ def svs_data_diff(tmp_path):
 
     nmrs = gen_nifti_mrs(
         FID_comb,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
     testname = 'svsdata_diff.nii'
@@ -179,17 +179,17 @@ def mrsi_data_diff(tmp_path):
     noiseconv = 0.1 * np.eye(reps)
     coilamps = np.ones(reps)
     coilphs = np.zeros(reps)
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
     coilamps = -1 * np.ones(reps)
     coilphs = np.random.randn(reps)
-    FID2, hdr = syntheticFID(noisecovariance=noiseconv,
-                             coilamps=coilamps,
-                             coilphase=coilphs,
-                             points=512)
+    FID2, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                 coilamps=coilamps,
+                                 coilphase=coilphs,
+                                 points=512)
 
     FID = np.asarray(FID).T
     FID2 = np.asarray(FID2).T
@@ -198,8 +198,8 @@ def mrsi_data_diff(tmp_path):
 
     nmrs = gen_nifti_mrs(
         FID_comb,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_DYN', 'DIM_EDIT', None])
 
     testname = 'mrsidata_diff.nii'
@@ -215,23 +215,23 @@ def svs_data_uncomb_reps(tmp_path):
     noiseconv = 0.1 * np.eye(coils)
     coilamps = np.random.randn(coils)
     coilphs = np.random.random(coils) * 2 * np.pi
-    FID, hdr = syntheticFID(noisecovariance=noiseconv,
-                            coilamps=coilamps,
-                            coilphase=coilphs,
-                            points=512)
+    FID, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                coilamps=coilamps,
+                                coilphase=coilphs,
+                                points=512)
 
-    FID2, hdr = syntheticFID(noisecovariance=noiseconv,
-                             coilamps=coilamps,
-                             coilphase=coilphs,
-                             points=512)
+    FID2, _, axes = syntheticFID(noisecovariance=noiseconv,
+                                 coilamps=coilamps,
+                                 coilphase=coilphs,
+                                 points=512)
 
     FID = np.stack((np.asarray(FID).T, np.asarray(FID2).T), axis=2)
     FID = FID.reshape((1, 1, 1) + FID.shape)
 
     nmrs = gen_nifti_mrs(
         FID,
-        hdr['dwelltime'],
-        hdr['centralFrequency'],
+        axes.dwelltime,
+        axes.SpectrometerFrequency,
         dim_tags=['DIM_COIL', 'DIM_DYN', None])
 
     testname = 'svsdata_uncomb_reps.nii'

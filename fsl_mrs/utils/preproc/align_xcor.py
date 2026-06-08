@@ -10,14 +10,12 @@ from scipy.signal import correlate, correlation_lags
 
 from fsl_mrs.utils.preproc import freqshift, pad, apodize, applyPhase
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.core import MRS
+from nifti_mrs.axes import Axes
 
 
 def xcorr_align(
         fids_in: np.typing.NDArray[np.complexfloating],
-        dwelltime: float,
-        centralFrequency: float,
-        nucleus: str = "1H",
+        axes: Axes,
         target: np.ndarray | None = None,
         zpad_factor: int = 1,
         apodize_hz: float = 0,
@@ -28,12 +26,8 @@ def xcorr_align(
 
     :param fids_in: Array of FIDs, transients x timedomain
     :type fids_in: numpy.ndarray
-    :param dwelltime: spectral dwell time (1/bandwidth) in s.
-    :type dwelltime: float
-    :param centralFrequency: central frequency in Hz
-    :type centralFrequency: float
-    :param nucleus: Nucleus string, defaults to "1H"
-    :type nucleus: str, optional
+    :param axes: Axes object
+    :type axes: nifti_mrs.axes.Axes
     :param target: Alignment target FID, defaults to None. Zero-pad will be applied to target
     :type target: np.ndarray | None, optional
     :param zpad_factor: Zeropadding applied to fid before xcorrelation, defaults to 1, 0 disables
@@ -49,21 +43,19 @@ def xcorr_align(
     def zpad(x):
         return pad(x, fids_in.shape[1] * zpad_factor, 'last')
 
-    MRSargs = {
-        'FID': zpad(fids_in[0]),
-        'bw': 1 / dwelltime,
-        'cf': centralFrequency,
-        'nucleus': nucleus}
-    mrs = MRS(**MRSargs)
-    first, last = mrs.ppmlim_to_range(ppmlim)
+    indices = axes.ppmShiftIndices(ppmlim)
 
     def prep_spec(x):
         x = zpad(x)
+        padded_axes = Axes(npoints=x.size,
+                           ResonantNucleus=axes.ResonantNucleus,
+                           SpectrometerFrequency=axes.SpectrometerFrequency,
+                           dwelltime=axes.dwelltime)
         x = apodize(
             x,
-            dwelltime,
+            padded_axes.timeAxis,
             apodize_hz)
-        return FIDToSpec(x)[first:last]
+        return FIDToSpec(x)[indices]
 
     # If the target is not defined, use the average of the input FIDs
     if target is None:
@@ -71,7 +63,7 @@ def xcorr_align(
     else:
         if target.size != fids_in.shape[1]:
             raise ValueError(f'Shape of target {target.size} must match input {fids_in.shape[1]}.')
-        target = FIDToSpec(zpad(target))[first:last]
+        target = FIDToSpec(zpad(target))[indices]
 
     shifts = []
     phases = []
@@ -87,12 +79,12 @@ def xcorr_align(
     phases = np.asarray(phases)
 
     # Calculate shifts in Hz
-    shifts_hz = - shifts * np.diff(mrs.getAxes('freq')[:2])
+    shifts_hz = - shifts * np.diff(axes.frequencyAxis[:2])
 
     # Apply correction
     def correct(x, shift, phase):
         return applyPhase(
-            freqshift(x, dwelltime, shift),
+            freqshift(x, axes, shift),
             phase)
 
     corrected = np.stack([

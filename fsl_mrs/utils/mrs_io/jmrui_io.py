@@ -5,10 +5,15 @@
 #
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Sequence
 import numpy as np
 import re
 import os.path as op
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+
+if TYPE_CHECKING:
+    from fsl_mrs.core.basis import Basis
 
 
 def readjMRUItxt_fid(txtfile):
@@ -78,7 +83,49 @@ def read_txtBasis_files(txtfiles):
     # Strip any file extensions in the names.
     names = [name.replace('.txt', '') for name in names]
 
-    return basis, names, header
+    from fsl_mrs.core.basis import Basis
+    return Basis(basis, names, header)
+
+
+def read_mruiBasis_files(mruifiles: Sequence[str | Path]) -> 'Basis':
+    """Read a list of files containing a jMRUI .mrui basis set
+
+    :param mruifiles: List of files to read basis from. Can be a single file/element.
+    :type mruifiles: List
+    :return: Tuple of basis, names, headers
+    :rtype: tuple
+    """
+    basis = []
+    names = []
+    header = []
+    for file in mruifiles:
+        file = Path(file)
+        b, h, info = read_mrui(file)
+
+        if b.ndim == 1:
+            b = b[np.newaxis, :]
+            names.append(file.stem)
+        else:
+            b = b.T
+            names += [f'{file.stem}_{idx + 1}' for idx in range(b.shape[0])]
+
+        basis.append(b)
+
+        dwelltime = h['sampling_interval'] * 1E-3
+        basis_header = {
+            'centralFrequency': h['transmitter_frequency'],
+            'bandwidth': 1 / dwelltime,
+            'dwelltime': dwelltime,
+            'fwhm': None,
+            'jmrui': h,
+            'jmrui_info': info,
+        }
+        header += [basis_header, ] * b.shape[0]
+
+    basis = np.concatenate(basis, axis=0).T
+
+    from fsl_mrs.core.basis import Basis
+    return Basis(basis, names, header)
 
 
 # generically read jMRUI style text files
@@ -187,3 +234,62 @@ def writejMRUItxt(fileout, FID, paramDict):
             for t in f:
                 txtfile.write(f'{np.real(t)}\t{np.imag(t)}\n')
             txtfile.write('\n')
+
+
+def read_mrui(file_path: str | Path) -> tuple[np.typing.NDArray, dict[str, Any], str]:
+    """Read the header and data from a .mrui format file.
+
+    :param file_path: Path to .mrui file.
+    :type file_path: Path
+    :return: Data in numpy format (npoints x nframes)
+    :return: header dict
+    :return: Additional information sorted as strings in file
+    :rtype: tuple[np.typing.NDArray, dict, str]
+    """
+
+    file_path = Path(file_path)
+
+    with open(file_path, 'br') as fp:
+        # Header and data is stored as big endian double
+        dt = np.dtype(np.float64)
+        dt = dt.newbyteorder('>')
+
+        # Read header values
+        hdr = np.fromfile(fp, dtype=dt, count=13, offset=0)
+
+        # Read data
+        fp.seek(0, 2)
+        file_size = fp.tell()
+        n_frames = int(np.floor((file_size - 512) / (8 * hdr[1] * 2)))
+
+        fp.seek(512, 0)
+        data_count = int(n_frames * hdr[1] * 2)
+        data = np.fromfile(fp, dtype=dt, count=data_count, offset=0)
+
+        # Read final string info
+        file_str = fp.read().decode("utf-8")
+
+    # Sort header information
+    header = {
+        'type_of_sig': hdr[0],
+        'number_of_points': int(hdr[1]),
+        'sampling_interval': hdr[2],
+        'begin_time ': hdr[3],
+        'zero_order_phs': hdr[4],
+        'transmitter_frequency': hdr[5],
+        'magnetic_field': hdr[6],
+        'type_of_nucleus': hdr[7],
+        'reference_frequency_hz': hdr[8],
+        'reference_frequency_ppm': hdr[9],
+        'fid_or_echo': hdr[10],
+        'apodizing': hdr[11],
+        'num_zeros_view': hdr[12],
+    }
+
+    data = data[0::2] + 1j * data[1::2]
+
+    data = data.reshape((n_frames, header['number_of_points'])).T
+    data = data.squeeze()
+    data = data.conj()
+
+    return data, header, file_str

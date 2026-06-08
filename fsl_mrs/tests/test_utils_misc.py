@@ -30,7 +30,7 @@ def test_ppm2hz_hz2ppm():
 
 
 def test_FIDToSpec_SpecToFID():
-    testFID, hdr = synth.syntheticFID(amplitude=[10], chemicalshift=[0], phase=[0], damping=[20])
+    testFID, _, _ = synth.syntheticFID(amplitude=[10], chemicalshift=[0], phase=[0], damping=[20])
 
     # SVS case
     spec = misc.FIDToSpec(testFID[0])
@@ -51,7 +51,7 @@ def test_FIDToSpec_SpecToFID():
     assert np.allclose(reformedFID, testMRSI)
 
     # Odd number of points - guard against fftshift/ifftshift errors
-    testFID, hdr = synth.syntheticFID(amplitude=[1], chemicalshift=[0], phase=[0], damping=[20], points=1025)
+    testFID, _, _ = synth.syntheticFID(amplitude=[1], chemicalshift=[0], phase=[0], damping=[20], points=1025)
     assert np.allclose(misc.SpecToFID(misc.FIDToSpec(testFID[0])), testFID)
 
 
@@ -61,16 +61,6 @@ def test_checkCFUnits():
 
     assert misc.checkCFUnits(10, units='MHz') == 10
     assert misc.checkCFUnits(10E6, units='MHz') == 10
-
-
-def test_limit_to_range():
-    axis = np.arange(0, 10)
-    assert misc.limit_to_range(axis, (1, 5)) == (1, 5)
-    assert misc.limit_to_range(axis, None) == (0, 10)
-
-    axis = np.arange(-10.5, 10.5)
-    assert misc.limit_to_range(axis, (1, 5)) == (11, 15)
-    assert misc.limit_to_range(axis, None) == (0, 21)
 
 
 def test_parse_metab_groups():
@@ -117,8 +107,8 @@ def test_parse_metab_groups():
 def test_interpolation():
     target_bw = 2000
     target_n = 1024
-    fid_full, hdr_full = synth.syntheticFID(bandwidth=8000, points=8192, noisecovariance=[[0.0]])
-    fid_reduced, hdr_reduced = synth.syntheticFID(bandwidth=target_bw, points=target_n, noisecovariance=[[0.0]])
+    fid_full, _, _ = synth.syntheticFID(bandwidth=8000, points=8192, noisecovariance=[[0.0]])
+    fid_reduced, _, _ = synth.syntheticFID(bandwidth=target_bw, points=target_n, noisecovariance=[[0.0]])
 
     interp_lin = misc.ts_to_ts(fid_full[0], 1 / 8000, 1 / target_bw, target_n)
     interp_ft = misc.ts_to_ts_ft(fid_full[0], 1 / 8000, 1 / target_bw, target_n)
@@ -225,36 +215,26 @@ def test_create_peak():
 
 
 def test_detect_conjugation():
-    FIDs, headers = synth.syntheticFID(
+    FIDs, _, axes = synth.syntheticFID(
         chemicalshift=[-2, -3])
     FID = FIDs[0]
     FIDs = np.stack((FIDs[0], FIDs[0], FIDs[0].conj()))
 
     assert not misc.detect_conjugation(
         FID,
-        headers['ppmaxis'],
-        (0, -4))
+        axes.ppmIndices((0, -4)))
+
     assert misc.detect_conjugation(
         FID.conj(),
-        headers['ppmaxis'],
-        (0, -4))
+        axes.ppmIndices((0, -4)))
 
     assert misc.detect_conjugation(
         FIDs.conj(),
-        headers['ppmaxis'],
-        (0, -4))
+        axes.ppmIndices((0, -4)))
 
     assert not misc.detect_conjugation(
         FIDs,
-        headers['ppmaxis'],
-        (0, -4))
-
-    # Test wrong orientation of data raises error
-    with pytest.raises(ValueError):
-        misc.detect_conjugation(
-            FIDs.T,
-            headers['ppmaxis'],
-            (0, -4))
+        axes.ppmIndices((0, -4)))
 
 
 def test_check_nucleus_format():

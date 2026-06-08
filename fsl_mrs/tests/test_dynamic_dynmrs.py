@@ -20,18 +20,17 @@ from fsl_mrs.utils.report import create_dynmrs_report
 def fixed_ratio_mrs():
     FID_basis1 = syn.syntheticFID(chemicalshift=[1, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
     FID_basis2 = syn.syntheticFID(chemicalshift=[3, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
-    FID_basis1[1]['fwhm'] = 3 * np.pi
-    FID_basis2[1]['fwhm'] = 3 * np.pi
     b = basis.Basis(
         np.stack((FID_basis1[0][0], FID_basis2[0][0]), axis=1),
         ['Met1', 'Met2'],
-        [FID_basis1[1], FID_basis2[1]])
+        axes=FID_basis1[2])
+    b.basis_fwhm = [3 * np.pi, 3 * np.pi]
 
     FID1 = syn.syntheticFID(chemicalshift=[1, 3], amplitude=[1, 1], noisecovariance=[[0.01]])
     FID2 = syn.syntheticFID(chemicalshift=[1, 3], amplitude=[2, 2], noisecovariance=[[0.01]])
 
-    mrs1 = MRS(FID=FID1[0][0], header=FID1[1], basis=b)
-    mrs2 = MRS(FID=FID2[0][0], header=FID2[1], basis=b)
+    mrs1 = MRS.from_axes(fid=FID1[0][0], axes=FID1[2], basis=b)
+    mrs2 = MRS.from_axes(fid=FID2[0][0], axes=FID2[2], basis=b)
 
     mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
@@ -129,15 +128,14 @@ def test_get_constants(fixed_ratio_mrs):
 
     consts = dyn_obj._get_constants(mrs_list[0])
 
-    assert len(consts) == 8
+    assert len(consts) == 7
     assert np.allclose(consts[0], mrs_list[0].frequencyAxis)
     assert np.allclose(consts[1], mrs_list[0].timeAxis)
     assert np.allclose(consts[2], mrs_list[0].basis)
     assert consts[3].shape == (2048, 2)
     assert consts[4] == [0, 0]
     assert consts[5] == 1
-    assert consts[6] == mrs_list[0].ppmlim_to_range((0.2, 4.2), True)[0]
-    assert consts[7] == mrs_list[0].ppmlim_to_range((0.2, 4.2), True)[1]
+    assert consts[6] == mrs_list[0].axes.ppmShiftIndices((0.2, 4.2))
 
 
 def test_dynMRS_fit(fixed_ratio_mrs):

@@ -22,14 +22,14 @@ from fsl_mrs.core import nifti_mrs as ntools
 # Algorithm tests
 @fixture
 def test_data():
-    fids, hdrs = syntheticFID(
+    fids, _, _ = syntheticFID(
         coilamps=[1, 1],
         coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
         chemicalshift=[1, 3],
         linewidth=[10, 10])
 
-    fids_shift, hdrs = syntheticFID(
+    fids_shift, _, _ = syntheticFID(
         coilamps=[1, 1],
         coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
@@ -106,7 +106,8 @@ def test_xcorr_align(test_data):
 
 
 def test_phase_corr_max_real(test_data):
-    pfids, phases = mrsi.phase_corr_max_real(test_data, 1 / 4000)
+    timeaxis = 0 + (1 / 4000) * np.arange(test_data.shape[1])
+    pfids, phases = mrsi.phase_corr_max_real(test_data, timeaxis)
 
     assert np.allclose(np.abs(phases), [0, 10 * np.pi / 180, 0, 10 * np.pi / 180], atol=1E-1)
     assert pfids.shape == test_data.shape
@@ -250,7 +251,7 @@ def test_mrsi_phase_corr():
 
 @fixture
 def lipid_test_data():
-    fid_met, hdrs = syntheticFID(
+    fid_met, _, _ = syntheticFID(
         coilamps=[1],
         coilphase=[0],
         noisecovariance=[[0]],
@@ -258,7 +259,7 @@ def lipid_test_data():
         points=512,
         bandwidth=1000)
 
-    fid_lipid, hdrs = syntheticFID(
+    fid_lipid, _, _ = syntheticFID(
         coilamps=[100],
         coilphase=[0],
         noisecovariance=[[0]],

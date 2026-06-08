@@ -49,12 +49,13 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
     from fsl_mrs.utils.preproc.phasing import phaseCorrect
     from fsl_mrs.utils.preproc.align import phase_freq_align
     from fsl_mrs.utils.preproc.shifting import shiftToRef
+    from nifti_mrs.axes import Axes
     import numpy as np
 
     path = Path(path)
     dataPath = path / 'DMRS/WT_High_b'
     basispath = path / 'DMRS/basis_STE_LASER_8_25_50_LacZ.BASIS'
-    basis, names, header = mrs_io.read_basis(str(basispath))
+    basis = mrs_io.read_basis(str(basispath))
 
     centralFrequency = 500.30
     bandwidth = 5000
@@ -67,36 +68,44 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
         file = currentdir / f'high_b_{str(b)}.mat'
         tmp = loadmat(file)
         fid = np.squeeze(tmp['soustraction'].conj())
+        axes = Axes(
+            ResonantNucleus='1H',
+            SpectrometerFrequency=centralFrequency,
+            dwelltime=1/bandwidth,
+            npoints=fid.shape[0])
         fid, _, _ = phaseCorrect(fid,
-                                 bandwidth,
-                                 centralFrequency,
+                                 axes,
                                  ppmlim=(2.8, 3.2),
                                  shift=True)
         fidList.append(fid)
 
     # Align and shift to Cr reference.
-    alignedFids, _, _ = phase_freq_align(fidList,
-                                         bandwidth,
-                                         centralFrequency,
-                                         ppmlim=(0.2, 4.2),
-                                         niter=2)
+    if fidList:
+        alignedFids, _, _ = phase_freq_align(fidList,
+                                             axes,
+                                             ppmlim=(0.2, 4.2),
+                                             niter=2)
 
     mrsList = []
     for fid, b in zip(alignedFids, blist):
-        fid, _ = shiftToRef(fid, 3.027, bandwidth, centralFrequency, ppmlim=(2.9, 3.1))
+        axes = Axes(
+            ResonantNucleus='1H',
+            SpectrometerFrequency=centralFrequency,
+            dwelltime=1/bandwidth,
+            npoints=fid.shape[0])
+        fid, _ = shiftToRef(fid, 3.027, axes, ppmlim=(2.9, 3.1))
         mrs = MRS(FID=fid,
                   cf=centralFrequency,
                   bw=bandwidth,
                   basis=basis,
-                  names=names,
-                  basis_hdr=header[0],
                   nucleus='1H')
         mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
         mrs.ignore = ['Gly']
         mrsList.append(mrs)
 
-    mrsList[0].rescaleForFitting()
+    if mrsList:
+        mrsList[0].rescaleForFitting()
     for i, mrs in enumerate(mrsList):
         if i > 0:
             mrs.FID *= mrsList[0].scaling['FID']
@@ -121,17 +130,14 @@ def dMRS_SNR(avg=1, path='/Users/saad/Desktop/Spectroscopy/'):
 
     path = Path(path)
     basispath = path / 'DMRS/basis_STE_LASER_8_25_50_LacZ.BASIS'
-    basis, names, Bheader = mrs_io.read_basis(str(basispath))
-    Bheader[0]['ResonantNucleus'] = '1H'
+    basis = mrs_io.read_basis(str(basispath))
 
     FIDpath = path / f'DMRS/WT_multi/{avg:03}_avg'
     bvals   = [20, 3020, 6000, 10000, 20000, 30000, 50000]
     MRSlist = []
     for b in bvals:
         FID = mrs_io.read_FID(str(FIDpath / f'b_{b:05}.nii.gz'))
-        MRSArgs = {'basis': basis,
-                   'names': names,
-                   'basis_hdr': Bheader[0]}
+        MRSArgs = {'basis': basis}
 
         mrs = FID.mrs(**MRSArgs)
         MRSlist.append(mrs)
@@ -168,11 +174,11 @@ def FMRS(smooth=False, path='/Users/saad/Desktop/Spectroscopy/'):
         FIDlist.append(FID)
 
     basisfile = folder / '7T_slaser36ms_2013_oxford_tdcslb1_ivan.BASIS'
-    basis, names, basisheader = mrs_io.read_basis(str(basisfile))
+    basis = mrs_io.read_basis(str(basisfile))
 
-    # # Resample basis
+    # Resample basis
     basis = misc.ts_to_ts(basis,
-                          basisheader[0]['dwelltime'],
+                          basis.original_dwell,
                           FIDheader['dwelltime'],
                           FID.shape[0])
 
@@ -181,9 +187,7 @@ def FMRS(smooth=False, path='/Users/saad/Desktop/Spectroscopy/'):
     else:
         sFIDlist = FIDlist
 
-    MRSargs = {'names': names,
-               'basis': basis,
-               'basis_hdr': basisheader[0],
+    MRSargs = {'basis': basis,
                'bw': FIDheader['bandwidth'],
                'cf': FIDheader['centralFrequency']}
 

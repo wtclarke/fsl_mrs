@@ -1,12 +1,39 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-2.5.0 (WIP 2026)
------------------------------------
+3.0.0 (WIP)
+-----------
+- Restructured code to utilise `Axes` class from nifti-mrs-tools.
+- Axes and Spec limits are now inclusive across all methods.
+- `NIFTI_MRS` object can be generated with an `Axes` object.
+- `MRS`, `MRSI` and `Basis` classes can be constructed with an `Axes` object.
+- `MRS` method `getAxes` now takes `limits` (previously called `ppmlim`) in each axis's units.
+- `MRS` method `ppmlim_to_range` is removed.
+- `calculateAxes` and `limit_to_range` functions in `fsl_mrs/utils/misc.py` are removed.
+- `detect_conjugation` function in `fsl_mrs/utils/misc.py` now takes a slice object argument instead of axis and limits.
+- `fsl_mrs/utils/preproc` functions now take `MRS` or `Axes` objects rather than FID + metadata arguments.
+- `timeAxis` in `fsl_mrs/utils/preproc/shifting.py` is now correctly defined with `dwelltime` steps.
+- `syntheticFID` in `fsl_mrs/utils/synthetic/synhtetic.py` now returns an `Axes` object as 3rd output.
+- Model methods in `fsl_mrs/models` now take a slice object argument rather than `first` and `last` values.
+- `io` utils have been updated to return a `Basis` object rather than `(FID, names, headers)`
+- `fsl_mrs_verify` target value has been updated to match the above changes.
+- Added basis set read and conversion for `.mrui` formatted files.
 - Add complex cross-correlation frequency/phase alignment functionality, similar to that described in https://doi.org/10.1002/mrm.30252 (Deelchand, MRM, 2024).
 - `fsl_mrs_proc mrsi-align` now uses complex cross-correlation to perform phase and frequency alignment.
 - A target spectrum for alignment can be created using the new `basis2spectrum` function.
 - `fsl_mrs_proc align` now has the option to use complex cross-correlation `--method xcorr` to perform phase and frequency alignment. It is recommended to use the `--reference` option to assign a target with this.
 - `fsl_mrs_proc align` now has a new default option for the `--dim` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
+
+2.4.14 (Wednesday 27th May 2026)
+-----------------------------------
+- Updated requirements list
+
+2.4.13 (Wednesday 20th May 2026)
+--------------------------------
+- Added Osprey .mat file conversion to FSL-MRS Basis in `basis_tools convert`.
+- `fsl_mrsi` now creates a file-tree file in the output folder (mrsi.tree) to be used in `fsleyes-plugin-mrs`.
+- Improved test suite execution time
+- Added tests for fslpy wrappers: fsl_mrs, fsl_mrsi, fsl_mrs_preproc, fsl_mrs_preproc_edit, fsl_mrs_proc, svs_segment, mrsi_segment
+- Added folder validator util
 
 2.4.12 (Tuesday 17th February 2026)
 -----------------------------------

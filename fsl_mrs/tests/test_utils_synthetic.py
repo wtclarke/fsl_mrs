@@ -20,11 +20,11 @@ def test_noisecov():
     inputnoisecov = np.random.random((2, 2))
     inputnoisecov = np.dot(inputnoisecov, inputnoisecov.T)
 
-    testFID, hdr = syn.syntheticFID(coilamps=[1.0, 1.0],
-                                    coilphase=[0.0, 0.0],
-                                    noisecovariance=inputnoisecov,
-                                    amplitude=[0.0, 0.0],
-                                    points=32768)
+    testFID, _, _ = syn.syntheticFID(coilamps=[1.0, 1.0],
+                                     coilphase=[0.0, 0.0],
+                                     noisecovariance=inputnoisecov,
+                                     amplitude=[0.0, 0.0],
+                                     points=32768)
 
     outcov = np.cov(np.asarray(testFID))
 
@@ -33,15 +33,15 @@ def test_noisecov():
 
 
 def test_syntheticFID():
-    testFID, hdr = syn.syntheticFID(noisecovariance=[[0.0]], points=16384)
+    testFID, hdr, axes = syn.syntheticFID(noisecovariance=[[0.0]], points=16384)
 
     # Check FID is sum of lorentzian lineshapes
     # anlytical solution
     T2 = 1 / (hdr['inputopts']['damping'][0])
     M0 = hdr['inputopts']['amplitude'][0]
-    f0 = hdr['inputopts']['centralfrequency'] * hdr['inputopts']['chemicalshift'][0]
-    f1 = hdr['inputopts']['centralfrequency'] * hdr['inputopts']['chemicalshift'][1]
-    f = hdr['faxis']
+    f0 = axes.SpectrometerFrequency * hdr['inputopts']['chemicalshift'][0]
+    f1 = axes.SpectrometerFrequency * hdr['inputopts']['chemicalshift'][1]
+    f = axes.frequencyAxis
     spec = (M0 * T2) \
         / (1 + 4 * np.pi**2 * (f0 - f)**2 * T2**2) \
         + 1j * (2 * np.pi * M0 * (f0 - f) * T2**2) \

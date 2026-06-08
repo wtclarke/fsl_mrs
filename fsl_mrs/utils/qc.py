@@ -63,8 +63,8 @@ def calcQC(mrs, res, ppmlim=None):
         snrPeaks = np.full(outShape, np.nan)
 
     # Calculate the LCModel style SNR based on peak height over SD of residual
-    first, last = mrs.ppmlim_to_range(ppmlim=res.ppmlim)
-    baseline = FIDToSpec(res.predictedFID(mrs, mode='baseline'))[first:last]
+    indices = mrs.axes.ppmShiftIndices(res.ppmlim)
+    baseline = FIDToSpec(res.predictedFID(mrs, mode='baseline'))[indices]
     spectrumMinusBaseline = mrs.get_spec(ppmlim=res.ppmlim) - baseline
     snrResidual_height = np.max(np.abs(np.real(spectrumMinusBaseline)))
     rmse = 2.0 * np.sqrt(res.mse)
@@ -169,16 +169,15 @@ def idNoiseRegion(mrs, debug=False):
             region[0] = ppmaxis.min()
         if region[1] is None:
             region[1] = ppmaxis.max()
-        first, last = mrs.ppmlim_to_range(ppmlim=region)
-        last += 1
+        indices = mrs.axes.ppmShiftIndices(region)
 
         # Assign to initial noise mask
-        noise_mask[first:last] = 1
+        noise_mask[indices] = 1
 
         # Detrend the data for the os detection
-        detrended_noise_spec[first:last] = _detrend_noise(
-            spectrum.real[first:last],
-            ppmaxis[first:last])
+        detrended_noise_spec[indices] = _detrend_noise(
+            spectrum.real[indices],
+            ppmaxis[indices])
 
     # Now check for oversampling that hasn't been removed
     # Identify possible OS region - assume max OS of 2
@@ -237,7 +236,7 @@ def idPeaksCalcFWHM(mrs, estimatedFWHM=15.0, ppmlim=None):
     sortind = np.argsort(props['prominences'])
 
     pkIndex = peaks[sortind[-1]]
-    pkPosition = mrs.getAxes(ppmlim=ppmlim)[pkIndex]
+    pkPosition = mrs.getAxes(limits=ppmlim)[pkIndex]
     fwhm = props['widths'][sortind[-1]] * (mrs.bandwidth / mrs.numPoints)
 
     return fwhm, pkIndex, pkPosition
@@ -279,7 +278,7 @@ def matchedFilterSNR(mrs, basismrs, lw, noisemask, ppmlim):
         np.arange(noisemask.sum()))
 
     currNoise = noiseSD(apodNoise)
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
-    peakHeight = np.max(np.abs(np.real(apodbasis[first:last])))
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
+    peakHeight = np.max(np.abs(np.real(apodbasis[indices])))
 
     return peakHeight / currNoise

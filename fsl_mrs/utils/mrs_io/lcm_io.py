@@ -11,6 +11,7 @@ import os
 import re
 from fsl_mrs.utils.misc import checkCFUnits
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+from fsl_mrs.core import basis as bmod
 
 
 # Raw file reading
@@ -73,9 +74,9 @@ def read_lcm_raw_h2o(filename):
 # Read .RAW basis files
 def read_basis_files(basisfiles, ignore=[]):
     """
-     Reads basis files and extracts name of metabolite from file name
-     Assumes .RAW files are FIDs (not spectra)
-     Comes without any header information unfortunately.
+    Reads basis files and extracts name of metabolite from file name
+    Assumes .RAW files are FIDs (not spectra)
+    Comes without any header information unfortunately.
 
     :param basisfiles: List of path strings to raw files
     :type basisfiles: list
@@ -163,7 +164,21 @@ def readLCModelBasis(filename, N=None, doifft=True, conjugate=True):
     # Duplicate header so that it matches all the other basis read functions
     headers = [header] * len(metabo)
 
-    return data, metabo, headers
+    # Sort by name to match sorted filenames of other formats
+    so = np.argsort(metabo)
+    data = data[:, so]
+    metabo = list(np.array(metabo)[so])
+    headers = list(np.array(headers)[so])
+
+    # Add missing hdr field
+    for hdr in headers:
+        hdr['fwhm'] = None
+
+    # Handle single basis spectra
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+
+    return bmod.Basis(data, metabo, headers)
 
 
 # Utility functions for above functions
@@ -178,13 +193,15 @@ def unpackHeader(header):
     """
        Extracts useful info from header into dict
 
-       Including central frequency, dwelltime, echotime
+       Including central frequency, dwelltime, bandwidth, echotime, chemical shift
     """
 
     tidy_header = {
         'centralFrequency': None,
         'bandwidth': None,
-        'echotime': None}
+        'dwelltime': None,
+        'echotime': None,
+        'centralShift': None}
     pattern = re.compile(r"\s([A-Za-z]+)\s*=[\s]*([0-9eE\-\.]+)\s*")
     for line in header:
         search_result = pattern.search(line)
@@ -203,6 +220,8 @@ def unpackHeader(header):
         if groups[0].lower() == 'badelt':
             tidy_header['dwelltime'] = float(groups[1])
             tidy_header['bandwidth'] = 1 / float(groups[1])
+        if groups[0].lower() == 'ppmsep':
+            tidy_header['centralShift'] = float(groups[1])
 
     return tidy_header
 

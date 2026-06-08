@@ -471,7 +471,7 @@ def add_common_args(p):
                           help='overwrite existing output folder')
     optional.add_argument('-r', '--generateReports', action="store_true",
                           help='Generate HTML reports.')
-    # optional.add_argument('-i', '--reportIndicies',
+    # optional.add_argument('-i', '--reportIndices',
     #                       type=int,
     #                       nargs='+',
     #                       default=[0],

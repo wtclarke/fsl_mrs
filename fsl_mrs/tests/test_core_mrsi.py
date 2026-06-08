@@ -92,13 +92,13 @@ def test_fetch_mrs():
                            gm_file=str(data['seg_gm']),
                            wm_file=str(data['seg_wm']))
 
-    iter_indicies = mrsi.get_indicies_in_order(mask=True)
+    iter_indices = mrsi.get_indices_in_order(mask=True)
 
     fid = mrs_io.read_FID(str(data['metab']))
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
-        assert np.allclose(mrs.FID, fid[iter_indicies[idx]])
-        assert index == iter_indicies[idx]
+        assert np.allclose(mrs.FID, fid[iter_indices[idx]])
+        assert index == iter_indices[idx]
         assert np.isclose(seg['CSF'] + seg['WM'] + seg['GM'], 1.0)
 
     # test some of the flags
@@ -108,4 +108,4 @@ def test_fetch_mrs():
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
         assert mrs.names == ['NAA']
-        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indicies[idx]].conj())
+        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indices[idx]].conj())

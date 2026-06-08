@@ -62,6 +62,24 @@ def test_convert_raw(tmp_path):
     assert new_basis.original_basis_array.shape == (2048, 3)
 
 
+def test_convert_raw_optional_args(tmp_path):
+    out_loc = tmp_path / 'test_basis_raw'
+    basis_tools.convert_lcm_raw_basis(
+        raw_basis_path,
+        4000,
+        3.0 * GYRO_MAG_RATIO['31P'],
+        out_loc,
+        '31P',
+        3.0)
+
+    new_basis = mrs_io.read_basis(out_loc)
+
+    assert new_basis.names == ['Cr', 'GPC', 'NAA']
+    assert new_basis.original_basis_array.shape == (2048, 3)
+    assert new_basis.nucleus == '31P'
+    assert np.isclose(new_basis.axes.ppmshift, 3.0)
+
+
 def test_convert_jmrui(tmp_path):
     out_loc = tmp_path / 'test_basis_jmrui'
     basis_tools.convert_jmrui_basis(

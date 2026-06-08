@@ -84,7 +84,7 @@ Below are instructions for loading and configuring FSLeyes to work with an MRSI 
 
     fsleyes -smrs  FID_Metab.nii.gz T1.nii &
 
-Subsequently navigate to the :code:`Tools` menu and select the :code:`LoadLoad FSL-MRS fit` option. Select the :code:`mrsi_output` folder to load.
+Subsequently navigate to the :code:`Tools` menu and select the :code:`Load FSL-MRS fit` option. Select the :code:`mrsi_output` folder to load.
 
  You should be able to see something like this:
 

@@ -177,7 +177,6 @@ def main():
     import datetime
     import nibabel as nib
     from functools import partial
-    import multiprocessing as mp
     from dask.distributed import Client, progress
     from fsl_mrs.utils import misc, mrs_io
     # ######################################################
@@ -346,9 +345,10 @@ def main():
             if args.parallel_workers:
                 n_workers = args.parallel_workers
             else:
-                n_workers = mp.cpu_count() - 1
+                from fsl_mrs.utils.cpu_mgmt import get_effective_cpu_count
+                n_workers = max(1, get_effective_cpu_count() - 1)
             verboseprint(f'    Parallelising over {n_workers} workers ')
-            client = Client(n_workers=n_workers)
+            client = Client(n_workers=n_workers, threads_per_worker=1)
 
         elif args.parallel == "cluster":
             if args.parallel_workers:
@@ -358,7 +358,8 @@ def main():
             verboseprint(f'    Parallelising over {n_workers} nodes ')
             from dask_jobqueue import slurm
             cluster = slurm.SLURMCluster(
-                config_name='fsl_mrsi')
+                config_name='fsl_mrsi',
+                dashboard_address=None)
             cluster.scale(n_workers)
 
             client = Client(cluster)
@@ -397,7 +398,7 @@ def main():
     os.mkdir(misc_folder)
 
     # Extract concentrations
-    indicies = [res[1] for res in results]
+    indices = [res[1] for res in results]
     scalings = ['raw']
     if results[0][0].concScalings['internal'] is not None:
         scalings.append('internal')
@@ -425,7 +426,7 @@ def main():
             save_img_output(file_nm,
                             mrsi.list_to_matched_array(
                                 metab_conc_list,
-                                indicies=indicies,
+                                indices=indices,
                                 cleanup=True,
                                 dtype=float))
 
@@ -437,7 +438,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_sd_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -448,7 +449,7 @@ def main():
     save_img_output(file_p0,
                     mrsi.list_to_matched_array(
                         p0_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=float))
 
@@ -457,7 +458,7 @@ def main():
     save_img_output(file_p1,
                     mrsi.list_to_matched_array(
                         p1_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=float))
 
@@ -468,7 +469,7 @@ def main():
         save_img_output(file_sn,
                         mrsi.list_to_matched_array(
                             shiftn_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -477,7 +478,7 @@ def main():
         save_img_output(file_comb,
                         mrsi.list_to_matched_array(
                             comb_n_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -486,7 +487,7 @@ def main():
         save_img_output(file_gam,
                         mrsi.list_to_matched_array(
                             gamma_n_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=False,
                             dtype=float))
 
@@ -496,7 +497,7 @@ def main():
             save_img_output(file_sig,
                             mrsi.list_to_matched_array(
                                 sigma_n_list,
-                                indicies=indicies,
+                                indices=indices,
                                 cleanup=False,
                                 dtype=float))
 
@@ -508,7 +509,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_fwhm_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -518,7 +519,7 @@ def main():
         save_img_output(file_nm,
                         mrsi.list_to_matched_array(
                             metab_snr_list,
-                            indicies=indicies,
+                            indices=indices,
                             cleanup=True,
                             dtype=float))
 
@@ -531,7 +532,7 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         pred_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
 
@@ -542,7 +543,7 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         res_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
 
@@ -553,9 +554,34 @@ def main():
     save_img_output(file_nm,
                     mrsi.list_to_matched_array(
                         baseline_list,
-                        indicies=indicies,
+                        indices=indices,
                         cleanup=False,
                         dtype=np.complex64))
+
+    # Save a file-tree of the output file structure
+    tree_file = os.path.join(args.output, 'mrsi.tree')
+    tree_text = """
+concs
+    raw
+        {metab}.nii.gz                      (raw-concentrations)
+    internal
+        {metab}.nii.gz                      (conc-internal)
+    molarity
+        {metab}.nii.gz                      (conc-molarity)
+    molality
+        {metab}.nii.gz                      (conc-molality)
+fit
+    fit.nii.gz                              (fit-fit)
+    baseline.nii.gz                         (fit-baseline)
+    residual.nii.gz                         (fit-residual)
+uncertainties
+    {metab}_sd.nii.gz                       (sd)
+qc
+    {metab}_snr.nii.gz                      (SNR)
+    {metab}_fwhm.nii.gz                     (FWHM)
+""".lstrip()
+    with open(tree_file, 'w') as f:
+        f.write(tree_text)
 
     # Save a parameter mappings of:
     # 1) metabolites to groups
@@ -571,7 +597,7 @@ def main():
         corr_list = [res[0].corr for res in results]
         corr_mats = mrsi.list_to_correlation_array(
             corr_list,
-            indicies=indicies,
+            indices=indices,
             cleanup=True)
         # Save
         file_nm = os.path.join(misc_folder, 'fit_correlations.nii.gz')
@@ -630,7 +656,7 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
         if args.combine is not None:
             res.combine(args.combine)
     except Exception as exc:
-        print(f'Exception ({exc}) occured in index {index}.')
+        print(f'Exception ({exc}) occurred in index {index}.')
         raise exc
 
     return res, index

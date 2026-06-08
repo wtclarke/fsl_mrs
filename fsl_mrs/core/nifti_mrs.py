@@ -1,8 +1,8 @@
-# NIFTI_MRS.py - NFITI_MRS class definition
+# NIFTI_MRS.py - NIFTI_MRS class definition
 # This module is primarily a shim around the niftimrs package
 # The intention is to extend the functionality of the
 # nifti-mrs package definitions for use in FSL-MRS
-# The need for this arise when splitting these useful generic nifti-mrs
+# The need for this arises when splitting these useful generic nifti-mrs
 # tools off from fsl-mrs, but wanting to keep the original fsl-mrs api
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -122,19 +122,15 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
                         out.append(core.MRSI(FID=dd,
-                                             bw=self.bandwidth,
-                                             cf=self.spectrometer_frequency[0],
-                                             nucleus=self.nucleus[0],
                                              basis=basis,
-                                             H2O=ref_data))
+                                             H2O=ref_data,
+                                             axes=self.axes))
                     yield out
                 else:
                     yield core.MRSI(FID=data,
-                                    bw=self.bandwidth,
-                                    cf=self.spectrometer_frequency[0],
-                                    nucleus=self.nucleus[0],
                                     basis=basis,
-                                    H2O=ref_data)
+                                    H2O=ref_data,
+                                    axes=self.axes)
             else:
                 if ref_data is not None:
                     ref_data = ref_data.squeeze()
@@ -144,19 +140,15 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
                         out.append(core.MRS(FID=dd.squeeze(),
-                                            bw=self.bandwidth,
-                                            cf=self.spectrometer_frequency[0],
-                                            nucleus=self.nucleus[0],
                                             basis=basis,
-                                            H2O=ref_data))
+                                            H2O=ref_data,
+                                            axes=self.axes))
                     yield out
                 else:
                     yield core.MRS(FID=data.squeeze(),
-                                   bw=self.bandwidth,
-                                   cf=self.spectrometer_frequency[0],
-                                   nucleus=self.nucleus[0],
                                    basis=basis,
-                                   H2O=ref_data)
+                                   H2O=ref_data,
+                                   axes=self.axes)
 
     def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))
@@ -190,7 +182,7 @@ def gen_nifti_mrs(*args, **kwargs) -> NIFTI_MRS:
     :return: NIfTI-MRS object
     :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
     """
-    # To ensure the additional FSL-MRS functionality present.
+    # To ensure the additional FSL-MRS functionallity present.
     return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
 
 

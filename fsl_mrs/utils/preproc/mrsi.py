@@ -52,15 +52,16 @@ def mrsi_phase_corr(
     else:
         mask = mask[:].astype(bool)
 
-    if data.ndim > 4:
-        limits = data.mrs()[0].mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
-    else:
-        limits = data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
+    # Create an Axes object to get the timeAxis and ppm limits
+    # (Note that you should use the Axes and not the MRS timeAxis,
+    # because we need them to be 1D arrays)
+    axes = data.axes
+    limits = axes.ppmShiftIndices(ppmlim)
 
     if apodize == "auto":
         apodize = calc_aprox_t2decay(
             np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]),
-            data.dwelltime
+            axes.timeAxis
         )
         print(f'Setting apodization filter to {apodize:0.1f} Hz.')
     elif not (isinstance(apodize, (float, int)) and apodize >= 0):
@@ -74,7 +75,7 @@ def mrsi_phase_corr(
         if method.lower() == "max-real":
             out[idx], phs = phase_corr_max_real(
                 dd,
-                data.dwelltime,
+                axes.timeAxis,
                 limits=limits,
                 apodization=apodize)
 
@@ -82,7 +83,7 @@ def mrsi_phase_corr(
         elif method.lower() == "phasta":
             out[idx], phs_array[idx[:3] + idx[4:]] = phasta(
                 dd,
-                data.dwelltime,
+                axes.timeAxis,
                 limits=limits,
                 apodization=apodize,
                 indices_to_use=higher_dim_index
@@ -95,7 +96,7 @@ def mrsi_phase_corr(
 
 def phase_corr_max_real(
         fids: np.ndarray,
-        dwelltime: float,
+        timeaxis: np.ndarray,
         limits=None,
         apodization: float = 0) -> tuple[np.ndarray, np.ndarray]:
     """Phase correction of multiple FIDs based on maximising the real part of the spectrum
@@ -103,19 +104,19 @@ def phase_corr_max_real(
 
     :param fids: list of FIDs
     :type fids: list or np.array
-    :param dwelltime: Dwelltime (1 / spectral bandwidth)
-    :type dwelltime: float
+    :param timeaxis: Time axis
+    :type timeaxis: np.ndarray
     :param limits: limits over which to maximise real part, index of array, defaults to None
-    :type limits: tuple, optional
+    :type limits: slice, optional
     :param apodization: Apply apodization, defaults to 0 (no apodization)
     :type apodization: float, optional
     :return: Phased FIDs, array of applied phases
     :rtype: (np.array, np.array)
     """
 
-    data_apod = [apodize(fid, dwelltime, apodization) for fid in fids]
+    data_apod = [apodize(fid, timeaxis, apodization) for fid in fids]
 
-    limits = slice(None) if limits is None else slice(limits[0], limits[1])
+    limits = slice(None) if limits is None else limits
 
     phases = []
     for fid in data_apod:
@@ -200,7 +201,7 @@ def mrsi_freq_align(
     if apodize == "auto":
         apodize = calc_aprox_t2decay(
             np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]),
-            data.dwelltime
+            data.axes.timeAxis
         )
         print(f'Setting apodization filter to {apodize:0.1f} Hz.')
     elif isinstance(apodize, (float, int)):
@@ -213,8 +214,7 @@ def mrsi_freq_align(
     def xcorr_align_worker(dat):
         return xcorr_align(
             dat,
-            data.dwelltime,
-            data.spectrometer_frequency[0]*1E6,
+            data.axes,
             target=target,
             zpad_factor=zpad_factor,
             apodize_hz=apodize)
@@ -245,9 +245,8 @@ def mrsi_freq_align(
             # Apply the single shift/phases to the data in each higher dimension
             out[idx] = freqshift_array(
                 dd,
-                data.dwelltime,
+                data.axes,
                 shifts) * np.exp(1j * phases)[..., np.newaxis]
-
             # Store output
             shift_array[idx[:3] + idx[4:]] = shifts
             phases_array[idx[:3] + idx[4:]] = phases

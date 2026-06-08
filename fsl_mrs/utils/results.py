@@ -18,7 +18,7 @@ import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
 
 
-class FitRes(object):
+class FitRes():
     """
        Collects fitting results
     """
@@ -60,8 +60,8 @@ class FitRes(object):
         self._pred = self.predictedFID(mrs, mode='Full')
         self._baseline = self.predictedFID(mrs, mode='Baseline')
         self._residuals = mrs.FID - self.pred
-        first, last = mrs.ppmlim_to_range(self.ppmlim)
-        self._mse = np.mean(np.abs(FIDToSpec(self._residuals)[first:last])**2)
+        indices = mrs.axes.ppmShiftIndices(self.ppmlim)
+        self._mse = np.mean(np.abs(FIDToSpec(self._residuals)[indices])**2)
 
         # Calculate single point crlb and cov
         _, _, forward, _, _ = models.getModelFunctions(self.model)
@@ -76,7 +76,7 @@ class FitRes(object):
                 mrs.basis,
                 self.base_poly,
                 self.metab_groups,
-                self.g)[first:last]
+                self.g)[indices]
 
         def jac_lim(p):
             return jac(
@@ -87,7 +87,7 @@ class FitRes(object):
                 self.base_poly,
                 self.metab_groups,
                 self.g,
-                first, last)
+                indices)
 
         # Calculate uncertainties using covariance derived from Fisher information
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
@@ -307,9 +307,12 @@ class FitRes(object):
         else:
             raise ValueError('Unknown mode, must be one of: Full, baseline or a metabolite name.')
 
-        first, last = mrs.ppmlim_to_range(ppmlim=ppmlim, shift=shift)
+        if shift:
+            indices = mrs.axes.ppmShiftIndices(ppmlim)
+        else:
+            indices = mrs.axes.ppmIndices(ppmlim)
 
-        return out[first:last]
+        return out[indices]
 
     def predictedFID(self, mrs, mode='Full', noBaseline=False, no_phase=False):
         """Return the predicted FID generated from the fitted model.
@@ -580,7 +583,7 @@ class FitRes(object):
 
         :param save_path: Optional path to save json to, defaults to None
         :type save_path: str, optional
-        :return: Returns json formmatted string of metabolite groups
+        :return: Returns JSON formatted string of metabolite groups
         :rtype: str or Pathlib.Path
         """
         dict_repr = {idx: ml for idx, ml in enumerate(self.metabs_in_groups())}
@@ -634,17 +637,17 @@ class FitRes(object):
             return rawConc
         elif scaling == 'internal':
             if self.concScalings['internal'] is None:
-                raise ValueError('Internal concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Internal concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['internal']
 
         elif scaling == 'molality':
             if self.concScalings['molality'] is None:
-                raise ValueError('Molality concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molality concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molality']
 
         elif scaling == 'molarity':
             if self.concScalings['molarity'] is None:
-                raise ValueError('Molarity concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molarity concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molarity']
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')

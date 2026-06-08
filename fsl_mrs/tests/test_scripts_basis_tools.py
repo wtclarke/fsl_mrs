@@ -8,6 +8,8 @@ Copyright Will Clarke, University of Oxford, 2021'''
 import subprocess
 from pathlib import Path
 from shutil import copytree
+import json
+import numpy as np
 # from unittest.mock import patch
 
 # Files
@@ -21,6 +23,9 @@ diff1 = testsPath / 'testdata/basis_tools/low_res_off'
 diff2 = testsPath / 'testdata/basis_tools/low_res_on'
 raw = testsPath / 'testdata/basis_tools/RawBasis_for_PRESSGE_TE_35_BW_4000_NPts_2048'
 jmrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_JMRUI'
+mrui_basis_path = testsPath / 'testdata' / 'mrs_io' / 'basisset_mrui'
+osprey_2d = testsPath / 'testdata' / 'basis_tools' / 'basis_philips_slaser35.mat'
+osprey_3d = testsPath / 'testdata' / 'basis_tools' / 'basis_philips_hercules-press.mat'
 
 
 def test_info():
@@ -75,6 +80,16 @@ def test_convert_jmrui(tmp_path):
     assert (tmp_path / 'new_jmrui' / 'NAA.json').is_file()
 
 
+def test_convert_mrui(tmp_path: Path) -> None:
+    subprocess.check_call(['basis_tools', 'convert',
+                           str(mrui_basis_path),
+                           str(tmp_path / 'new_mrui')])
+
+    assert (tmp_path / 'new_mrui').is_dir()
+    assert (tmp_path / 'new_mrui' / 'NAcetylAspartate (NAA).json').is_file()
+    assert len(list((tmp_path / 'new_mrui').glob('*.json'))) == 13
+
+
 def test_convert_with_remove(tmp_path):
     subprocess.check_call(['basis_tools', 'convert',
                            '--remove_reference',
@@ -83,6 +98,68 @@ def test_convert_with_remove(tmp_path):
 
     assert (tmp_path / 'new').is_dir()
     assert (tmp_path / 'new' / 'NAA.json').is_file()
+
+
+def test_convert_osprey_2d(tmp_path):
+    out1 = tmp_path / 'osprey_out1'
+    out2 = tmp_path / 'osprey_out2'
+
+    subprocess.check_call(['basis_tools', 'convert', str(osprey_2d), str(out1)])
+    subprocess.check_call([
+        'basis_tools', 'convert', str(osprey_2d), str(out2),
+        '--description', 'A', 'B', 'C', 'D', 'diff1', 'diff2', 'sum'
+    ])
+    assert out1.is_dir()
+    assert out2.is_dir()
+    assert (out1 / 'NAA.json').is_file()
+    assert (out2 / 'NAA.json').is_file()
+
+    with open(out1 / 'NAA.json') as f:
+        ref_json = json.load(f)
+    with open(out2 / 'NAA.json') as f:
+        est_json = json.load(f)
+    assert list(ref_json.keys()) == list(est_json.keys())
+    assert np.allclose(ref_json['basis']['basis_re'], est_json['basis']['basis_re'], atol=0.0001)
+    assert np.allclose(ref_json['basis']['basis_im'], est_json['basis']['basis_im'], atol=0.0001)
+    assert np.allclose(ref_json['basis']['basis_dwell'], est_json['basis']['basis_dwell'], atol=0.0001)
+    assert np.allclose(ref_json['basis']['basis_centre'], est_json['basis']['basis_centre'], atol=0.0001)
+    assert np.allclose(ref_json['basis']['basis_width'], est_json['basis']['basis_width'], atol=0.0001)
+    assert ref_json['basis']['basis_name'] == est_json['basis']['basis_name']
+    assert np.allclose(ref_json['basis']['centralShift'], est_json['basis']['centralShift'], atol=0.0001)
+
+
+def test_convert_osprey_3d(tmp_path):
+    out1 = tmp_path / 'osprey_out1'
+    out2 = tmp_path / 'osprey_out2'
+
+    subprocess.check_call(['basis_tools', 'convert', str(osprey_3d), str(out1)])
+    subprocess.check_call([
+        'basis_tools', 'convert', str(osprey_3d), str(out2),
+        '--description', 'A', 'B', 'C', 'D', 'diff1', 'diff2', 'sum'
+    ])
+
+    desc1 = ['FID_1', 'FID_2', 'FID_3', 'FID_4', 'FID_5', 'FID_6', 'FID_7']
+    desc2 = ['A', 'B', 'C', 'D', 'diff1', 'diff2', 'sum']
+    for i, j in zip(desc1, desc2):
+        path1 = Path(str(out1) + '_' + i)
+        path2 = Path(str(out2) + '_' + j)
+        assert path1.is_dir()
+        assert path2.is_dir()
+        assert (path1 / 'NAA.json').is_file()
+        assert (path2 / 'NAA.json').is_file()
+
+        with open(path1 / 'NAA.json') as f:
+            ref_json = json.load(f)
+        with open(path2 / 'NAA.json') as f:
+            est_json = json.load(f)
+        assert list(ref_json.keys()) == list(est_json.keys())
+        assert np.allclose(ref_json['basis']['basis_re'], est_json['basis']['basis_re'], atol=0.0001)
+        assert np.allclose(ref_json['basis']['basis_im'], est_json['basis']['basis_im'], atol=0.0001)
+        assert np.allclose(ref_json['basis']['basis_dwell'], est_json['basis']['basis_dwell'], atol=0.0001)
+        assert np.allclose(ref_json['basis']['basis_centre'], est_json['basis']['basis_centre'], atol=0.0001)
+        assert np.allclose(ref_json['basis']['basis_width'], est_json['basis']['basis_width'], atol=0.0001)
+        assert ref_json['basis']['basis_name'] == est_json['basis']['basis_name']
+        assert np.allclose(ref_json['basis']['centralShift'], est_json['basis']['centralShift'], atol=0.0001)
 
 
 def test_add(tmp_path):
@@ -195,5 +272,6 @@ def test_remove_hlsvd(tmp_path):
 
     assert out_loc.is_dir()
     assert (out_loc / 'NAA.json').is_file()
+
 
 # TO DO: Add tests fro shift_all

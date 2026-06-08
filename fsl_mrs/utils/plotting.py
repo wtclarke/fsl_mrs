@@ -19,10 +19,12 @@ from plotly import tools
 from fsl.data.image import Image
 from fsl_mrs.utils import mrs_io
 from fsl.transform.affine import transform
-from fsl_mrs.utils.misc import FIDToSpec, limit_to_range
+from fsl_mrs.utils.misc import FIDToSpec
 
 import typing
 if typing.TYPE_CHECKING:
+    from matplotlib.figure import Figure
+    from fsl_mrs.core.basis import Basis
     from fsl_mrs.core import MRS
     from fsl_mrs.utils.results import FitRes
 
@@ -83,7 +85,7 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
     if baseline is not None:
         baseline = FID2Spec(res.baseline)
 
-    first, last = mrs.ppmlim_to_range(ppmlim=res.ppmlim, shift=True)
+    indices = mrs.axes.ppmShiftIndices(res.ppmlim)
 
     # turn to real numbers
     data = data_proj(data, proj)
@@ -91,11 +93,8 @@ def plot_fit(mrs, res, out=None, baseline=True, proj='real'):
     if baseline is not None:
         baseline = data_proj(baseline, proj)
 
-    if first > last:
-        first, last = last, first
-
-    m = min(data[first:last].min(), pred[first:last].min())
-    M = max(data[first:last].max(), pred[first:last].max())
+    m = min(data[indices].min(), pred[indices].min())
+    M = max(data[indices].max(), pred[indices].max())
     ylim = (m - np.abs(M) / 10, M + np.abs(M) / 10)
 
     # Create the figure
@@ -150,7 +149,7 @@ def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
 
     """
 
-    ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
+    ppmAxisShift = mrs.getAxes(limits=ppmlim)
 
     def axes_style(plt, ppmlim, label=None, xticks=None):
         plt.xlim(ppmlim)
@@ -167,8 +166,8 @@ def plot_spectrum(mrs, ppmlim=(0.0, 4.5), FID=None, proj='real', c='k'):
 
     # Prepare data for plotting
     if FID is not None:
-        first, last = mrs.ppmlim_to_range(ppmlim)
-        data = FIDToSpec(FID)[first:last]
+        indices = mrs.axes.ppmShiftIndices(ppmlim)
+        data = FIDToSpec(FID)[indices]
     else:
         data = mrs.get_spec(ppmlim=ppmlim)
 
@@ -229,7 +228,7 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
     :type normalise: bool, optional
     :return: Figure object
     """
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
 
     n_met = len(mrs.names)
     if n_met <= 10:
@@ -244,8 +243,8 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
 
     max_basis = []
     for idx, n in enumerate(mrs.names):
-        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[first:last]
-        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[indices]
+        ax.plot(mrs.getAxes(limits=ppmlim),
                 toplot,
                 label=n)
         max_basis.append(toplot.max())
@@ -254,7 +253,7 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
         spec = np.real(mrs.get_spec(ppmlim=ppmlim))
         if normalise:
             spec *= np.max(max_basis) / spec.max()
-        ax.plot(mrs.getAxes(ppmlim=ppmlim),
+        ax.plot(mrs.getAxes(limits=ppmlim),
                 spec,
                 'k', label='Data')
 
@@ -265,7 +264,11 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
     return plt.gcf()
 
 
-def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
+def plot_basis(
+        basis: 'Basis',
+        ppmlim: tuple[float, float] | None = (0.0, 4.5),
+        shift: bool = True,
+        conjugate: bool = False) -> 'Figure':
     """Plot the basis contained in a Basis object
 
     :param basis: Basis object
@@ -279,10 +282,11 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
     :return: Figure object
     """
     if shift:
+        indices = basis.axes.ppmShiftIndices(ppmlim)
         axis = basis.original_ppm_shift_axis
     else:
+        indices = basis.axes.ppmIndices(ppmlim)
         axis = basis.original_ppm_axis
-    first, last = limit_to_range(axis, ppmlim)
 
     n_met = basis.n_metabs
     if n_met <= 10:
@@ -299,8 +303,8 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
         FID = basis.original_basis_array[:, idx]
         if conjugate:
             FID = FID.conj()
-        ax.plot(axis[first:last],
-                np.real(FID2Spec(FID))[first:last],
+        ax.plot(axis[indices],
+                np.real(FID2Spec(FID))[indices],
                 label=n)
 
     plt.gca().invert_xaxis()
@@ -340,7 +344,7 @@ def plot_spectra(MRSList, ppmlim=(0, 4.5), single_FID=None, plot_avg=True, legen
     avg = 0
     for idx, mrs in enumerate(MRSList):
         data = np.real(mrs.get_spec(ppmlim=ppmlim))
-        ppmAxisShift = mrs.getAxes(ppmlim=ppmlim)
+        ppmAxisShift = mrs.getAxes(limits=ppmlim)
         avg += data
         if legend:
             plt.plot(ppmAxisShift, data, linewidth=.7, linestyle='-', label=f'#{idx}')
@@ -765,10 +769,10 @@ def plotly_avg_fit(mrs_list, res_list, ppmlim=None):
 
     fids, _, _ = proc.phase_freq_align(
         all_specs,
-        mrs_list[0].bandwidth, mrs_list[0].centralFrequency)
+        mrs_list[0].axes)
     pred, pred_phi, pred_eps = proc.phase_freq_align(
         all_pred,
-        mrs_list[0].bandwidth, mrs_list[0].centralFrequency,
+        mrs_list[0].axes,
         target=np.asarray(fids).mean(axis=0))
 
     all_baseline = [
@@ -1110,7 +1114,7 @@ def plot_indiv_stacked(mrs, res, ppmlim=None):
     if ppmlim is None:
         ppmlim = res.ppmlim
 
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
 
     n_met = len(mrs.names)
     if n_met <= 10:
@@ -1129,8 +1133,8 @@ def plot_indiv_stacked(mrs, res, ppmlim=None):
     line_size = dict(data=.5,
                      indiv=2)
     fig = go.Figure()
-    axis = mrs.getAxes()[first:last]
-    y_data = np.real(FID2Spec(mrs.FID))[first:last]
+    axis = mrs.getAxes()[indices]
+    y_data = np.real(FID2Spec(mrs.FID))[indices]
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='data',
@@ -1139,7 +1143,7 @@ def plot_indiv_stacked(mrs, res, ppmlim=None):
 
     for i, metab in enumerate(mrs.names):
         # y_fit = np.real(FID2Spec(pred(mrs, res, metab)))
-        y_fit = np.real(FID2Spec(res.predictedFID(mrs, mode=metab)))[first:last]
+        y_fit = np.real(FID2Spec(res.predictedFID(mrs, mode=metab)))[indices]
         trace2 = go.Scatter(x=axis, y=y_fit,
                             mode='lines',
                             name=metab,
@@ -1230,19 +1234,19 @@ def plot_references(mrs, res):
     min_val = np.min([res.ppmlim[0], quant_info.ref_limits[0], quant_info.h2o_limits[0]])
     max_val = np.max([res.ppmlim[1], quant_info.ref_limits[1], quant_info.h2o_limits[1]])
     data_range = (min_val, max_val)
-    axis = mrs.getAxes(ppmlim=data_range)
-    first, last = mrs.ppmlim_to_range(ppmlim=data_range)
-    water_first, water_last = res.concScalings['ref_info']['water_ref'].limits
-    water_axis = mrs.getAxes()[water_first:water_last]
-    metab_first, metab_last = res.concScalings['ref_info']['metab_ref'].limits
-    metab_axis = mrs.getAxes()[metab_first:metab_last]
+    axis = mrs.getAxes(limits=data_range)
+    indices = mrs.axes.ppmShiftIndices(data_range)
+    water_indices = res.concScalings['ref_info']['water_ref'].limits
+    water_axis = mrs.getAxes()[water_indices]
+    metab_indices = res.concScalings['ref_info']['metab_ref'].limits
+    metab_axis = mrs.getAxes()[metab_indices]
 
-    y_data = np.real(FIDToSpec(mrs.H2O))[first:last]
+    y_data = np.real(FIDToSpec(mrs.H2O))[indices]
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='data',
                         line=dict(color='rgb(0,0,0)', width=1))
-    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['water_ref'].fid))[water_first:water_last]
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['water_ref'].fid))[water_indices]
     trace2 = go.Scatter(x=water_axis, y=y_data,
                         mode='lines',
                         name='Fitted, integrated water',
@@ -1251,17 +1255,17 @@ def plot_references(mrs, res):
     fig.add_trace(trace1, 1, 1)
     fig.add_trace(trace2, 1, 1)
 
-    y_data = np.real(FIDToSpec(mrs.FID))[first:last]
+    y_data = np.real(FIDToSpec(mrs.FID))[indices]
     trace3 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='data',
                         line=dict(color='rgb(0,0,0)', width=1))
-    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].original_fid))[first:last]
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].original_fid))[indices]
     trace4 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
                         name='Fitted Reference',
                         line=dict(color='rgb(0,0,255)', width=1))
-    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].fid))[metab_first:metab_last]
+    y_data = np.real(FIDToSpec(res.concScalings['ref_info']['metab_ref'].fid))[metab_indices]
     trace5 = go.Scatter(x=metab_axis, y=y_data,
                         mode='lines',
                         name='Metabolite integrated',
@@ -1299,7 +1303,7 @@ def plotly_basis(mrs, ppmlim=None):
     :return: Figure
     :rtype: go.Figure
     """
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim)
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
 
     n_met = len(mrs.names)
     if n_met <= 10:
@@ -1318,10 +1322,10 @@ def plotly_basis(mrs, ppmlim=None):
     line_size = dict(data=.5,
                      basis=2)
     fig = go.Figure()
-    axis = mrs.getAxes()[first:last]
+    axis = mrs.getAxes()[indices]
     max_vals = []
     for idx, metab in enumerate(mrs.names):
-        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[first:last]
+        toplot = np.real(FID2Spec(mrs.basis[:, idx]))[indices]
         trace2 = go.Scatter(x=axis, y=toplot,
                             mode='lines',
                             name=metab,
@@ -1329,7 +1333,7 @@ def plotly_basis(mrs, ppmlim=None):
         fig.add_trace(trace2)
         max_vals.append(toplot.max())
 
-    y_data = np.real(FID2Spec(mrs.FID))[first:last]
+    y_data = np.real(FID2Spec(mrs.FID))[indices]
     y_data *= np.max(max_vals) / y_data.max()
     trace1 = go.Scatter(x=axis, y=y_data,
                         mode='lines',
@@ -1637,7 +1641,7 @@ def plot_world_orient(t1file, voxfile):
         [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5]]
     voxel_corners_mm = [transform(vcw, vox.voxToWorldMat) for vcw in voxel_corners_world]
 
-    # What indicies does this correspond to in the T1 img?
+    # What indices does this correspond to in the T1 img?
     centre_vox_t1 = transform(centre_mm, t1img.worldToVoxMat)
     centre_vox_t1_int = centre_vox_t1.astype(int)
     voxel_corners_t1 = np.asarray([transform(vcm, t1img.worldToVoxMat) for vcm in voxel_corners_mm])

@@ -10,14 +10,14 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-def apodize(FID, dwelltime, broadening, filter='exp'):
+def apodize(FID, timeaxis, broadening, filter='exp'):
     """ Apodize FID
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwelltime in seconds
+        timeaxis (ndarray): Time axis
         broadening (tuple,float): apodisation in Hz
-        filter (str,optional):'exp','l2g'
+        filter (str,optional): 'exp','l2g'
 
     Returns:
         FID (ndarray): Apodised FID
@@ -30,41 +30,28 @@ def apodize(FID, dwelltime, broadening, filter='exp'):
     if not all(broadening):
         return FID
 
-    taxis = np.linspace(0, dwelltime * (FID.size - 1), FID.size)
     if filter == 'exp':
         Tl = 1 / broadening[0]
-        window = np.exp(-taxis / Tl)
+        window = np.exp(-timeaxis / Tl)
     elif filter == 'l2g':
         Tl = 1 / broadening[0]
         Tg = 1 / broadening[1]
-        window = np.exp(taxis / Tl) * np.exp(taxis**2 / Tg**2)
+        window = np.exp(timeaxis / Tl) * np.exp(timeaxis**2 / Tg**2)
     else:
         print('Filter not recognised, should be "exp" or "l2g".')
         window = 1
     return window * FID
 
 
-def apodize_report(inFID,
-                   outFID,
-                   bw,
-                   cf,
-                   nucleus='1H',
+def apodize_report(in_mrs,
+                   out_mrs,
                    plotlim=(0.2, 6),
                    html=None):
     """
     Generate report
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotOut = toMRSobj(outFID)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()
@@ -74,15 +61,15 @@ def apodize_report(inFID,
 
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, plotlim, 'Uncorrected', lines['in'])
-    fig = addline(fig, plotOut, plotlim, 'Corrected', lines['out'])
+    fig = addline(fig, in_mrs, plotlim, 'Uncorrected', lines['in'])
+    fig = addline(fig, out_mrs, plotlim, 'Corrected', lines['out'])
 
     # Axes layout
     plotAxesStyle(fig, plotlim, title='Apodization summary')
@@ -122,20 +109,16 @@ def apodize_report(inFID,
 
 def calc_aprox_t2decay(
         fids: np.ndarray,
-        dwelltime: float) -> float:
+        timeaxis: np.ndarray) -> float:
     """Fits an exponential decay to mean of data to extract a rough T2*.
 
     :param fids: Array of FID data
     :type fids: np.ndarray
-    :param dwelltime: dwelltime (1/bandwidth) of FIDs
-    :type dwelltime: float
+    :param timeaxis: Time axis
+    :type timeaxis: np.ndarray
     :return: Apodisation amount in hertz
     :rtype: float
     """
-    timeaxis = np.arange(
-        0,
-        dwelltime * fids.shape[-1],
-        dwelltime)
 
     avg_data = np.mean(np.abs(fids), axis=0)
     avg_data /= avg_data[0]

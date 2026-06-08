@@ -212,7 +212,7 @@ def forward(x, nu, t, m, B, G, g):
     return S.flatten()
 
 
-def err(x, nu, t, m, B, G, g, data, first, last):
+def err(x, nu, t, m, B, G, g, data, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -223,17 +223,17 @@ def err(x, nu, t, m, B, G, g, data, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice - indices for the fitting range
 
     returns scalar error
     """
     pred = forward(x, nu, t, m, B, G, g)
-    err = data[first:last] - pred[first:last]
+    err = data[indices] - pred[indices]
     sse = np.real(np.sum(err * np.conj(err)))
     return sse
 
 
-def grad(x, nu, t, m, B, G, g, data, first, last):
+def grad(x, nu, t, m, B, G, g, data, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -244,7 +244,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice - indices for the fitting range
 
     returns gradient vector
     """
@@ -277,7 +277,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     Ft2sigmetc = Ft2sigmet @ c
     Fmetcon = Fmet @ con[:, None]
 
-    Spec = data[first:last, None]
+    Spec = data[indices, None]
 
     # Forward model
     S = (phi_term * Fmetcon)
@@ -294,14 +294,14 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     dSdb = B
 
     # Only compute within a range
-    S = S[first:last]
-    dSdc = dSdc[first:last, :]
-    dSdgamma = dSdgamma[first:last, :]
-    dSdsigma = dSdsigma[first:last, :]
-    dSdeps = dSdeps[first:last, :]
-    dSdphi0 = dSdphi0[first:last]
-    dSdphi1 = dSdphi1[first:last]
-    dSdb = dSdb[first:last]
+    S = S[indices]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdsigma = dSdsigma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
 
     dS = np.concatenate((dSdc, dSdgamma, dSdsigma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 
@@ -310,7 +310,7 @@ def grad(x, nu, t, m, B, G, g, data, first, last):
     return grad
 
 
-def jac(x, nu, t, m, B, G, g, first, last):
+def jac(x, nu, t, m, B, G, g, indices: slice):
     """
     x = [con[0],...,con[n-1],gamma,eps,phi0,phi1,baselineparams]
 
@@ -321,7 +321,7 @@ def jac(x, nu, t, m, B, G, g, first, last):
     G  : metabolite groups
     g  : number of metab groups
     data : array like - frequency domain data
-    first,last : range for the fitting is data[first:last]
+    indices : slice - indices for the fitting range
 
     returns gradient vector
     """
@@ -363,29 +363,29 @@ def jac(x, nu, t, m, B, G, g, first, last):
     dSdb = B
 
     # Only compute within a range
-    dSdc = dSdc[first:last, :]
-    dSdgamma = dSdgamma[first:last, :]
-    dSdsigma = dSdsigma[first:last, :]
-    dSdeps = dSdeps[first:last, :]
-    dSdphi0 = dSdphi0[first:last]
-    dSdphi1 = dSdphi1[first:last]
-    dSdb = dSdb[first:last]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdsigma = dSdsigma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
 
     dS = np.concatenate((dSdc, dSdgamma, dSdsigma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
 
     return dS
 
 
-def modify_basis(mrs, gamma, sigma, eps, first, last):
+def modify_basis(mrs, gamma, sigma, eps, indices: slice):
     bs = mrs.basis * np.exp(-(gamma + (sigma**2 * mrs.timeAxis) + 1j * eps) * mrs.timeAxis)
     bs = FIDToSpec(bs, axis=0)
-    bs = bs[first:last, :]
+    bs = bs[indices, :]
     return np.concatenate((np.real(bs), np.imag(bs)), axis=0)
 
 
-def loss(p, mrs, B, y, first, last):
+def loss(p, mrs, B, y, indices: slice):
     gamma, sigma, eps = np.exp(p[0]), np.exp(p[1]), p[2]
-    basis = modify_basis(mrs, gamma, sigma, eps, first, last)
+    basis = modify_basis(mrs, gamma, sigma, eps, indices)
     desmat = np.concatenate((basis, B), axis=1)
     # pinv = np.linalg.pinv(desmat)
     # beta = np.real(pinv @ y)
@@ -400,14 +400,14 @@ def loss(p, mrs, B, y, first, last):
 
 # Initilisation functions
 def _init_params_negativevoigt(mrs, baseline, ppmlim):
-    first, last = mrs.ppmlim_to_range(ppmlim)
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
     y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y), np.imag(y)), axis=0).flatten()
-    B = baseline[first:last, :].copy()
+    B = baseline[indices, :].copy()
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
     def local_loss(x):
-        return loss(x, mrs, B, y, first, last)
+        return loss(x, mrs, B, y, indices)
 
     x0 = np.array([np.log(1), np.log(1), 0])
     bounds = (
@@ -419,7 +419,7 @@ def _init_params_negativevoigt(mrs, baseline, ppmlim):
     g, s, e = np.exp(res.x[0]), np.exp(res.x[1]), res.x[2]
 
     # get concentrations and baseline params
-    basis = modify_basis(mrs, g, s, e, first, last)
+    basis = modify_basis(mrs, g, s, e, indices)
     desmat = np.concatenate((basis, B), axis=1)
     beta = np.real(np.linalg.pinv(desmat) @ y)
     # con = np.clip(beta[:mrs.numBasis], None, None)

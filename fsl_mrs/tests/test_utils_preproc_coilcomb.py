@@ -98,7 +98,7 @@ def test_svd_reduce():
          [0.01, 0.4, 1.1]])
     coil_weights = np.array([1 + 1j * 0, 0.6 + 1j * 0.2, 0.2 - 1j * 0.3])
 
-    fids, _ = syn.syntheticFID(
+    fids, _, _ = syn.syntheticFID(
         coilamps=np.abs(coil_weights),
         coilphase=np.angle(coil_weights),
         noisecovariance=cov,
@@ -134,7 +134,7 @@ def test_combine():
          [0.01, 0.4, 1.1]])
     coil_weights = np.array([1 + 1j * 0, 0.6 + 1j * 0.2, 0.2 - 1j * 0.3])
 
-    fids, _ = syn.syntheticFID(
+    fids, _, _ = syn.syntheticFID(
         coilamps=np.abs(coil_weights),
         coilphase=np.angle(coil_weights),
         noisecovariance=cov,
@@ -165,7 +165,7 @@ def test_combine():
 
 def test_single_coil_combine():
 
-    fids, _ = syn.syntheticFID(
+    fids, _, _ = syn.syntheticFID(
         noisecovariance=[[1]],
         bandwidth=1000,
         points=1024,
@@ -195,7 +195,7 @@ def test_nifti_mrs_coilcomb():
     for idx in range(10):
         curr_fids = []
         for coilweight in voxel_coilweights:
-            fids, info = syn.syntheticFID(
+            fids, _, _ = syn.syntheticFID(
                 coilamps=np.abs(coilweight),
                 coilphase=np.angle(coilweight),
                 noisecovariance=cov,

@@ -7,18 +7,18 @@
 
 from pathlib import Path
 import re
+from typing import TYPE_CHECKING
 
-import numpy as np
 
 from nifti_mrs.nifti_mrs import NotNIFTI_MRS
-
 from fsl_mrs.core.nifti_mrs import NIFTI_MRS
-from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io
+from fsl_mrs.utils.mrs_io import fsl_io as fsl
 from fsl_mrs.utils.mrs_io import lcm_io as lcm
 from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
-from fsl_mrs.core import nifti_mrs as fsl_nmrs
-from fsl_mrs.core import basis as bmod
 import fsl.utils.path as fslpath
+
+if TYPE_CHECKING:
+    from fsl_mrs.core.basis import Basis
 
 
 class FileNotRecognisedError(Exception):
@@ -89,7 +89,7 @@ def read_FID(filename: str | Path) -> NIFTI_MRS:
         filename = Path(filename).resolve()
 
     try:
-        return fsl_nmrs.NIFTI_MRS(filename, validate_on_creation=False)
+        return NIFTI_MRS(filename, validate_on_creation=False)
     except (NotNIFTI_MRS, fslpath.PathError):
         data_type, id_ext = _check_datatype(Path(filename))
 
@@ -109,9 +109,9 @@ def read_FID(filename: str | Path) -> NIFTI_MRS:
 
 
 # Basis reading functions
-# Formats accepted are .json, .basis/.raw (LCMODEL style) or .txt (jMRUI style)
+# Formats accepted are .json, .basis/.raw (LCMODEL style), .txt or .mrui (jMRUI style)
 # Now handled by the Basis class methods
-def read_basis(filename):
+def read_basis(filename: str | Path) -> 'Basis':
     """
     Read basis file(s) to generate a Basis object
 
@@ -131,40 +131,30 @@ def read_basis(filename):
     # LCModel BASIS format format
     if filename.is_file():
         if filename.suffix.lower() == '.basis':
-            basis, names, header = lcm.readLCModelBasis(filename)
-            # Sort by name to match sorted filenames of other formats
-            so = np.argsort(names)
-            basis = basis[:, so]
-            names = list(np.array(names)[so])
-            header = list(np.array(header)[so])
-
-            # Add missing hdr field
-            for hdr in header:
-                hdr['fwhm'] = None
+            basis = lcm.readLCModelBasis(filename)
         elif filename.suffix.lower() == '.txt':
-            basis, names, header = jmrui_io.read_txtBasis_files([filename, ])
+            basis = jmrui.read_txtBasis_files([filename, ])
         else:
             raise UnknownBasisFormat(f'Cannot read data format {filename.suffix}')
 
     elif filename.is_dir():
         fslfiles = sorted(list(filename.glob('*.json')))
         rawfiles = sorted(list(filename.glob('*.RAW')) + list(filename.glob('*.raw')))
+        mruifiles = sorted(list(filename.glob('*.mrui')))
         txtfiles = sorted(list(filename.glob('*.txt')))
         if fslfiles:
-            basis, names, header = fsl.readFSLBasisFiles(filename)
+            basis = fsl.readFSLBasisFiles(filename)
         elif txtfiles:
-            basis, names, header = jmrui.read_txtBasis_files(txtfiles)
+            basis = jmrui.read_txtBasis_files(txtfiles)
+        elif mruifiles:
+            basis = jmrui.read_mruiBasis_files(mruifiles)
         elif rawfiles:
             raise IncompatibleBasisFormat("LCModel raw files don't contain enough information"
                                           " to generate a Basis object. Please use fsl_mrs.utils.mrs_io"
                                           ".lcm_io.read_basis_files to load the partial information.")
         else:
-            raise UnknownBasisFormat(f'{filename} contains neither .json, .txt, or .raw basis files!')
+            raise UnknownBasisFormat(f'{filename} contains neither .json, .txt, .mrui, or .raw basis files!')
     else:
         raise UnknownBasisFormat(f'{filename} is neither a file nor a folder!')
 
-    # Handle single basis spectra
-    if basis.ndim == 1:
-        basis = basis[:, np.newaxis]
-
-    return bmod.Basis(basis, names, header)
+    return basis

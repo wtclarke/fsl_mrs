@@ -84,38 +84,6 @@ def SpecToFID(spec, axis=0):
     return fid
 
 
-def calculateAxes(bandwidth, centralFrequency, points, shift):
-    """Generate time, frequency and ppm axes.
-    Input:
-        bandwidth: Bandwidth in Hz.
-        centralFrequency: Spectroscopy frequency in Hz.
-        points: Number of time domain points.
-        shift: Shift on ppm axis.
-    Returns:
-        Dict with 'time', 'freq', 'ppm', 'ppmshift' fields.
-    """
-    centralFrequency = checkCFUnits(centralFrequency)
-    dwellTime = 1 / bandwidth
-    timeAxis = np.linspace(dwellTime,
-                           dwellTime * points,
-                           points)
-    frequencyAxis = np.linspace(-bandwidth / 2,
-                                bandwidth / 2,
-                                points)
-    ppmAxis = hz2ppm(centralFrequency,
-                     frequencyAxis,
-                     shift=False)
-    ppmAxisShift = hz2ppm(centralFrequency,
-                          frequencyAxis,
-                          shift=True,
-                          shift_amount=shift)
-
-    return {'time': timeAxis,
-            'freq': frequencyAxis,
-            'ppm': ppmAxis,
-            'ppmshift': ppmAxisShift}
-
-
 def checkCFUnits(cf, units='Hz'):
     """ Check the units of central frequency and adjust if required."""
     # Assume cf in Hz > 1E5, if it isn't assume that user has passed in MHz
@@ -134,30 +102,6 @@ def checkCFUnits(cf, units='Hz'):
         else:
             raise ValueError('Only Hz or MHz defined')
     return cf
-
-
-def limit_to_range(axis, limit):
-    """turns limit (ppm, frequency, or time) into data range
-
-    :param axis: Index to apply limits to
-    :type axis: numpy.ndarray
-    :param limit: Limits - tuple of (low, high)
-    :type limit: tuple of floats
-    :return: First and last indicies
-    :rtype: tuple of ints
-    """
-    if limit is not None:
-        def ppm2range(x):
-            return np.argmin(np.abs(axis - x))
-
-        first = ppm2range(limit[0])
-        last = ppm2range(limit[1])
-        if first > last:
-            first, last = last, first
-    else:
-        first, last = 0, axis.size
-
-    return int(first), int(last)
 
 
 def filter(mrs, FID, ppmlim, filter_type='bandpass'):
@@ -646,8 +590,11 @@ def extract_spectrum(mrs, FID, ppmlim=None, shift=True):
     if ppmlim is None:
         ppmlim = mrs.default_ppm_range
     spec = FIDToSpec(FID)
-    first, last = mrs.ppmlim_to_range(ppmlim=ppmlim, shift=shift)
-    spec = spec[first:last]
+    if shift:
+        indices = mrs.axes.ppmShiftIndices(ppmlim)
+    else:
+        indices = mrs.axes.ppmIndices(ppmlim)
+    spec = spec[indices]
 
     return spec
 
@@ -678,12 +625,12 @@ def phase_correct(mrs, FID, ppmlim=(1, 3)):
     """
        Apply phase correction to FID
     """
-    first, last = mrs.ppmlim_to_range(ppmlim)
+    indices = mrs.axes.ppmShiftIndices(ppmlim)
     phases = np.linspace(0, 2 * np.pi, 1000)
     x = []
     for phase in phases:
         f = np.real(np.fft.fft(FID * np.exp(1j * phase), axis=0))
-        x.append(np.sum(f[first:last] < 0))
+        x.append(np.sum(f[indices] < 0))
     phase = phases[np.argmin(x)]
     return FID * np.exp(1j * phase)
 
@@ -798,28 +745,21 @@ def parse_metab_groups(mrs: 'MRS', metab_groups) -> list[int]:
 
 def detect_conjugation(
         data: np.ndarray,
-        ppmaxis: np.ndarray,
-        ppmlim: tuple) -> bool:
+        indices: slice) -> bool:
     """Detect whether data should be conjugated based on
     the amount of information content in ppm range.
 
     :param data: FID or stack of FIDS (last dimension is time).
     :type data: np.ndarray
-    :param ppmaxis: ppmaxis to match FFT of FID
-    :type ppmaxis: np.ndarray
-    :param ppmlim: Limits that define region of expected signal
-    :type ppmlim: tuple
+    :param indices: Slice object that define region of expected signal
+    :type indices: slice
     :return: True if FIDs should be conjugated to maximise signal in limits.
     :rtype: bool
     """
-    if data.shape[-1] != ppmaxis.size:
-        raise ValueError("data's last dimension must matcht he size of ppmaxis.")
-
-    first, last = limit_to_range(ppmaxis, ppmlim)
 
     def conj_or_not(x):
-        Spec1 = np.real(FIDToSpec(x))[first:last]
-        Spec2 = np.real(FIDToSpec(np.conj(x)))[first:last]
+        Spec1 = np.real(FIDToSpec(x))[indices]
+        Spec2 = np.real(FIDToSpec(np.conj(x)))[indices]
         if np.linalg.norm(detrend(Spec1, deg=4)) < \
                 np.linalg.norm(detrend(Spec2, deg=4)):
             return 1

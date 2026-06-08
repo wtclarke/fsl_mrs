@@ -8,22 +8,23 @@ from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.qc import specApodise, calcQC
 from fsl_mrs.utils.fitting import fit_FSLModel
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 import numpy as np
 
 
 def test_calcQC():
     # Syntetic data
-    synFID, synHdr = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
-                                  amplitude=[6.0], linewidth=[10], seed=20)
-    synFIDNoise, synHdrNoise = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
-                                            amplitude=[0], linewidth=[10], seed=20)
-    basisFID, basisHdr = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[0],
-                                      amplitude=[0.1], linewidth=[2], seed=20)
-    basisHdr['fwhm'] = 1.0
+    synFID, synHdr, synAxes = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
+                                           amplitude=[6.0], linewidth=[10], seed=1)
+    synFIDNoise, synHdrNoise, synAxesNoise = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
+                                                          amplitude=[0], linewidth=[10], seed=2)
+    basisFID, _, basisAxes = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[0],
+                                          amplitude=[0.1], linewidth=[2], seed=3)
 
-    synMRSNoise = MRS(FID=synFIDNoise[0], header=synHdrNoise)
-    synMRSNoNoise = MRS(FID=synHdr['noiseless'], header=synHdr)
-    synMRS_basis = MRS(FID=synFID[0], header=synHdr, basis=basisFID[0], basis_hdr=[basisHdr, ], names=['Peak1'])
+    synMRSNoise = MRS.from_axes(synFIDNoise[0], synAxesNoise)
+    synMRSNoNoise = MRS.from_axes(synHdr['noiseless'], synAxes)
+    synMRS_basis = MRS.from_axes(synFID[0], synAxes, basis=Basis(basisFID[0], names=['Peak1'], axes=basisAxes))
+    synMRS_basis.basis_fwhm = [1.0]
 
     truenoiseSD = np.sqrt(synHdrNoise['cov'][0, 0])
     pureNoiseMeasured = np.std(synMRSNoise.get_spec())

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import fsl_mrs.utils.mrs_io as mrsio
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
+import fsl_mrs.utils.mrs_io.jmrui_io as jmruiio
 from fsl_mrs.utils.mrs_io.main import _check_datatype, IncompatibleBasisFormat
 from fsl_mrs.core.basis import Basis
 
@@ -63,11 +64,12 @@ BasisTestData = {
     'fsl_seq_nuc': op.join(testsPath, 'testdata/mrs_io/basisset_FSL_seq_nuc'),   # Includes a seq->nucleus field (31P)
     'raw': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel_raw'),
     'txt': op.join(testsPath, 'testdata/mrs_io/basisset_JMRUI'),
+    'mrui': op.join(testsPath, 'testdata/mrs_io/basisset_mrui'),
     'txt_single': op.join(testsPath, 'testdata/mrs_io/basis_set_jMRUI.txt'),
     'lcm': op.join(testsPath, 'testdata/mrs_io/basisset_LCModel.BASIS')}
 
 
-def test_read_Basis():
+def test_read_Basis() -> None:
     # Test the loading of the four types of data we handle for basis specta
     # fsl_mrs - folder of json
     # lcmodel - .basis file
@@ -84,12 +86,14 @@ def test_read_Basis():
 
     basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
     basis_txt = mrsio.read_basis(BasisTestData['txt'])
+    basis_mrui = mrsio.read_basis(BasisTestData['mrui'])
     basis_txt_single = mrsio.read_basis(BasisTestData['txt_single'])
     basis_lcm = mrsio.read_basis(BasisTestData['lcm'])
 
     # Check each returns a basis object
     assert isinstance(basis_fsl, Basis)
     assert isinstance(basis_txt, Basis)
+    assert isinstance(basis_mrui, Basis)
     assert isinstance(basis_txt_single, Basis)
     assert isinstance(basis_lcm, Basis)
 
@@ -97,6 +101,7 @@ def test_read_Basis():
     # Test that all contain the same amount of data.
     assert basis_fsl.original_points == 2048
     assert basis_txt.original_points == 2048
+    assert basis_mrui.original_points == 1024
     assert basis_txt_single.original_points == 2048
     assert basis_lcm.original_points == (2 * 2048)
 
@@ -104,18 +109,32 @@ def test_read_Basis():
     numNames = 21
     assert len(basis_fsl.names) == numNames
     assert len(basis_txt.names) == numNames
+    assert len(basis_mrui.names) == 13
     assert len(basis_txt_single.names) == 17
     assert len(basis_lcm.names) == numNames
+
+
+def test_read_mruiBasis_files() -> None:
+    mruifiles = sorted(Path(BasisTestData['mrui']).glob('*.mrui'))
+    basis = jmruiio.read_mruiBasis_files(mruifiles)
+
+    assert isinstance(basis, Basis)
+    assert basis.original_basis_array.shape == (1024, 13)
+    assert basis.names == [file.stem for file in mruifiles]
+    assert np.isclose(basis.cf, 127728513.0 / 1E6)
+    assert np.isclose(basis.original_bw, 2000)
+    assert np.isclose(basis.original_dwell, 0.0005)
+    assert basis.basis_fwhm == [None, ] * 13
+    assert basis.nucleus == '1H'
 
 
 def test_fslBasisRegen():
     pointsToGen = 100
     basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
-    basis_fsl2, names_fsl2, headers_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
-                                                                   readoutShift=4.65,
-                                                                   bandwidth=4000,
-                                                                   points=pointsToGen)
-    basis_fsl2 = Basis(basis_fsl2, names_fsl2, headers_fsl2)
+    basis_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
+                                         readoutShift=4.65,
+                                         bandwidth=4000,
+                                         points=pointsToGen)
 
     assert basis_fsl2.names == basis_fsl.names
     assert basis_fsl2.original_bw == basis_fsl.original_bw
@@ -143,39 +162,51 @@ def test_check_datatype():
 def test_fsl_io_save_load_basis(tmp_path):
     """Test the read and write basis functions for the fsl io module."""
 
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl'])
-    assert basis.shape == (2048, 21)
-    assert np.iscomplexobj(basis)
-    assert len(names) == basis.shape[1]
-    assert hdrs[0]['centralFrequency'] == 123218995.6
-    assert hdrs[0]['bandwidth'] == 4000
-    assert hdrs[0]['dwelltime'] == 0.00025
-    assert hdrs[0]['fwhm'] == 2
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl'])
+    assert basis.original_basis_array.shape == (2048, 21)
+    assert np.iscomplexobj(basis.original_basis_array)
+    assert len(basis.names) == basis.original_basis_array.shape[1]
+    assert basis.cf == 123218995.6 / 1E6
+    assert basis.original_bw == 4000
+    assert basis.original_dwell == 0.00025
+    assert basis.basis_fwhm[0] == 2
+    assert basis.nucleus == "1H"
+    assert basis.axes.ppmshift == 4.65
 
-    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
-    assert (tmp_path / (names[0] + '.json')).exists()
+    basis.save(tmp_path)
+    assert (tmp_path / (basis.names[0] + '.json')).exists()
 
-    nbasis, nnames, nhdr = fslio.readFSLBasisFiles(tmp_path)
-    assert np.allclose(nbasis[:, 0], basis[:, 0])
-    assert nnames[0] == names[0]
-    assert nhdr[0] == hdrs[0]
+    nbasis = fslio.readFSLBasisFiles(tmp_path)
+    assert np.allclose(nbasis.original_basis_array[:, 0], basis.original_basis_array[:, 0])
+    assert nbasis.names[0] == basis.names[0]
+    assert nbasis.cf == basis.cf
+    assert nbasis.original_bw == basis.original_bw
+    assert nbasis.original_dwell == basis.original_dwell
+    assert nbasis.basis_fwhm == basis.basis_fwhm
+    assert nbasis.nucleus == basis.nucleus
+    assert nbasis.axes.ppmshift == basis.axes.ppmshift
 
 
 def test_fsl_io_save_load_basis_nucleus(tmp_path):
 
     # With nucleus information
     # Test that read directly ["basis"]["basis_nucleus"] works
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_nuc'])
-    assert hdrs[0]['nucleus'] == "31P"
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl_nuc'])
+    assert basis.nucleus == "31P"
 
     # Test that read from ["seq"]["Nucleus"] works
-    basis, names, hdrs = fslio.readFSLBasisFiles(BasisTestData['fsl_seq_nuc'])
-    assert hdrs[0]['nucleus'] == "31P"
+    basis = fslio.readFSLBasisFiles(BasisTestData['fsl_seq_nuc'])
+    assert basis.nucleus == "31P"
 
-    fslio.write_fsl_basis_file(basis[:, 0], names[0], hdrs[0], tmp_path)
-    _, _, nhdr = fslio.readFSLBasisFiles(tmp_path)
-    assert nhdr[0] == hdrs[0]
-    assert nhdr[0]['nucleus'] == "31P"
+    basis.save(tmp_path)
+    nbasis = fslio.readFSLBasisFiles(tmp_path)
+    assert nbasis.cf == basis.cf
+    assert nbasis.original_bw == basis.original_bw
+    assert nbasis.original_dwell == basis.original_dwell
+    assert nbasis.basis_fwhm == basis.basis_fwhm
+    assert nbasis.nucleus == basis.nucleus
+    assert nbasis.nucleus == "31P"
+    assert nbasis.axes.ppmshift == 4.65
 
 
 def test_load_symlink(tmp_path):

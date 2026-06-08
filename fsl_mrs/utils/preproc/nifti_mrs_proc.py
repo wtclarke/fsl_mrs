@@ -6,13 +6,13 @@ Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 
 Copyright (C) 2021 University of Oxford
 SHBASECOPYRIGHT'''
-from datetime import datetime
 
+from datetime import datetime
 import numpy as np
 
 from fsl_mrs.utils import preproc
 from fsl_mrs.utils.preproc.align_xcor import xcorr_align
-from fsl_mrs.core import NIFTI_MRS
+from fsl_mrs.core import NIFTI_MRS, MRS
 from fsl_mrs.core import nifti_mrs as ntools
 from fsl_mrs.core.basis import Basis
 from fsl_mrs import __version__
@@ -75,7 +75,7 @@ def coilcombine(
     :param no_prewhiten: True to disable prewhitening
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Combined data in NIFTI_MRS format.
     '''
@@ -153,12 +153,10 @@ def coilcombine(
                                                     reduce_dim_index=True):
 
                 if (report_all or first_index(idx)):
+                    axes = data.axes
                     fig = combine_FIDs_report(
-                        main,
-                        combinedc_obj[idx],
-                        data.bandwidth,
-                        data.spectrometer_frequency[0],
-                        data.nucleus[0],
+                        [MRS.from_axes(fid, axes) for fid in main.T],
+                        MRS.from_axes(combinedc_obj[idx], axes),
                         ncha=data.shape[data.dim_position('DIM_COIL')],
                         ppmlim=(0.0, 6.0),
                         method='svd',
@@ -184,12 +182,10 @@ def coilcombine(
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
+            axes = data.axes
             fig = combine_FIDs_report(
-                main,
-                combinedc_obj[idx],
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                data.nucleus[0],
+                [MRS.from_axes(fid, axes) for fid in main.T],
+                MRS.from_axes(combinedc_obj[idx], axes),
                 ncha=data.shape[data.dim_position('DIM_COIL')],
                 ppmlim=(0.0, 6.0),
                 method='svd',
@@ -221,7 +217,7 @@ def average(data, dim, figure=False, report=None, report_all=False):
     :param str dim: NIFTI-MRS dimension tag
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Combined data in NIFTI_MRS format.
     '''
@@ -239,11 +235,9 @@ def average(data, dim, figure=False, report=None, report_all=False):
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.combine import combine_FIDs_report
-            fig = combine_FIDs_report(dd,
-                                      combined_obj[idx],
-                                      data.bandwidth,
-                                      data.spectrometer_frequency[0],
-                                      data.nucleus[0],
+            axes = data.axes
+            fig = combine_FIDs_report([MRS.from_axes(fid, axes) for fid in dd.T],
+                                      MRS.from_axes(combined_obj[idx], axes),
                                       ncha=data.shape[data.dim_position(dim)],
                                       ppmlim=(0.0, 6.0),
                                       method=f'Mean along dim = {dim}',
@@ -290,7 +284,7 @@ def _process_target(
     elif target is None:
         return target
     else:
-        raise TypeError('target must be a numpy array, NIFTI_MRS, Basis object, or None.')
+        raise TypeError('Target must be a numpy array, NIFTI_MRS, Basis object, or None.')
 
 
 def align(
@@ -310,7 +304,7 @@ def align(
 
     Two methods are implemented:
     - Spectral registration (specreg)
-        This can optionally define a window size to repeatedly align using hann-weighted windows of spectra.
+        This can optionally define a window size to repeatedly align using Hann-weighted windows of spectra.
         E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
     - Complex cross-correlation
         It is recommended to provide a target with cross-correlation
@@ -373,9 +367,7 @@ def align(
                 # Use original single transient alignment
                 out = preproc.phase_freq_align(
                     dd.T,
-                    data.bandwidth,
-                    data.spectrometer_frequency[0],
-                    nucleus=data.nucleus[0],
+                    data.axes,
                     ppmlim=ppmlim,
                     niter=niter,
                     verbose=False,
@@ -386,9 +378,7 @@ def align(
                 out = preproc.phase_freq_align_windowed(
                     window,
                     dd.T,
-                    data.bandwidth,
-                    data.spectrometer_frequency[0],
-                    nucleus=data.nucleus[0],
+                    data.axes,
                     ppmlim=ppmlim,
                     verbose=False,
                     target=target)
@@ -420,13 +410,12 @@ def align(
                 output_for_report = aligned_obj[idx].reshape(original_shape[0], -1)
             else:
                 output_for_report = aligned_obj[idx]
-            fig = phase_freq_align_report(dd.T,
-                                          output_for_report.T,
+            in_mrs = [MRS.from_axes(fid, data.axes) for fid in dd.T]
+            out_mrs = [MRS.from_axes(fid, data.axes) for fid in output_for_report.T]
+            fig = phase_freq_align_report(in_mrs,
+                                          out_mrs,
                                           phi,
                                           eps,
-                                          data.bandwidth,
-                                          data.spectrometer_frequency[0],
-                                          nucleus=data.nucleus[0],
                                           ppmlim=ppmlim,
                                           html=report)
             if figure:
@@ -470,7 +459,7 @@ def aligndiff(data,
     :param ppmlim: ppm search limits.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Aligned data in NIFTI_MRS format.
     '''
@@ -495,9 +484,7 @@ def aligndiff(data,
         out = preproc.phase_freq_align_diff(
             d0.T,
             d1.T,
-            data.bandwidth,
-            data.spectrometer_frequency[0],
-            nucleus=data.nucleus[0],
+            data.axes,
             diffType=diff_type,
             ppmlim=ppmlim,
             target=target)
@@ -506,15 +493,16 @@ def aligndiff(data,
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report
-            fig = phase_freq_align_diff_report(d0.T,
-                                               d1.T,
-                                               aligned_obj[idx].T,
-                                               d1.T,
+            in_mrs0 = [MRS.from_axes(fid, data.axes) for fid in d0.T]
+            in_mrs1 = [MRS.from_axes(fid, data.axes) for fid in d1.T]
+            out_mrs0 = [MRS.from_axes(fid, data.axes) for fid in aligned_obj[idx].T]
+            out_mrs1 = [MRS.from_axes(fid, data.axes) for fid in d1.T]
+            fig = phase_freq_align_diff_report(in_mrs0,
+                                               in_mrs1,
+                                               out_mrs0,
+                                               out_mrs1,
                                                phi,
                                                eps,
-                                               data.bandwidth,
-                                               data.spectrometer_frequency[0],
-                                               nucleus=data.nucleus[0],
                                                diffType=diff_type,
                                                ppmlim=ppmlim,
                                                html=report)
@@ -544,7 +532,7 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
     :param NIFTI_MRS reference: reference dataset to calculate phase
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
@@ -568,12 +556,9 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.eddycorrect import eddy_correct_report
-            fig = eddy_correct_report(dd,
-                                      corrected_obj[idx],
-                                      ref,
-                                      data.bandwidth,
-                                      data.spectrometer_frequency[0],
-                                      nucleus=data.nucleus[0],
+            fig = eddy_correct_report(MRS.from_axes(dd, data.axes),
+                                      MRS.from_axes(corrected_obj[idx], data.axes),
+                                      MRS.from_axes(ref, data.axes),
                                       html=report)
             if figure:
                 for ff in fig:
@@ -595,27 +580,24 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
     :param str limit_units: Can be 'Hz', 'ppm' or 'ppm+shift'.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
+
     corrected_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         corrected_obj[idx] = preproc.hlsvd(dd,
-                                           data.dwelltime,
-                                           data.spectrometer_frequency[0],
+                                           data.axes,
                                            limits,
                                            limitUnits=limit_units)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
-            fig = hlsvd_report(dd,
-                               corrected_obj[idx],
+            fig = hlsvd_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(corrected_obj[idx], data.axes),
                                limits,
-                               data.bandwidth,
-                               data.spectrometer_frequency[0],
-                               nucleus=data.nucleus[0],
                                limitUnits=limit_units,
                                html=report)
             if figure:
@@ -640,29 +622,26 @@ def hlsvd_model_peaks(data, limits,
     :param int components: Number of lorentzian components to model
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Corrected data in NIFTI_MRS format.
     '''
+
     corrected_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         corrected_obj[idx] = preproc.model_fid_hlsvd(
             dd,
-            data.dwelltime,
-            data.spectrometer_frequency[0],
+            data.axes,
             limits,
             limitUnits=limit_units,
             numSingularValues=components)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
-            fig = hlsvd_report(dd,
-                               corrected_obj[idx],
+            fig = hlsvd_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(corrected_obj[idx], data.axes),
                                limits,
-                               data.bandwidth,
-                               data.spectrometer_frequency[0],
-                               nucleus=data.nucleus[0],
                                limitUnits=limit_units,
                                html=report)
             if figure:
@@ -687,7 +666,7 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
     :param float samples: Resample to this many points
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
@@ -703,7 +682,7 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
 
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         shifted_obj[idx], newDT = preproc.timeshift(dd,
-                                                    data.dwelltime,
+                                                    data.axes,
                                                     tshiftStart,
                                                     tshiftEnd,
                                                     samples)
@@ -711,16 +690,10 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
 
-            original_hdr = {'bandwidth': data.bandwidth,
-                            'centralFrequency': data.spectrometer_frequency[0],
-                            'ResonantNucleus': data.nucleus[0]}
-            new_hdr = {'bandwidth': 1 / newDT,
-                       'centralFrequency': data.spectrometer_frequency[0],
-                       'ResonantNucleus': data.nucleus[0]}
-            fig = shift_report(dd,
-                               shifted_obj[idx],
-                               original_hdr,
-                               new_hdr,
+            shifted_axes = data.axes.copy()
+            shifted_axes._dwelltime = newDT
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(shifted_obj[idx], shifted_axes),
                                html=report,
                                function='timeshift')
             if figure:
@@ -747,7 +720,7 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
     start or end of the FID
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Padded or truncated data in NIFTI_MRS format.
     '''
@@ -774,14 +747,8 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            original_hdr = {'bandwidth': data.bandwidth,
-                            'centralFrequency': data.spectrometer_frequency[0],
-                            'ResonantNucleus': data.nucleus[0]}
-
-            fig = shift_report(dd,
-                               trunc_obj[idx],
-                               original_hdr,
-                               original_hdr,
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(trunc_obj[idx], data.axes),
                                html=report,
                                function=rep_func)
             if figure:
@@ -806,24 +773,21 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
     :param str filter: 'exp' or 'l2g'. Choose exponential or Lorentzian to Gaussian filter
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Filtered data in NIFTI_MRS format.
     '''
     apod_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         apod_obj[idx] = preproc.apodize(dd,
-                                        data.dwelltime,
+                                        data.axes.timeAxis,
                                         amount,
                                         filter=filter)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.filtering import apodize_report
-            fig = apodize_report(dd,
-                                 apod_obj[idx],
-                                 data.bandwidth,
-                                 data.spectrometer_frequency[0],
-                                 nucleus=data.nucleus[0],
+            fig = apodize_report(MRS.from_axes(dd, data.axes),
+                                 MRS.from_axes(apod_obj[idx], data.axes),
                                  html=report)
             if figure:
                 fig.show()
@@ -849,7 +813,7 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
     :param amount: Shift amount in Hz, can be array matching data size
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
@@ -869,18 +833,13 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
         if shift_map:
             toshift = amount[idx[:3] + idx[4:]]
         shift_obj[idx] = preproc.freqshift(dd,
-                                           data.dwelltime,
+                                           data.axes,
                                            toshift)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            original_hdr = {'bandwidth': data.bandwidth,
-                            'centralFrequency': data.spectrometer_frequency[0],
-                            'ResonantNucleus': data.nucleus[0]}
-            fig = shift_report(dd,
-                               shift_obj[idx],
-                               original_hdr,
-                               original_hdr,
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(shift_obj[idx], data.axes),
                                html=report,
                                function='freqshift')
             if figure:
@@ -908,11 +867,10 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
         use the average of all the higher dimension spectra to calculate shift correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Shifted data in NIFTI_MRS format.
     '''
-
     shift_obj = data.copy()
     if use_avg:
         # Combine all higher dimensions
@@ -926,35 +884,27 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
             _, shift[idx[:3]] = preproc.shiftToRef(
                 comb_data,
                 ppm_ref,
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                nucleus=data.nucleus[0],
+                data.axes,
                 ppmlim=peak_search)
 
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         if use_avg:
             shift_obj[idx] = preproc.freqshift(
                 dd,
-                data.dwelltime,
+                data.axes,
                 - shift[idx[:3]] * data.spectrometer_frequency[0])
         else:
             shift_obj[idx], _ = preproc.shiftToRef(
                 dd,
                 ppm_ref,
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                nucleus=data.nucleus[0],
+                data.axes,
                 ppmlim=peak_search)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            original_hdr = {'bandwidth': data.bandwidth,
-                            'centralFrequency': data.spectrometer_frequency[0],
-                            'ResonantNucleus': data.nucleus[0]}
-            fig = shift_report(dd,
-                               shift_obj[idx],
-                               original_hdr,
-                               original_hdr,
+
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(shift_obj[idx], data.axes),
                                html=report,
                                function='shiftToRef')
             if figure:
@@ -989,11 +939,8 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
     elif data.ndim < 5:
         raise ValueError('remove_unlike only makes sense for data with a dynamic dimension')
 
-    goodFIDs, badFIDs, gIndicies, bIndicies, metric = \
-        preproc.identifyUnlikeFIDs(data[0, 0, 0, :, :].T,
-                                   data.bandwidth,
-                                   data.spectrometer_frequency[0],
-                                   nucleus=data.nucleus[0],
+    goodFIDs, badFIDs, gindices, bindices, metric = \
+        preproc.identifyUnlikeFIDs(data.mrs(),
                                    ppmlim=ppmlim,
                                    sdlimit=sdlimit,
                                    iterations=niter,
@@ -1003,12 +950,10 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         from fsl_mrs.utils.preproc.unlike import identifyUnlikeFIDs_report
         fig = identifyUnlikeFIDs_report(goodFIDs,
                                         badFIDs,
-                                        gIndicies,
-                                        bIndicies,
+                                        gindices,
+                                        bindices,
                                         metric,
-                                        data.bandwidth,
-                                        data.spectrometer_frequency[0],
-                                        nucleus=data.nucleus[0],
+                                        data.axes,
                                         ppmlim=ppmlim,
                                         sdlimit=sdlimit,
                                         html=report)
@@ -1022,19 +967,19 @@ def remove_unlike(data, ppmlim=None, sdlimit=1.96, niter=2, figure=False, report
         bad_out, good_out  = ntools.split(
             data,
             data.dim_tags[0],
-            gIndicies)
+            gindices)
     else:
         good_out = data.copy()
 
     good_out.add_hdr_field(
         f'{data.dim_tags[0]} Indices',
-        gIndicies,
+        gindices,
         doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
 
     if len(badFIDs) > 0:
         bad_out.add_hdr_field(
             f'{data.dim_tags[0]} Indices',
-            bIndicies,
+            bindices,
             doc=f"Data's original index values in the {data.dim_tags[0]} dimension")
     else:
         bad_out = None
@@ -1063,11 +1008,10 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         use the average of all the higher dimension spectra to calculate phase correction.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Phased data in NIFTI_MRS format.
     '''
-
     phs_obj = data.copy()
     if use_avg:
         # Combine all higher dimensions
@@ -1081,9 +1025,7 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
             # Run phase correction estimation
             _, p0[idx[:3]], pos_all[idx[:3]] = preproc.phaseCorrect(
                 comb_data,
-                phs_obj.bandwidth,
-                phs_obj.spectrometer_frequency[0],
-                nucleus=phs_obj.nucleus[0],
+                data.axes,
                 ppmlim=ppmlim,
                 use_hlsvd=hlsvd)
 
@@ -1096,20 +1038,15 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         else:
             phs_obj[idx], _, pos = preproc.phaseCorrect(
                 dd,
-                data.bandwidth,
-                data.spectrometer_frequency[0],
-                nucleus=data.nucleus[0],
+                data.axes,
                 ppmlim=ppmlim,
                 use_hlsvd=hlsvd)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
-            fig = phaseCorrect_report(dd,
-                                      phs_obj[idx],
+            fig = phaseCorrect_report(MRS.from_axes(dd, data.axes),
+                                      MRS.from_axes(phs_obj[idx], data.axes),
                                       pos,
-                                      data.bandwidth,
-                                      data.spectrometer_frequency[0],
-                                      nucleus=data.nucleus[0],
                                       ppmlim=ppmlim,
                                       html=report)
             if figure:
@@ -1135,7 +1072,7 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
     :param str p1_type: 'shift' for interpolated time-shift, 'linphase' for frequency-domain phasing.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Phased data in NIFTI_MRS format.
     '''
@@ -1148,33 +1085,23 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
             if p1_type.lower() == 'shift':
                 phs_obj[idx], _ = preproc.timeshift(
                     phs_obj[idx],
-                    data.dwelltime,
+                    data.axes,
                     p1,
                     p1,
                     samples=data.shape[3])
             elif p1_type.lower() == 'linphase':
-                from fsl_mrs.utils.misc import calculateAxes
-                faxis = calculateAxes(
-                    data.spectralwidth,
-                    data.spectrometer_frequency[0],
-                    data.shape[3],
-                    0.0)['freq']
                 phs_obj[idx] = preproc.applyLinPhase(
                     phs_obj[idx],
-                    faxis,
+                    data.axes.frequencyAxis,
                     p1)
             else:
                 raise ValueError("p1_type kwarg must be 'shift' or 'linphase'.")
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.general import generic_report
-            original_hdr = {'bandwidth': data.bandwidth,
-                            'centralFrequency': data.spectrometer_frequency[0],
-                            'ResonantNucleus': data.nucleus[0]}
-            fig = generic_report(dd,
-                                 phs_obj[idx],
-                                 original_hdr,
-                                 original_hdr,
+
+            fig = generic_report(MRS.from_axes(dd, data.axes),
+                                 MRS.from_axes(phs_obj[idx], data.axes),
                                  ppmlim=(0.2, 4.2),
                                  html=report,
                                  function='fixed phase')
@@ -1201,7 +1128,7 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
     :param dim: If specified index 1 will be subtracted from 0 across this dimension.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Subtracted data in NIFTI_MRS format.
     '''
@@ -1220,12 +1147,9 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
 
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
-                fig = add_subtract_report(dd.T[0],
-                                          dd.T[1],
-                                          sub_ob[idx],
-                                          data0.bandwidth,
-                                          data0.spectrometer_frequency[0],
-                                          nucleus=data0.nucleus[0],
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], data0.axes),
+                                          MRS.from_axes(dd.T[1], data0.axes),
+                                          MRS.from_axes(sub_ob[idx], data0.axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='subtract')
@@ -1265,7 +1189,7 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
     :param dim: If specified index 1 will be added to 0 across this dimension.
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Subtracted data in NIFTI_MRS format.
     '''
@@ -1284,12 +1208,9 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
 
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
-                fig = add_subtract_report(dd.T[0],
-                                          dd.T[1],
-                                          add_ob[idx],
-                                          data0.bandwidth,
-                                          data0.spectrometer_frequency[0],
-                                          nucleus=data0.nucleus[0],
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], data0.axes),
+                                          MRS.from_axes(dd.T[1], data0.axes),
+                                          MRS.from_axes(add_ob[idx], data0.axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='add')
@@ -1326,7 +1247,7 @@ def conjugate(data, figure=False, report=None, report_all=False):
     :param NIFTI_MRS data: Data to truncate or pad
     :param figure: True to show figure.
     :param report: Provide output location as path to generate report
-    :param report_all: True to output all indicies
+    :param report_all: True to output all indices
 
     :return: Conjugated data in NIFTI_MRS format.
     '''
@@ -1338,13 +1259,8 @@ def conjugate(data, figure=False, report=None, report_all=False):
         for dd, idx in data.iterate_over_dims(iterate_over_space=True):
             if report_all or first_index(idx):
                 from fsl_mrs.utils.preproc.general import generic_report
-                original_hdr = {'bandwidth': data.bandwidth,
-                                'centralFrequency': data.spectrometer_frequency[0],
-                                'ResonantNucleus': data.nucleus[0]}
-                fig = generic_report(dd,
-                                     conj_data[idx],
-                                     original_hdr,
-                                     original_hdr,
+                fig = generic_report(MRS.from_axes(dd, data.axes),
+                                     MRS.from_axes(conj_data[idx], data.axes),
                                      ppmlim=(0.2, 4.2),
                                      html=report,
                                      function='conjugate')

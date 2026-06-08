@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
 from pytest import fixture
 import numpy as np
@@ -28,31 +29,30 @@ def data():
     basisNames = ['Cr', 'PCr', 'NAA']
 
     basisFIDs = []
-    basisHdr = []
+    basis_fwhm = []
     for idx, _ in enumerate(amplitude):
-        tmp, hdr = syntheticFID(noisecovariance=[[0.0]],
-                                chemicalshift=[chemshift[idx]],
-                                amplitude=[1.0],
-                                linewidth=[lw[idx] / 5],
-                                phase=[phases[idx]],
-                                g=[g[idx]])
-        hdr['fwhm'] = lw[idx] / 5
+        tmp, _, axes = syntheticFID(noisecovariance=[[0.0]],
+                                    chemicalshift=[chemshift[idx]],
+                                    amplitude=[1.0],
+                                    linewidth=[lw[idx] / 5],
+                                    phase=[phases[idx]],
+                                    g=[g[idx]])
+        basis_fwhm.append(lw[idx] / 5)
         basisFIDs.append(tmp[0])
-        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
+    bset = Basis(basisFIDs, axes=axes, names=basisNames)
+    bset.basis_fwhm = basis_fwhm
 
-    synFID, synHdr = syntheticFID(noisecovariance=[[noiseCov]],
-                                  chemicalshift=chemshift,
-                                  amplitude=amplitude,
-                                  linewidth=lw,
-                                  phase=phases,
-                                  g=g)
+    synFID, _, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
+                                      chemicalshift=chemshift,
+                                      amplitude=amplitude,
+                                      linewidth=lw,
+                                      phase=phases,
+                                      g=g)
 
-    synMRS = MRS(FID=synFID[0],
-                 header=synHdr,
-                 basis=basisFIDs,
-                 basis_hdr=basisHdr,
-                 names=basisNames)
+    synMRS = MRS.from_axes(synFID[0],
+                           axes=synAxes,
+                           basis=bset)
 
     return synMRS, amplitude
 

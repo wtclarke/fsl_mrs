@@ -25,7 +25,7 @@ def test_spline_regressor_creation():
     fullbasis = baseline.prepare_pspline_regressor(
         100,
         (0, 4),
-        (0, 80),
+        slice(0, 80),
         bases_per_ppm=2)
 
     assert fullbasis.shape == (100, 22)
@@ -93,7 +93,7 @@ def test_prepare_penalised_functions():
     basis = baseline.prepare_pspline_regressor(
         100,
         (0, 5),
-        (0, 100))
+        slice(0, 100))
 
     # Check with no penalty applied
     moderr, modgrad = baseline.prepare_penalised_functions(
@@ -133,11 +133,11 @@ def test_polynomial_regressor_creation():
     B = baseline.prepare_polynomial_regressor(
         mrs.numPoints,
         baseline_order,
-        mrs.ppmlim_to_range(ppmlim))
+        mrs.axes.ppmShiftIndices(ppmlim))
 
     assert B.shape == (mrs.numPoints, 2 * (baseline_order + 1))
-    assert np.sum(B[:, 0]) == 100
-    assert np.sum(B[:, 1]) == 100j
+    assert np.sum(B[:, 0]) == 101
+    assert np.sum(B[:, 1]) == 101j
 
 
 # Test the Baseline class
@@ -150,7 +150,7 @@ def test_baseline_class_init():
         None)
 
     assert obj._spectral_points == mrs.numPoints
-    assert obj._ppm_range == mrs.ppmlim_to_range((0, 5))
+    assert obj._ppm_range == mrs.axes.ppmShiftIndices((0, 5))
     assert obj._ppm_limits == (0, 5)
 
     obj = baseline.Baseline(
@@ -159,7 +159,7 @@ def test_baseline_class_init():
         "poly, 1",
         None)
 
-    assert obj._ppm_range == (0, mrs.numPoints)
+    assert obj._ppm_range == slice(0, mrs.numPoints)
     assert obj._ppm_limits is None
 
 

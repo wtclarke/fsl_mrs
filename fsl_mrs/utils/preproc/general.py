@@ -38,30 +38,17 @@ def add(FID1, FID2):
     return (FID1 + FID2) / 2.0
 
 
-def add_subtract_report(inFID,
-                        inFID2,
-                        outFID,
-                        bw,
-                        cf,
-                        nucleus='1H',
+def add_subtract_report(in_mrs,
+                        in_mrs2,
+                        out_mrs,
                         ppmlim=(0.2, 4.2),
                         function='Not specified',
                         html=None):
     """
     Generate report
     """
-    # from matplotlib import pyplot as plt
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    # Turn input FIDs into mrs objects
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    plotIn = toMRSobj(inFID)
-    plotIn2 = toMRSobj(inFID2)
-    plotOut = toMRSobj(outFID)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()
@@ -71,16 +58,16 @@ def add_subtract_report(inFID,
 
     # Add lines to figure
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim),
                            y=np.real(mrs.get_spec(ppmlim=lim)),
                            mode='lines',
                            name=name,
                            line=linestyle)
         return fig.add_trace(trace)
 
-    fig = addline(fig, plotIn, ppmlim, 'FID1', lines['in'])
-    fig = addline(fig, plotIn2, ppmlim, 'FID2', lines['out'])
-    fig = addline(fig, plotOut, ppmlim, 'Result', lines['diff'])
+    fig = addline(fig, in_mrs, ppmlim, 'FID1', lines['in'])
+    fig = addline(fig, in_mrs2, ppmlim, 'FID2', lines['out'])
+    fig = addline(fig, out_mrs, ppmlim, 'Result', lines['diff'])
 
     # Axes layout
     plotAxesStyle(fig, ppmlim, title=f'{function} summary')
@@ -118,23 +105,17 @@ def add_subtract_report(inFID,
         return fig
 
 
-def generic_report(inFID,
-                   outFID,
-                   inHdr,
-                   outHdr,
+def generic_report(in_mrs,
+                   out_mrs,
                    ppmlim=(0.2, 4.2),
                    html=None,
                    function=''):
     """
     Generate generic report
     """
-    from fsl_mrs.core import MRS
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
-
-    plotIn = MRS(FID=inFID, header=inHdr)
-    plotOut = MRS(FID=outFID, header=outHdr)
 
     # Fetch line styles
     lines, colors, _ = plotStyles()
@@ -143,13 +124,13 @@ def generic_report(inFID,
     fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
 
     # Add lines to figure
-    trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
+    trace1 = go.Scatter(x=in_mrs.getAxes(limits=ppmlim),
+                        y=np.real(in_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
-    trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
+    trace2 = go.Scatter(x=out_mrs.getAxes(limits=ppmlim),
+                        y=np.real(out_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])
@@ -157,13 +138,13 @@ def generic_report(inFID,
     fig.add_trace(trace2, row=1, col=1)
 
     # Add lines to figure
-    trace3 = go.Scatter(x=plotIn.getAxes(axis='time'),
-                        y=np.real(plotIn.FID),
+    trace3 = go.Scatter(x=in_mrs.getAxes(axis='time'),
+                        y=np.real(in_mrs.FID),
                         mode='lines',
                         name='Original',
                         line=lines['emph'])
-    trace4 = go.Scatter(x=plotOut.getAxes(axis='time'),
-                        y=np.real(plotOut.FID),
+    trace4 = go.Scatter(x=out_mrs.getAxes(axis='time'),
+                        y=np.real(out_mrs.FID),
                         mode='lines',
                         name='Shifted',
                         line=lines['diff'])

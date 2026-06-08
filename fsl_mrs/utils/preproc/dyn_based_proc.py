@@ -42,6 +42,7 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     :return: Tuple with the aligned data, shift, and phase
     :rtype: tuple
     """
+
     if not isinstance(data, NIFTI_MRS):
         raise TypeError('Data must be a NIFTI_MRS object.')
     if data.ndim < 5:
@@ -78,7 +79,7 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
     dyn_res = dyn.fit(init=init, verbose=verbose)
 
     def correctfid(fid, hz_shift, phase_shift):
-        fid_shift = proc.freqshift(fid, data.dwelltime, hz_shift)
+        fid_shift = proc.freqshift(fid, data.axes, hz_shift)
         fid_phased = proc.applyPhase(fid_shift, phase_shift)
         return fid_phased
 
@@ -87,6 +88,7 @@ def align_by_dynamic_fit(data, basis, fitargs={}, verbose=False, apodize_hz=0):
 
     aligned_obj = data.copy()
     generator = data.iterate_over_dims()
+
     for (dd, idx), ei, pi in zip(generator, eps, phi):
         aligned_obj[idx] = correctfid(dd, ei, pi)
 
@@ -112,26 +114,19 @@ def align_by_dynamic_fit_report(indata, aligned_data, eps, phi, ppmlim=(0.0, 4.2
     :type phi: list
     :param ppmlim: PPM limit, defaults to (0.0, 4.2)
     :type ppmlim: tuple, optional
-    :param html: Path to html to write, if None nothing writen. Defaults to None
+    :param html: Path to html to write, if None nothing written. Defaults to None
     :type html: Str, optional
     :return: tuple of figures
     :rtype: tuple
     """
 
-    inFIDs = np.asarray([mrs.FID for mrs in indata.mrs()])
-    outFIDs = np.asarray([mrs.FID for mrs in aligned_data.mrs()])
-
-    bw = indata.bandwidth
-    cf = indata.spectrometer_frequency[0] * 1E6
-    nucleus = indata.nucleus[0]
+    in_mrs = indata.mrs()
+    out_mrs = aligned_data.mrs()
 
     return phase_freq_align_report(
-        inFIDs,
-        outFIDs,
+        in_mrs,
+        out_mrs,
         phi,
         eps,
-        bw,
-        cf,
-        nucleus=nucleus,
         ppmlim=ppmlim,
         html=html)

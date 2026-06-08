@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# core.py - main MRS class definition
+# mrsi.py - main MRSI class definition
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         Will Clarke <william.clarke@ndcn.ox.ac.uk>
@@ -17,12 +17,13 @@ from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils import misc
 
 
-class MRSI(object):
+class MRSI():
 
     def __init__(self, FID, header=None,
                  cf=None, bw=None, nucleus='1H',
                  mask=None, basis=None, names=None,
-                 basis_hdr=None, H2O=None):
+                 basis_hdr=None, H2O=None, axes=None,
+                 chemShift=None, RxOffset=0.0):
 
         # process H2O
         if H2O is None:
@@ -40,6 +41,10 @@ class MRSI(object):
 
         if header is not None:
             self.header = header
+        elif axes is not None:
+            self.header = {'centralFrequency': axes.SpectrometerFrequency * 1E6,
+                           'bandwidth': axes.SpectralWidth,
+                           'ResonantNucleus': axes.ResonantNucleus}
         elif cf is not None\
                 and bw is not None:
             self.header = {'centralFrequency': cf,
@@ -47,6 +52,17 @@ class MRSI(object):
                            'ResonantNucleus': nucleus}
         else:
             raise ValueError('Either header or cf and bw must not be None.')
+
+        # Set Axes info
+        self._axes_obj = axes
+        if self._axes_obj is None:
+            from nifti_mrs.axes import Axes
+            self._axes_obj = Axes(ResonantNucleus=self.header['ResonantNucleus'],
+                                  SpectrometerFrequency=self.header['centralFrequency']/1E6,
+                                  dwelltime=1/self.header['bandwidth'],
+                                  SpecFreqChemShift=chemShift,
+                                  RxOffset=RxOffset,
+                                  npoints=self.data.shape[3])
 
         # Basis
         if basis is not None:
@@ -82,6 +98,10 @@ class MRSI(object):
         self.ind_scaling    = None
 
         self._store_scalings = None
+
+    @property
+    def axes(self):
+        return self._axes_obj
 
     @property
     def names(self):
@@ -158,7 +178,8 @@ class MRSI(object):
                 mrs_out = MRS(FID=self.data[idx],
                               header=self.header,
                               basis=self._basis,
-                              H2O=self.H2O[idx])
+                              H2O=self.H2O[idx],
+                              axes=self.axes)
 
                 self._process_mrs(mrs_out)
                 self._store_scalings.append(mrs_out.scaling)
@@ -175,7 +196,7 @@ class MRSI(object):
     def __len__(self) -> int:
         return self.num_masked_voxels
 
-    def get_indicies_in_order(self, mask=True):
+    def get_indices_in_order(self, mask=True):
         """Return a list of iteration indices in order"""
         out = []
         shape = self.data.shape
@@ -203,7 +224,8 @@ class MRSI(object):
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
                       basis=self._basis,
-                      H2O=H2O)
+                      H2O=H2O,
+                      axes=self.axes)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -223,7 +245,8 @@ class MRSI(object):
         mrs_out = MRS(FID=FID,
                       header=self.header,
                       basis=self._basis,
-                      H2O=H2O)
+                      H2O=H2O,
+                      axes=self.axes)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -300,7 +323,7 @@ class MRSI(object):
                 if (not self.mask[i, j, k]) and mask:
                     continue
                 mrs = self.mrs_by_index([i, j, k])
-                ax.plot(mrs.getAxes(ppmlim=ppmlim), np.real(mrs.get_spec(ppmlim=ppmlim)))
+                ax.plot(mrs.getAxes(limits=ppmlim), np.real(mrs.get_spec(ppmlim=ppmlim)))
                 ax.invert_xaxis()
 
             for ax in axes.ravel():
@@ -348,11 +371,11 @@ class MRSI(object):
         self.gm = gm
         self.tissue_seg_loaded = True
 
-    def list_to_matched_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+    def list_to_matched_array(self, data_list, indices=None, cleanup=True, dtype=float):
         '''Convert 3D or 4D array of data indexed from an mrsi object
         to a  numpy array matching the shape of the mrsi data.'''
-        if indicies is None:
-            indicies = self.get_indicies_in_order()
+        if indices is None:
+            indices = self.get_indices_in_order()
 
         # Deal with the variable types (float vs np.float64) that pandas
         # seems to generate depending on (python?) version.
@@ -366,7 +389,7 @@ class MRSI(object):
         else:
             data = np.zeros(self.spatial_shape, dtype=dtype)
 
-        for d, ind in zip(data_list, indicies):
+        for d, ind in zip(data_list, indices):
             data[ind] = d
 
         if cleanup:
@@ -377,19 +400,19 @@ class MRSI(object):
 
         return data
 
-    def list_to_correlation_array(self, data_list, indicies=None, cleanup=True, dtype=float):
+    def list_to_correlation_array(self, data_list, indices=None, cleanup=True, dtype=float):
         '''Convert 5D array of correlation matrices indexed from an MRSI object
         to a numpy array with the shape of the first three dimensions matching
         that of the MRSI object.'''
-        if indicies is None:
-            indicies = self.get_indicies_in_order()
+        if indices is None:
+            indices = self.get_indices_in_order()
 
         size_m, size_n = data_list[0].shape
         if size_m != size_n:
             raise ValueError(f'Only symmetric matrices are handled, size is ({size_m},{size_n}).')
         data = np.zeros(self.spatial_shape + (size_m, size_n), dtype=dtype)
 
-        for d, ind in zip(data_list, indicies):
+        for d, ind in zip(data_list, indices):
             data[ind] = d
 
         if cleanup:
