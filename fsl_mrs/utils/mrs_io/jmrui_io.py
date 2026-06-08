@@ -6,12 +6,14 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 import numpy as np
 import re
 import os.path as op
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
-from fsl_mrs.core import basis as bmod
+
+if TYPE_CHECKING:
+    from fsl_mrs.core.basis import Basis
 
 
 def readjMRUItxt_fid(txtfile):
@@ -81,10 +83,11 @@ def read_txtBasis_files(txtfiles):
     # Strip any file extensions in the names.
     names = [name.replace('.txt', '') for name in names]
 
-    return bmod.Basis(basis, names, header)
+    from fsl_mrs.core.basis import Basis
+    return Basis(basis, names, header)
 
 
-def read_mruiBasis_files(mruifiles: Sequence[str | Path]) -> bmod.Basis:
+def read_mruiBasis_files(mruifiles: Sequence[str | Path]) -> 'Basis':
     """Read a list of files containing a jMRUI .mrui basis set
 
     :param mruifiles: List of files to read basis from. Can be a single file/element.
@@ -121,7 +124,8 @@ def read_mruiBasis_files(mruifiles: Sequence[str | Path]) -> bmod.Basis:
 
     basis = np.concatenate(basis, axis=0).T
 
-    return bmod.Basis(basis, names, header)
+    from fsl_mrs.core.basis import Basis
+    return Basis(basis, names, header)
 
 
 # generically read jMRUI style text files
