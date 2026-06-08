@@ -134,7 +134,7 @@ class Basis:
         return str(self)
 
     @property
-    def axes(self):
+    def axes(self) -> Axes:
         return self._axes_obj
 
     @property
