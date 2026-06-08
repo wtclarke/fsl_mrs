@@ -181,9 +181,7 @@ def phase_freq_align(FIDlist,
 def phase_freq_align_windowed(
         win_size: int,
         FIDlist: np.typing.NDArray[np.complexfloating],
-        bandwidth: float,
-        centralFrequency: float,
-        nucleus: str = '1H',
+        axes,
         ppmlim=None,
         apodize=0,
         verbose=False,
@@ -231,16 +229,14 @@ def phase_freq_align_windowed(
 
         _, phi, eps = phase_freq_align(
             win_avg_data.T,
-            bandwidth,
-            centralFrequency,
-            nucleus=nucleus,
+            axes,
             ppmlim=ppmlim,
             apodize=apodize,
             verbose=verbose,
             shift=shift,
             target=target)
 
-        mrs = MRS(win_avg_data[:, 0], bw=bandwidth, cf=centralFrequency, nucleus=nucleus)
+        mrs = MRS.from_axes(win_avg_data[:, 0], axes)
         for jdx, fid in enumerate(curr_raw.T):
             curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
 

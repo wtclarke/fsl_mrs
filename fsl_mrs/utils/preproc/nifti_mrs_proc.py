@@ -391,9 +391,7 @@ def align(
         elif method == 'xcorr':
             out = xcorr_align(
                 dd.T,
-                data.dwelltime,
-                data.spectrometer_frequency[0]*1E6,
-                nucleus=data.nucleus[0],
+                data.axes,
                 ppmlim=ppmlim,
                 target=target)
 

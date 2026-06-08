@@ -43,14 +43,14 @@ def xcorr_align(
     def zpad(x):
         return pad(x, fids_in.shape[1] * zpad_factor, 'last')
 
-    indices = axes.ppmShiftIndices(ppmlim)
+    padded_axes = Axes(npoints=zpad(fids_in[0]).shape[0],
+                       ResonantNucleus=axes.ResonantNucleus,
+                       SpectrometerFrequency=axes.SpectrometerFrequency,
+                       dwelltime=axes.dwelltime)
+    indices = padded_axes.ppmShiftIndices(ppmlim)
 
     def prep_spec(x):
         x = zpad(x)
-        padded_axes = Axes(npoints=x.size,
-                           ResonantNucleus=axes.ResonantNucleus,
-                           SpectrometerFrequency=axes.SpectrometerFrequency,
-                           dwelltime=axes.dwelltime)
         x = apodize(
             x,
             padded_axes.timeAxis,
@@ -79,7 +79,7 @@ def xcorr_align(
     phases = np.asarray(phases)
 
     # Calculate shifts in Hz
-    shifts_hz = - shifts * np.diff(axes.frequencyAxis[:2])
+    shifts_hz = - shifts * np.diff(padded_axes.frequencyAxis[:2])
 
     # Apply correction
     def correct(x, shift, phase):

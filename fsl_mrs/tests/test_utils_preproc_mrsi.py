@@ -17,7 +17,7 @@ from fsl_mrs.utils.mrs_io import read_FID, read_basis
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.core import nifti_mrs as ntools
-
+from nifti_mrs.axes import Axes
 
 # Algorithm tests
 @fixture
@@ -40,11 +40,16 @@ def test_data():
 
 
 def test_xcorr_align(test_data):
+    # create Axes for test_data
+    axes = Axes(npoints=test_data.shape[1],
+                dwelltime=1 / 4000,
+                SpectrometerFrequency=123.2,
+                ResonantNucleus='1H')
+
     # Test default
     sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
-        centralFrequency=123.2E6)
+        axes)
 
     # import matplotlib.pyplot as plt
     # from fsl_mrs.utils.plotting import FID2Spec
@@ -61,8 +66,7 @@ def test_xcorr_align(test_data):
     # Test apodisation and zeropadding options
     sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
-        centralFrequency=123.2E6,
+        axes,
         apodize_hz=5)
 
     assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
@@ -71,8 +75,7 @@ def test_xcorr_align(test_data):
 
     sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
-        centralFrequency=123.2E6,
+        axes,
         zpad_factor=0)
     assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
     assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
@@ -80,8 +83,7 @@ def test_xcorr_align(test_data):
 
     sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
-        centralFrequency=123.2E6,
+        axes,
         zpad_factor=2)
     assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
     assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
@@ -90,8 +92,7 @@ def test_xcorr_align(test_data):
     # Test Target
     sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
-        centralFrequency=123.2E6,
+        axes,
         target=test_data[0, :])
     assert np.allclose(shifts, [0, 0, -6.16, -6.16], atol=1E0)
     assert np.isclose(phases[-1], -10 * np.pi / 180, atol=1E-1)
@@ -100,8 +101,7 @@ def test_xcorr_align(test_data):
     with raises(ValueError):
         sfids, shifts, phases = mrsi.xcorr_align(
             test_data,
-            1 / 4000,
-            centralFrequency=123.2E6,
+            axes,
             target=np.zeros(100))
 
 
