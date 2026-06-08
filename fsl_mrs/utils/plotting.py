@@ -23,6 +23,8 @@ from fsl_mrs.utils.misc import FIDToSpec
 
 import typing
 if typing.TYPE_CHECKING:
+    from matplotlib.figure import Figure
+    from fsl_mrs.core.basis import Basis
     from fsl_mrs.core import MRS
     from fsl_mrs.utils.results import FitRes
 
@@ -262,7 +264,11 @@ def plot_mrs_basis(mrs, plot_spec=False, ppmlim=(0.0, 4.5), normalise=False):
     return plt.gcf()
 
 
-def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
+def plot_basis(
+        basis: 'Basis',
+        ppmlim: tuple[float, float] | None = (0.0, 4.5),
+        shift: bool = True,
+        conjugate: bool = False) -> 'Figure':
     """Plot the basis contained in a Basis object
 
     :param basis: Basis object
@@ -277,8 +283,10 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
     """
     if shift:
         indices = basis.axes.ppmShiftIndices(ppmlim)
+        axis = basis.original_ppm_shift_axis
     else:
         indices = basis.axes.ppmIndices(ppmlim)
+        axis = basis.original_ppm_axis
 
     n_met = basis.n_metabs
     if n_met <= 10:
@@ -295,7 +303,7 @@ def plot_basis(basis, ppmlim=(0.0, 4.5), shift=True, conjugate=False):
         FID = basis.original_basis_array[:, idx]
         if conjugate:
             FID = FID.conj()
-        ax.plot(basis.original_ppm_axis[indices],
+        ax.plot(axis[indices],
                 np.real(FID2Spec(FID))[indices],
                 label=n)
 
