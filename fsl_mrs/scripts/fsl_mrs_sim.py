@@ -97,11 +97,11 @@ def main():
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
     import shutil
     import json
-    from fsl_mrs.denmatsim import utils as simutils
-    from fsl_mrs.denmatsim.constants import GYRO_MAG_RATIO
+    from fsl_denmatsim import utils as simutils
+    from fsl_denmatsim.constants import GYRO_MAG_RATIO
     from fsl_mrs.utils.misc import FIDToSpec
     import numpy as np
-    from fsl_mrs.denmatsim import simseq as sim
+    from fsl_denmatsim import simseq as sim
     from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
     import os
     import datetime
@@ -350,7 +350,7 @@ def runSimForMetab(s, name, seqParams, args, verbose=False):
     import copy
     import numpy as np
     from fsl_mrs.utils.mrs_io import fsl_io, lcm_io, jmrui_io
-    from fsl_mrs.denmatsim import simseq as sim
+    from fsl_denmatsim import simseq as sim
     import os
     import datetime
 
