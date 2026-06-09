@@ -1,5 +1,9 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.15 (Unreleased WIP)
+-----------------------------------
+- Simulator now calls updated `fsl-denmatsim` package.
+
 2.4.14 (Wednesday 27th May 2026)
 -----------------------------------
 - Updated requirements list
