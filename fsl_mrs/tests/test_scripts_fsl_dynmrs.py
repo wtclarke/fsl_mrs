@@ -286,13 +286,13 @@ def test_fsl_dynmrs_spatial_index(fixed_ratio_data, tmp_path):
     for i in voxels:
         idx = i.name.split('_')
         run(['fsl_dynmrs',
-            '--data', data_str,
-            '--basis', basis_str,
-            '--dyn_config', model_str,
-            '--time_variables', tv_str,
-            '--baseline_order', '0',
-            '--output', str(tmp_path / 'dyn_res_split'),
-            '--spatial-index', idx[0], idx[1], idx[2],
-            '--report'])
+             '--data', data_str,
+             '--basis', basis_str,
+             '--dyn_config', model_str,
+             '--time_variables', tv_str,
+             '--baseline_order', '0',
+             '--output', str(tmp_path / 'dyn_res_split'),
+             '--spatial-index', idx[0], idx[1], idx[2],
+             '--report'])
 
     assert compare_folders(tmp_path / 'dyn_res_all' / 'voxels', tmp_path / 'dyn_res_split' / 'voxels', subdir=True)
