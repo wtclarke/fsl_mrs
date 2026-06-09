@@ -198,6 +198,14 @@ def main():
         # MRSI and no index specified
         from fsl.data.image import Image
 
+        # assert mask image is same shape as data and not empty
+        if args.spatial_mask is not None:
+            mask_img = Image(args.spatial_mask)
+            if mask_img.shape[0:3] != data.shape[0:3]:
+                raise ValueError(f"Spatial mask shape {mask_img.shape[0:3]} does not match data {data.shape[0:3]}.")
+            if np.sum(mask_img[:]) == 0:
+                raise ValueError("Spatial mask is empty.")
+
         if args.mean_mrsi:
             verbose_print('Fitting average MRSI voxel.')
             from fsl_mrs.utils.preproc import combine_FIDs
@@ -206,7 +214,7 @@ def main():
 
             # mask data if spatial_mask is not None
             if args.spatial_mask is not None:
-                norm_mask = Image(args.spatial_mask)[:].astype(bool)
+                norm_mask = mask_img[:].astype(bool)
             else:
                 norm_mask = np.ones(data.shape[:3]).astype(bool)
             # these are masked and flattened data across spatial dimensions
@@ -243,8 +251,7 @@ def main():
         verbose_print('Data is MRSI, spawning per-voxel fitting jobs.')
         tmp_mrsi = data.mrs()[0]
         if args.spatial_mask is not None:
-            tmp_mrsi.set_mask(
-                Image(args.spatial_mask)[:])
+            tmp_mrsi.set_mask(mask_img[:])
 
         # The voxel jobs are executed directly by dask workers. Each worker
         # reconstructs its own MRS object and writes its own output folder.
@@ -260,10 +267,6 @@ def main():
             from tqdm import tqdm
             _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
         elif args.parallel in ("local", "cluster"):
-            import os
-            # insist on the suppression of matplotlib outputs to avoid warnings on task loss
-            os.environ.setdefault('MPLBACKEND', 'Agg')
-            matplotlib.use('Agg')
             if args.parallel == "local":
                 if args.parallel_workers:
                     n_workers = args.parallel_workers
@@ -290,6 +293,10 @@ def main():
             result_futures = client.map(func, tmp_mrsi.get_indicies_in_order())
             progress(result_futures, notebook=False)
             _ = client.gather(result_futures)
+            # close dask workers
+            client.close()
+            if args.parallel == "cluster":
+                cluster.close()
         else:
             raise ValueError("--parallel should be 'off', 'local', or 'cluster'.")
 
