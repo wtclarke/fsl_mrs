@@ -60,15 +60,41 @@ def test_syntheticFID():
 
 
 def test_syntheticFromBasis():
-    fid, _, _ = syn.syntheticFromBasisFile(str(basis_path),
-                                           ignore=['Scyllo'],
-                                           baseline=[0.0, 0.0],
-                                           concentrations={'Mac': 2.0},
-                                           coilamps=[1.0, 1.0],
-                                           coilphase=[0.0, np.pi],
-                                           noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
+    fid, _, _ = syn.syntheticFromBasisFile(
+        str(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0, 1.0],
+        coilphase=[0.0, np.pi],
+        noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
 
     assert fid.shape == (2048, 2)
+
+    nmrs, _ = syn.syntheticFromBasisFile(
+        str(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0, 1.0],
+        coilphase=[0.0, np.pi],
+        noisecovariance=[[0.1, 0.0], [0.0, 0.1]],
+        nifti_output=True)
+
+    assert nmrs.shape == (1, 1, 1, 2048, 2)
+
+    # Test with single coil
+    nmrs, _ = syn.syntheticFromBasisFile(
+        mrs_io.read_basis(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0],
+        coilphase=[0.0],
+        noisecovariance=[[0.1]],
+        nifti_output=True)
+
+    assert nmrs.shape == (1, 1, 1, 2048)
 
 
 def test_syntheticFromBasis_baseline():
@@ -76,7 +102,8 @@ def test_syntheticFromBasis_baseline():
     fid, mrs, _ = syn.syntheticFromBasisFile(str(basis_path),
                                              baseline=[0.0, 0.0],
                                              concentrations={'Mac': 2.0},
-                                             noisecovariance=[[0.0]])
+                                             noisecovariance=[[0.0]],
+                                             nifti_output=False)
 
     mrs.FID = fid
     mrs.conj_FID = True
@@ -100,11 +127,12 @@ def test_synthetic_spectra_from_model():
     period = 10.0
     time_var = time_var / period
 
-    defined_vals = {'c_0': 'conc',
-                    'gamma_0': 20,
-                    'gamma_1': 0,
-                    'sigma_0': 20,
-                    'sigma_1': 0}
+    defined_vals: dict[str, str | int | float] = {
+        'c_0': 'conc',
+        'gamma_0': 20,
+        'gamma_1': 0,
+        'sigma_0': 20,
+        'sigma_1': 0}
 
     defined_vals.update({f'conc_{met}_c_amp': 0 for met in names})
     defined_vals['conc_NAA_c_amp'] = 2

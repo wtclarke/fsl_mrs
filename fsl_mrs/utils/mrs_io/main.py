@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING
 
 
 from nifti_mrs.nifti_mrs import NotNIFTI_MRS
-
-from fsl_mrs.utils.mrs_io import fsl_io as fsl, jmrui_io as jmrui, lcm_io as lcm
-from fsl_mrs.core import nifti_mrs as fsl_nmrs
+from fsl_mrs.core.nifti_mrs import NIFTI_MRS
+from fsl_mrs.utils.mrs_io import fsl_io as fsl
+from fsl_mrs.utils.mrs_io import lcm_io as lcm
+from fsl_mrs.utils.mrs_io import jmrui_io as jmrui
 import fsl.utils.path as fslpath
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ def _check_datatype(filename):
         return 'Unknown', ext
 
 
-def read_FID(filename):
+def read_FID(filename: str | Path) -> NIFTI_MRS:
     """
      Read FID file. Tries to detect type automatically
 
@@ -88,7 +89,7 @@ def read_FID(filename):
         filename = Path(filename).resolve()
 
     try:
-        return fsl_nmrs.NIFTI_MRS(filename, validate_on_creation=False)
+        return NIFTI_MRS(filename, validate_on_creation=False)
     except (NotNIFTI_MRS, fslpath.PathError):
         data_type, id_ext = _check_datatype(Path(filename))
 

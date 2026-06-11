@@ -5,18 +5,21 @@
 #
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
+from pathlib import Path
+from typing import overload, Literal
 
 import numpy as np
+
 from fsl_mrs.utils.misc import SpecToFID, parse_metab_groups
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.utils.baseline import prepare_polynomial_regressor
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs, NIFTI_MRS
 from fsl_mrs import models
-from pathlib import Path
 
 
-def standardConcentrations(basisNames):
+def standardConcentrations(basisNames: list[str]) -> list[float]:
     """Return standard concentrations for 1H MRS brain metabolites for those which match basis set names."""
     # These defaults are from the average of the MRS fitting challenge
     standardconcs = {'Ala': 0.60,
@@ -52,7 +55,14 @@ def standardConcentrations(basisNames):
     return concs
 
 
-def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, concentrations, metab_groups):
+def prep_mrs_for_synthetic(
+        basisFile: Path | str | Basis,
+        points: int,
+        bandwidth: float,
+        ignore: None | list[str],
+        ind_scaling: None | list[str],
+        concentrations: None | dict | list[float] | np.typing.NDArray,
+        metab_groups: None | list[str]) -> tuple[MRS, list[int | float], list[int]]:
     """Prepare an mrs object for use in creating a synthetic spectrum,
        and return selected concentrations.
 
@@ -83,40 +93,87 @@ def prep_mrs_for_synthetic(basisFile, points, bandwidth, ignore, ind_scaling, co
         if len(concentrations) != len(empty_mrs.names):
             raise ValueError(f'Concentrations must have the same number of elements as basis spectra.'
                              f'{len(concentrations)} concentrations, {len(basis.names)} basis spectra.')
+        else:
+            if isinstance(concentrations, np.ndarray):
+                concentrations = concentrations.tolist()
     elif isinstance(concentrations, dict):
-        newconcs = []
+        newconcs: list[float] = []
         for name in empty_mrs.names:
             if name in concentrations:
                 newconcs.append(concentrations[name])
             else:
                 newconcs.extend(standardConcentrations([name]))
-        concentrations = newconcs
+        concentrations: list[float] = newconcs
     else:
         raise ValueError('Concentrations must be None, a list,'
-                         'or a dict containing overides for particular metabolites.')
+                         'or a dict containing overrides for particular metabolites.')
     return empty_mrs, concentrations, mg
 
 
-def syntheticFromBasisFile(basisFile,
-                           ignore=None,
-                           metab_groups=None,
-                           ind_scaling=None,
-                           concentrations=None,
-                           baseline=None,
-                           baseline_ppm=None,
-                           broadening=(9.0, 0.0),
-                           shifting=0.0,
-                           phi0=0.0,
-                           phi1=0.0,
-                           coilamps=[1.0],
-                           coilphase=[0.0],
-                           noisecovariance=[[0.1]],
-                           bandwidth=4000.0,
-                           points=2048):
+@overload
+def syntheticFromBasisFile(
+        basisFile: Path | str | Basis,
+        nifti_output: Literal[True],
+        ignore: None | list[str] = None,
+        metab_groups: None | list[str] = None,
+        ind_scaling: None | list[str] = None,
+        concentrations: None | dict | list[float] = None,
+        baseline: None | list[float] = None,
+        baseline_ppm: None | tuple[float, float] = None,
+        broadening: list[tuple[float, float]] | tuple[float, float] = (9.0, 0.0),
+        shifting: float | list[float] = 0.0,
+        phi0: float = 0.0,
+        phi1: float = 0.0,
+        coilamps: list[float] = [1.0],
+        coilphase: list[float] = [0.0],
+        noisecovariance=[[0.1]],
+        bandwidth: float = 4000.0,
+        points: int = 2048) -> tuple[NIFTI_MRS, list[float]]: ...
+
+
+@overload
+def syntheticFromBasisFile(
+        basisFile: Path | str | Basis,
+        nifti_output: Literal[False] = False,
+        ignore: None | list[str] = None,
+        metab_groups: None | list[str] = None,
+        ind_scaling: None | list[str] = None,
+        concentrations: None | dict | list[float] = None,
+        baseline: None | list[float] = None,
+        baseline_ppm: None | tuple[float, float] = None,
+        broadening: list[tuple[float, float]] | tuple[float, float] = (9.0, 0.0),
+        shifting: float | list[float] = 0.0,
+        phi0: float = 0.0,
+        phi1: float = 0.0,
+        coilamps: list[float] = [1.0],
+        coilphase: list[float] = [0.0],
+        noisecovariance=[[0.1]],
+        bandwidth: float = 4000.0,
+        points: int = 2048) -> tuple[np.typing.NDArray, MRS, list[float]]: ...
+
+
+def syntheticFromBasisFile(
+        basisFile: Path | str | Basis,
+        nifti_output: bool = False,
+        ignore: None | list[str] = None,
+        metab_groups: None | list[str] = None,
+        ind_scaling: None | list[str] = None,
+        concentrations: None | dict | list[float] = None,
+        baseline: None | list[float] = None,
+        baseline_ppm: None | tuple[float, float] = None,
+        broadening: list[tuple[float, float]] | tuple[float, float] = (9.0, 0.0),
+        shifting: float | list[float] = 0.0,
+        phi0: float = 0.0,
+        phi1: float = 0.0,
+        coilamps: list[float] = [1.0],
+        coilphase: list[float] = [0.0],
+        noisecovariance=[[0.1]],
+        bandwidth: float = 4000.0,
+        points: int = 2048) -> tuple[NIFTI_MRS, list[float]]  | tuple[np.typing.NDArray, MRS, list[float]]:
     """ Create synthetic data from a set of FSL-MRS basis files.
 
     Args:
-            basisFile (str): path to directory containg basis spectra json files
+            basisFile (str): FSL-MRS basis object or path to directory containing basis spectra json files
             ignore (list of str, optional): Ignore metabolites in basis set.
             metab_groups (list of str, optional): Group metabolites to apply different model parameters to groups.
             ind_scaling (list of str, optional): Independently scale basis spectra in the basis set.
@@ -136,20 +193,28 @@ def syntheticFromBasisFile(basisFile,
             noisecovariance (list of floats, optional): N coils x N coils array of noise variance/covariance.
             bandwidth (float,optional): Bandwidth of output spectrum in Hz
             points (int,optional): Number of points in output spectrum.
+            nifti_output (bool, optional): If true output NIfTI-MRS, else numpy array of FIDs and MRS
 
     Returns:
         FIDs: Numpy array of synthetic FIDs
-        outHeader: Header suitable for loading FIDs into MRS object.
-        concentrations: Final concentration scalings
+        Empty MRS object.
+        concentrations: Final concentrations
+
+        or
+
+        NIFTI-MRS: NIfTI-MRS object
+        concentrations: Final concentrations
+
     """
 
-    empty_mrs, concentrations, mg = prep_mrs_for_synthetic(basisFile,
-                                                           points,
-                                                           bandwidth,
-                                                           ignore,
-                                                           ind_scaling,
-                                                           concentrations,
-                                                           metab_groups)
+    empty_mrs, concentrations, mg = prep_mrs_for_synthetic(
+        basisFile,
+        points,
+        bandwidth,
+        ignore,
+        ind_scaling,
+        concentrations,
+        metab_groups)
 
     # Currently hardcoded to voigt model. Sigma can always be set to 0.
     _, _, fwd_model, _, p2x = models.getModelFunctions('voigt')
@@ -210,9 +275,25 @@ def syntheticFromBasisFile(basisFile,
                                     noisecovariance=noisecovariance,
                                     ppmlim=baseline_ppm)
 
-    return FIDs, \
-        empty_mrs, \
-        concentrations
+    if nifti_output:
+        if len(coilamps) > 1:
+            return gen_nifti_mrs(
+                FIDs.reshape((1, 1, 1, -1, len(coilamps))),
+                empty_mrs.dwellTime,
+                empty_mrs.centralFrequency / 1e6,
+                dim_tags=['DIM_COIL', None, None]
+            ), concentrations
+        else:
+            return gen_nifti_mrs(
+                FIDs.reshape((1, 1, 1, -1)),
+                empty_mrs.dwellTime,
+                empty_mrs.centralFrequency / 1e6
+            ), concentrations
+
+    else:
+        return FIDs, \
+            empty_mrs, \
+            concentrations
 
 
 def synthetic_from_fwd_model(fwd_model,
