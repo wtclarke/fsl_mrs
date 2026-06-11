@@ -21,7 +21,7 @@ from fsl.data.image import Image
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
-from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc,\
+from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc, \
                                   mrsi as mrsi_proc
 
 testsPath = Path(__file__).parent
