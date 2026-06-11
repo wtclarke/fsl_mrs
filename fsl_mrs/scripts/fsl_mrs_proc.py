@@ -381,6 +381,14 @@ def main():
         required=False,
         help='Mask file, NIfTI formated. only align on voxels selected.')
     ma_group.add_argument(
+        '--ppm',
+        type=float,
+        required=False,
+        nargs=2,
+        metavar=('<lower-limit>', '<upper-limit>'),
+        default=None,
+        help='ppm limits of alignment window (default=None, i.e. full spectrum)')
+    ma_group.add_argument(
         '--zpad',
         type=int,
         default=1,
@@ -862,7 +870,8 @@ def mrsi_align(dataobj, args):
         dataobj.data,
         mask=Image(args['mask']) if args['mask'] is not None else None,
         target=NIFTI_MRS(args['target']) if args['target'] is not None else None,
-        zpad_factor=args['zpad'])
+        zpad_factor=args['zpad'],
+        ppmlim=args['ppm'])
 
     phases[:] *= 180 / np.pi
 

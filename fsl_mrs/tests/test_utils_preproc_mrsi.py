@@ -19,6 +19,7 @@ from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.core import nifti_mrs as ntools
 from nifti_mrs.axes import Axes
 
+
 # Algorithm tests
 @fixture
 def test_data():
@@ -103,6 +104,16 @@ def test_xcorr_align(test_data):
             test_data,
             axes,
             target=np.zeros(100))
+
+    # Test ppmlim
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes,
+        target=test_data[0, :],
+        ppmlim=(1.0, 4.0))
+    assert np.allclose(shifts, [0, 0, 0, 0], atol=1E0)
+    assert np.isclose(phases[-1], -10 * np.pi / 180, atol=1E-1)
+    assert sfids.shape == test_data.shape
 
 
 def test_phase_corr_max_real(test_data):
@@ -212,6 +223,15 @@ def test_mrsi_freq_align():
         basis_ignore=['GABA', 'Lac', 'Glu'],
         apodize=0,
         higher_dimensions=1)
+
+    # Test with ppmlim
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        mask=mask,
+        target=target,
+        ppmlim=(1.0, 4.0))
+    assert aligned_data.shape == mrsi_data.shape
+    assert shift_img.shape == mrsi_data.shape[:3]
 
 
 def test_mrsi_phase_corr():

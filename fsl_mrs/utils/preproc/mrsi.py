@@ -134,7 +134,8 @@ def mrsi_freq_align(
         mask: Image | None = None,
         zpad_factor: int = 1,
         apodize: str | float | None = "auto",
-        higher_dimensions: str | int = "separate") -> tuple[NIFTI_MRS, Image, Image]:
+        higher_dimensions: str | int = "separate",
+        ppmlim: None | tuple[float, float] = None) -> tuple[NIFTI_MRS, Image, Image]:
     """Frequency and phase alignment of MRSI data using cross correlation.
 
     Align either to mean, to a provided target, or to a basis spectrum
@@ -164,33 +165,17 @@ def mrsi_freq_align(
         Passing an index (int) indicates the result of that index should be applied to all others.
         Defaults to "separate"
     :type higher_dimensions: str | int, optional
+    :param ppmlim: Run alignment over limited ppm range, defaults to None
+    :type ppmlim: None | tuple[float, float], optional
     :return: Returns shifted MRSI data and Images containing shifts applied in Hz and phases in radians
     :rtype: tuple[NIFTI_MRS, Image, Image]
     """
-    # Handle target
-    if isinstance(target, Basis):
-        target = np.sum(
-            target.get_formatted_basis(
-                data.bandwidth,
-                data.shape[3],
-                ignore=basis_ignore
-            ), axis=-1)
-    elif isinstance(target, NIFTI_MRS):
-        if not np.isclose(target.dwelltime, data.dwelltime)\
-                or not np.isclose(target.shape[3], data.shape[3]):
-            raise ValueError('Target must have the same dwell time and number of points as data.')
-
-        if np.prod(target.shape[4:]) > 1:
-            raise ValueError('Target must not have any higher dimensions.')
-
-        if target.shape[:3] != (1, 1, 1):
-            raise ValueError('Target must be single voxel.')
-        else:
-            target = target[0, 0, 0, :]
-    elif target is None:
-        pass
-    else:
-        raise TypeError('target must be a NIFTI_MRS or Basis object, or None.')
+    from fsl_mrs.utils.preproc.nifti_mrs_proc import _process_target
+    target = _process_target(
+        target,
+        data,
+        basis_ignore
+    )
 
     if mask is None:
         mask = np.ones(data.shape[:3]).astype(bool)
@@ -217,7 +202,8 @@ def mrsi_freq_align(
             data.axes,
             target=target,
             zpad_factor=zpad_factor,
-            apodize_hz=apodize)
+            apodize_hz=apodize,
+            ppmlim=ppmlim)
 
     shift_array = np.zeros(data.shape[:3] + data.shape[4:])
     phases_array = np.zeros(data.shape[:3] + data.shape[4:])
