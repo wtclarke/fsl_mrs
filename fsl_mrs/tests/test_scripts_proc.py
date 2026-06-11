@@ -21,7 +21,8 @@ from fsl.data.image import Image
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.mrs_io import read_FID
-from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc, \
+                                  mrsi as mrsi_proc
 
 testsPath = Path(__file__).parent
 test_data = testsPath / 'testdata'
@@ -481,6 +482,55 @@ def test_align_all(svs_data_uncomb_reps, tmp_path):
 
     # Run directly
     directRun = preproc.align(svsdata, 'all', ppmlim=(-10, 10))
+
+    assert np.allclose(data[:], directRun[:])
+
+
+def test_align_xcorr(svs_data, mrsi_data, tmp_path):
+    svsfile, mrsifile, svsdata, mrsidata = splitdata(svs_data, mrsi_data)
+
+    # Run align on both sets of data using the command line
+    subprocess.check_call(['fsl_mrs_proc',
+                           'align',
+                           '--dim', 'DIM_DYN',
+                           '--file', svsfile,
+                           '--ppm', '-10', '10',
+                           '--output', tmp_path,
+                           '--filename', 'tmp',
+                           '--method', 'xcorr',])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
+
+    # Run directly
+    directRun = preproc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10), method='xcorr')
+
+    assert np.allclose(data[:], directRun[:])
+
+    # With target
+    target = preproc.average(svsdata, dim='DIM_DYN')
+    target.save(tmp_path / 'target.nii.gz')
+
+    subprocess.check_call(['fsl_mrs_proc',
+                           'align',
+                           '--dim', 'DIM_DYN',
+                           '--file', svsfile,
+                           '--ppm', '-10', '10',
+                           '--output', tmp_path,
+                           '--filename', 'tmp2',
+                           '--method', 'xcorr',
+                           '--reference', str(tmp_path / 'target.nii.gz')])
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
+
+    # Run directly
+    directRun = preproc.align(
+        svsdata,
+        'DIM_DYN',
+        ppmlim=(-10, 10),
+        method='xcorr',
+        target=target)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -1141,11 +1191,8 @@ def test_mrsi_align(svs_data, mrsi_data, tmp_path):
         ['fsl_mrs_proc',
             'mrsi-align',
             '--file', mrsifile,
-            '--freq-align',
-            '--phase-correct',
             '--save-params',
             '--zpad', '1',
-            '--ppm', '0.2', '4.0',
             '--output', tmp_path,
             '--filename', 'tmp'],
         check=True,
@@ -1163,6 +1210,39 @@ def test_mrsi_align(svs_data, mrsi_data, tmp_path):
 
     assert shifts.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
     assert phs.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
+
+    # With target and ppmlim
+    target = preproc.average(svsdata, 'DIM_DYN')
+    target.save(tmp_path / 'target.nii.gz')
+
+    _ = subprocess.run(
+        ['fsl_mrs_proc',
+            'mrsi-align',
+            '--file', mrsifile,
+            '--save-params',
+            '--zpad', '1',
+            '--target', tmp_path / 'target.nii.gz',
+            '--ppm', '1.0', '4.0',
+            '--output', tmp_path,
+            '--filename', 'tmp2'],
+        check=True,
+        capture_output=True)
+
+    assert (tmp_path / 'tmp2.nii.gz').exists()
+    assert (tmp_path / 'tmp2_shifts_hz.nii.gz').exists()
+    assert (tmp_path / 'tmp2_phase_deg.nii.gz').exists()
+
+    # Load result for comparison
+    data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
+
+    # Run directly
+    directRun = mrsi_proc.mrsi_freq_align(
+        mrsidata,
+        target=target,
+        zpad_factor=1,
+        ppmlim=(1.0, 4.0))
+
+    assert np.allclose(data[:], directRun[0][:])
 
 
 def test_mrsi_lipid(svs_data, mrsi_data, tmp_path):

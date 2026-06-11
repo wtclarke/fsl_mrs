@@ -18,35 +18,6 @@ from nifti_mrs import tools
 import fsl_mrs.core as core
 
 
-def gen_nifti_mrs(*args, **kwargs):
-    """Generate NIfTI-MRS from data and required metadata
-
-    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to
-     implement additional functionality for FSL-MRS
-
-    :param data: Complex-typed numpy array of at least 4 dimensions (max 7)
-    :type data: numpy.array
-    :param dwelltime: Spectral (4th dimension) dwelltime in seconds
-    :type dwelltime: float
-    :param spec_freq: Spectrometer Frequency in MHz
-    :type spec_freq: float
-    :param nucleus: Resonant Nucleus string (e.g. 1H, 31P, 2H), defaults to '1H'
-    :type nucleus: str, optional
-    :param affine: 4x4 orientation/position affine, defaults to None which will use default (scaled identity).
-    :type affine: numpy.array, optional
-    :param dim_tags: List of dimension tags (e.g. DIM_DYN), defaults to [None, None, None]
-    :type dim_tags: list, optional
-    :param nifti_version: Version of NIfTI header format, defaults to 2
-    :type nifti_version: int, optional
-    :param no_conj: If true stops conjugation of data on creation, defaults to False
-    :type no_conj: bool, optional
-    :return: NIfTI-MRS object
-    :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
-    """
-    # To ensure the additional FSL-MRS functionality is present.
-    return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
-
-
 class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
     """A class to load and represent NIfTI-MRS formatted data.
     Utilises the fslpy Image class and nibabel nifti headers."""
@@ -184,6 +155,35 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
         if len(out) == 1:
             out = out[0]
         return out
+
+
+def gen_nifti_mrs(*args, **kwargs) -> NIFTI_MRS:
+    """Generate NIfTI-MRS from data and required metadata
+
+    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to
+     implement additional functionality for FSL-MRS
+
+    :param data: Complex-typed numpy array of at least 4 dimensions (max 7)
+    :type data: numpy.array
+    :param dwelltime: Spectral (4th dimension) dwelltime in seconds
+    :type dwelltime: float
+    :param spec_freq: Spectrometer Frequency in MHz
+    :type spec_freq: float
+    :param nucleus: Resonant Nucleus string (e.g. 1H, 31P, 2H), defaults to '1H'
+    :type nucleus: str, optional
+    :param affine: 4x4 orientation/position affine, defaults to None which will use default (scaled identity).
+    :type affine: numpy.array, optional
+    :param dim_tags: List of dimension tags (e.g. DIM_DYN), defaults to [None, None, None]
+    :type dim_tags: list, optional
+    :param nifti_version: Version of NIfTI header format, defaults to 2
+    :type nifti_version: int, optional
+    :param no_conj: If true stops conjugation of data on creation, defaults to False
+    :type no_conj: bool, optional
+    :return: NIfTI-MRS object
+    :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
+    """
+    # To ensure the additional FSL-MRS functionallity present.
+    return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
 
 
 # Shims around the nifti_mrs.tools functions

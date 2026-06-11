@@ -54,7 +54,8 @@ setup(name='fsl_mrs',
               'svs_segment = fsl_mrs.scripts.svs_segment:main',
               'mrsi_segment = fsl_mrs.scripts.mrsi_segment:main',
               'fsl_mrs_summarise = fsl_mrs.scripts.fsl_mrs_summarise:main',
-              'fsl_mrs_verify = fsl_mrs.scripts.fsl_mrs_verify:main'
+              'fsl_mrs_verify = fsl_mrs.scripts.fsl_mrs_verify:main',
+              'basis2spec = fsl_mrs.scripts.basis2spec:main'
           ]
       }
       )

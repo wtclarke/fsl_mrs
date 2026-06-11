@@ -8,13 +8,16 @@
 
 import os
 from contextlib import contextmanager
-from typing import Union
+from typing import TYPE_CHECKING, Union
 import re
 
 import numpy as np
 import itertools as it
 
 from fsl.data.image import getExt
+
+if TYPE_CHECKING:
+    from fsl_mrs.core import MRS
 
 from .constants import PPM_SHIFT
 H2O_PPM_TO_TMS = PPM_SHIFT['1H']
@@ -667,7 +670,7 @@ def regress_out(x, conf, keep_mean=True):
     return x - confa @ (np.linalg.pinv(confa) @ x) + m
 
 
-def parse_metab_groups(mrs, metab_groups):
+def parse_metab_groups(mrs: 'MRS', metab_groups) -> list[int]:
     """
     Creates list of indices per metabolite group
 

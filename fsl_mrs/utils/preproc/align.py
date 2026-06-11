@@ -177,7 +177,83 @@ def phase_freq_align(FIDlist,
     return all_FIDs, phiOut, epsOut
 
 
-# 2) To align spectra from different groups with optional processing applied.
+# 2) Align using iterated windowed averages
+def phase_freq_align_windowed(
+        win_size: int,
+        FIDlist: np.typing.NDArray[np.complexfloating],
+        axes,
+        ppmlim=None,
+        apodize=0,
+        verbose=False,
+        shift=True,
+        target=None):
+
+    total_phs = np.zeros(FIDlist.shape[0])
+    total_eps = np.zeros(FIDlist.shape[0])
+    curr_raw = FIDlist.copy().T
+
+    mean_eps = 1
+    nwiter = 0
+
+    while mean_eps > 0.02:
+        if win_size % 2:
+            # Odd window size: up the size of the window by two
+            # discard the outer two zeros
+            weighting_func = np.hanning(win_size + 2)
+            weighting_func = weighting_func[1:-1]
+            stride_size = win_size
+        else:
+            # Even window size: up the size of the window by three
+            # discard the outer two zeros
+            weighting_func = np.hanning(win_size + 3)
+            weighting_func = weighting_func[1:-1]
+            stride_size = win_size + 1
+        half_win = int(win_size / 2)
+
+        # Handle window size 1 case
+        if win_size == 1:
+            padded_data = curr_raw
+        else:
+            padded_data = np.concatenate(
+                (curr_raw[:, -half_win:], curr_raw[:, :], curr_raw[:, :half_win]),
+                axis=1)
+
+        win_avg_data = np.lib.stride_tricks.sliding_window_view(
+            padded_data,
+            stride_size,
+            axis=1) * weighting_func
+        win_avg_data = win_avg_data.mean(axis=-1)
+
+        if target is None:
+            target = curr_raw.mean(axis=1)
+
+        _, phi, eps = phase_freq_align(
+            win_avg_data.T,
+            axes,
+            ppmlim=ppmlim,
+            apodize=apodize,
+            verbose=verbose,
+            shift=shift,
+            target=target)
+
+        mrs = MRS.from_axes(win_avg_data[:, 0], axes)
+        for jdx, fid in enumerate(curr_raw.T):
+            curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
+
+        total_phs += phi
+        total_eps += eps
+        mean_eps = np.abs(eps).mean()
+        nwiter += 1
+
+        if nwiter == 30:
+            print('Reached windowed average iteration limit. Stopping.')
+            break
+
+    # Final transpose to match input and phase_freq_align
+    return curr_raw.T, total_phs, total_eps
+
+
+# 3) To align spectra from different groups with optional processing applied.
 def phase_freq_align_diff(FIDlist0,
                           FIDlist1,
                           axes,
@@ -256,7 +332,6 @@ def phase_freq_align_report(in_mrs,
 
     trace1 = go.Scatter(x=np.arange(1, len(phi) + 1),
                         y=np.array(phi) * (180.0 / np.pi),
-                        mode='lines',
                         name='Phase',
                         line=lines['out'])
     fig.add_trace(trace1, row=1, col=1)
@@ -265,7 +340,6 @@ def phase_freq_align_report(in_mrs,
 
     trace2 = go.Scatter(x=np.arange(1, len(eps) + 1),
                         y=eps,
-                        mode='lines',
                         name='Shift',
                         line=lines['diff'])
     fig.add_trace(trace2, row=1, col=2)

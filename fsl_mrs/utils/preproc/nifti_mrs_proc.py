@@ -10,12 +10,12 @@ SHBASECOPYRIGHT'''
 from datetime import datetime
 import numpy as np
 
-from nifti_mrs.axes import Axes
 from fsl_mrs.utils import preproc
+from fsl_mrs.utils.preproc.align_xcor import xcorr_align
 from fsl_mrs.core import NIFTI_MRS, MRS
 from fsl_mrs.core import nifti_mrs as ntools
+from fsl_mrs.core.basis import Basis
 from fsl_mrs import __version__
-from fsl_mrs.utils.misc import shift_FID
 
 
 class DimensionsDoNotMatch(Exception):
@@ -254,34 +254,86 @@ def average(data, dim, figure=False, report=None, report_all=False):
     return combined_obj
 
 
+def _process_target(
+        target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating],
+        data: NIFTI_MRS,
+        basis_ignore: list[str] | None) -> np.typing.NDArray[np.complexfloating] | None:
+    if isinstance(target, Basis):
+        return np.sum(
+            target.get_formatted_basis(
+                    data.bandwidth,
+                    data.shape[3],
+                    ignore=basis_ignore),
+            axis=-1)
+    elif isinstance(target, NIFTI_MRS):
+        if not np.isclose(target.dwelltime, data.dwelltime)\
+                or not np.isclose(target.shape[3], data.shape[3]):
+            raise ValueError('Target must have the same dwell time and number of points as data.')
+
+        if np.prod(target.shape[4:]) > 1:
+            raise ValueError('Target must not have any higher dimensions.')
+
+        if target.shape[:3] != (1, 1, 1):
+            raise ValueError('Target must be single voxel.')
+        else:
+            return target[0, 0, 0, :]
+    elif isinstance(target, np.ndarray):
+        if target.ndim > 1 or target.shape[0] != data.shape[3]:
+            raise ValueError('Target must be a vector the same length as data time dimension.')
+        return target
+    elif target is None:
+        return target
+    else:
+        raise TypeError('Target must be a numpy array, NIFTI_MRS, Basis object, or None.')
+
+
 def align(
-        data,
-        dim,
-        window=None,
-        target=None,
-        ppmlim=None,
-        niter=2,
-        figure=False,
-        report=None,
-        report_all=False):
-    '''Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
+        data: NIFTI_MRS,
+        dim: str = "all",
+        method: str = 'specreg',
+        window: int | None = None,
+        target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating] = None,
+        ppmlim: None | tuple[float, float] = None,
+        niter: int = 2,
+        basis_ignore: None | list[str] = None,
+        figure: bool = False,
+        report: None | str = None,
+        report_all: bool = False) -> NIFTI_MRS:
+    """Align frequency and phase of spectra. Can be run across a dimension (specified by a tag), or all spectra
     stored in higher dimensions.
 
-    Optionally define a window size to repeatedly align using hanning-weighted windows of spectra.
-    E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
+    Two methods are implemented:
+    - Spectral registration (specreg)
+        This can optionally define a window size to repeatedly align using Hann-weighted windows of spectra.
+        E.g. 4 will perform alignment on spectra formed from a moving window of size 4.
+    - Complex cross-correlation
+        It is recommended to provide a target with cross-correlation
 
-    :param NIFTI_MRS data: Data to align
-    :param str dim: NIFTI-MRS dimension tag, or 'all'
-    :param int window: Window size.
-    :param target: Optional target FID
-    :param ppmlim: ppm search limits.
-    :param int niter: Number of total iterations
-    :param figure: True to show figure.
-    :param report: Provide output location as path to generate report
-    :param report_all: True to output all indices
-
-    :return: Combined data in NIFTI_MRS format.
-    '''
+    :param data: Data to align
+    :type data: NIFTI_MRS
+    :param dim: NIFTI-MRS dimension tag, or 'all' (default)
+    :type dim: str
+    :param method: 'specreg' or 'xcorr', defaults to 'specreg'
+    :type method: str, optional
+    :param window: 'specreg' window width, defaults to None
+    :type window: int | None, optional
+    :param target: Target for alignment, can be complex FID, single spectrum NIfTI or basis, defaults to None
+    :type target: None | Basis | NIFTI_MRS | np.typing.NDArray[np.complexfloating], optional
+    :param ppmlim: ppm search limits, defaults to None
+    :type ppmlim: None | tuple[float, float], optional
+    :param niter: Spectral registration number of total iterations, defaults to 2
+    :type niter: int, optional
+    :param basis_ignore: List of any metabolites to leave out of target constructed from basis, defaults to None
+    :type basis_ignore: None | list[str], optional
+    :param figure: Show figure or not, defaults to False
+    :type figure: bool, optional
+    :param report: Path to generate HTML report, defaults to None
+    :type report: None | str, optional
+    :param report_all: Generate a report for all higher dimension elements? Defaults to False
+    :type report_all: bool, optional
+    :return: Aligned data
+    :rtype: NIFTI_MRS
+    """
 
     aligned_obj = data.copy()
 
@@ -297,10 +349,12 @@ def align(
                                            iterate_over_space=True,
                                            reduce_dim_index=False)
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
+    target = _process_target(
+        target,
+        data,
+        basis_ignore
+    )
 
-    mrs = data.mrs()[0]
     for dd, idx in generator:
 
         if dim == 'all':
@@ -308,89 +362,45 @@ def align(
             original_shape = dd.shape
             dd = dd.reshape(original_shape[0], -1)
 
-        if window is None:
-            # Use original single transient alignment
-            out = preproc.phase_freq_align(
-                dd.T,
-                axes,
-                ppmlim=ppmlim,
-                niter=niter,
-                verbose=False,
-                target=target)
+        if method == 'specreg':
+            if window is None:
+                # Use original single transient alignment
+                out = preproc.phase_freq_align(
+                    dd.T,
+                    data.axes,
+                    ppmlim=ppmlim,
+                    niter=niter,
+                    verbose=False,
+                    target=target)
+
+            else:
+                # Use iterative windowed alignment
+                out = preproc.phase_freq_align_windowed(
+                    window,
+                    dd.T,
+                    data.axes,
+                    ppmlim=ppmlim,
+                    verbose=False,
+                    target=target)
 
             if dim == 'all':
                 aligned_obj[idx], phi, eps = out[0].T.reshape(original_shape), out[1], out[2]
             else:
                 aligned_obj[idx], phi, eps = out[0].T, out[1], out[2]
 
-        else:
-            # Use iterative windowed alignment
-            curr_phs = np.zeros(dd.shape[1])
-            curr_eps = np.zeros(dd.shape[1])
-            curr_raw = dd.copy()
-
-            mean_eps = 1
-            nwiter = 0
-            win_size = window
-            if target is None:
-                set_target = True
-            else:
-                set_target = False
-            while mean_eps > 0.02:
-                if win_size % 2:
-                    # Odd window size: up the size of the window by two
-                    # discard the outer two zeros
-                    weighting_func = np.hanning(win_size + 2)
-                    weighting_func = weighting_func[1:-1]
-                    stride_size = win_size
-                else:
-                    # Even window size: up the size of the window by three
-                    # discard the outer two zeros
-                    weighting_func = np.hanning(win_size + 3)
-                    weighting_func = weighting_func[1:-1]
-                    stride_size = win_size + 1
-                half_win = int(win_size / 2)
-
-                # Handle window size 1 case
-                if win_size == 1:
-                    padded_data = curr_raw
-                else:
-                    padded_data = np.concatenate(
-                        (curr_raw[:, -half_win:], curr_raw[:, :], curr_raw[:, :half_win]),
-                        axis=1)
-
-                win_avg_data = np.lib.stride_tricks.sliding_window_view(
-                    padded_data,
-                    stride_size,
-                    axis=1) * weighting_func
-                win_avg_data = win_avg_data.mean(axis=-1)
-
-                if set_target:
-                    target = curr_raw.mean(axis=1)
-
-                _, phi, eps = preproc.phase_freq_align(
-                    win_avg_data.T,
-                    axes,
-                    ppmlim=ppmlim,
-                    niter=niter,
-                    target=target)
-
-                for jdx, fid in enumerate(curr_raw.T):
-                    curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
-
-                curr_phs += phi
-                curr_eps += eps
-                mean_eps = np.abs(eps).mean()
-                nwiter += 1
-                print(f'{nwiter}: {np.abs(phi).mean()} deg, {mean_eps} Hz.')
-                if nwiter == 30:
-                    print('Reached windowed average iteration limit. Stopping.')
-                    break
+        elif method == 'xcorr':
+            out = xcorr_align(
+                dd.T,
+                data.axes,
+                ppmlim=ppmlim,
+                target=target)
 
             if dim == 'all':
-                aligned_obj[idx], phi, eps = curr_raw.reshape(original_shape), curr_phs, curr_eps
+                aligned_obj[idx], eps, phi = out[0].T.reshape(original_shape), out[1], out[2]
             else:
-                aligned_obj[idx], phi, eps = curr_raw, curr_phs, curr_eps
+                aligned_obj[idx], eps, phi = out[0].T, out[1], out[2]
+        else:
+            raise ValueError('Method must either be "specreg" or "xcorr".')
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_report
@@ -398,8 +408,8 @@ def align(
                 output_for_report = aligned_obj[idx].reshape(original_shape[0], -1)
             else:
                 output_for_report = aligned_obj[idx]
-            in_mrs = [MRS.from_axes(fid, axes) for fid in dd.T]
-            out_mrs = [MRS.from_axes(fid, axes) for fid in output_for_report.T]
+            in_mrs = [MRS.from_axes(fid, data.axes) for fid in dd.T]
+            out_mrs = [MRS.from_axes(fid, data.axes) for fid in output_for_report.T]
             fig = phase_freq_align_report(in_mrs,
                                           out_mrs,
                                           phi,
@@ -413,6 +423,7 @@ def align(
     # Update processing prov
     processing_info = f'{__name__}.align, '
     processing_info += f'dim={dim}, '
+    processing_info += f'method={method}, '
     processing_info += f'window={window}, '
     if target is not None:
         processing_info += 'target used, '
@@ -453,9 +464,6 @@ def aligndiff(data,
     if data.shape[data.dim_position(dim_diff)] != 2:
         raise DimensionsDoNotMatch('Diff dimension must be of length 2')
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     aligned_obj = data.copy()
     diff_index = data.dim_position(dim_diff)
     data_0 = []
@@ -474,7 +482,7 @@ def aligndiff(data,
         out = preproc.phase_freq_align_diff(
             d0.T,
             d1.T,
-            axes,
+            data.axes,
             diffType=diff_type,
             ppmlim=ppmlim,
             target=target)
@@ -483,10 +491,10 @@ def aligndiff(data,
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.align import phase_freq_align_diff_report
-            in_mrs0 = [MRS.from_axes(fid, axes) for fid in d0.T]
-            in_mrs1 = [MRS.from_axes(fid, axes) for fid in d1.T]
-            out_mrs0 = [MRS.from_axes(fid, axes) for fid in aligned_obj[idx].T]
-            out_mrs1 = [MRS.from_axes(fid, axes) for fid in d1.T]
+            in_mrs0 = [MRS.from_axes(fid, data.axes) for fid in d0.T]
+            in_mrs1 = [MRS.from_axes(fid, data.axes) for fid in d1.T]
+            out_mrs0 = [MRS.from_axes(fid, data.axes) for fid in aligned_obj[idx].T]
+            out_mrs1 = [MRS.from_axes(fid, data.axes) for fid in d1.T]
             fig = phase_freq_align_diff_report(in_mrs0,
                                                in_mrs1,
                                                out_mrs0,
@@ -532,9 +540,6 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
         raise DimensionsDoNotMatch('Reference and data shape must match'
                                    ' or reference must be single FID.')
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     corrected_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
@@ -549,9 +554,9 @@ def ecc(data, reference, figure=False, report=None, report_all=False):
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.eddycorrect import eddy_correct_report
-            fig = eddy_correct_report(MRS.from_axes(dd, axes),
-                                      MRS.from_axes(corrected_obj[idx], axes),
-                                      MRS.from_axes(ref, axes),
+            fig = eddy_correct_report(MRS.from_axes(dd, data.axes),
+                                      MRS.from_axes(corrected_obj[idx], data.axes),
+                                      MRS.from_axes(ref, data.axes),
                                       html=report)
             if figure:
                 for ff in fig:
@@ -577,21 +582,19 @@ def remove_peaks(data, limits, limit_units='ppm+shift', figure=False, report=Non
 
     :return: Corrected data in NIFTI_MRS format.
     '''
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
 
     corrected_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         corrected_obj[idx] = preproc.hlsvd(dd,
-                                           axes,
+                                           data.axes,
                                            limits,
                                            limitUnits=limit_units)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
-            fig = hlsvd_report(MRS.from_axes(dd, axes),
-                               MRS.from_axes(corrected_obj[idx], axes),
+            fig = hlsvd_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(corrected_obj[idx], data.axes),
                                limits,
                                limitUnits=limit_units,
                                html=report)
@@ -621,23 +624,21 @@ def hlsvd_model_peaks(data, limits,
 
     :return: Corrected data in NIFTI_MRS format.
     '''
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
 
     corrected_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
 
         corrected_obj[idx] = preproc.model_fid_hlsvd(
             dd,
-            axes,
+            data.axes,
             limits,
             limitUnits=limit_units,
             numSingularValues=components)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.remove import hlsvd_report
-            fig = hlsvd_report(MRS.from_axes(dd, axes),
-                               MRS.from_axes(corrected_obj[idx], axes),
+            fig = hlsvd_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(corrected_obj[idx], data.axes),
                                limits,
                                limitUnits=limit_units,
                                html=report)
@@ -677,12 +678,9 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
             np.zeros(new_shape, dtype=data.dtype),
             header=data.header)
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         shifted_obj[idx], newDT = preproc.timeshift(dd,
-                                                    axes,
+                                                    data.axes,
                                                     tshiftStart,
                                                     tshiftEnd,
                                                     samples)
@@ -690,9 +688,9 @@ def tshift(data, tshiftStart=0.0, tshiftEnd=0.0, samples=None, figure=False, rep
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
 
-            shifted_axes = axes.copy()
+            shifted_axes = data.axes.copy()
             shifted_axes._dwelltime = newDT
-            fig = shift_report(MRS.from_axes(dd, axes),
+            fig = shift_report(MRS.from_axes(dd, data.axes),
                                MRS.from_axes(shifted_obj[idx], shifted_axes),
                                html=report,
                                function='timeshift')
@@ -731,9 +729,6 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
         np.zeros(new_shape, dtype=data.dtype),
         header=data.header)
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         if npoints > 0:
             trunc_obj[idx] = preproc.pad(dd,
@@ -750,8 +745,8 @@ def truncate_or_pad(data, npoints, position, figure=False, report=None, report_a
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            fig = shift_report(MRS.from_axes(dd, axes),
-                               MRS.from_axes(trunc_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(trunc_obj[idx], data.axes),
                                html=report,
                                function=rep_func)
             if figure:
@@ -780,20 +775,17 @@ def apodize(data, amount, filter='exp', figure=False, report=None, report_all=Fa
 
     :return: Filtered data in NIFTI_MRS format.
     '''
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     apod_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         apod_obj[idx] = preproc.apodize(dd,
-                                        axes.timeAxis,
+                                        data.axes.timeAxis,
                                         amount,
                                         filter=filter)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.filtering import apodize_report
-            fig = apodize_report(MRS.from_axes(dd, axes),
-                                 MRS.from_axes(apod_obj[idx], axes),
+            fig = apodize_report(MRS.from_axes(dd, data.axes),
+                                 MRS.from_axes(apod_obj[idx], data.axes),
                                  html=report)
             if figure:
                 fig.show()
@@ -834,21 +826,18 @@ def fshift(data, amount, figure=False, report=None, report_all=False):
         shift_map = False
         toshift = amount
 
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     shift_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         if shift_map:
             toshift = amount[idx[:3] + idx[4:]]
         shift_obj[idx] = preproc.freqshift(dd,
-                                           axes,
+                                           data.axes,
                                            toshift)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
-            fig = shift_report(MRS.from_axes(dd, axes),
-                               MRS.from_axes(shift_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(shift_obj[idx], data.axes),
                                html=report,
                                function='freqshift')
             if figure:
@@ -880,9 +869,6 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
 
     :return: Shifted data in NIFTI_MRS format.
     '''
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     shift_obj = data.copy()
     if use_avg:
         # Combine all higher dimensions
@@ -896,27 +882,27 @@ def shift_to_reference(data, ppm_ref, peak_search, use_avg=False, figure=False, 
             _, shift[idx[:3]] = preproc.shiftToRef(
                 comb_data,
                 ppm_ref,
-                axes,
+                data.axes,
                 ppmlim=peak_search)
 
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         if use_avg:
             shift_obj[idx] = preproc.freqshift(
                 dd,
-                axes,
+                data.axes,
                 - shift[idx[:3]] * data.spectrometer_frequency[0])
         else:
             shift_obj[idx], _ = preproc.shiftToRef(
                 dd,
                 ppm_ref,
-                axes,
+                data.axes,
                 ppmlim=peak_search)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.shifting import shift_report
 
-            fig = shift_report(MRS.from_axes(dd, axes),
-                               MRS.from_axes(shift_obj[idx], axes),
+            fig = shift_report(MRS.from_axes(dd, data.axes),
+                               MRS.from_axes(shift_obj[idx], data.axes),
                                html=report,
                                function='shiftToRef')
             if figure:
@@ -1024,9 +1010,6 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
 
     :return: Phased data in NIFTI_MRS format.
     '''
-    # create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     phs_obj = data.copy()
     if use_avg:
         # Combine all higher dimensions
@@ -1040,7 +1023,7 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
             # Run phase correction estimation
             _, p0[idx[:3]], pos_all[idx[:3]] = preproc.phaseCorrect(
                 comb_data,
-                axes,
+                data.axes,
                 ppmlim=ppmlim,
                 use_hlsvd=hlsvd)
 
@@ -1053,14 +1036,14 @@ def phase_correct(data, ppmlim, hlsvd=False, use_avg=False, figure=False, report
         else:
             phs_obj[idx], _, pos = preproc.phaseCorrect(
                 dd,
-                axes,
+                data.axes,
                 ppmlim=ppmlim,
                 use_hlsvd=hlsvd)
 
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.phasing import phaseCorrect_report
-            fig = phaseCorrect_report(MRS.from_axes(dd, axes),
-                                      MRS.from_axes(phs_obj[idx], axes),
+            fig = phaseCorrect_report(MRS.from_axes(dd, data.axes),
+                                      MRS.from_axes(phs_obj[idx], data.axes),
                                       pos,
                                       ppmlim=ppmlim,
                                       html=report)
@@ -1091,9 +1074,6 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
 
     :return: Phased data in NIFTI_MRS format.
     '''
-    # Create an Axes object
-    axes = Axes.from_nifti_mrs(data)
-
     phs_obj = data.copy()
     for dd, idx in data.iterate_over_dims(iterate_over_space=True):
         phs_obj[idx] = preproc.applyPhase(dd,
@@ -1103,14 +1083,14 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
             if p1_type.lower() == 'shift':
                 phs_obj[idx], _ = preproc.timeshift(
                     phs_obj[idx],
-                    axes,
+                    data.axes,
                     p1,
                     p1,
                     samples=data.shape[3])
             elif p1_type.lower() == 'linphase':
                 phs_obj[idx] = preproc.applyLinPhase(
                     phs_obj[idx],
-                    axes.frequencyAxis,
+                    data.axes.frequencyAxis,
                     p1)
             else:
                 raise ValueError("p1_type kwarg must be 'shift' or 'linphase'.")
@@ -1118,8 +1098,8 @@ def apply_fixed_phase(data, p0, p1=0.0, p1_type='shift', figure=False, report=No
         if (figure or report) and (report_all or first_index(idx)):
             from fsl_mrs.utils.preproc.general import generic_report
 
-            fig = generic_report(MRS.from_axes(dd, axes),
-                                 MRS.from_axes(phs_obj[idx], axes),
+            fig = generic_report(MRS.from_axes(dd, data.axes),
+                                 MRS.from_axes(phs_obj[idx], data.axes),
                                  ppmlim=(0.2, 4.2),
                                  html=report,
                                  function='fixed phase')
@@ -1157,9 +1137,6 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
             raise DimensionsDoNotMatch('Subtraction dimension must be of length 2.'
                                        f' Currently {data0.shape[data0.dim_position(dim)]}')
 
-        # Create an Axes object
-        axes = Axes.from_nifti_mrs(data0)
-
         sub_ob = data0.copy(remove_dim=dim)
         for dd, idx in data0.iterate_over_dims(dim=dim,
                                                iterate_over_space=True,
@@ -1168,9 +1145,9 @@ def subtract(data0, data1=None, dim=None, figure=False, report=None, report_all=
 
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
-                fig = add_subtract_report(MRS.from_axes(dd.T[0], axes),
-                                          MRS.from_axes(dd.T[1], axes),
-                                          MRS.from_axes(sub_ob[idx], axes),
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], data0.axes),
+                                          MRS.from_axes(dd.T[1], data0.axes),
+                                          MRS.from_axes(sub_ob[idx], data0.axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='subtract')
@@ -1221,9 +1198,6 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
             raise DimensionsDoNotMatch('Addition dimension must be of length 2.'
                                        f' Currently {data0.shape[data0.dim_position(dim)]}')
 
-        # Create an Axes object
-        axes = Axes.from_nifti_mrs(data0)
-
         add_ob = data0.copy(remove_dim=dim)
         for dd, idx in data0.iterate_over_dims(dim=dim,
                                                iterate_over_space=True,
@@ -1232,9 +1206,9 @@ def add(data0, data1=None, dim=None, figure=False, report=None, report_all=False
 
             if (figure or report) and (report_all or first_index(idx)):
                 from fsl_mrs.utils.preproc.general import add_subtract_report
-                fig = add_subtract_report(MRS.from_axes(dd.T[0], axes),
-                                          MRS.from_axes(dd.T[1], axes),
-                                          MRS.from_axes(add_ob[idx], axes),
+                fig = add_subtract_report(MRS.from_axes(dd.T[0], data0.axes),
+                                          MRS.from_axes(dd.T[1], data0.axes),
+                                          MRS.from_axes(add_ob[idx], data0.axes),
                                           ppmlim=(0.2, 4.2),
                                           html=report,
                                           function='add')
@@ -1280,14 +1254,11 @@ def conjugate(data, figure=False, report=None, report_all=False):
     conj_data[:] = conj_data[:].conj()
 
     if report:
-        # create an Axes object
-        axes = Axes.from_nifti_mrs(data)
-
         for dd, idx in data.iterate_over_dims(iterate_over_space=True):
             if report_all or first_index(idx):
                 from fsl_mrs.utils.preproc.general import generic_report
-                fig = generic_report(MRS.from_axes(dd, axes),
-                                     MRS.from_axes(conj_data[idx], axes),
+                fig = generic_report(MRS.from_axes(dd, data.axes),
+                                     MRS.from_axes(conj_data[idx], data.axes),
                                      ppmlim=(0.2, 4.2),
                                      html=report,
                                      function='conjugate')
