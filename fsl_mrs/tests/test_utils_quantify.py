@@ -7,6 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 
 import os.path as op
+from typing import Any
 import numpy as np
 import pytest
 import pandas as pd
@@ -254,3 +255,85 @@ def test_quantifyWater():
     assert np.allclose(res.getConc(scaling='internal'), 1.0)
     assert np.allclose(res.getConc(scaling='molarity'), 10.78, atol=3E-1)
     assert np.allclose(res.getConc(scaling='molality'), 10.78 * 1 / (0.6 * 0.78 + 0.4 * 0.65), atol=3E-1)
+
+
+def test_quantifyInternal_rejects_zero_reference() -> None:
+    with pytest.raises(
+            quant.InvalidScalingError,
+            match='Internal reference Cr has zero or non-finite concentration.'):
+        quant.quantifyInternal('Cr', [0.0], ['Cr'])
+
+
+@pytest.fixture(scope='module')
+def water_quantification_failure_data() -> dict[str, Any]:
+    basis = mrsio.read_basis(basisfile)
+    data = mrsio.read_FID(metabfile)
+    dataw = mrsio.read_FID(h2ofile)
+
+    basis.add_peak(7.0, 0.1, 'fake', gamma=6.0)
+
+    mrs = data.mrs(basis=basis,
+                   ref_data=dataw)
+    mrs.check_FID(repair=True)
+    mrs.check_Basis(repair=True)
+
+    dataw_zero = dataw.copy()
+    dataw_zero[:] = dataw_zero[:] * 0
+    mrs_zero_water = data.mrs(
+        basis=basis,
+        ref_data=dataw_zero)
+    mrs_zero_water.check_FID(repair=True)
+    mrs_zero_water.check_Basis(repair=True)
+
+    Fitargs = {'ppmlim': [0.2, 5.2],
+               'baseline_order': 0,
+               'metab_groups': [0]}
+
+    res = mrs.fit(**Fitargs)
+    res.fitResults['fake'] = 0.0
+
+    q_info = quant.QuantificationInfo(
+        30E-3,
+        1.0,
+        mrs.names,
+        mrs.centralFrequency / 1E6,
+        water_ref_metab='Cr',
+        water_ref_metab_protons=5,
+        water_ref_metab_limits=(2, 5))
+
+    q_info_bad = quant.QuantificationInfo(
+        30E-3,
+        1.0,
+        mrs.names,
+        mrs.centralFrequency / 1E6,
+        water_ref_metab='fake',
+        water_ref_metab_protons=5,
+        water_ref_metab_limits=(2, 5))
+
+    return {
+        'mrs': mrs,
+        'mrs_zero_water': mrs_zero_water,
+        'res': res,
+        'q_info': q_info,
+        'q_info_bad': q_info_bad}
+
+
+def test_quantifyWater_rejects_zero_metabolite_reference(
+        water_quantification_failure_data: dict[str, Any]) -> None:
+    with pytest.raises(
+            quant.InvalidScalingError,
+            match='Metabolite reference fake has zero or non-finite integral.'):
+        quant.quantifyWater(
+            water_quantification_failure_data['mrs'],
+            water_quantification_failure_data['res'],
+            water_quantification_failure_data['q_info_bad'])
+
+
+def test_quantifyWater_rejects_zero_water_reference(water_quantification_failure_data: dict[str, Any]) -> None:
+    with pytest.raises(
+            quant.InvalidScalingError,
+            match='Water reference has zero or non-finite integral.'):
+        quant.quantifyWater(
+            water_quantification_failure_data['mrs_zero_water'],
+            water_quantification_failure_data['res'],
+            water_quantification_failure_data['q_info'])

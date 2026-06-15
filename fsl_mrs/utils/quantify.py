@@ -6,6 +6,7 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 import warnings
+from typing import Any
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -28,8 +29,43 @@ class FieldStrengthInfoError(Exception):
     pass
 
 
+class InvalidScalingError(ValueError):
+    pass
+
+
+def reference_list(reference: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(reference, str):
+        return [reference]
+    elif isinstance(reference, (list, tuple)):
+        return list(reference)
+    else:
+        raise TypeError(f'Reference must be string, list, or tuple not {type(reference)}.')
+
+
+def reference_label(reference: str | list[str] | tuple[str, ...]) -> str:
+    return '+'.join(reference_list(reference))
+
+
+def reference_concentration(
+        reference: str | list[str] | tuple[str, ...],
+        concentrations: np.ndarray | list[float],
+        names: list[str],
+        description: str = 'Internal reference') -> float:
+    conc_sum = 0.0
+    for metab in reference_list(reference):
+        if metab not in names:
+            raise ValueError(f'{description} {metab} is not a recognised metabolite.')
+        conc_sum += concentrations[names.index(metab)]
+    return conc_sum
+
+
+def _validate_positive_finite(value: float, message: str) -> None:
+    if not np.isfinite(value) or value <= 0:
+        raise InvalidScalingError(message)
+
+
 class FIDIntegrator:
-    def __init__(self, mrs_obj, limits: tuple = None):
+    def __init__(self, mrs_obj: Any, limits: tuple[float, float] | None = None) -> None:
         self.t_axis = mrs_obj.getAxes('time')
         self.ppm_axis = mrs_obj.getAxes()
 
@@ -38,10 +74,10 @@ class FIDIntegrator:
         self.fid = None
 
     @property
-    def integral(self):
+    def integral(self) -> float:
         return self._calculate_area(self.fid)
 
-    def _calculate_area(self, FID):
+    def _calculate_area(self, FID: np.ndarray) -> float:
         """
             Calculate area of the abs real part of the spectrum between two limits
         """
@@ -54,14 +90,14 @@ class FIDIntegrator:
 
 
 class WaterRef(FIDIntegrator):
-    def __init__(self, mrs_obj, limits: tuple = None):
+    def __init__(self, mrs_obj: Any, limits: tuple[float, float] | None = None) -> None:
         super().__init__(mrs_obj, limits)
 
         self.original_fid = mrs_obj.H2O
 
         self._fit_w_ref()
 
-    def _fit_w_ref(self):
+    def _fit_w_ref(self) -> None:
         '''Fit unsuppressed water with single voigt lineshape.
         Fitted fid is then phase and frequency corrected.'''
         def fid_func(t, amp, gamma, sigma, omega, phi):
@@ -83,7 +119,7 @@ class WaterRef(FIDIntegrator):
         pout = minimize(fit_func, p0, bounds=bounds)
         self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0)
 
-    def plot_fit(self):
+    def plot_fit(self) -> plt.Figure:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
         ax1.plot(self.t_axis, self.original_fid.real, label='original')
         ax1.plot(self.t_axis, self.fid.real, label='fit')
@@ -96,7 +132,12 @@ class WaterRef(FIDIntegrator):
 
 
 class RefIntegral(FIDIntegrator):
-    def __init__(self, mrs_obj, res_obj, metab, limits: tuple = None):
+    def __init__(
+            self,
+            mrs_obj: Any,
+            res_obj: Any,
+            metab: str | list[str],
+            limits: tuple[float, float] | None = None) -> None:
         super().__init__(mrs_obj, limits)
         self.original_fid = res_obj.predictedFID(
             mrs_obj, mode=metab, noBaseline=False, no_phase=False)
@@ -596,7 +637,10 @@ class QuantificationInfo():
         return str(self.summary_table)
 
 
-def quantifyInternal(reference, concentrations, names):
+def quantifyInternal(
+        reference: str | list[str] | tuple[str, ...],
+        concentrations: np.ndarray | list[float],
+        names: list[str]) -> float:
     """Calculate scaling for internal referencing
 
     :param reference: Metabolite to use for internal scaling
@@ -609,22 +653,18 @@ def quantifyInternal(reference, concentrations, names):
     :return: Internal reference scaling value
     :rtype: float
     """
-    concSum = 0
-    if isinstance(reference, list):
-        for m in reference:
-            if m not in names:
-                raise ValueError(f'Internal reference {m} is not a recognised metabolite.')
-            concSum += concentrations[names.index(m)]
-    else:
-        if reference not in names:
-            raise ValueError(f'Internal reference {reference} is not a recognised metabolite.')
-        concSum += concentrations[names.index(reference)]
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        return 1 / concSum
+    conc_sum = reference_concentration(reference, concentrations, names)
+    _validate_positive_finite(
+        conc_sum,
+        f'Internal reference {reference_label(reference)} has zero or non-finite concentration.')
+    return 1 / conc_sum
 
 
-def quantifyWater(mrs, results, quant_info, verbose=False):
+def quantifyWater(
+        mrs: Any,
+        results: Any,
+        quant_info: QuantificationInfo,
+        verbose: bool = False) -> tuple[float, float, dict[str, FIDIntegrator]]:
     """Calculate scalings required to take raw concentrations to molarity or molality units.
 
     Steps:
@@ -651,9 +691,15 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     # Calculate observed areas
     wref = WaterRef(mrs, quant_info.h2o_limits)
     SH2OObs = wref.integral
+    _validate_positive_finite(
+        SH2OObs,
+        'Water reference has zero or non-finite integral.')
 
     mref = RefIntegral(mrs, results, quant_info.ref_metab, quant_info.ref_limits)
     SMObs = mref.integral
+    _validate_positive_finite(
+        SMObs,
+        f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite integral.')
 
     # Calculate concentration scalings
     # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
@@ -687,11 +733,23 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
         print(f'H2O to ref molarity scaling = {conc_molar:0.2e}')
 
     # Calculate other metabolites to reference scaling
-    metabtoRefScaling = quantifyInternal(quant_info.ref_metab,
-                                         results.getConc(),
-                                         results.metabs)
+    ref_conc = reference_concentration(
+        quant_info.ref_metab,
+        results.getConc(),
+        results.metabs,
+        description='Metabolite reference')
+    _validate_positive_finite(
+        ref_conc,
+        f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite concentration.')
+    metabtoRefScaling = 1 / ref_conc
     conc_molal *= metabtoRefScaling
     conc_molar *= metabtoRefScaling
+    _validate_positive_finite(
+        conc_molal,
+        'Molality scaling is zero or non-finite.')
+    _validate_positive_finite(
+        conc_molar,
+        'Molarity scaling is zero or non-finite.')
 
     if verbose:
         print(f'Ref to other metabolite scaling = {metabtoRefScaling:0.2e}')

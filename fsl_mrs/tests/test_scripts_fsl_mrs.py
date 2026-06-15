@@ -10,6 +10,8 @@ import os.path as op
 import json
 import pandas as pd
 from pathlib import Path
+import sys
+from typing import Any
 
 # Files
 testsPath = op.dirname(__file__)
@@ -123,6 +125,58 @@ def test_no_ref(tmp_path):
                            '--report'])
 
     assert (tmp_path / 'report.html').is_file()
+
+
+def test_report_when_default_reference_metabolites_fit_zero(tmp_path: Path, monkeypatch: Any) -> None:
+    from bs4 import BeautifulSoup
+    from fsl_mrs.scripts import fsl_mrs as fsl_mrs_script
+    from fsl_mrs.utils import fitting
+
+    original_fit = fitting.fit_FSLModel
+
+    def zero_default_reference_fit(mrs: Any, **kwargs: Any) -> Any:
+        res = original_fit(mrs, **kwargs)
+        for metab in ('Cr', 'PCr', 'Cr+PCr'):
+            if metab in res.fitResults:
+                res.fitResults[metab] = 0.0
+        return res
+
+    monkeypatch.setattr(fitting, 'fit_FSLModel', zero_default_reference_fit)
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['fsl_mrs',
+         '--data', data['metab'],
+         '--basis', data['basis'],
+         '--output', str(tmp_path),
+         '--h2o', data['water'],
+         '--TE', '11',
+         '--metab_groups', 'Mac',
+         '--tissue_frac', '0.45', '0.45', '0.1',
+         '--overwrite',
+         '--combine', 'Cr', 'PCr',
+         '--report'])
+
+    fsl_mrs_script.main()
+
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'quantification_info.csv').is_file()
+
+    summary = pd.read_csv(tmp_path / 'summary.csv')
+    assert 'Raw conc' in summary.columns
+    assert '/Cr+PCr' not in summary.columns
+    assert 'mM' not in summary.columns
+    assert 'mMol/kg' not in summary.columns
+
+    with open(tmp_path / 'report.html') as fp:
+        soup = BeautifulSoup(fp, features="html.parser")
+    assert soup.find("a", attrs={'name': "summary"}) is not None
+    assert soup.find("a", attrs={'name': "quantification"}) is None
+    assert soup.find("a", attrs={'name': "refs"}) is None
 
 
 def test_alt_ref(tmp_path):
