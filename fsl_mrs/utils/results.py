@@ -8,6 +8,8 @@
 
 from copy import deepcopy
 import json
+from typing import Any, TYPE_CHECKING
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -17,22 +19,26 @@ import fsl_mrs.utils.quantify as quant
 import fsl_mrs.utils.qc as qc
 from fsl_mrs.utils.misc import FIDToSpec, SpecToFID, calculate_lap_cov
 
+if TYPE_CHECKING:
+    from fsl_mrs.core.mrs import MRS
+    from fsl_mrs.utils.baseline import Baseline
 
-class FitRes():
+
+class FitRes:
     """
        Collects fitting results
     """
 
     def __init__(
             self,
-            mrs,
-            results,
-            model,
-            method,
-            metab_groups,
-            baseline_obj,
-            ppmlim,
-            runqc=True):
+            mrs: 'MRS',
+            results: np.ndarray,
+            model: str,
+            method: str,
+            metab_groups: list[int] | None,
+            baseline_obj: 'Baseline',
+            ppmlim: list[float] | tuple[float, float] | None,
+            runqc: bool = True) -> None:
 
         # Store options from
         known_models = ['lorentzian', 'free_shift_lorentzian', 'voigt', 'free_shift', 'negativevoigt']
@@ -47,7 +53,7 @@ class FitRes():
         self.fill_names(mrs.names, nbaseline=baseline_obj.n_basis, metab_groups=metab_groups)
 
         # Init properties
-        self.concScalings = {'internal': None, 'internalRef': None, 'molarity': None, 'molality': None, 'info': None}
+        self.concScalings = self._empty_conc_scalings()
         self._combined_crlb = np.asarray([])
 
         # Populate data frame
@@ -201,11 +207,30 @@ class FitRes():
     class QuantificationError(Exception):
         pass
 
+    @staticmethod
+    def _normalise_reference(reference: str | list[str] | tuple[str, ...]) -> list[str]:
+        return quant.reference_list(reference)
+
+    @staticmethod
+    def _reference_label(reference: str | list[str] | tuple[str, ...]) -> str:
+        return quant.reference_label(reference)
+
+    @staticmethod
+    def _empty_conc_scalings() -> dict[str, Any]:
+        return {
+            'internal': None,
+            'internalRef': None,
+            'molarity': None,
+            'molality': None,
+            'quant_info': None,
+            'ref_info': None,
+            'errors': {}}
+
     def calculateConcScaling(self,
-                             mrs,
-                             quant_info=None,
-                             internal_reference=['Cr', 'PCr'],
-                             verbose=False):
+                             mrs: 'MRS',
+                             quant_info: Any | None = None,
+                             internal_reference: str | list[str] | tuple[str, ...] = ['Cr', 'PCr'],
+                             verbose: bool = False) -> None:
         """Run calculation of internal and (if possible) water concentration scaling.
 
         :param mrs: MRS object
@@ -218,39 +243,42 @@ class FitRes():
         :type verbose: bool, optional
         """
 
-        self.intrefstr = '+'.join(internal_reference)
+        internal_reference = self._normalise_reference(internal_reference)
+        internal_ref_label = self._reference_label(internal_reference)
+
+        self.intrefstr = internal_ref_label
         self.referenceMetab = internal_reference
 
-        internalRefScaling = quant.quantifyInternal(internal_reference, self.getConc(), self.metabs)
+        conc_scalings = self._empty_conc_scalings()
+        conc_scalings['internalRef'] = internal_ref_label
+
+        try:
+            conc_scalings['internal'] = quant.quantifyInternal(
+                internal_reference,
+                self.getConc(),
+                self.metabs)
+        except quant.InvalidScalingError as exc:
+            conc_scalings['errors']['internal'] = str(exc)
+            warnings.warn(str(exc), UserWarning, stacklevel=2)
 
         if mrs.H2O is not None and quant_info is not None:
-            molalityScaling, molarityScaling, ref_info = quant.quantifyWater(mrs,
-                                                                             self,
-                                                                             quant_info,
-                                                                             verbose=verbose)
-            if ref_info['metab_ref'].integral == 0.0:
-                raise self.QuantificationError(
-                    f'Metabolite reference {quant_info.ref_metab} has not been fit (conc=0). '
-                    'Please choose another or refine fit first.')
-            elif ref_info['water_ref'].integral == 0.0:
-                raise self.QuantificationError(
-                    'Water reference has zero integral. Please check water reference data.')
+            conc_scalings['quant_info'] = quant_info
+            try:
+                molalityScaling, molarityScaling, ref_info = quant.quantifyWater(
+                    mrs,
+                    self,
+                    quant_info,
+                    verbose=verbose)
+            except quant.InvalidScalingError as exc:
+                conc_scalings['errors']['molality'] = str(exc)
+                conc_scalings['errors']['molarity'] = str(exc)
+                warnings.warn(str(exc), UserWarning, stacklevel=2)
+            else:
+                conc_scalings['molarity'] = molarityScaling
+                conc_scalings['molality'] = molalityScaling
+                conc_scalings['ref_info'] = ref_info
 
-            self.concScalings = {
-                'internal': internalRefScaling,
-                'internalRef': self.intrefstr,
-                'molarity': molarityScaling,
-                'molality': molalityScaling,
-                'quant_info': quant_info,
-                'ref_info': ref_info}
-        else:
-            self.concScalings = {
-                'internal': internalRefScaling,
-                'internalRef': self.intrefstr,
-                'molarity': None,
-                'molality': None,
-                'quant_info': None,
-                'ref_info': None}
+        self.concScalings = conc_scalings
 
     def combine(self, combineList):
         """Combine two or more basis into single result"""
@@ -608,8 +636,63 @@ class FitRes():
         with open(save_path, 'w') as jf:
             json.dump(param_dict, jf)
 
+    def _get_conc_scaling(self, scaling: str) -> float:
+        scaling_value = self.concScalings.get(scaling)
+        if scaling_value is None:
+            scaling_names = {
+                'internal': 'Internal',
+                'molality': 'Molality',
+                'molarity': 'Molarity'}
+            message = f'{scaling_names[scaling]} concentration scaling not calculated, run calculateConcScaling method.'
+            error = self.concScalings.get('errors', {}).get(scaling)
+            if error is not None:
+                message += f' {error}'
+            raise ValueError(message)
+        return scaling_value
+
+    def _get_internal_reference_metabs(self) -> list[str]:
+        reference = getattr(self, 'referenceMetab', None)
+        if reference is None:
+            reference = self.concScalings['internalRef']
+        ref_metabs = self._normalise_reference(reference)
+
+        if all(metab in self.fitResults.columns for metab in ref_metabs):
+            return ref_metabs
+
+        internal_ref = self.concScalings['internalRef']
+        if internal_ref in self.fitResults.columns:
+            return [internal_ref]
+
+        return ref_metabs
+
+    def _get_internal_reference_sd(self) -> float:
+        ref_metabs = self._get_internal_reference_metabs()
+        internal_ref = self.concScalings['internalRef']
+
+        if self.method == 'Newton':
+            if all(metab in self.params_names for metab in ref_metabs):
+                jac = np.zeros(self.cov.shape[0])
+                for metab in ref_metabs:
+                    jac[self.params_names.index(metab)] = 1.0
+                return np.sqrt(jac @ self.cov @ jac)
+            elif internal_ref in self.params_names_inc_comb:
+                internalRefIndex = self.params_names_inc_comb.index(internal_ref)
+                return np.sqrt(self.crlb[internalRefIndex])
+        elif self.method == 'MH':
+            if all(metab in self.fitResults.columns for metab in ref_metabs):
+                return self.fitResults[ref_metabs].sum(axis=1).std()
+            elif internal_ref in self.fitResults.columns:
+                return self.fitResults[internal_ref].std()
+
+        raise ValueError(f'Internal reference {internal_ref} is not available for uncertainty calculation.')
+
     # Functions to return physically meaningful units from the fitting results
-    def getConc(self, scaling='raw', metab=None, function='mean'):
+    def getConc(
+            self,
+            scaling: str = 'raw',
+            metab: str | list[str] | None = None,
+            function: str | None = 'mean') -> Any:
+        scaling = scaling.lower()
         if function is None:
             def dfFunc(m):
                 return self.fitResults[m]
@@ -636,19 +719,13 @@ class FitRes():
         if scaling == 'raw':
             return rawConc
         elif scaling == 'internal':
-            if self.concScalings['internal'] is None:
-                raise ValueError('Internal concentration scaling not calculated, run calculateConcScaling method.')
-            return rawConc * self.concScalings['internal']
+            return rawConc * self._get_conc_scaling('internal')
 
         elif scaling == 'molality':
-            if self.concScalings['molality'] is None:
-                raise ValueError('Molality concentration scaling not calculated, run calculateConcScaling method.')
-            return rawConc * self.concScalings['molality']
+            return rawConc * self._get_conc_scaling('molality')
 
         elif scaling == 'molarity':
-            if self.concScalings['molarity'] is None:
-                raise ValueError('Molarity concentration scaling not calculated, run calculateConcScaling method.')
-            return rawConc * self.concScalings['molarity']
+            return rawConc * self._get_conc_scaling('molarity')
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 
@@ -811,7 +888,10 @@ class FitRes():
         else:
             return self.SNR.peaks['SNR_' + metab].mean(), self.FWHM['fwhm_' + metab].mean()
 
-    def getUncertainties(self, type='percentage', metab=None):
+    def getUncertainties(
+            self,
+            type: str = 'percentage',
+            metab: str | list[str] | None = None) -> np.ndarray:
         """ Return the uncertainties (SD) on concentrations.
         Can either be in raw, molarity or molality or percentage uncertainties.
 
@@ -831,18 +911,14 @@ class FitRes():
         if type.lower() == 'raw':
             return abs_std
         elif type.lower() == 'molarity':
-            return abs_std * self.concScalings['molarity']
+            return abs_std * self._get_conc_scaling('molarity')
         elif type.lower() == 'molality':
-            return abs_std * self.concScalings['molality']
+            return abs_std * self._get_conc_scaling('molality')
         elif type.lower() == 'internal':
-            internal_ref = self.concScalings['internalRef']
-            if self.method == 'Newton':
-                internalRefIndex = self.params_names_inc_comb.index(internal_ref)
-                internalRefSD = np.sqrt(self.crlb[internalRefIndex])
-            elif self.method == 'MH':
-                internalRefSD = self.fitResults[internal_ref].std()
+            internal_scaling = self._get_conc_scaling('internal')
+            internalRefSD = self._get_internal_reference_sd()
             abs_std = np.sqrt(abs_std**2 + internalRefSD**2)
-            return abs_std * self.concScalings['internal']
+            return abs_std * internal_scaling
         elif type.lower() == 'percentage':
             vals = self.fitResults[metab].mean().to_numpy()
             with np.errstate(divide='ignore', invalid='ignore'):
