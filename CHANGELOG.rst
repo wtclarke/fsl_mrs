@@ -24,6 +24,11 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrs_proc align` now has a new default option for the `--dim` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
 - Partial fitting report will be generated even when reference metabolites aren't fit (or have conc = 0).
 
+2.4.15 (Wednesday 10th June 2026)
+-----------------------------------
+- Simulator now calls updated `fsl-denmatsim` package.
+- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`
+
 2.4.14 (Wednesday 27th May 2026)
 -----------------------------------
 - Updated requirements list

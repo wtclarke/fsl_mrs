@@ -1,4 +1,4 @@
-# dyn_results.py - Class for collating dynMRS results
+# dyn_results_changed.py - Class for collating dynMRS results
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
 #         William Clarke <william.clarke@ndcn.ox.ac.uk>

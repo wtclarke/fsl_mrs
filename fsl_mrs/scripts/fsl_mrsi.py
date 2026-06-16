@@ -367,6 +367,10 @@ def main():
         result_futures = client.map(func, mrsi)
         progress(result_futures, notebook=False)
         results = client.gather(result_futures)
+        # close dask workers
+        client.close()
+        if args.parallel == "cluster":
+            cluster.close()
     else:
         raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
