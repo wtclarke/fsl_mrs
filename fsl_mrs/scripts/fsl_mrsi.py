@@ -177,6 +177,7 @@ def main():
     import datetime
     import nibabel as nib
     from functools import partial
+    from itertools import islice
     from dask.distributed import Client, progress
     from fsl_mrs.utils import misc, mrs_io
     # ######################################################
@@ -335,6 +336,23 @@ def main():
     warnings.filterwarnings("ignore")
     func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
 
+    def _batched(iterable, batch_size):
+        iterator = iter(iterable)
+        while True:
+            batch = list(islice(iterator, batch_size))
+            if not batch:
+                break
+            yield batch
+
+    def _get_worker_thread_count(client, fallback):
+        try:
+            worker_threads = sum(client.nthreads().values())
+        except Exception:
+            worker_threads = 0
+        if worker_threads <= 0:
+            worker_threads = fallback
+        return max(1, worker_threads)
+
     if args.parallel == "off" or args.single_proc:
         # client = Client(n_workers=1, threads_per_worker=1)
         from tqdm import tqdm
@@ -364,9 +382,14 @@ def main():
 
             client = Client(cluster)
 
-        result_futures = client.map(func, mrsi)
-        progress(result_futures, notebook=False)
-        results = client.gather(result_futures)
+        worker_threads = _get_worker_thread_count(client, n_workers)
+        batch_size = max(1, 4 * worker_threads)
+        verboseprint(f'    Fitting in batches of {batch_size} voxels ')
+        results = []
+        for batch in _batched(mrsi, batch_size):
+            result_futures = client.map(func, batch)
+            progress(result_futures, notebook=False)
+            results.extend(client.gather(result_futures))
     else:
         raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 

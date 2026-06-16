@@ -49,6 +49,7 @@ def test_fsl_mrsi(tmp_path):
                            '--TE', '30',
                            '--TR', '2.0',
                            '--mask', data['mask'],
+                           '--parallel-workers', '1',
                            '--tissue_frac',
                            data['seg_wm'],
                            data['seg_gm'],
