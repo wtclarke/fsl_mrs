@@ -98,6 +98,7 @@ class MRSI():
         self.ind_scaling    = None
 
         self._store_scalings = None
+        self._cached_mrs_basis = None
 
     @property
     def axes(self):
@@ -173,13 +174,15 @@ class MRSI():
     def __iter__(self):
         shape = self.data.shape
         self._store_scalings = []
+        basis, copy_basis = self._basis_for_generated_mrs()
         for idx in np.ndindex(shape[:3]):
             if self.mask[idx]:
                 mrs_out = MRS(FID=self.data[idx],
                               header=self.header,
-                              basis=self._basis,
+                              basis=basis,
                               H2O=self.H2O[idx],
-                              axes=self.axes)
+                              axes=self.axes,
+                              copy_basis=copy_basis)
 
                 self._process_mrs(mrs_out)
                 self._store_scalings.append(mrs_out.scaling)
@@ -221,11 +224,13 @@ class MRSI():
             H2O = self.H2O[index[0], index[1], index[2], :]
         else:
             H2O = None
+        basis, copy_basis = self._basis_for_generated_mrs()
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
-                      basis=self._basis,
+                      basis=basis,
                       H2O=H2O,
-                      axes=self.axes)
+                      axes=self.axes,
+                      copy_basis=copy_basis)
         self._process_mrs(mrs_out)
         return mrs_out
 
@@ -242,12 +247,18 @@ class MRSI():
         else:
             H2O = None
 
+        basis, copy_basis = self._basis_for_generated_mrs()
         mrs_out = MRS(FID=FID,
                       header=self.header,
-                      basis=self._basis,
+                      basis=basis,
                       H2O=H2O,
-                      axes=self.axes)
+                      axes=self.axes,
+                      copy_basis=copy_basis)
         self._process_mrs(mrs_out)
+        if mrs_out._basis is not None:
+            self._basis = mrs_out._basis
+            self._cached_mrs_basis = mrs_out._basis
+            self.conj_basis = mrs_out.conj_Basis
         return mrs_out
 
     def seg_by_index(self, index):
@@ -284,6 +295,12 @@ class MRSI():
 
         if self.rescale:
             mrs.rescaleForFitting(ind_scaling=self.ind_scaling)
+
+    def _basis_for_generated_mrs(self):
+        """Return the Basis object and copy policy for generated MRS objects."""
+        if self._cached_mrs_basis is not None:
+            return self._cached_mrs_basis, False
+        return self._basis, True
 
     def plot(self, mask=True, ppmlim=None):
         '''Plot (masked) grid of spectra.'''

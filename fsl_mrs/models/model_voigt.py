@@ -377,7 +377,7 @@ def jac(x, nu, t, m, B, G, g, indices: slice):
 
 
 def modify_basis(mrs, gamma, sigma, eps, indices: slice):
-    bs = mrs.basis * np.exp(-(gamma + (sigma**2 * mrs.timeAxis) + 1j * eps) * mrs.timeAxis)
+    bs = mrs.get_basis(copy=False) * np.exp(-(gamma + (sigma**2 * mrs.timeAxis) + 1j * eps) * mrs.timeAxis)
     bs = FIDToSpec(bs, axis=0)
     bs = bs[indices, :]
     return np.concatenate((np.real(bs), np.imag(bs)), axis=0)

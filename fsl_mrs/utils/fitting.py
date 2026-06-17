@@ -96,7 +96,7 @@ def fit_FSLModel(mrs: "MRS",
         metab_groups = [0] * len(mrs.names)
 
     # shorter names for some of the useful stuff
-    freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
+    freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.get_basis(copy=False)
 
     # Prepare baseline
     if baseline_obj is None:

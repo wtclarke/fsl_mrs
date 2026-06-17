@@ -384,7 +384,7 @@ def _init_params(mrs, baseline, ppmlim):
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
     def modify_basis(mrs, gamma, eps):
-        bs = mrs.basis * np.exp(-(gamma + 1j * eps) * mrs.timeAxis)
+        bs = mrs.get_basis(copy=False) * np.exp(-(gamma + 1j * eps) * mrs.timeAxis)
         bs = FIDToSpec(bs, axis=0)
         bs = bs[indices, :]
         return np.concatenate((np.real(bs), np.imag(bs)), axis=0)
