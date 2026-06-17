@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def fit_FSLModel(mrs: "MRS",
                  method: str = 'Newton',
                  ppmlim: tuple[float, float] | None = None,
-                 baseline: str = 'polynomial, 2',
+                 baseline: str | bline.Baseline = 'polynomial, 2',
                  baseline_order: int | None = None,
                  metab_groups: list[int] = None,
                  model: models.model_strings = 'voigt',
@@ -42,6 +42,8 @@ def fit_FSLModel(mrs: "MRS",
     :type method: str, optional
     :param ppmlim: ppm range over which to fit, defaults to nucleus standard (via None) e.g. (.2, 4.2) for 1H.
     :type ppmlim: tuple, optional
+    :param baseline: Baseline specification string or reusable Baseline object, defaults to 'polynomial, 2'
+    :type baseline: str or fsl_mrs.utils.baseline.Baseline, optional
     :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
     :type baseline_order: int, optional
     :param metab_groups: List of metabolite groupings, defaults to None
@@ -67,10 +69,23 @@ def fit_FSLModel(mrs: "MRS",
 
     data = mrs.get_spec().copy()              # data copied to keep it safe
 
+    # A supplied Baseline object defines both the baseline basis and, if
+    # ppmlim is omitted, the fit range it was constructed for.
+    if isinstance(baseline, bline.Baseline):
+        if baseline_order is not None:
+            raise ValueError('baseline_order cannot be used when baseline is a Baseline object.')
+        baseline_obj = baseline
+        if ppmlim is None:
+            ppmlim = baseline_obj.ppmlim
+    elif isinstance(baseline, str):
+        baseline_obj = None
+    else:
+        raise TypeError('baseline must be a string or fsl_mrs.utils.baseline.Baseline object.')
+
     # Find appropriate ppm limit for nucleus
-    if ppmlim is None:
+    if ppmlim is None and baseline_obj is None:
         ppmlim = nucleus_constants(mrs.nucleus).ppm_range
-    if ppmlim is None:
+    if ppmlim is None and baseline_obj is None:
         raise ValueError(
             'Please specify a fitting range (ppmlim): '
             f'No ppmlim specified and no default found for nucleus {mrs.nucleus}.')
@@ -84,11 +99,14 @@ def fit_FSLModel(mrs: "MRS",
     freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
 
     # Prepare baseline
-    baseline_obj = bline.Baseline(
-        mrs,
-        ppmlim,
-        baseline,
-        baseline_order)
+    if baseline_obj is None:
+        baseline_obj = bline.Baseline(
+            mrs,
+            ppmlim,
+            baseline,
+            baseline_order)
+    else:
+        baseline_obj.validate_mrs(mrs, ppmlim)
 
     # Constants
     if metab_groups is None:

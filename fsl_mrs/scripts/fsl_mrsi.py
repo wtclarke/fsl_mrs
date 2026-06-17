@@ -185,6 +185,7 @@ def main():
     from functools import partial
     from dask.distributed import Client, as_completed
     from fsl_mrs.utils import misc, mrs_io
+    from fsl_mrs.utils.baseline import Baseline
     # ######################################################
 
     # Check if output folder exists
@@ -277,10 +278,6 @@ def main():
     Fitargs = {'ppmlim': args.ppmlim,
                'method': args.algo,
                'metab_groups': metab_groups}
-    if args.baseline_order:
-        Fitargs['baseline_order'] = args.baseline_order
-    else:
-        Fitargs['baseline'] = args.baseline
 
     if args.lorentzian and args.free_shift:
         Fitargs['model'] = 'free_shift_lorentzian'
@@ -316,6 +313,23 @@ def main():
     # Initialise by fitting the average FID across all voxels
     verboseprint("    Initialise with average fit")
     mrs = mrsi.mrs_from_average()
+    fit_ppmlim = Fitargs['ppmlim']
+    if fit_ppmlim is None:
+        fit_ppmlim = mrs.default_ppm_range
+    if fit_ppmlim is not None:
+        Fitargs['ppmlim'] = fit_ppmlim
+        Fitargs['baseline'] = Baseline(
+            mrs,
+            fit_ppmlim,
+            args.baseline,
+            args.baseline_order)
+        # Populate cache before sending the object to any Dask workers.
+        _ = Fitargs['baseline'].regressor
+    elif args.baseline_order is not None:
+        Fitargs['baseline_order'] = args.baseline_order
+    else:
+        Fitargs['baseline'] = args.baseline
+
     Fitargs_init = Fitargs.copy()
     Fitargs_init['method'] = 'Newton'
     res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
