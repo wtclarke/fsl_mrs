@@ -290,9 +290,21 @@ def grad(x, nu, t, m, B, G, g, data, indices: slice):
     dSdphi1 = dSdphi1[indices]
     dSdb = dSdb[indices]
 
-    dS = np.concatenate((dSdc, dSdgamma, dSdeps, dSdphi0, dSdphi1, dSdb), axis=1)
+    resid = S - Spec
+    grad = np.empty(2 * n + g + 2 + dSdb.shape[1], dtype=float)
 
-    grad = np.real(np.sum(S * np.conj(dS) + np.conj(S) * dS - np.conj(Spec) * dS - Spec * np.conj(dS), axis=0))
+    offset = 0
+    grad[offset:offset + n] = 2 * np.real(np.sum(resid * np.conj(dSdc), axis=0))
+    offset += n
+    grad[offset:offset + g] = 2 * np.real(np.sum(resid * np.conj(dSdgamma), axis=0))
+    offset += g
+    grad[offset:offset + n] = 2 * np.real(np.sum(resid * np.conj(dSdeps), axis=0))
+    offset += n
+    grad[offset] = 2 * np.real(np.sum(resid * np.conj(dSdphi0)))
+    offset += 1
+    grad[offset] = 2 * np.real(np.sum(resid * np.conj(dSdphi1)))
+    offset += 1
+    grad[offset:] = 2 * np.real(np.sum(resid * np.conj(dSdb), axis=0))
 
     return grad
 
