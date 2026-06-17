@@ -265,7 +265,7 @@ def main():
 
         if args.parallel == "off":
             from tqdm import tqdm
-            _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
+            _ = list(map(func, tqdm(tmp_mrsi.get_indices_in_order())))
         elif args.parallel in ("local", "cluster"):
             if args.parallel == "local":
                 if args.parallel_workers:
@@ -290,7 +290,7 @@ def main():
 
                 client = Client(cluster)
 
-            result_futures = client.map(func, tmp_mrsi.get_indicies_in_order())
+            result_futures = client.map(func, tmp_mrsi.get_indices_in_order())
             progress(result_futures, notebook=False)
             _ = client.gather(result_futures)
             # close dask workers

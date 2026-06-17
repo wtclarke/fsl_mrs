@@ -91,7 +91,7 @@ Subsequently navigate to the :code:`Tools` menu and select the :code:`Load FSL-M
  .. image:: data/mrsi_fit.png
   :width: 700
 
-1. SVS results dashboard
+5. SVS results dashboard
 ------------------------
 
 **Warning: experimental / new feature**

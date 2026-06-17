@@ -73,8 +73,9 @@ Results from :code:`fsl_mrsi` are stored in a single folder containing the follo
 - Model prediction in the time domain (NIfTI)
 - Residuals (NIfTI)
 - Fitted Baseline (NIfTI)
+- A file-tree file (mrsi.tree) that contains the folder and file structure information.
 
-The above NIfTI output can all be visualised in FSLeyes alongside the original data.
+The above outputs can be visualised in FSLeyes alongside the original data. See `instructions <https://open.oxcin.ox.ac.uk/pages/wclarke/fsleyes-plugin-mrs/mrsi_results.html>`_ on how to best load MRSI results.
 
 Python & Interactive Interface
 ------------------------------
@@ -85,7 +86,7 @@ In an IPython or Jupyter Notebook environment, run the following (the example da
 
 Loading and preparing the data:
 
-::
+.. code-block:: python
 
     from fsl_mrs.utils import mrs_io
 
@@ -98,18 +99,54 @@ Loading and preparing the data:
 
 Fitting the model to the data:
 
-::
+.. code-block:: python
 
     from fsl_mrs.utils import fitting
     results = fitting.fit_FSLModel(mrs)
 
 Visualising the fit:
 
-::
+.. code-block:: python
 
     from fsl_mrs.utils import plotting
     plotting.plotly_fit(mrs,results)
 
+Using *fslpy*
+~~~~~~~~~~~~~
+`fsl_mrs` and `fsl_mrsi` can also be run via `fslpy` wrappers as shown below:
+
+
+.. code-block:: python
+
+    from fsl.wrappers import fsl_mrs, fsl_mrsi
+
+    fsl_mrs(
+        data='metab.nii.gz',
+        h2o='wref.nii.gz',
+        output='fit',
+        tissue_frac='segmentation.json',
+        overwrite=True,
+        TE='11',
+        metab_groups='Mac',
+        basis='steam_basis',
+    )
+
+    fsl_mrsi(
+        data='metab.nii.gz',
+        basis='3T_slaser_32vespa_1250_wmm',
+        output='fit',
+        metab_groups=['MM09', 'MM12', 'MM14', 'MM17', 'MM21'],
+        h2o='wref.nii.gz',
+        TE='30',
+        TR='2.0',
+        mask='mask.nii.gz',
+        tissue_frac=['mrsi_seg_wm.nii.gz',
+                     'mrsi_seg_gm.nii.gz',
+                     'mrsi_seg_csf.nii.gz'],
+        output_correlations=True,
+        overwrite=True,
+        combine=['Cr', 'PCr'],
+    )
 
 .. _details:
 
@@ -225,4 +262,4 @@ The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
 References
 ----------
 
-.. [CLAR21] Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950–2964 doi: 10.1002/mrm.28630.
+.. [CLAR21] `Clarke WT, Stagg CJ, Jbabdi S. FSL-MRS: An end-to-end spectroscopy analysis package. Magnetic Resonance in Medicine 2021;85:2950-2964 <https://doi.org/10.1002/mrm.28630>`_
