@@ -439,13 +439,13 @@ class MRSI():
         return data
 
     def check_basis(self, ppmlim=None):
-        """Check orientation of basis using a single generated mrs object.
+        """Check orientation of basis using the average masked MRS object.
 
         :param ppmlim: Region of expected signal, defaults to nucleus standard
         :type ppmlim: tuple, optional
         """
         if self._basis is not None:
-            mrs = self.mrs_by_index((0, 0, 0))
+            mrs = self.mrs_from_average()
             mrs.check_Basis(ppmlim=ppmlim, repair=True)
             self.conj_basis = mrs.conj_Basis
         else:
