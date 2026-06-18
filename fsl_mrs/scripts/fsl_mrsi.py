@@ -12,11 +12,15 @@ import logging
 import os
 import time
 import warnings
+from typing import Any
 
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
+
+VoxelIndex = tuple[int, int, int] | int
+VoxelFitInput = tuple[Any, VoxelIndex, dict[str, Any] | None] | list[Any]
 
 
 def main():
@@ -156,6 +160,8 @@ def main():
                           type=int,
                           default=5E3,
                           help=configargparse.SUPPRESS)
+    # Hidden diagnostics for spotting slow or failed voxel fits without adding
+    # more public CLI surface.
     optional.add_argument('--slow-fit-log-threshold',
                           type=float,
                           default=5.0,
@@ -355,6 +361,8 @@ def main():
     res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
     Fitargs['x0'] = res_init.params
     slow_fit_enabled = args.slow_fit_log_threshold > 0
+    # Capture scipy status on every voxel; runvoxel removes the raw object
+    # before returning results from workers.
     Fitargs['capture_minimize_output'] = True
 
     # quick summary figure
@@ -379,6 +387,7 @@ def main():
     dask_worker_logs = None
 
     def _get_worker_thread_count(client, fallback):
+        """Return live Dask thread count, falling back before workers report in."""
         try:
             worker_threads = sum(client.nthreads().values())
         except Exception:
@@ -388,6 +397,7 @@ def main():
         return max(1, worker_threads)
 
     def _submit_next_fit(client, func, mrsi_iter, future_order, submit_count):
+        """Submit one voxel fit and remember its output order."""
         try:
             mrs_in = next(mrsi_iter)
         except StopIteration:
@@ -426,17 +436,28 @@ def main():
 
             client = Client(cluster)
 
-        if slow_fit_enabled:
+        if slow_fit_enabled and args.verbose:
+            # Live forwarding is intentionally verbose-only; slow-fit JSONL is
+            # still collected from returned results for quiet runs.
             client.forward_logging('fsl_mrs.slow_fit', level=logging.WARNING)
 
         worker_threads = _get_worker_thread_count(client, n_workers)
         window_size = max(1, args.parallel_batch_size_multiple * worker_threads)
         verboseprint(f'    Fitting with a rolling window of {window_size} voxels ')
         from tqdm import tqdm
+
+        # Keep only a bounded rolling set of futures in Dask while preserving
+        # result order for downstream image creation. This avoids the very
+        # large task graphs produced by mapping every voxel at once, while
+        # still keeping workers busy when occasional fits run much longer.
         results = [None] * len(mrsi)
         mrsi_iter = iter(mrsi)
         future_order = {}
         submit_count = 0
+
+        # Prime the window by consuming the MRSI iterator once. The iterator
+        # stores per-voxel scaling values as a side effect, so all later
+        # submissions must continue from this same iterator.
         initial_futures = []
         for _ in range(min(window_size, len(mrsi))):
             submit_count, future = _submit_next_fit(
@@ -450,11 +471,15 @@ def main():
             initial_futures.append(future)
 
         fit_futures = as_completed(initial_futures, with_results=True)
+
         with tqdm(total=len(mrsi), unit='fit') as fit_progress:
             for future, result in fit_futures:
                 results[future_order.pop(future)] = result
                 fit_progress.update()
 
+                # Each completed future opens one slot in the rolling window.
+                # Adding the next voxel here limits graph size and reduces idle
+                # time caused by rare long-running fits.
                 submit_count, new_future = _submit_next_fit(
                     client,
                     func,
@@ -471,8 +496,9 @@ def main():
         try:
             dask_worker_logs = client.get_worker_logs(n=args.slow_fit_worker_log_lines)
         except Exception as exc:
-            logging.getLogger('fsl_mrs.slow_fit').warning(
-                'Unable to retrieve Dask worker logs: %s', exc)
+            if args.verbose:
+                logging.getLogger('fsl_mrs.slow_fit').warning(
+                    'Unable to retrieve Dask worker logs: %s', exc)
 
     # Save output files
     verboseprint(f'--->> Saving output files to {args.output}\n')
@@ -505,6 +531,8 @@ def main():
         slow_fit_log_path = args.slow_fit_log
         if slow_fit_log_path is None:
             slow_fit_log_path = os.path.join(misc_folder, 'slow_fits.jsonl')
+        # JSONL is the durable slow-fit record; worker logs are a best-effort
+        # supplement for interactive debugging.
         _write_slow_fit_jsonl(slow_fit_logs, slow_fit_log_path)
         if dask_worker_logs is not None:
             _write_dask_worker_logs(
@@ -514,6 +542,8 @@ def main():
     # Extract concentrations
     indices = [res[1] for res in results]
     scalings = ['raw']
+    # Include scaled outputs if any voxel has the scaling. Voxels where scaling
+    # failed are written as zero through the existing image cleanup path.
     if any(res[0].concScalings['internal'] is not None for res in results):
         scalings.append('internal')
     if any(res[0].concScalings['molarity'] is not None for res in results):
@@ -528,6 +558,8 @@ def main():
             img = nib.Nifti1Image(data, mrsi_data.voxToWorldMat)
             nib.save(img, fname)
 
+    # Optimiser diagnostics are saved as images so failures and outliers can be
+    # inspected alongside other MRSI maps.
     fit_failed_list = [int(getattr(res[0], 'fit_failed', False))
                        for res in results]
     save_img_output(
@@ -749,6 +781,7 @@ misc
 
 
 def _json_default(value):
+    """Convert numpy/scalar values into JSON-serialisable objects."""
     if hasattr(value, 'tolist'):
         return value.tolist()
     if hasattr(value, 'item'):
@@ -759,16 +792,19 @@ def _json_default(value):
 
 
 def _json_dumps(value):
+    """Dump diagnostic records with stable key order."""
     return json.dumps(value, default=_json_default, sort_keys=True)
 
 
 def _index_for_log(index):
+    """Normalise voxel indices for JSON log output."""
     if isinstance(index, (tuple, list)):
         return [_json_default(item) for item in index]
     return _json_default(index)
 
 
 def _minimize_result_summary(result):
+    """Extract the small scipy minimise fields needed for diagnostics."""
     if result is None:
         return None
 
@@ -780,12 +816,14 @@ def _minimize_result_summary(result):
 
 
 def _minimize_result_success(result):
+    """Return scipy minimise success when present."""
     if result is None or not hasattr(result, 'success'):
         return None
     return bool(result.success)
 
 
 def _dask_worker_context():
+    """Return the current Dask worker and minimal identifying metadata."""
     try:
         from dask.distributed import get_worker
         worker = get_worker()
@@ -799,6 +837,7 @@ def _dask_worker_context():
 
 
 def _make_slow_fit_log(index, elapsed, fitargs, minimize_result, worker_info):
+    """Build a JSON-friendly record for a slow voxel fit."""
     record = {
         'timestamp_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'voxel_index': _index_for_log(index),
@@ -813,6 +852,7 @@ def _make_slow_fit_log(index, elapsed, fitargs, minimize_result, worker_info):
 
 
 def _slow_fit_logs_from_results(results):
+    """Collect slow-fit records attached to voxel results."""
     slow_fit_logs = []
     for res, _ in results:
         slow_fit_log = getattr(res, 'slow_fit_log', None)
@@ -822,6 +862,7 @@ def _slow_fit_logs_from_results(results):
 
 
 def _write_slow_fit_jsonl(slow_fit_logs, log_path):
+    """Write one slow-fit diagnostic record per line."""
     log_dir = os.path.dirname(log_path)
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
@@ -832,6 +873,7 @@ def _write_slow_fit_jsonl(slow_fit_logs, log_path):
 
 
 def _write_dask_worker_logs(worker_logs, log_path):
+    """Persist best-effort raw Dask worker logs for slow-fit debugging."""
     with open(log_path, 'w') as log_file:
         for worker, entries in sorted(worker_logs.items()):
             log_file.write(f'===== {worker} =====\n')
@@ -843,7 +885,8 @@ def _write_dask_worker_logs(worker_logs, log_path):
             log_file.write('\n')
 
 
-def _get_concentration_or_nan(result, scaling, metab):
+def _get_concentration_or_nan(result: Any, scaling: str, metab: str) -> Any:
+    """Return NaN for voxels where a requested non-raw scaling failed."""
     try:
         return result.getConc(scaling=scaling, metab=metab)
     except ValueError as exc:
@@ -852,7 +895,13 @@ def _get_concentration_or_nan(result, scaling, metab):
         raise
 
 
-def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
+def runvoxel(
+        mrs_in: VoxelFitInput,
+        args: Any,
+        Fitargs: dict[str, Any],
+        echotime: float | None,
+        repetition_time: float | None) -> tuple[Any, VoxelIndex]:
+    """Fit one MRSI voxel and attach lightweight diagnostics to the result."""
     from fsl_mrs.utils import fitting, quantify
 
     # Dask workers are separate processes, so they do not inherit the warning
@@ -881,9 +930,10 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
                 Fitargs,
                 minimize_result,
                 worker_info)
-            logging.getLogger('fsl_mrs.slow_fit').warning(
-                'SLOW_FIT_JSON %s',
-                _json_dumps(slow_fit_log))
+            if args.verbose:
+                logging.getLogger('fsl_mrs.slow_fit').warning(
+                    'SLOW_FIT_JSON %s',
+                    _json_dumps(slow_fit_log))
             if worker is not None:
                 try:
                     worker.log_event('fsl_mrs.slow_fit', slow_fit_log)
