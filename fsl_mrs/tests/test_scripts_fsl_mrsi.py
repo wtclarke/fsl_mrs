@@ -118,6 +118,38 @@ def test_fsl_mrsi(tmp_path):
     assert np.all(fit_times[~mask] == 0)
 
 
+def test_fsl_mrsi_partial_internal_reference_failure(tmp_path):
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_ref_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                           '--mask', data['mask'],
+                           '--parallel-workers', '1',
+                           '--parallel-batch-size-multiple', '2',
+                           '--internal_ref', 'Tau',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr'])
+
+    assert (tmp_path / 'fit_ref_out/concs/raw/Tau.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/concs/internal/Tau.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/qc/fit_failed.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/misc/fit_times.nii.gz').exists()
+
+    mask = np.asanyarray(nib.load(data['mask']).dataobj)
+    if mask.ndim == 2:
+        mask = np.expand_dims(mask, 2)
+    mask = mask != 0
+    indices = [tuple(ind) for ind in np.argwhere(mask)]
+    failed_internal_ref_index = indices[2]
+
+    tau_internal = np.asanyarray(
+        nib.load(tmp_path / 'fit_ref_out/concs/internal/Tau.nii.gz').dataobj)
+    assert tau_internal[failed_internal_ref_index] == 0
+    assert np.count_nonzero(tau_internal[mask]) == len(indices) - 1
+
+
 def test_fsl_mrsi_models(tmp_path):
 
     def gen_cmd(out_path):

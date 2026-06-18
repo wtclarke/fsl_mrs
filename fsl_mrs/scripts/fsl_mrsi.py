@@ -514,11 +514,11 @@ def main():
     # Extract concentrations
     indices = [res[1] for res in results]
     scalings = ['raw']
-    if results[0][0].concScalings['internal'] is not None:
+    if any(res[0].concScalings['internal'] is not None for res in results):
         scalings.append('internal')
-    if results[0][0].concScalings['molarity'] is not None:
+    if any(res[0].concScalings['molarity'] is not None for res in results):
         scalings.append('molarity')
-    if results[0][0].concScalings['molality'] is not None:
+    if any(res[0].concScalings['molality'] is not None for res in results):
         scalings.append('molality')
 
     def save_img_output(fname, data):
@@ -553,7 +553,7 @@ def main():
         cur_fldr = os.path.join(concs_folder, scale)
         os.mkdir(cur_fldr)
         for metab in metabs:
-            metab_conc_list = [res[0].getConc(scaling=scale, metab=metab)
+            metab_conc_list = [_get_concentration_or_nan(res[0], scale, metab)
                                for res in results]
 
             file_nm = os.path.join(cur_fldr, metab + '.nii.gz')
@@ -841,6 +841,15 @@ def _write_dask_worker_logs(worker_logs, log_path):
                 else:
                     log_file.write(f'{entry}\n')
             log_file.write('\n')
+
+
+def _get_concentration_or_nan(result, scaling, metab):
+    try:
+        return result.getConc(scaling=scaling, metab=metab)
+    except ValueError as exc:
+        if scaling != 'raw' and 'scaling not calculated' in str(exc):
+            return float('nan')
+        raise
 
 
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
