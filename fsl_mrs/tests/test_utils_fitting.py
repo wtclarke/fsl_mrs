@@ -97,6 +97,24 @@ def test_fit_FSLModel_lorentzian_Newton(data):
     assert np.allclose(fittedRelconcs, amplitudes / (amplitudes[0] + amplitudes[1]), atol=1E-1)
 
 
+def test_fit_FSLModel_capture_minimize_output(data):
+
+    mrs = data[0]
+
+    metab_groups = [0] * mrs.numBasis
+    Fitargs = {'ppmlim': [0.2, 4.2],
+               'method': 'Newton',
+               'baseline_order': -1,
+               'metab_groups': metab_groups,
+               'capture_minimize_output': True}
+
+    res = fit_FSLModel(mrs, **Fitargs)
+
+    assert hasattr(res, 'scipy_minimize_result')
+    assert isinstance(str(res.scipy_minimize_result), str)
+    assert hasattr(res.scipy_minimize_result, 'message')
+
+
 def test_fit_FSLModel_reusable_baseline(data):
 
     mrs = data[0]

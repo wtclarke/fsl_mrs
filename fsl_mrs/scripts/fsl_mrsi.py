@@ -7,6 +7,10 @@
 #
 # Copyright (C) 2019 University of Oxford
 
+import json
+import logging
+import os
+import time
 import warnings
 
 from fsl_mrs.auxiliary import configargparse
@@ -148,6 +152,22 @@ def main():
                           metavar='N',
                           help="Multiple of Dask worker threads to keep in the rolling "
                                "window of submitted fits. Default is 4.")
+    optional.add_argument('--minimize-maxfun',
+                          type=int,
+                          default=5E3,
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--slow-fit-log-threshold',
+                          type=float,
+                          default=5.0,
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--slow-fit-log',
+                          type=str,
+                          default=None,
+                          help=configargparse.SUPPRESS)
+    optional.add_argument('--slow-fit-worker-log-lines',
+                          type=positive_int_arg,
+                          default=10000,
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--conj_fid', action="store_true",
                           help='Force conjugation of FID')
     optional.add_argument('--no_conj_fid', action="store_true",
@@ -174,7 +194,6 @@ def main():
 
     # ######################################################
     # DO THE IMPORTS AFTER PARSING TO SPEED UP HELP DISPLAY
-    import os
     import shutil
     import re
     import numpy as np
@@ -329,11 +348,15 @@ def main():
         Fitargs['baseline_order'] = args.baseline_order
     else:
         Fitargs['baseline'] = args.baseline
+    Fitargs['scipy_min_options_dict'] = dict(maxfun=args.minimize_maxfun)
 
     Fitargs_init = Fitargs.copy()
     Fitargs_init['method'] = 'Newton'
     res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
     Fitargs['x0'] = res_init.params
+    slow_fit_enabled = args.slow_fit_log_threshold > 0
+    if slow_fit_enabled:
+        Fitargs['capture_minimize_output'] = True
 
     # quick summary figure
     report.fitting_summary_fig(
@@ -354,6 +377,8 @@ def main():
 
     warnings.filterwarnings("ignore")
     func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
+    client = None
+    dask_worker_logs = None
 
     def _get_worker_thread_count(client, fallback):
         try:
@@ -403,6 +428,9 @@ def main():
 
             client = Client(cluster)
 
+        if slow_fit_enabled:
+            client.forward_logging('fsl_mrs.slow_fit', level=logging.WARNING)
+
         worker_threads = _get_worker_thread_count(client, n_workers)
         window_size = max(1, args.parallel_batch_size_multiple * worker_threads)
         verboseprint(f'    Fitting with a rolling window of {window_size} voxels ')
@@ -440,6 +468,14 @@ def main():
     else:
         raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
+    slow_fit_logs = _slow_fit_logs_from_results(results)
+    if client is not None and slow_fit_enabled and slow_fit_logs:
+        try:
+            dask_worker_logs = client.get_worker_logs(n=args.slow_fit_worker_log_lines)
+        except Exception as exc:
+            logging.getLogger('fsl_mrs.slow_fit').warning(
+                'Unable to retrieve Dask worker logs: %s', exc)
+
     # Save output files
     verboseprint(f'--->> Saving output files to {args.output}\n')
 
@@ -466,6 +502,16 @@ def main():
     os.mkdir(qc_folder)
     os.mkdir(fit_folder)
     os.mkdir(misc_folder)
+
+    if slow_fit_logs:
+        slow_fit_log_path = args.slow_fit_log
+        if slow_fit_log_path is None:
+            slow_fit_log_path = os.path.join(misc_folder, 'slow_fits.jsonl')
+        _write_slow_fit_jsonl(slow_fit_logs, slow_fit_log_path)
+        if dask_worker_logs is not None:
+            _write_dask_worker_logs(
+                dask_worker_logs,
+                os.path.join(misc_folder, 'slow_fit_worker_logs.txt'))
 
     # Extract concentrations
     indices = [res[1] for res in results]
@@ -681,12 +727,129 @@ qc
     verboseprint('\n\n\nDone.')
 
 
+def _json_default(value):
+    if hasattr(value, 'tolist'):
+        return value.tolist()
+    if hasattr(value, 'item'):
+        return value.item()
+    if isinstance(value, tuple):
+        return list(value)
+    return str(value)
+
+
+def _json_dumps(value):
+    return json.dumps(value, default=_json_default, sort_keys=True)
+
+
+def _index_for_log(index):
+    if isinstance(index, (tuple, list)):
+        return [_json_default(item) for item in index]
+    return _json_default(index)
+
+
+def _minimize_result_summary(result):
+    if result is None:
+        return None
+
+    summary = {}
+    for key in ('success', 'status', 'message', 'fun', 'nit', 'nfev', 'njev', 'maxcv'):
+        if hasattr(result, key):
+            summary[key] = _json_default(getattr(result, key))
+    return summary
+
+
+def _dask_worker_context():
+    try:
+        from dask.distributed import get_worker
+        worker = get_worker()
+    except (ImportError, ValueError):
+        return None, None
+
+    worker_info = {
+        'address': getattr(worker, 'address', None),
+        'name': getattr(worker, 'name', None)}
+    return worker, worker_info
+
+
+def _make_slow_fit_log(index, elapsed, fitargs, minimize_result, worker_info):
+    record = {
+        'timestamp_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'voxel_index': _index_for_log(index),
+        'elapsed_seconds': elapsed,
+        'method': fitargs.get('method'),
+        'model': fitargs.get('model', 'voigt'),
+        'scipy_minimize_result': _minimize_result_summary(minimize_result),
+        'scipy_minimize_output': str(minimize_result) if minimize_result is not None else None}
+    if worker_info is not None:
+        record['worker'] = worker_info
+    return record
+
+
+def _slow_fit_logs_from_results(results):
+    slow_fit_logs = []
+    for res, _ in results:
+        slow_fit_log = getattr(res, 'slow_fit_log', None)
+        if slow_fit_log is not None:
+            slow_fit_logs.append(slow_fit_log)
+    return slow_fit_logs
+
+
+def _write_slow_fit_jsonl(slow_fit_logs, log_path):
+    log_dir = os.path.dirname(log_path)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+    with open(log_path, 'w') as log_file:
+        for slow_fit_log in slow_fit_logs:
+            log_file.write(_json_dumps(slow_fit_log))
+            log_file.write('\n')
+
+
+def _write_dask_worker_logs(worker_logs, log_path):
+    with open(log_path, 'w') as log_file:
+        for worker, entries in sorted(worker_logs.items()):
+            log_file.write(f'===== {worker} =====\n')
+            for entry in entries:
+                if isinstance(entry, (tuple, list)) and len(entry) >= 2:
+                    log_file.write(f'{entry[0]}: {entry[1]}\n')
+                else:
+                    log_file.write(f'{entry}\n')
+            log_file.write('\n')
+
+
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
     from fsl_mrs.utils import fitting, quantify
 
     mrs, index, tissue_seg = mrs_in
     try:
+        fit_start = time.perf_counter()
         res = fitting.fit_FSLModel(mrs, **Fitargs)
+        fit_elapsed = time.perf_counter() - fit_start
+        res.slow_fit_log = None
+
+        slow_fit_threshold = getattr(args, 'slow_fit_log_threshold', 0)
+        if slow_fit_threshold > 0 and fit_elapsed > slow_fit_threshold:
+            minimize_result = getattr(res, 'scipy_minimize_result', None)
+            worker, worker_info = _dask_worker_context()
+            slow_fit_log = _make_slow_fit_log(
+                index,
+                fit_elapsed,
+                Fitargs,
+                minimize_result,
+                worker_info)
+            logging.getLogger('fsl_mrs.slow_fit').warning(
+                'SLOW_FIT_JSON %s',
+                _json_dumps(slow_fit_log))
+            if worker is not None:
+                try:
+                    worker.log_event('fsl_mrs.slow_fit', slow_fit_log)
+                except Exception:
+                    logging.getLogger('fsl_mrs.slow_fit').debug(
+                        'Unable to add slow fit record to Dask event log.',
+                        exc_info=True)
+            res.slow_fit_log = slow_fit_log
+
+        if hasattr(res, 'scipy_minimize_result'):
+            delattr(res, 'scipy_minimize_result')
 
         # Internal and Water quantification if requested
         if (mrs.H2O is None) or (echotime is None) or (repetition_time is None):

@@ -26,12 +26,14 @@ def fit_FSLModel(mrs: "MRS",
                  ppmlim: tuple[float, float] | None = None,
                  baseline: str | bline.Baseline = 'polynomial, 2',
                  baseline_order: int | None = None,
-                 metab_groups: list[int] = None,
+                 metab_groups: list[int] | None = None,
                  model: models.model_strings = 'voigt',
-                 x0: list[float] = None,
+                 x0: list[float] | None = None,
                  MHSamples: int = 500,
                  disable_mh_priors: bool = False,
-                 fit_baseline_mh: bool = False):
+                 fit_baseline_mh: bool = False,
+                 scipy_min_options_dict: dict | None = dict(maxfun=1E5),
+                 capture_minimize_output: bool = False):
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
@@ -58,6 +60,11 @@ def fit_FSLModel(mrs: "MRS",
     :type disable_mh_priors: bool, optional
     :param fit_baseline_mh: If true baseline parameters are also fit using MH, defaults to False
     :type fit_baseline_mh: bool, optional
+    :param scipy_min_options_dict: Options dict passed to scipy.minimise TNC function.
+    :type scipy_min_options_dict: dict or None, optional
+    :param capture_minimize_output: Attach the scipy.optimize.minimize result object for diagnostics,
+        defaults to False.
+    :type capture_minimize_output: bool, optional
 
     :return: Fit results object
     :rtype: fsl_mrs.utils.FitRes
@@ -142,9 +149,11 @@ def fit_FSLModel(mrs: "MRS",
             method='TNC',
             jac=grad_func,
             bounds=bounds,
-            options=dict(maxfun=1E5))
+            options=scipy_min_options_dict)
         # Results
         results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim)
+        if capture_minimize_output:
+            results.scipy_minimize_result = res
 
     elif method == 'init':
         results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim)
@@ -228,7 +237,8 @@ def fit_FSLModel(mrs: "MRS",
             metab_groups=metab_groups,
             baseline=baseline,
             baseline_order=baseline_order,
-            model=model)
+            model=model,
+            capture_minimize_output=capture_minimize_output)
         # Create masks and bounds for MH fit
         p0 = res.params
 
@@ -260,6 +270,8 @@ def fit_FSLModel(mrs: "MRS",
 
         # collect results
         results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim)
+        if capture_minimize_output and hasattr(res, 'scipy_minimize_result'):
+            results.scipy_minimize_result = res.scipy_minimize_result
 
     else:
         raise Exception('Unknown optimisation method.')

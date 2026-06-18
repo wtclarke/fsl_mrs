@@ -6,6 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess
+import json
 from pathlib import Path
 import re
 from fsl_mrs.utils.validate_results import compare_folders
@@ -34,6 +35,7 @@ def test_fsl_mrsi(tmp_path):
                     '--mask', str(data['mask']),
                     '--parallel-workers', '1',
                     '--parallel-batch-size-multiple', '2',
+                    '--slow-fit-log-threshold', '0.000001',
                     '--tissue_frac',
                     str(data['seg_wm']),
                     str(data['seg_gm']),
@@ -53,6 +55,7 @@ def test_fsl_mrsi(tmp_path):
                            '--mask', data['mask'],
                            '--parallel-workers', '1',
                            '--parallel-batch-size-multiple', '2',
+                           '--slow-fit-log-threshold', '0.000001',
                            '--tissue_frac',
                            data['seg_wm'],
                            data['seg_gm'],
@@ -84,6 +87,11 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
     assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()
     assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
+    assert (tmp_path / 'fit_out/misc/slow_fits.jsonl').exists()
+    with open(tmp_path / 'fit_out/misc/slow_fits.jsonl') as log_file:
+        slow_fit_logs = [json.loads(line) for line in log_file]
+    assert len(slow_fit_logs) == 6
+    assert {'voxel_index', 'elapsed_seconds', 'scipy_minimize_output'} <= set(slow_fit_logs[0])
 
 
 def test_fsl_mrsi_models(tmp_path):
