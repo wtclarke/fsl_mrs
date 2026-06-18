@@ -12,15 +12,20 @@ import logging
 import os
 import time
 import warnings
-from typing import Any
+from typing import Any, TYPE_CHECKING, cast
 
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
 from fsl_mrs.utils.splash import splash
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
+if TYPE_CHECKING:
+    from fsl_mrs.core.mrs import MRS
+    from fsl_mrs.utils.results import FitRes
+
 VoxelIndex = tuple[int, int, int] | int
-VoxelFitInput = tuple[Any, VoxelIndex, dict[str, Any] | None] | list[Any]
+TissueSegmentation = dict[str, Any] | None
+VoxelFitInput = tuple['MRS', VoxelIndex, TissueSegmentation]
 
 
 def main():
@@ -358,7 +363,7 @@ def main():
 
     Fitargs_init = Fitargs.copy()
     Fitargs_init['method'] = 'Newton'
-    res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
+    res_init, _ = runvoxel((mrs, 0, None), args, Fitargs_init, echotime, repetition_time)
     Fitargs['x0'] = res_init.params
     slow_fit_enabled = args.slow_fit_log_threshold > 0
     # Capture scipy status on every voxel; runvoxel removes the raw object
@@ -815,7 +820,7 @@ def _minimize_result_summary(result):
     return summary
 
 
-def _minimize_result_success(result):
+def _minimize_result_success(result) -> bool | None:
     """Return scipy minimise success when present."""
     if result is None or not hasattr(result, 'success'):
         return None
@@ -900,7 +905,7 @@ def runvoxel(
         args: Any,
         Fitargs: dict[str, Any],
         echotime: float | None,
-        repetition_time: float | None) -> tuple[Any, VoxelIndex]:
+        repetition_time: float | None) -> tuple['FitRes', VoxelIndex]:
     """Fit one MRSI voxel and attach lightweight diagnostics to the result."""
     from fsl_mrs.utils import fitting, quantify
 
@@ -914,10 +919,10 @@ def runvoxel(
         fit_start = time.perf_counter()
         res = fitting.fit_FSLModel(mrs, **Fitargs)
         fit_elapsed = time.perf_counter() - fit_start
+
         minimize_result = getattr(res, 'scipy_minimize_result', None)
         minimize_success = _minimize_result_success(minimize_result)
         res.fit_time = fit_elapsed
-        res.scipy_minimize_success = minimize_success
         res.fit_failed = minimize_success is False
         res.slow_fit_log = None
 

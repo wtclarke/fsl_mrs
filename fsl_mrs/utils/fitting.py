@@ -33,7 +33,7 @@ def fit_FSLModel(mrs: "MRS",
                  disable_mh_priors: bool = False,
                  fit_baseline_mh: bool = False,
                  scipy_min_options_dict: dict | None = dict(maxfun=1E5),
-                 capture_minimize_output: bool = False):
+                 capture_minimize_output: bool = False) -> FitRes:
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
