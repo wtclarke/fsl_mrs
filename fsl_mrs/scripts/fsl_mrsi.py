@@ -355,8 +355,7 @@ def main():
     res_init, _ = runvoxel([mrs, 0, None], args, Fitargs_init, echotime, repetition_time)
     Fitargs['x0'] = res_init.params
     slow_fit_enabled = args.slow_fit_log_threshold > 0
-    if slow_fit_enabled:
-        Fitargs['capture_minimize_output'] = True
+    Fitargs['capture_minimize_output'] = True
 
     # quick summary figure
     report.fitting_summary_fig(
@@ -375,7 +374,6 @@ def main():
             h2ofile=args.h2o,
             date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 
-    warnings.filterwarnings("ignore")
     func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
     client = None
     dask_worker_logs = None
@@ -529,6 +527,26 @@ def main():
         else:
             img = nib.Nifti1Image(data, mrsi_data.voxToWorldMat)
             nib.save(img, fname)
+
+    fit_failed_list = [int(getattr(res[0], 'fit_failed', False))
+                       for res in results]
+    save_img_output(
+        os.path.join(qc_folder, 'fit_failed.nii.gz'),
+        mrsi.list_to_matched_array(
+            fit_failed_list,
+            indices=indices,
+            cleanup=True,
+            dtype=np.uint8))
+
+    fit_time_list = [getattr(res[0], 'fit_time', 0.0)
+                     for res in results]
+    save_img_output(
+        os.path.join(misc_folder, 'fit_times.nii.gz'),
+        mrsi.list_to_matched_array(
+            fit_time_list,
+            indices=indices,
+            cleanup=True,
+            dtype=float))
 
     metabs = results[0][0].metabs
     for scale in scalings:
@@ -695,6 +713,9 @@ uncertainties
 qc
     {metab}_snr.nii.gz                      (SNR)
     {metab}_fwhm.nii.gz                     (FWHM)
+    fit_failed.nii.gz                       (fit-failed-mask)
+misc
+    fit_times.nii.gz                        (fit-times)
 """.lstrip()
     with open(tree_file, 'w') as f:
         f.write(tree_text)
@@ -758,6 +779,12 @@ def _minimize_result_summary(result):
     return summary
 
 
+def _minimize_result_success(result):
+    if result is None or not hasattr(result, 'success'):
+        return None
+    return bool(result.success)
+
+
 def _dask_worker_context():
     try:
         from dask.distributed import get_worker
@@ -819,16 +846,25 @@ def _write_dask_worker_logs(worker_logs, log_path):
 def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
     from fsl_mrs.utils import fitting, quantify
 
+    # Dask workers are separate processes, so they do not inherit the warning
+    # filter set in main before voxel fitting starts.
+    if not args.verbose:
+        warnings.filterwarnings("ignore")
+
     mrs, index, tissue_seg = mrs_in
     try:
         fit_start = time.perf_counter()
         res = fitting.fit_FSLModel(mrs, **Fitargs)
         fit_elapsed = time.perf_counter() - fit_start
+        minimize_result = getattr(res, 'scipy_minimize_result', None)
+        minimize_success = _minimize_result_success(minimize_result)
+        res.fit_time = fit_elapsed
+        res.scipy_minimize_success = minimize_success
+        res.fit_failed = minimize_success is False
         res.slow_fit_log = None
 
         slow_fit_threshold = getattr(args, 'slow_fit_log_threshold', 0)
         if slow_fit_threshold > 0 and fit_elapsed > slow_fit_threshold:
-            minimize_result = getattr(res, 'scipy_minimize_result', None)
             worker, worker_info = _dask_worker_context()
             slow_fit_log = _make_slow_fit_log(
                 index,
