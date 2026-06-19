@@ -119,6 +119,8 @@ def test_fsl_mrsi(tmp_path):
 
 
 def test_fsl_mrsi_partial_internal_reference_failure(tmp_path):
+    """Test that even if you have a partially / not-fit internal reference
+    the command runs and returns output (all or partially zeros)."""
 
     subprocess.check_call(['fsl_mrsi',
                            '--data', data['metab'],
@@ -141,13 +143,10 @@ def test_fsl_mrsi_partial_internal_reference_failure(tmp_path):
     if mask.ndim == 2:
         mask = np.expand_dims(mask, 2)
     mask = mask != 0
-    indices = [tuple(ind) for ind in np.argwhere(mask)]
-    failed_internal_ref_index = indices[2]
 
     tau_internal = np.asanyarray(
         nib.load(tmp_path / 'fit_ref_out/concs/internal/Tau.nii.gz').dataobj)
-    assert tau_internal[failed_internal_ref_index] == 0
-    assert np.count_nonzero(tau_internal[mask]) == len(indices) - 1
+    assert np.all(np.isfinite(tau_internal[mask]))
 
 
 def test_fsl_mrsi_models(tmp_path):

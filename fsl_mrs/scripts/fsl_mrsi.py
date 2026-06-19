@@ -586,7 +586,7 @@ def main():
     scalings = ['raw']
     # Include scaled outputs if any voxel has the scaling. Voxels where scaling
     # failed are written as zero through the existing image cleanup path.
-    if any(res[0].concScalings['internal'] is not None for res in results):
+    if any(res[0].concScalings['internalRef'] is not None for res in results):
         scalings.append('internal')
     if any(res[0].concScalings['molarity'] is not None for res in results):
         scalings.append('molarity')
