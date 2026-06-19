@@ -13,12 +13,12 @@ import numpy as np
 
 
 def test_calcQC():
-    # Syntetic data
-    synFID, synHdr, synAxes = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
+    # Synthetic data
+    synFID, synHdr, synAxes = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[4.65],
                                            amplitude=[6.0], linewidth=[10], seed=1)
-    synFIDNoise, synHdrNoise, synAxesNoise = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[0],
+    synFIDNoise, synHdrNoise, synAxesNoise = syntheticFID(noisecovariance=[[0.1]], points=4096, chemicalshift=[4.65],
                                                           amplitude=[0], linewidth=[10], seed=2)
-    basisFID, _, basisAxes = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[0],
+    basisFID, _, basisAxes = syntheticFID(noisecovariance=[[0.0]], points=4096, chemicalshift=[4.65],
                                           amplitude=[0.1], linewidth=[2], seed=3)
 
     synMRSNoise = MRS.from_axes(synFIDNoise[0], synAxesNoise)

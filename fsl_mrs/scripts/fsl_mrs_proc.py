@@ -860,8 +860,7 @@ def conj(dataobj, args):
 
     warnings.warn(
         "The 'conj' subcommand is deprecated and may be removed in a future release.",
-        DeprecationWarning,
-        stacklevel=2)
+        FutureWarning)
 
     conjugated = preproc.conjugate(dataobj.data,
                                    report=args['generateReports'],

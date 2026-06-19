@@ -48,7 +48,9 @@ def syntheticFID(coilamps=[1.0],
         npoints=points,
         ResonantNucleus=nucleus,
         SpectrometerFrequency=centralfrequency,
-        dwelltime=1/bandwidth)
+        dwelltime=1/bandwidth,
+        SpecFreqChemShift=0.0,
+        RxOffset=0.0)
     syntheticFID = np.zeros(points, dtype=np.complex128)
     # zero start the timeAxis and shift by begintime
     ttrue = axes.timeAxis + begintime

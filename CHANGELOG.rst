@@ -23,6 +23,9 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrs_proc align` now has the option to use complex cross-correlation `--method xcorr` to perform phase and frequency alignment. It is recommended to use the `--reference` option to assign a target with this.
 - `fsl_mrs_proc align` now has a new default option for the `--dim` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
 - Partial fitting report will be generated even when reference metabolites aren't fit (or have conc = 0).
+- FID conjugation has been removed from `MRS` and `MRSI` classes (`check_FID`, `conj_FID`).
+- `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept `--conj_fid`, `--no_conj_fid` or `'--conjugate` options.
+- `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
 
 2.4.15 (Wednesday 10th June 2026)
 -----------------------------------

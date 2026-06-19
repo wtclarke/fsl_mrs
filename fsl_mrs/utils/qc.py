@@ -249,16 +249,13 @@ def generateBasisFromRes(mrs, res, resparams):
     for metab in mrs.names:
         pred = models.getFittedModel(res.model,
                                      resparams,
-                                     res.base_poly, res.
-                                     metab_groups,
+                                     res.base_poly,
+                                     res.metab_groups,
                                      mrs,
                                      basisSelect=metab,
                                      noBaseline=True)
         pred = SpecToFID(pred)  # predict FID not Spec
-        mrsOut = MRS(pred,
-                     cf=mrs.centralFrequency,
-                     bw=mrs.bandwidth,
-                     nucleus=mrs.nucleus)
+        mrsOut = MRS.from_axes(pred, axes=mrs.axes)
         mrsFits.append(mrsOut)
     return mrsFits
 
