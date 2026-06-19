@@ -309,4 +309,9 @@ def test_baseline_options(tmp_path):
 
     assert (tmp_path / 'fit_out2/concs/raw/NAA.nii.gz').exists()
 
+    # Fit time maps are wall-clock diagnostics and are expected to differ
+    # between otherwise equivalent runs.
+    (tmp_path / 'fit_out1/misc/fit_times.nii.gz').unlink()
+    (tmp_path / 'fit_out2/misc/fit_times.nii.gz').unlink()
+
     assert compare_folders((tmp_path / 'fit_out2'), (tmp_path / 'fit_out1'), subdir=True)

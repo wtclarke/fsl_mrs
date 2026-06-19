@@ -12,7 +12,7 @@ import logging
 import os
 import time
 import warnings
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING
 
 from fsl_mrs.auxiliary import configargparse
 from fsl_mrs import __version__
@@ -20,7 +20,7 @@ from fsl_mrs.utils.splash import splash
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 
 if TYPE_CHECKING:
-    from fsl_mrs.core.mrs import MRS
+    from fsl_mrs.core.mrs import MRS  # noqa: F401
     from fsl_mrs.utils.results import FitRes
 
 VoxelIndex = tuple[int, int, int] | int
@@ -389,6 +389,7 @@ def main():
 
     func = partial(runvoxel, args=args, Fitargs=Fitargs, echotime=echotime, repetition_time=repetition_time)
     client = None
+    cluster = None
     dask_worker_logs = None
 
     def _get_worker_thread_count(client, fallback):
@@ -411,6 +412,32 @@ def main():
         future = client.submit(func, mrs_in)
         future_order[future] = submit_count
         return submit_count + 1, future
+
+    def _release_dask_future(future, verbose):
+        """Drop the client reference to a completed future."""
+        try:
+            future.release()
+        except Exception as exc:
+            if verbose:
+                logging.getLogger('fsl_mrs.dask').warning(
+                    'Unable to release Dask future: %s', exc)
+
+    def _close_dask_resources(client, cluster, verbose):
+        """Close Dask resources before output writing starts."""
+        if client is not None:
+            try:
+                client.close()
+            except Exception as exc:
+                if verbose:
+                    logging.getLogger('fsl_mrs.dask').warning(
+                        'Unable to close Dask client: %s', exc)
+        if cluster is not None:
+            try:
+                cluster.close()
+            except Exception as exc:
+                if verbose:
+                    logging.getLogger('fsl_mrs.dask').warning(
+                        'Unable to close Dask cluster: %s', exc)
 
     if args.parallel == "off" or args.single_proc:
         # client = Client(n_workers=1, threads_per_worker=1)
@@ -480,6 +507,7 @@ def main():
         with tqdm(total=len(mrsi), unit='fit') as fit_progress:
             for future, result in fit_futures:
                 results[future_order.pop(future)] = result
+                _release_dask_future(future, args.verbose)
                 fit_progress.update()
 
                 # Each completed future opens one slot in the rolling window.
@@ -493,6 +521,11 @@ def main():
                     submit_count)
                 if new_future is not None:
                     fit_futures.add(new_future)
+
+        if future_order:
+            raise RuntimeError('Dask fitting finished with outstanding futures.')
+        initial_futures.clear()
+        del fit_futures
     else:
         raise ValueError("--parallel should be 'off', 'local', 'cluster'.")
 
@@ -504,6 +537,10 @@ def main():
             if args.verbose:
                 logging.getLogger('fsl_mrs.slow_fit').warning(
                     'Unable to retrieve Dask worker logs: %s', exc)
+
+    _close_dask_resources(client, cluster, args.verbose)
+    client = None
+    cluster = None
 
     # Save output files
     verboseprint(f'--->> Saving output files to {args.output}\n')
