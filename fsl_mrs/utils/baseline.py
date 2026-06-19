@@ -49,6 +49,11 @@ class Baseline:
 
         # Defaults
         self._spline_description = None
+        self._regressor = None
+        self._diff_mat = None
+        self._penalty_lambda = None
+        self._diff_term = None
+        self._cov_penalty_terms = {}
 
         # Handle legacy option
         if baseline_order is not None:
@@ -113,6 +118,18 @@ class Baseline:
         return self.mode == 'off'
 
     @property
+    def spectral_points(self):
+        return self._spectral_points
+
+    @property
+    def ppmlim(self):
+        return self._ppm_limits
+
+    @property
+    def ppm_range(self):
+        return self._ppm_range
+
+    @property
     def spline_penalty(self):
         if self.mode == 'spline':
             return self._penalty
@@ -130,13 +147,25 @@ class Baseline:
 
     @property
     def regressor(self):
-        # Prepare baseline regressor
-        if self.mode == 'polynomial':
-            return prepare_polynomial_regressor(self._spectral_points, self._order, self._ppm_range)
-        elif self.mode == 'spline':
-            return prepare_pspline_regressor(self._spectral_points, self._ppm_limits, self._ppm_range)
-        elif self.mode == 'off':
-            return prepare_polynomial_regressor(self._spectral_points, 0, self._ppm_range)
+        if self._regressor is None:
+            # Prepare baseline regressor
+            if self.mode == 'polynomial':
+                self._regressor = prepare_polynomial_regressor(
+                    self._spectral_points,
+                    self._order,
+                    self._ppm_range)
+            elif self.mode == 'spline':
+                self._regressor = prepare_pspline_regressor(
+                    self._spectral_points,
+                    self._ppm_limits,
+                    self._ppm_range)
+            elif self.mode == 'off':
+                self._regressor = prepare_polynomial_regressor(
+                    self._spectral_points,
+                    0,
+                    self._ppm_range)
+            self._regressor.setflags(write=False)
+        return self._regressor
 
     @property
     def n_basis(self) -> int:
@@ -167,12 +196,26 @@ class Baseline:
         """
         if self.mode in ("off", "polynomial"):
             return err_function, grad_function
-        return prepare_penalised_functions(
-            self.spline_penalty,
-            err_function,
-            grad_function,
-            self.regressor,
-            x2b)
+
+        n_basis = self.n_basis
+        diff_mat = self._spline_diff_mat()
+        penalty_lambda = self._spline_penalty_lambda()
+        diff_term = self._spline_diff_term()
+
+        def penalised_error(*args):
+            b = x2b(args[0])
+            return err_function(*args)\
+                + penalty_lambda * np.linalg.norm(b[:n_basis] @ diff_mat)**2\
+                + penalty_lambda * np.linalg.norm(b[n_basis:] @ diff_mat)**2
+
+        def penalised_grad(*args):
+            additional = np.zeros_like(args[0])
+            b = x2b(args[0])
+            additional[-2 * n_basis:-n_basis] = diff_term @ b[:n_basis]
+            additional[-n_basis:] = diff_term @ b[n_basis:]
+            return grad_function(*args) + additional
+
+        return penalised_error, penalised_grad
 
     def cov_penalty_term(
             self,
@@ -188,10 +231,15 @@ class Baseline:
         """
         if self.mode in ("off", "polynomial"):
             return np.zeros((n_fit_params, n_fit_params))
-        return calculate_lap_cov_penalty_term(
-            self.spline_penalty,
-            self.regressor,
-            n_fit_params)
+        if n_fit_params not in self._cov_penalty_terms:
+            pterm = self._spline_diff_term()
+            pterm_full = np.zeros((n_fit_params, n_fit_params))
+            pterm_full[-pterm.shape[0]:, -pterm.shape[0]:] = pterm
+            pterm_full[-2 * pterm.shape[0]:-pterm.shape[0],
+                       -2 * pterm.shape[0]:-pterm.shape[0]] = pterm
+            pterm_full.setflags(write=False)
+            self._cov_penalty_terms[n_fit_params] = pterm_full
+        return self._cov_penalty_terms[n_fit_params]
 
     def mh_penalty_term(
             self,
@@ -203,9 +251,60 @@ class Baseline:
         :return: Calculation function
         :rtype: typing.Callable
         """
-        return calculate_mh_likelihood_term(
-            self.spline_penalty,
-            self.regressor)
+        if self.mode in ("off", "polynomial"):
+            raise BaselineError(
+                f"mh_penalty_term is only defined for mode='spline', mode is {self.mode}.")
+
+        n_basis = self.n_basis
+        diff_mat = self._spline_diff_mat()
+        penalty_lambda = self._spline_penalty_lambda()
+
+        def mh_penalty(p) -> float:
+            return penalty_lambda * np.linalg.norm(p[(-n_basis * 2):(-n_basis)] @ diff_mat)**2\
+                + penalty_lambda * np.linalg.norm(p[-n_basis:] @ diff_mat)**2
+
+        return mh_penalty
+
+    @staticmethod
+    def _slice_equal(slice_a: slice, slice_b: slice) -> bool:
+        return slice_a.start == slice_b.start\
+            and slice_a.stop == slice_b.stop\
+            and slice_a.step == slice_b.step
+
+    def validate_mrs(self, mrs: 'MRS', ppmlim: tuple | None):
+        """Check that this baseline can be reused with the supplied MRS."""
+        if mrs.numPoints != self._spectral_points:
+            raise BaselineError(
+                'Supplied Baseline object is incompatible with MRS: '
+                f'baseline has {self._spectral_points} spectral points, '
+                f'MRS has {mrs.numPoints}.')
+
+        ppm_range = mrs.axes.ppmShiftIndices(ppmlim)
+        if not self._slice_equal(self._ppm_range, ppm_range):
+            raise BaselineError(
+                'Supplied Baseline object is incompatible with MRS: '
+                f'baseline ppm range maps to {self._ppm_range}, '
+                f'fit ppm range maps to {ppm_range}.')
+
+    def _spline_diff_mat(self) -> np.ndarray:
+        if self._diff_mat is None:
+            self._diff_mat = _pspline_diff(self.n_basis)
+            self._diff_mat.setflags(write=False)
+        return self._diff_mat
+
+    def _spline_penalty_lambda(self) -> float:
+        if self._penalty_lambda is None:
+            self._penalty_lambda = lambda_from_ed(
+                self.spline_penalty,
+                self.regressor[:, :self.n_basis])
+        return self._penalty_lambda
+
+    def _spline_diff_term(self) -> np.ndarray:
+        if self._diff_term is None:
+            diff_mat = self._spline_diff_mat()
+            self._diff_term = 2 * self._spline_penalty_lambda() * (diff_mat @ diff_mat.T)
+            self._diff_term.setflags(write=False)
+        return self._diff_term
 
     def __str__(self) -> str:
         if self.mode == "polynomial":

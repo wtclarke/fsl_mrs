@@ -28,7 +28,7 @@ class MRS():
     """
     def __init__(self, FID=None, header=None, basis=None, names=None, basis_hdr=None,
                  axes=None, H2O=None, cf=None, bw=None, nucleus=None, chemShift=None,
-                 RxOffset=0.0):
+                 RxOffset=0.0, copy_basis=True):
         """Main init for the MRS class
 
         :param FID: [description], defaults to None
@@ -55,6 +55,8 @@ class MRS():
         :type chemShift: [type], optional
         :param RxOffset: [description], defaults to 0.0
         :type RxOffset: [type], optional
+        :param copy_basis: Deep-copy a supplied Basis object, defaults to True.
+        :type copy_basis: bool, optional
         :raises ValueError: [description]
         :raises TypeError: [description]
         """
@@ -114,7 +116,10 @@ class MRS():
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self.basis = deepcopy(basis)
+                if copy_basis:
+                    self.basis = deepcopy(basis)
+                else:
+                    self.basis = basis
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
@@ -147,13 +152,15 @@ class MRS():
 
     @classmethod
     def from_axes(cls, fid: np.typing.NDArray[np.complex64], axes: Axes,
-                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None):
+                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None,
+                  copy_basis: bool = True):
         """Construct an MRS object from fid using metadata from axes."""
         return MRS(
             FID=fid,
             axes=axes,
             basis=basis,
-            H2O=H2O)
+            H2O=H2O,
+            copy_basis=copy_basis)
 
     # Properties
     @property
@@ -258,6 +265,14 @@ class MRS():
     @property
     def basis(self):
         """Returns the currently formatted basis spectra"""
+        return self.get_basis()
+
+    def get_basis(self, copy=True):
+        """Returns the currently formatted basis spectra.
+
+        :param copy: Return a mutable copy of the formatted basis, defaults to True.
+        :type copy: bool, optional
+        """
         if self._basis is None:
             return None
         else:
@@ -267,14 +282,16 @@ class MRS():
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale).conj()
+                    indept_scale=self._indept_scale,
+                    copy=copy).conj()
             else:
                 return self._basis.get_formatted_basis(
                     self.bandwidth,
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale)
+                    indept_scale=self._indept_scale,
+                    copy=copy)
 
     @basis.setter
     def basis(self, basis):

@@ -8,8 +8,9 @@ from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils.synthetic.synthetic_from_basis import syntheticFromBasisFile
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
+from fsl_mrs.utils import baseline
 from fsl_mrs.utils.fitting import fit_FSLModel
-from pytest import fixture
+from pytest import fixture, raises
 import numpy as np
 
 from pathlib import Path
@@ -94,6 +95,71 @@ def test_fit_FSLModel_lorentzian_Newton(data):
     fittedRelconcs = res.getConc(scaling='internal', metab=mrs.names)
     assert np.allclose(fittedconcs, amplitudes, atol=2E-1)
     assert np.allclose(fittedRelconcs, amplitudes / (amplitudes[0] + amplitudes[1]), atol=1E-1)
+
+
+def test_fit_FSLModel_capture_minimize_output(data):
+
+    mrs = data[0]
+
+    metab_groups = [0] * mrs.numBasis
+    Fitargs = {'ppmlim': [0.2, 4.2],
+               'method': 'Newton',
+               'baseline_order': -1,
+               'metab_groups': metab_groups,
+               'capture_minimize_output': True}
+
+    res = fit_FSLModel(mrs, **Fitargs)
+
+    assert hasattr(res, 'scipy_minimize_result')
+    assert isinstance(str(res.scipy_minimize_result), str)
+    assert hasattr(res.scipy_minimize_result, 'message')
+
+
+def test_fit_FSLModel_reusable_baseline(data):
+
+    mrs = data[0]
+
+    metab_groups = [0] * mrs.numBasis
+    ppmlim = [0.2, 4.2]
+    baseline_obj = baseline.Baseline(
+        mrs,
+        ppmlim,
+        'polynomial, 0',
+        None)
+
+    str_res = fit_FSLModel(
+        mrs,
+        ppmlim=ppmlim,
+        method='Newton',
+        baseline='polynomial, 0',
+        metab_groups=metab_groups)
+    obj_res = fit_FSLModel(
+        mrs,
+        ppmlim=ppmlim,
+        method='Newton',
+        baseline=baseline_obj,
+        metab_groups=metab_groups)
+
+    assert np.allclose(str_res.params, obj_res.params)
+
+
+def test_fit_FSLModel_reusable_baseline_incompatible(data):
+
+    mrs = data[0]
+
+    baseline_obj = baseline.Baseline(
+        mrs,
+        [0.2, 4.2],
+        'polynomial, 0',
+        None)
+
+    with raises(baseline.BaselineError, match='Supplied Baseline object is incompatible'):
+        fit_FSLModel(
+            mrs,
+            ppmlim=[1.0, 2.0],
+            method='init',
+            baseline=baseline_obj,
+            metab_groups=[0] * mrs.numBasis)
 
 
 def test_fit_FSLModel_MH(data):

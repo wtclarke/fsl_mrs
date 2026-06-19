@@ -348,6 +348,12 @@ def test_fsl_mrsi(tmp_path):
         )
     assert (object_out / 'fit').exists()
 
+    # Fit time maps are wall-clock diagnostics and are expected to differ
+    # between otherwise equivalent runs.
+    (cli_out / 'misc/fit_times.nii.gz').unlink()
+    (wrapper_out / 'misc/fit_times.nii.gz').unlink()
+    (object_out / 'misc/fit_times.nii.gz').unlink()
+
     assert compare_folders(cli_out, wrapper_out, subdir=True)
     assert compare_folders(cli_out, object_out,  subdir=True)
 

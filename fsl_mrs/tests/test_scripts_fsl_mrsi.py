@@ -6,8 +6,11 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 import subprocess
+import json
 from pathlib import Path
 import re
+import nibabel as nib
+import numpy as np
 from fsl_mrs.utils.validate_results import compare_folders
 
 # Files
@@ -32,6 +35,9 @@ def test_fsl_mrsi(tmp_path):
                     '--TE', '30',
                     '--TR', '2.0',
                     '--mask', str(data['mask']),
+                    '--parallel-workers', '1',
+                    '--parallel-batch-size-multiple', '2',
+                    '--slow-fit-log-threshold', '0.000001',
                     '--tissue_frac',
                     str(data['seg_wm']),
                     str(data['seg_gm']),
@@ -49,6 +55,9 @@ def test_fsl_mrsi(tmp_path):
                            '--TE', '30',
                            '--TR', '2.0',
                            '--mask', data['mask'],
+                           '--parallel-workers', '1',
+                           '--parallel-batch-size-multiple', '2',
+                           '--slow-fit-log-threshold', '0.000001',
                            '--tissue_frac',
                            data['seg_wm'],
                            data['seg_gm'],
@@ -67,6 +76,7 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/concs/molality/NAA.nii.gz').exists()
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
+    assert (tmp_path / 'fit_out/qc/fit_failed.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
     assert (tmp_path / 'fit_out/mrsi.tree').exists()
 
@@ -80,6 +90,63 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
     assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()
     assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
+    assert (tmp_path / 'fit_out/misc/fit_times.nii.gz').exists()
+    assert (tmp_path / 'fit_out/misc/slow_fits.jsonl').exists()
+    with open(tmp_path / 'fit_out/misc/slow_fits.jsonl') as log_file:
+        slow_fit_logs = [json.loads(line) for line in log_file]
+    assert len(slow_fit_logs) == 6
+    assert {'voxel_index', 'elapsed_seconds', 'scipy_minimize_output'} <= set(slow_fit_logs[0])
+
+    mask = np.asanyarray(nib.load(data['mask']).dataobj)
+    if mask.ndim == 2:
+        mask = np.expand_dims(mask, 2)
+    mask = mask != 0
+    fit_failed_img = nib.load(tmp_path / 'fit_out/qc/fit_failed.nii.gz')
+    fit_failed = np.asanyarray(fit_failed_img.dataobj)
+    assert fit_failed_img.get_data_dtype() == np.uint8
+    assert set(np.unique(fit_failed)).issubset({0, 1})
+
+    expected_failed = np.zeros(mask.shape, dtype=bool)
+    for slow_fit_log in slow_fit_logs:
+        index = tuple(int(ind) for ind in slow_fit_log['voxel_index'])
+        success = slow_fit_log['scipy_minimize_result']['success']
+        expected_failed[index] = success in (False, 'False')
+    assert np.array_equal(fit_failed.astype(bool), expected_failed)
+
+    fit_times = np.asanyarray(nib.load(tmp_path / 'fit_out/misc/fit_times.nii.gz').dataobj)
+    assert np.all(fit_times[mask] > 0)
+    assert np.all(fit_times[~mask] == 0)
+
+
+def test_fsl_mrsi_partial_internal_reference_failure(tmp_path):
+    """Test that even if you have a partially / not-fit internal reference
+    the command runs and returns output (all or partially zeros)."""
+
+    subprocess.check_call(['fsl_mrsi',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', str(tmp_path / 'fit_ref_out'),
+                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
+                           '--mask', data['mask'],
+                           '--parallel-workers', '1',
+                           '--parallel-batch-size-multiple', '2',
+                           '--internal_ref', 'Tau',
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr'])
+
+    assert (tmp_path / 'fit_ref_out/concs/raw/Tau.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/concs/internal/Tau.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/qc/fit_failed.nii.gz').exists()
+    assert (tmp_path / 'fit_ref_out/misc/fit_times.nii.gz').exists()
+
+    mask = np.asanyarray(nib.load(data['mask']).dataobj)
+    if mask.ndim == 2:
+        mask = np.expand_dims(mask, 2)
+    mask = mask != 0
+
+    tau_internal = np.asanyarray(
+        nib.load(tmp_path / 'fit_ref_out/concs/internal/Tau.nii.gz').dataobj)
+    assert np.all(np.isfinite(tau_internal[mask]))
 
 
 def test_fsl_mrsi_models(tmp_path):
@@ -240,5 +307,10 @@ def test_baseline_options(tmp_path):
                            '--baseline_order', '4'])
 
     assert (tmp_path / 'fit_out2/concs/raw/NAA.nii.gz').exists()
+
+    # Fit time maps are wall-clock diagnostics and are expected to differ
+    # between otherwise equivalent runs.
+    (tmp_path / 'fit_out1/misc/fit_times.nii.gz').unlink()
+    (tmp_path / 'fit_out2/misc/fit_times.nii.gz').unlink()
 
     assert compare_folders((tmp_path / 'fit_out2'), (tmp_path / 'fit_out1'), subdir=True)

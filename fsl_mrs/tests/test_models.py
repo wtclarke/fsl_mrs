@@ -5,6 +5,7 @@ Test model functions
 Copyright Will Clarke, University of Oxford, 2022'''
 
 import fsl_mrs.models as models
+import numpy as np
 
 all_models = [
     'lorentzian',
@@ -109,5 +110,63 @@ def test_FSLModel_mask():
         assert sum(mask[:-6]) == len(mask[:-6])
         assert sum(mask[-6:]) == 0
         assert len(mask) == sum(ans_s)
+
+
+def _gradient_from_jacobian(mod, x, nu, t, m, B, G, g, data, indices):
+    """Previous concatenated-Jacobian gradient formula."""
+    S = mod.forward(x, nu, t, m, B, G, g)[indices, None]
+    dS = mod.jac(x, nu, t, m, B, G, g, indices)
+    Spec = data[indices, None]
+
+    return np.real(
+        np.sum(
+            S * np.conj(dS)
+            + np.conj(S) * dS
+            - np.conj(Spec) * dS
+            - Spec * np.conj(dS),
+            axis=0))
+
+
+def _random_model_parameters(mod, rng, n_basis, n_groups, n_baseline):
+    con = rng.uniform(0.1, 2.0, n_basis)
+    gamma = rng.uniform(0.01, 0.2, n_groups)
+    sigma = rng.uniform(0.01, 0.2, n_groups)
+    eps_groups = rng.uniform(-0.05, 0.05, n_groups)
+    eps_basis = rng.uniform(-0.05, 0.05, n_basis)
+    baseline = rng.normal(size=n_baseline)
+
+    if mod is models.lorentzian:
+        return mod.param2x(con, gamma, eps_groups, 0.1, 1E-5, baseline)
+    if mod is models.voigt or mod is models.negativevoigt:
+        return mod.param2x(con, gamma, sigma, eps_groups, 0.1, 1E-5, baseline)
+    if mod is models.freeshift:
+        return mod.param2x(con, gamma, sigma, eps_basis, 0.1, 1E-5, baseline)
+    if mod is models.freeshift_lorentzian:
+        return mod.param2x(con, gamma, eps_basis, 0.1, 1E-5, baseline)
+    raise ValueError(f'Unexpected model module {mod}.')
+
+
+def test_model_grads_match_concatenate_implementation():
+    rng = np.random.default_rng(20260617)
+    n_points = 128
+    n_basis = 5
+    n_groups = 2
+    n_baseline_params = 4
+
+    nu = np.linspace(-2000.0, 2000.0, n_points)[:, None]
+    t = (np.arange(n_points) / 4000.0)[:, None]
+    m = rng.normal(size=(n_points, n_basis)) + 1j * rng.normal(size=(n_points, n_basis))
+    B = rng.normal(size=(n_points, n_baseline_params))\
+        + 1j * rng.normal(size=(n_points, n_baseline_params))
+    G = [0, 1, 0, 1, 1]
+    data = rng.normal(size=n_points) + 1j * rng.normal(size=n_points)
+    indices = slice(10, 102)
+
+    for mod in modules:
+        x = _random_model_parameters(mod, rng, n_basis, n_groups, n_baseline_params)
+        new_grad = mod.grad(x, nu, t, m, B, G, n_groups, data, indices)
+        old_grad = _gradient_from_jacobian(mod, x, nu, t, m, B, G, n_groups, data, indices)
+
+        assert np.allclose(new_grad, old_grad)
 
 # TO DO test getFittedModel

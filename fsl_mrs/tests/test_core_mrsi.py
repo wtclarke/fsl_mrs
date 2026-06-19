@@ -109,3 +109,21 @@ def test_fetch_mrs():
     for idx, (mrs, index, seg) in enumerate(mrsi):
         assert mrs.names == ['NAA']
         assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indices[idx]].conj())
+
+
+def test_fetch_mrs_reuses_average_basis_cache():
+
+    mrsi = mrsi_from_files(str(data['metab']),
+                           mask_file=str(data['mask']),
+                           basis_file=str(data['basis']),
+                           H2O_file=str(data['water']))
+
+    avg_mrs = mrsi.mrs_from_average()
+    _ = avg_mrs.basis
+    formatted_cache_size = len(avg_mrs._basis._formatted_basis_cache)
+
+    voxel_mrs = mrsi.mrs_by_index(mrsi.get_indices_in_order(mask=True)[0])
+
+    assert voxel_mrs._basis is avg_mrs._basis
+    _ = voxel_mrs.basis
+    assert len(avg_mrs._basis._formatted_basis_cache) == formatted_cache_size

@@ -23,6 +23,9 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrs_proc align` now has the option to use complex cross-correlation `--method xcorr` to perform phase and frequency alignment. It is recommended to use the `--reference` option to assign a target with this.
 - `fsl_mrs_proc align` now has a new default option for the `--dim` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
 - Partial fitting report will be generated even when reference metabolites aren't fit (or have conc = 0).
+- `fsl_mrsi` now submits batches of jobs through Dask to limit Dask graph size.
+- `fsl_mrsi` has improved logging and qc metrics around fitting failures.
+- Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
 
 2.4.14 (Wednesday 27th May 2026)
 -----------------------------------
