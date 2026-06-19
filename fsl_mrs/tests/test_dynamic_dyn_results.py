@@ -29,9 +29,7 @@ def fixed_ratio_mrs():
     mrs1 = MRS.from_axes(fid=FID1[0][0], axes=FID1[2], basis=b)
     mrs2 = MRS.from_axes(fid=FID2[0][0], axes=FID2[2], basis=b)
 
-    mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
-    mrs2.check_FID(repair=True)
     mrs2.check_Basis(repair=True)
 
     mrs_list = [mrs1, mrs2]

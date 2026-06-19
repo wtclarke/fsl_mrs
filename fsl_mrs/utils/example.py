@@ -99,7 +99,6 @@ def dMRS(mouse='mouse1', path='/Users/saad/Desktop/Spectroscopy/'):
                   bw=bandwidth,
                   basis=basis,
                   nucleus='1H')
-        mrs.check_FID(repair=True)
         mrs.check_Basis(repair=True)
         mrs.ignore = ['Gly']
         mrsList.append(mrs)
@@ -220,12 +219,10 @@ def MPRESS(noise=1, path='/Users/saad/Desktop/Spectroscopy/'):
 
     FIDs, mrs1, conc = syntheticFromBasisFile(mpress_on, noisecovariance=[[noise]])
     mrs1.FID = FIDs
-    mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
 
     FIDs, mrs2, conc = syntheticFromBasisFile(mpress_off, noisecovariance=[[noise]])
     mrs2.FID = FIDs
-    mrs2.check_FID(repair=True)
     mrs2.check_Basis(repair=True)
 
     return [mrs1, mrs2], [0, 1]

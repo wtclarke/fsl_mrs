@@ -89,8 +89,6 @@ class MRSI():
 
         # MRS output options
         self.conj_basis     = None
-        self.conj_FID       = False
-        self.no_conj_FID    = False
         self.rescale        = False
         self._keep          = []
         self._ignore        = []
@@ -274,13 +272,6 @@ class MRSI():
 
             mrs.keep = self._keep
             mrs.ignore = self._ignore
-
-        if self.conj_FID:
-            mrs.conj_FID = True
-        elif self.no_conj_FID:
-            pass
-        else:
-            mrs.check_FID(repair=True)
 
         if self.rescale:
             mrs.rescaleForFitting(ind_scaling=self.ind_scaling)

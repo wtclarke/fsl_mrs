@@ -215,7 +215,6 @@ def test_quantifyWater():
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
     mrs.keep = ['Cr']
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 
     Fitargs = {'ppmlim': [0.2, 5.2],
