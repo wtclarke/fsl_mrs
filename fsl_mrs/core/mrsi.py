@@ -92,6 +92,7 @@ class MRSI():
         self.conj_FID       = False
         self.no_conj_FID    = False
         self.rescale        = False
+        self._scaling_limits = None
         self._keep          = []
         self._ignore        = []
         self._keep_ignore   = []
@@ -171,6 +172,14 @@ class MRSI():
         self._ignore += metabs
         self._keep_ignore += metabs
 
+    @property
+    def scaling_limits(self) -> tuple[float, float] | None:
+        return self._scaling_limits
+
+    @scaling_limits.setter
+    def scaling_limits(self, limits: tuple[float, float] | None):
+        self._scaling_limits = limits
+
     def __iter__(self):
         shape = self.data.shape
         self._store_scalings = []
@@ -218,7 +227,7 @@ class MRSI():
         else:
             return self._store_scalings
 
-    def mrs_by_index(self, index):
+    def mrs_by_index(self, index) -> MRS:
         ''' Return MRS object by index (tuple - x,y,z).'''
         if not np.array_equal(self.H2O, np.full(self.data.shape[:3], None)):
             H2O = self.H2O[index[0], index[1], index[2], :]
@@ -234,7 +243,7 @@ class MRSI():
         self._process_mrs(mrs_out)
         return mrs_out
 
-    def mrs_from_average(self):
+    def mrs_from_average(self) -> MRS:
         '''
         Return average of all masked voxels
         as a single MRS object.
@@ -270,7 +279,7 @@ class MRSI():
         else:
             raise ValueError('Load tissue segmentation first.')
 
-    def _process_mrs(self, mrs):
+    def _process_mrs(self, mrs: MRS):
         ''' Process (conjugate, rescale)
             basis and FID and apply basis operations
             to all voxels.
@@ -293,6 +302,7 @@ class MRSI():
         else:
             mrs.check_FID(repair=True)
 
+        mrs.scaling_limits = self.scaling_limits
         if self.rescale:
             mrs.rescaleForFitting(ind_scaling=self.ind_scaling)
 

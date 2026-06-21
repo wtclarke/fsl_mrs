@@ -68,6 +68,7 @@ class MRS():
         self._conj_basis = False
         self._conj_fid = False
         self._scaling_factor = None
+        self._scaling_limits = None
         self._indept_scale = []
 
         # Read in class data input
@@ -97,8 +98,7 @@ class MRS():
                              ' or bandwidth & nucleus & central frequency.')
 
         # Set Axes info
-        self._axes_obj = axes
-        if self._axes_obj is None:
+        if axes is None:
             if chemShift is None:
                 chemShift = self.default_ppm_shift
             self._axes_obj = Axes(ResonantNucleus=self.nucleus,
@@ -107,6 +107,8 @@ class MRS():
                                   SpecFreqChemShift=chemShift,
                                   RxOffset=RxOffset,
                                   npoints=self.numPoints)
+        else:
+            self._axes_obj = axes
         self._calculate_axes()
 
         # Set Basis info
@@ -183,7 +185,7 @@ class MRS():
         self._fid_scaling = 1.0
 
     @property
-    def axes(self):
+    def axes(self) -> Axes:
         return self._axes_obj
 
     @property
@@ -426,8 +428,16 @@ class MRS():
         return {'FID': self.fid_scaling,
                 'basis': self.basis_scaling[0]}
 
+    @property
+    def scaling_limits(self) -> tuple[float, float] | None:
+        return self._scaling_limits
+
+    @scaling_limits.setter
+    def scaling_limits(self, limits: tuple[float, float] | None):
+        self._scaling_limits = limits
+
     # Get methods
-    def get_spec(self, ppmlim: tuple = None, shift=True):
+    def get_spec(self, ppmlim: tuple | None = None, shift=True):
         """Returns spectrum over defined ppm limits
 
         :param ppmlim: Chemical shift range over which to return the spectrum, defaults to None
@@ -595,8 +605,9 @@ class MRS():
         :param ind_scaling: List of basis spectra to independently scale, defaults to []
         :type ind_scaling: List of strings, optional
         """
-
-        _, scaling = misc.rescale_FID(self._FID, scale=scale)
+        _, scaling = misc.rescale_FID(
+            self._FID if self.scaling_limits is None else self.get_spec(self.scaling_limits),
+            scale=scale)
         # Set scaling that will be dynamically applied when the FID is fetched.
         self._fid_scaling = scaling
 

@@ -21,6 +21,7 @@ from fsl_mrs.utils.splash import splash
 
 if TYPE_CHECKING:
     from fsl_mrs.core.mrs import MRS  # noqa: F401
+    from fsl_mrs.core.mrsi import MRSI  # noqa: F401
     from fsl_mrs.utils.results import FitRes
 
 VoxelIndex = tuple[int, int, int] | int
@@ -216,6 +217,7 @@ def main():
     from dask.distributed import Client, as_completed
     from fsl_mrs.utils import misc, mrs_io
     from fsl_mrs.utils.baseline import Baseline
+    from fsl_mrs.utils.constants import nucleus_constants
     # ######################################################
 
     # Check if output folder exists
@@ -266,8 +268,9 @@ def main():
         print('It is recommended that all default MM are assigned their own group.')
         print(f'E.g. Use --metab_groups {" ".join(default_mm_matches)}')
 
-    mrsi = mrsi_data.mrs(basis=basis,
-                         ref_data=H2O)
+    mrsi: MRSI = mrsi_data.mrs(
+        basis=basis,
+        ref_data=H2O)
 
     def loadNii(f):
         nii = np.asanyarray(nib.load(f).dataobj)
@@ -286,12 +289,17 @@ def main():
         csf = loadNii(args.tissue_frac[2])
         mrsi.set_tissue_seg(csf, wm, gm)
 
+    # Handle default ppm limit
+    ppmlim = nucleus_constants(
+        mrsi_data.nucleus[0]).ppm_range
+
     # Set mrs output options from MRSI class object
     mrsi.conj_FID = args.conj_fid
     mrsi.no_conj_FID = args.no_conj_fid
     mrsi.rescale = not args.no_rescale
     mrsi.keep = args.keep
     mrsi.ignore = args.ignore
+    mrsi.scaling_limits = ppmlim
 
     # Basis orientation
     if args.conj_basis:
@@ -299,15 +307,16 @@ def main():
     elif args.no_conj_basis:
         mrsi.conj_basis = False
     else:
-        mrsi.check_basis(ppmlim=args.ppmlim)
+        mrsi.check_basis(ppmlim=ppmlim)
 
     # Parse metabolite groups
     metab_groups = misc.parse_metab_groups(mrsi, args.metab_groups)
 
     # Store info in dictionaries to be passed to MRS and fitting
-    Fitargs = {'ppmlim': args.ppmlim,
-               'method': args.algo,
-               'metab_groups': metab_groups}
+    Fitargs = {
+        'ppmlim': ppmlim,
+        'method': args.algo,
+        'metab_groups': metab_groups}
 
     if args.lorentzian and args.free_shift:
         Fitargs['model'] = 'free_shift_lorentzian'
@@ -343,22 +352,16 @@ def main():
     # Initialise by fitting the average FID across all voxels
     verboseprint("    Initialise with average fit")
     mrs = mrsi.mrs_from_average()
-    fit_ppmlim = Fitargs['ppmlim']
-    if fit_ppmlim is None:
-        fit_ppmlim = mrs.default_ppm_range
-    if fit_ppmlim is not None:
-        Fitargs['ppmlim'] = fit_ppmlim
-        Fitargs['baseline'] = Baseline(
-            mrs,
-            fit_ppmlim,
-            args.baseline,
-            args.baseline_order)
-        # Populate cache before sending the object to any Dask workers.
-        _ = Fitargs['baseline'].regressor
-    elif args.baseline_order is not None:
-        Fitargs['baseline_order'] = args.baseline_order
-    else:
-        Fitargs['baseline'] = args.baseline
+
+    Fitargs['baseline'] = Baseline(
+        mrs,
+        ppmlim,
+        args.baseline,
+        args.baseline_order)
+
+    # Populate cache before sending the object to any Dask workers.
+    _ = Fitargs['baseline'].regressor
+
     Fitargs['scipy_min_options_dict'] = dict(maxfun=args.minimize_maxfun)
 
     Fitargs_init = Fitargs.copy()

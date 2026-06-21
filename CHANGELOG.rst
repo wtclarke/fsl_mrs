@@ -25,6 +25,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Partial fitting report will be generated even when reference metabolites aren't fit (or have conc = 0).
 - `fsl_mrsi` now submits batches of jobs through Dask to limit Dask graph size.
 - `fsl_mrsi` has improved logging and qc metrics around fitting failures.
+- Improved automatic pre-fitting scaling in `fsl_mrsi`.
 - Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
 
 2.4.14 (Wednesday 27th May 2026)
