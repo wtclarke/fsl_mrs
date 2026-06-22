@@ -32,7 +32,7 @@ def readNIFTI(datafile):
     # Sort out header - must contain mandatory fields. Add a nifti header which is unfortunately quite
     # heavy weight as it is the whole loaded object. Add a json header as a nested dict if there is
     # a sidecar file.
-    # Reciever bandwidth and dwelltime can either be fetched from the nifti header or the json
+    # Receiver bandwidth and dwelltime can either be fetched from the nifti header or the json
     # central frequency is currently only sotred in the json.
     if jsonParams is None:
         raise Exception('Unable to load files without JSON sidecar')
@@ -214,7 +214,7 @@ def write_fsl_basis_file(basis, name, header, out_dir, info=''):
 # Recalculate the FID on a defined time axis.
 # Relies on all fields being populated appropriately
 def readAndGenFSLBasis(file, readoutShift, bandwidth, points):
-    from fsl_mrs.denmatsim import utils as simutils
+    from fsl_denmatsim import utils as simutils
     with open(file, 'r') as basisFile:
         jsonString = basisFile.read()
         basisFileParams = json.loads(jsonString)
@@ -264,7 +264,7 @@ def readAndGenFSLBasis(file, readoutShift, bandwidth, points):
                                      1 / bandwidth,
                                      lw,
                                      offset=readoutShift,
-                                     recieverPhs=rxphs,
+                                     receiverPhs=rxphs,
                                      nucleus=nucleus)
 
     metabo = basisFileParams['basis']['basis_name']

@@ -180,10 +180,6 @@ def main():
                           type=positive_int_arg,
                           default=10000,
                           help=configargparse.SUPPRESS)
-    optional.add_argument('--conj_fid', action="store_true",
-                          help='Force conjugation of FID')
-    optional.add_argument('--no_conj_fid', action="store_true",
-                          help='Forbid automatic conjugation of FID')
     optional.add_argument('--conj_basis', action="store_true",
                           help='Force conjugation of basis')
     optional.add_argument('--no_conj_basis', action="store_true",
@@ -294,8 +290,6 @@ def main():
         mrsi_data.nucleus[0]).ppm_range
 
     # Set mrs output options from MRSI class object
-    mrsi.conj_FID = args.conj_fid
-    mrsi.no_conj_FID = args.no_conj_fid
     mrsi.rescale = not args.no_rescale
     mrsi.keep = args.keep
     mrsi.ignore = args.ignore

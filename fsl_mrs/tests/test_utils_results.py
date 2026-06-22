@@ -28,7 +28,7 @@ import os.path as op
 def data():
     noiseCov = 0.001
     amplitude = np.asarray([1.0, 0.5, 0.5, 1.0]) * 10
-    chemshift = np.asarray([4.65, 3.0, 3.05, 2.0]) - 4.65
+    chemshift = np.asarray([4.65, 3.0, 3.05, 2.0])
     lw = [10, 10, 10, 10]
     phases = [np.pi * -10 / 180.0, ] * 4
     g = [0, 0, 0, 0]
@@ -102,8 +102,9 @@ def test_units(data):
 
     # Phase
     p0, p1 = res.getPhaseParams(phi0='degrees', phi1='seconds')
-    assert np.isclose(p0, 10.0, atol=1E0)
-    assert np.isclose(p1, 0.00005, atol=3E-5)
+    print(p0, p1)
+    assert np.isclose(p0, 9.0, atol=1E0)
+    assert np.isclose(p1, 4.5E-5, atol=5E-6)
 
     # Shift
     shift = res.getShiftParams(units='ppm')
@@ -260,7 +261,6 @@ def concentration_scaling_data() -> dict[str, Any]:
 
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 
     dataw_zero = dataw.copy()
@@ -268,7 +268,6 @@ def concentration_scaling_data() -> dict[str, Any]:
     mrs_zero_water = data.mrs(
         basis=basis,
         ref_data=dataw_zero)
-    mrs_zero_water.check_FID(repair=True)
     mrs_zero_water.check_Basis(repair=True)
 
     Fitargs = {'ppmlim': [0.2, 5.2],

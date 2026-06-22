@@ -10,6 +10,10 @@ import pandas as pd
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.core import MRS, basis
 import fsl_mrs.dynamic as dyn
+from pathlib import Path
+
+testsPath = Path(__file__).parent
+model_path = testsPath / 'testdata/dynamic/simple_linear_model.py'
 
 
 # Fixture returning two MRS objects (with basis) linked by a concentration scaling of 2x.
@@ -29,9 +33,7 @@ def fixed_ratio_mrs():
     mrs1 = MRS.from_axes(fid=FID1[0][0], axes=FID1[2], basis=b)
     mrs2 = MRS.from_axes(fid=FID2[0][0], axes=FID2[2], basis=b)
 
-    mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
-    mrs2.check_FID(repair=True)
     mrs2.check_Basis(repair=True)
 
     mrs_list = [mrs1, mrs2]
@@ -44,7 +46,7 @@ def test_dynRes(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -94,7 +96,7 @@ def test_dynRes_newton(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -129,7 +131,7 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -164,7 +166,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],

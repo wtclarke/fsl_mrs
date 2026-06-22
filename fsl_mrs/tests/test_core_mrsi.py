@@ -102,13 +102,12 @@ def test_fetch_mrs():
         assert np.isclose(seg['CSF'] + seg['WM'] + seg['GM'], 1.0)
 
     # test some of the flags
-    mrsi.conj_FID       = True
     mrsi.rescale        = True
     mrsi.keep           = ['NAA']
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
         assert mrs.names == ['NAA']
-        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indices[idx]].conj())
+        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indices[idx]])
 
 
 def test_fetch_mrs_reuses_average_basis_cache():

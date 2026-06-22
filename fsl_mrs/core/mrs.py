@@ -66,7 +66,6 @@ class MRS():
         self._ignore = []
         self._keep_ignore = []
         self._conj_basis = False
-        self._conj_fid = False
         self._scaling_factor = None
         self._scaling_limits = None
         self._indept_scale = []
@@ -168,10 +167,7 @@ class MRS():
     @property
     def FID(self):
         """Returns the FID"""
-        if self._conj_fid:
-            return self._FID.conj() * self._fid_scaling
-        else:
-            return self._FID * self._fid_scaling
+        return self._FID * self._fid_scaling
 
     @FID.setter
     def FID(self, FID):
@@ -198,10 +194,7 @@ class MRS():
         if self._H2O is None:
             return None
 
-        if self._conj_fid:
-            return self._H2O.conj() * self._fid_scaling
-        else:
-            return self._H2O * self._fid_scaling
+        return self._H2O * self._fid_scaling
 
     @H2O.setter
     def H2O(self, FID):
@@ -249,20 +242,6 @@ class MRS():
     @property
     def nucleus(self):
         return self._nucleus
-
-    @property
-    def conj_FID(self):
-        """Conjugation state of FID"""
-        return self._conj_fid
-
-    @conj_FID.setter
-    def conj_FID(self, value):
-        """Set conjugation state of FID
-
-        :param value: True or False
-        :type value: Bool
-        """
-        self._conj_fid = value
 
     @property
     def basis(self):
@@ -593,7 +572,6 @@ class MRS():
         if ppmlim is None:
             ppmlim = self.default_ppm_range
 
-        self.check_FID(ppmlim=ppmlim, repair=True)
         self.check_Basis(ppmlim=ppmlim, repair=True)
         self.rescaleForFitting(ind_scaling=ind_scaling)
 
@@ -614,36 +592,6 @@ class MRS():
         # Set scaling options that will be dynamically applied when the formatted basis is fetched.
         self._scaling_factor = scale
         self._indept_scale = ind_scaling
-
-    def check_FID(self, ppmlim=None, repair=False):
-        """
-           Check if FID needs to be conjugated
-           by looking at total power within ppmlim range
-
-        Parameters
-        ----------
-        ppmlim : list
-        repair : if True applies conjugation to FID
-
-        Returns
-        -------
-        0 if check successful and -1 if not (also issues warning)
-
-        """
-        if ppmlim is None:
-            ppmlim = self.default_ppm_range
-
-        if misc.detect_conjugation(
-                self.FID,
-                self.axes.ppmShiftIndices(ppmlim)):
-            if repair is False:
-                warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
-                return -1
-            else:
-                self.conj_FID = True
-                return 1
-
-        return 0
 
     def check_Basis(self, ppmlim=None, repair=False):
         """

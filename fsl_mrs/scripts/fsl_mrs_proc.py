@@ -12,6 +12,7 @@
 from os import makedirs
 from shutil import rmtree
 import os.path as op
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -415,6 +416,13 @@ def main():
     ml_group.set_defaults(func=mrsi_lipid)
     add_common_args(mlipidparser)
 
+    # Hide deprecated subcommands from help while keeping them callable.
+    sp._choices_actions = [
+        action for action in sp._choices_actions
+        if getattr(action, 'dest', None) != 'conj'
+    ]
+    sp.metavar = '{' + ','.join(name for name in sp.choices if name != 'conj') + '}'
+
     # Parse command-line arguments
     args = p.parse_args()
 
@@ -489,8 +497,6 @@ def add_common_args(p):
     #                            ' Specify as indices counting from 0.')
     optional.add_argument('--allreports', action="store_true",
                           help='Generate reports for all inputs.')
-    # optional.add_argument('--conjugate', action="store_true",
-    #                       help='apply conjugate to FID')
     optional.add_argument('--filename', type=str, metavar='<str>',
                           help='Override output file name.')
     optional.add_argument('--verbose', action="store_true",
@@ -851,6 +857,10 @@ def add(dataobj, args):
 
 def conj(dataobj, args):
     from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
+
+    warnings.warn(
+        "The 'conj' subcommand is deprecated and may be removed in a future release.",
+        FutureWarning)
 
     conjugated = preproc.conjugate(dataobj.data,
                                    report=args['generateReports'],

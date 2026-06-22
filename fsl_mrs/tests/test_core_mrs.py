@@ -114,9 +114,8 @@ def test_access(synth_data):
     assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.original_basis_array)
 
     mrs.conj_Basis = True
-    mrs.conj_FID = True
     assert np.allclose(mrs.get_spec() / mrs.scaling['FID'],
-                       FIDToSpec(fid.conj()))
+                       FIDToSpec(fid))
     assert np.allclose(mrs.basis / mrs.scaling['basis'], basis.original_basis_array.conj())
 
 
@@ -229,7 +228,6 @@ def test_process_for_fitting(synth_data):
                         axes,
                         basis=basis)
 
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
     mrs.processForFitting()
 

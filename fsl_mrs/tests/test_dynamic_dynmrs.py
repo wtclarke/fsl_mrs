@@ -16,6 +16,10 @@ from fsl_mrs.dynamic.variable_mapping import ConfigFileError
 from fsl_mrs.utils.report import create_dynmrs_report
 
 
+testsPath = Path(__file__).parent
+model_path = testsPath / 'testdata/dynamic/simple_linear_model.py'
+
+
 @pytest.fixture
 def fixed_ratio_mrs():
     FID_basis1 = syn.syntheticFID(chemicalshift=[1, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
@@ -32,9 +36,7 @@ def fixed_ratio_mrs():
     mrs1 = MRS.from_axes(fid=FID1[0][0], axes=FID1[2], basis=b)
     mrs2 = MRS.from_axes(fid=FID2[0][0], axes=FID2[2], basis=b)
 
-    mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
-    mrs2.check_FID(repair=True)
     mrs2.check_Basis(repair=True)
 
     mrs_list = [mrs1, mrs2]
@@ -52,7 +54,7 @@ def test_dynMRS_setup(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -90,7 +92,7 @@ def test_process_mrs_list(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -102,7 +104,7 @@ def test_process_mrs_list(fixed_ratio_mrs):
     dyn_obj_scaled = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -120,7 +122,7 @@ def test_get_constants(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -144,7 +146,7 @@ def test_dynMRS_fit(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -167,7 +169,7 @@ def test_dynMRS_fit_mcmc(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -185,7 +187,7 @@ def test_dynMRS_mean_fit_init(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -214,7 +216,7 @@ def test_save_load(tmp_path, fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -249,7 +251,7 @@ def test_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list[0:1],
             [0, 1],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            str(model_path),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -262,7 +264,7 @@ def test_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             [0, ],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            str(model_path),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -275,7 +277,7 @@ def test_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             {'param1': [0, 1], 'param2': [0, ]},
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            str(model_path),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -288,7 +290,7 @@ def test_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             {'param1': [0, ], 'param2': [0, ]},
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+            str(model_path),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -306,7 +308,7 @@ def test_vm_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             [0, 1],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badbounds.py',
+            str(model_path.parent / 'simple_linear_model_badbounds.py'),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -319,7 +321,7 @@ def test_vm_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             [0, 1],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badmode.py',
+            str(model_path.parent / 'simple_linear_model_badmode.py'),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -332,7 +334,7 @@ def test_vm_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             [0, 1],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badfunc.py',
+            str(model_path.parent / 'simple_linear_model_badfunc.py'),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -345,7 +347,7 @@ def test_vm_errors(fixed_ratio_mrs):
         _ = dyn.dynMRS(
             mrs_list,
             [0, 1],
-            'fsl_mrs/tests/testdata/dynamic/simple_linear_model_badgrad.py',
+            str(model_path.parent / 'simple_linear_model_badgrad.py'),
             model='lorentzian',
             baseline_order=0,
             metab_groups=[0, 0],
@@ -358,7 +360,7 @@ def test_create_dynmrs_report(tmp_path, fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],

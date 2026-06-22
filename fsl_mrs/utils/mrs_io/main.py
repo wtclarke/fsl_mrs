@@ -38,7 +38,7 @@ class IncompatibleBasisFormat(Exception):
 # These read functions should in general take a file name as a string and
 # return the data in a numpy array with headers (in dict format) containing
 # the following mandatory fields:
-# Reciever bandwidth
+# Receiver bandwidth
 # Dwell time
 # central frequency
 def _check_datatype(filename):
