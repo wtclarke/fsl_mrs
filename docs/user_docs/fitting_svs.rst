@@ -1,16 +1,16 @@
-Fitting
-=======
+Fitting SVS
+===========
 
 FSL-MRS fitting is performed using a linear combination model where a spectral basis is shifted, 
 broadened, and scaled to fit the FID in the spectral domain. 
 Additional nuisance parameters are 0th and 1st order phase, as well as a polynomial or p-spline complex baseline.
 
-Wrapper scripts for command-line fitting are provided for SVS and MRSI as shown below. 
-For more details on the fitting model, algorithms, and advanced options see :ref:`Details <details>`.
+Wrapper scripts for command-line fitting are provided for SVS as shown below. 
+For more details on the fitting model, algorithms, and advanced options see :ref:`Details <svs_details>`.
 
 
-SVS
----
+Command-line script
+-------------------
 
 A basic call to :code:`fsl_mrs`, the SVS wrapper script, is as follows:
 
@@ -43,39 +43,9 @@ Output
 ~~~~~~
 Results from :code:`fsl_mrs` are stored in a single folder that contains the following:
 
-- Interactive HTML Report (if the :code:`--report` option was used.
+- Interactive HTML Report (if the :code:`--report` option was used).
 - CSV files summarising the metabolite concentrations (and uncertainties), fitted parameters, QC measures, and the used relaxation values for quantification.
 - PNG files with summary of the fitting and (optionally) voxel location.
-
-MRSI
-----
-
-A basic call to :code:`fsl_mrsi` is given below:
-
-::
-
-    fsl_mrsi --data mrsi.nii.gz \
-             --basis my_basis_spectra \
-             --output example_fit \
-             --mask mask.nii.gz \
-             --h2o wref.nii.gz \
-             --tissue_frac WM.nii.gz GM.nii.gz CSF.nii.gz
-
-This will fit the linear combination model to each voxel independently. Many additional options are available. Type :code:`fsl_mrsi --help` for a list of all options. 
-
-
-Output
-~~~~~~
-Results from :code:`fsl_mrsi` are stored in a single folder containing the following output:
-
-- An interactive HTML report showing the fit to the average FID across all voxels in the mask.
-- NIfTI files summarising parameters, concentrations, and QC measures (one such file per metabolite)
-- Model prediction in the time domain (NIfTI)
-- Residuals (NIfTI)
-- Fitted Baseline (NIfTI)
-- A file-tree file (mrsi.tree) that contains the folder and file structure information.
-
-The above outputs can be visualised in FSLeyes alongside the original data. See `instructions <https://open.oxcin.ox.ac.uk/pages/wclarke/fsleyes-plugin-mrs/mrsi_results.html>`_ on how to best load MRSI results.
 
 Python & Interactive Interface
 ------------------------------
@@ -93,8 +63,8 @@ Loading and preparing the data:
     FID_file     = 'example_usage/example_data/metab.nii'
     basis_folder = 'example_usage/example_data/steam_11ms'    
 
-    data = mrs_io.read_FID(FID_file)
     mrs = data.mrs(basis_file=basis_folder)
+    data = mrs_io.read_FID(FID_file)
     mrs.processForFitting()
 
 Fitting the model to the data:
@@ -113,12 +83,11 @@ Visualising the fit:
 
 Using *fslpy*
 ~~~~~~~~~~~~~
-`fsl_mrs` and `fsl_mrsi` can also be run via `fslpy` wrappers as shown below:
-
+Fitting for SVS data can also be run via `fslpy` wrappers as shown below:
 
 .. code-block:: python
 
-    from fsl.wrappers import fsl_mrs, fsl_mrsi
+    from fsl.wrappers import fsl_mrs
 
     fsl_mrs(
         data='metab.nii.gz',
@@ -131,24 +100,7 @@ Using *fslpy*
         basis='steam_basis',
     )
 
-    fsl_mrsi(
-        data='metab.nii.gz',
-        basis='3T_slaser_32vespa_1250_wmm',
-        output='fit',
-        metab_groups=['MM09', 'MM12', 'MM14', 'MM17', 'MM21'],
-        h2o='wref.nii.gz',
-        TE='30',
-        TR='2.0',
-        mask='mask.nii.gz',
-        tissue_frac=['mrsi_seg_wm.nii.gz',
-                     'mrsi_seg_gm.nii.gz',
-                     'mrsi_seg_csf.nii.gz'],
-        output_correlations=True,
-        overwrite=True,
-        combine=['Cr', 'PCr'],
-    )
-
-.. _details:
+.. _svs_details:
 
 Details
 -------
@@ -196,35 +148,34 @@ When using medium to high sample numbers (1000+) the MH algorithm is also used t
 Wrapper options
 ~~~~~~~~~~~~~~~
 
-Below are detailed explanations of some of the optional arguments in the wrapper scripts. Type :code:`fsl_mrs --help` or :code:`fsl_mrsi --help` to get the full set of available options. 
+Below are detailed explanations of some of the optional arguments in the wrapper scripts. Type :code:`fsl_mrs --help` to get the full set of available options. 
 
-
-:code:`--algo ALGO`         
+:code:`--algo ALGO`
     Algorithm to be used in the fitting. Either *Newton* (default) or *MH*. if *MH* is selected, the Metropolis hastings algorithm is run, initialised using the Newton algorithm (Truncated Newton as implemented in Scipy).
-:code:`--ignore`            
+:code:`--ignore`
     List of metabolites to be removed from the basis file prior to fitting.
-:code:`--keep`              
-    List of metabolites to include in the fitting, all other metabolites are excluded from the fitting
-:code:`--combine`           
+:code:`--keep`
+    List of metabolites to include in the fitting, all other metabolites are excluded from the fitting.
+:code:`--combine`
     Combine sets of metabolites (not in the fitting, only in the quantification/display) - this option is repeatable. For example, to combine NAA and NAAG together pass `--combine NAA NAAG`.
-:code:`--ppmlim`            
+:code:`--ppmlim`
     Only calculate the loss function within this ppm range.
-:code:`--baseline`    
+:code:`--baseline`
     Specify type of baseline modelling. Specify :code:`poly`, :code:`spline`, or :code:`off` to use a polynomial or p-spline baseline, or to disable the baseline.
     Polynomial order can be specified using :code:`poly, N` where `N` is the order. 
     The stiffness of the spline baseline can be modifed by providing either a string specifier: 
     :code:`very-stiff`, :code:`stiff`, :code:`moderate`, :code:`flexible`, :code:`very-flexible`; 
     or an `effective dimension` number can be given, running from 2 (very stiff) to inf (very flexible). 
     E.g. command line options might be :code:`spline, very-stiff` or :code:`spline, 2`
-:code:`--metab_groups`      
+:code:`--metab_groups`
     Group metabolites into sub-groups that get their own lineshape and frequency parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
-:code:`--lorentzian`        
+:code:`--lorentzian`
     By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
-:code:`--free_shift`        
+:code:`--free_shift`
     By default, metabolite bases can't shift relative to each other. Add this flag to enable shifting (whilst retaining the lineshape constraints specified by metab_groups).   
-:code:`--ind_scale`        
+:code:`--ind_scale`
     Allow independent scaling of specified basis spectra before fitting. For example this can be used to independently scale empirically measured macromolecules combined with simulated metabolite spectra.
-:code:`--disable_MH_priors`        
+:code:`--disable_MH_priors`
     Disable the priors on the MH fitting. The priors are tuned for *in vivo* human brain spectroscopy. Use this option if your spectra has significantly different line widths, phases or large shifts. E.g. in liquid phase phantom or (potentially) pre-clinical systems. Priors can be fine tuned by altering the values in :code:`fsl_mrs.utils.constants`.
 :code:`--internal_ref`
     Set alternative metabolites for internal reference scaling (default is tCr = Cr + PCr). Multiple arguments can be specified for a combined internal reference.
@@ -247,7 +198,7 @@ The wrapper scripts can also take a configuration file as an input. For example,
     TE           = 11
     report
 
-The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
+The following calls to :code:`fsl_mrs` are equivalent:
 ::
 
     fsl_mrs --config config.txt
@@ -255,8 +206,6 @@ The the following calls to :code:`fsl_mrs` or :code:`fsl_mrsi` are equivalent:
 ::
 
     fsl_mrs --ppmlim .3 4.1 --metab_groups combine_all --TE 11 --report
-
-
 
 
 References
