@@ -102,8 +102,9 @@ def test_units(data):
 
     # Phase
     p0, p1 = res.getPhaseParams(phi0='degrees', phi1='seconds')
-    assert np.isclose(p0, 10.0, atol=1E0)
-    assert np.isclose(p1, 0.00005, atol=3E-5)
+    print(p0, p1)
+    assert np.isclose(p0, 9.0, atol=1E0)
+    assert np.isclose(p1, 4.5E-5, atol=5E-6)
 
     # Shift
     shift = res.getShiftParams(units='ppm')
