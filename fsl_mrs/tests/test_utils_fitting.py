@@ -23,7 +23,7 @@ basis_path = testsPath / 'testdata/fsl_mrs/steam_basis'
 def data():
     noiseCov = 0.01
     amplitude = np.asarray([0.5, 0.5, 1.0]) * 10
-    chemshift = np.asarray([3.0, 3.05, 2.0]) - 4.65
+    chemshift = np.asarray([3.0, 3.05, 2.0])
     lw = [10, 10, 10]
     phases = [0, 0, 0]
     g = [0, 0, 0]

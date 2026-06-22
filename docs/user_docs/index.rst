@@ -22,7 +22,8 @@ If this is your first experience with FSL-MRS, get started with the :ref:`Quick 
    nifti_mrs
    data_handling
    processing
-   fitting
+   fitting_svs
+   fitting_mrsi
    quantitation
    macromolecules
    simulation

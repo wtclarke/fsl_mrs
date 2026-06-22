@@ -82,8 +82,6 @@ def main():
                           help='structural image (for report)')
     optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
-    optional.add_argument('--conjugate', action="store_true",
-                          help='apply conjugate to FID')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--report', action="store_true",
@@ -168,17 +166,6 @@ def main():
         verbose_print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
     else:
         ecc_data = None
-
-    # Data conjugation
-    if args.conjugate:
-        verbose_print('Conjugation explicitly set, applying conjugation.')
-
-        supp_data = nifti_mrs_proc.conjugate(supp_data)
-        ref_data = nifti_mrs_proc.conjugate(ref_data)
-        if args.quant is not None:
-            quant_data = nifti_mrs_proc.conjugate(quant_data)
-        if args.ecc is not None:
-            ecc_data = nifti_mrs_proc.conjugate(ecc_data)
 
     # Determine if coils have been combined already
     verbose_print('.... Determine if coil combination is needed')

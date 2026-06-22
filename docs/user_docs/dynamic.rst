@@ -136,18 +136,19 @@ A file (or files) defining the dynamically changing variable(s):
 Command line Interface Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Below are detailed explanations of some of the optional arguments in the wrapper script. Type :code:`fsl_dynmrs --help` to get the full set of available options. 
+Below are detailed explanations of some of the optional arguments in the wrapper script.
+Details for additional MRSI options can be found in :ref:`advanced-fsl-dynmrs`.
+Type :code:`fsl_dynmrs --help` to get the full set of available options.
 
-
-:code:`--ppmlim LOW HIGH`         
+:code:`--ppmlim LOW HIGH`
     Only calculate the loss function within this ppm range.
-:code:`--baseline_order`            
+:code:`--baseline_order`
     Polynomial baseline order. Set to -1 to remove the baseline altogether.
-:code:`--metab_groups`      
+:code:`--metab_groups`
     Group metabolites into sub-groups that get their own lineshape parameters (shift and broadening). This can either be a list of integers (one per metabolite) from 0 to the max number of groups minus one. Or it could be a list of metabolites to be grouped. E.g. using the flag :code:`--metab_groups Mac NAA+NAAG+Cr` then the Mac spectrum will have its own group, the NAA, NAAG, and Cr will be in a different group, and all other metabolites in a 3rd group. Other possibilities are combine_all and separate_all, where metabs are combined into a single group or separated into distinct groups respectively.
-:code:`--lorentzian`        
-    By default the lineshape is a Voigt (lorentizian+gaussian). Use this flag to set to Lorentzian.
-:code:`--report`        
+:code:`--lorentzian`
+    By default the lineshape is a Voigt (lorentzian+gaussian). Use this flag to set to Lorentzian.
+:code:`--report`
     Generate an HTML report of the fitting.
-:code:`--no_rescale`        
+:code:`--no_rescale`
     Do not rescale the input data before fitting. By default all spectra are rescaled using a single scaling factor.

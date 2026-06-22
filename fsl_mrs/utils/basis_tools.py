@@ -263,7 +263,6 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
     # 3. Width calculation if needed.
     if width is None:
         mrs = MRS(FID=resampled_fid, cf=cf, bw=bw)
-        mrs.check_FID(repair=True)
         width, _, _ = idPeaksCalcFWHM(mrs)
 
     # 4. Conjugate if requested

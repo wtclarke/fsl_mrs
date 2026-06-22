@@ -106,7 +106,6 @@ def test_syntheticFromBasis_baseline():
                                              nifti_output=False)
 
     mrs.FID = fid
-    mrs.conj_FID = True
 
     fid, mrs2, _ = syn.syntheticFromBasisFile(str(basis_path),
                                               baseline=[1.0, 1.0],
@@ -114,9 +113,8 @@ def test_syntheticFromBasis_baseline():
                                               noisecovariance=[[0.0]])
 
     mrs2.FID = fid
-    mrs2.conj_FID = True
 
-    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, -1.0))
+    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, 1.0))
 
 
 def test_synthetic_spectra_from_model():

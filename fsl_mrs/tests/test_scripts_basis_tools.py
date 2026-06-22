@@ -169,7 +169,6 @@ def test_add(tmp_path):
     subprocess.check_call(['basis_tools', 'add',
                            '--info', 'some info',
                            '--scale',
-                           '--conj',
                            '--name', 'new_basis',
                            str(mac),
                            str(out_loc)])

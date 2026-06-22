@@ -89,8 +89,6 @@ class MRSI():
 
         # MRS output options
         self.conj_basis     = None
-        self.conj_FID       = False
-        self.no_conj_FID    = False
         self.rescale        = False
         self._scaling_limits = None
         self._keep          = []
@@ -294,13 +292,6 @@ class MRSI():
 
             mrs.keep = self._keep
             mrs.ignore = self._ignore
-
-        if self.conj_FID:
-            mrs.conj_FID = True
-        elif self.no_conj_FID:
-            pass
-        else:
-            mrs.check_FID(repair=True)
 
         mrs.scaling_limits = self.scaling_limits
         if self.rescale:

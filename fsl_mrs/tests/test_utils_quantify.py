@@ -215,7 +215,6 @@ def test_quantifyWater():
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
     mrs.keep = ['Cr']
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 
     Fitargs = {'ppmlim': [0.2, 5.2],
@@ -274,7 +273,6 @@ def water_quantification_failure_data() -> dict[str, Any]:
 
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 
     dataw_zero = dataw.copy()
@@ -282,7 +280,6 @@ def water_quantification_failure_data() -> dict[str, Any]:
     mrs_zero_water = data.mrs(
         basis=basis,
         ref_data=dataw_zero)
-    mrs_zero_water.check_FID(repair=True)
     mrs_zero_water.check_Basis(repair=True)
 
     Fitargs = {'ppmlim': [0.2, 5.2],
