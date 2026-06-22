@@ -74,6 +74,24 @@ def test_load(synth_data):
     assert mrs.nucleus == '1H'
 
 
+def test_basis_copy_policy(synth_data):
+
+    fid, basis, axes = synth_data
+
+    copied = MRS.from_axes(
+        fid,
+        axes,
+        basis=basis)
+    shared = MRS.from_axes(
+        fid,
+        axes,
+        basis=basis,
+        copy_basis=False)
+
+    assert copied._basis is not basis
+    assert shared._basis is basis
+
+
 def test_access(synth_data):
 
     fid, basis, axes = synth_data

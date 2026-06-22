@@ -332,3 +332,35 @@ def test_baseline_prepare_penalised_fit_functions():
 
     assert np.isclose(moderr(input), np.sum(input), atol=1E-1)
     assert np.allclose(modgrad(input), input, atol=1E-1)
+
+
+def test_baseline_spline_penalty_cache(monkeypatch):
+    mrs = MRS(FID=np.zeros((1000,)), cf=100, bw=2000, nucleus='1H')
+    obj = baseline.Baseline(
+        mrs,
+        (0, 5),
+        "spline, 10",
+        None)
+
+    lambda_calls = 0
+    original_lambda_from_ed = baseline.lambda_from_ed
+
+    def counted_lambda_from_ed(*args, **kwargs):
+        nonlocal lambda_calls
+        lambda_calls += 1
+        return original_lambda_from_ed(*args, **kwargs)
+
+    monkeypatch.setattr(baseline, 'lambda_from_ed', counted_lambda_from_ed)
+
+    obj.prepare_penalised_fit_functions(
+        lambda x: np.sum(x),
+        lambda x: x,
+        lambda x: x)
+    obj.prepare_penalised_fit_functions(
+        lambda x: np.sum(x),
+        lambda x: x,
+        lambda x: x)
+    obj.cov_penalty_term(obj.n_basis * 2)
+    obj.cov_penalty_term(obj.n_basis * 2)
+
+    assert lambda_calls == 1

@@ -28,7 +28,7 @@ class MRS():
     """
     def __init__(self, FID=None, header=None, basis=None, names=None, basis_hdr=None,
                  axes=None, H2O=None, cf=None, bw=None, nucleus=None, chemShift=None,
-                 RxOffset=0.0):
+                 RxOffset=0.0, copy_basis=True):
         """Main init for the MRS class
 
         :param FID: [description], defaults to None
@@ -55,6 +55,8 @@ class MRS():
         :type chemShift: [type], optional
         :param RxOffset: [description], defaults to 0.0
         :type RxOffset: [type], optional
+        :param copy_basis: Deep-copy a supplied Basis object, defaults to True.
+        :type copy_basis: bool, optional
         :raises ValueError: [description]
         :raises TypeError: [description]
         """
@@ -65,6 +67,7 @@ class MRS():
         self._keep_ignore = []
         self._conj_basis = False
         self._scaling_factor = None
+        self._scaling_limits = None
         self._indept_scale = []
 
         # Read in class data input
@@ -94,8 +97,7 @@ class MRS():
                              ' or bandwidth & nucleus & central frequency.')
 
         # Set Axes info
-        self._axes_obj = axes
-        if self._axes_obj is None:
+        if axes is None:
             if chemShift is None:
                 chemShift = self.default_ppm_shift
             self._axes_obj = Axes(ResonantNucleus=self.nucleus,
@@ -104,6 +106,8 @@ class MRS():
                                   SpecFreqChemShift=chemShift,
                                   RxOffset=RxOffset,
                                   npoints=self.numPoints)
+        else:
+            self._axes_obj = axes
         self._calculate_axes()
 
         # Set Basis info
@@ -113,7 +117,10 @@ class MRS():
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self.basis = deepcopy(basis)
+                if copy_basis:
+                    self.basis = deepcopy(basis)
+                else:
+                    self.basis = basis
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
@@ -146,13 +153,15 @@ class MRS():
 
     @classmethod
     def from_axes(cls, fid: np.typing.NDArray[np.complex64], axes: Axes,
-                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None):
+                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None,
+                  copy_basis: bool = True):
         """Construct an MRS object from fid using metadata from axes."""
         return MRS(
             FID=fid,
             axes=axes,
             basis=basis,
-            H2O=H2O)
+            H2O=H2O,
+            copy_basis=copy_basis)
 
     # Properties
     @property
@@ -172,7 +181,7 @@ class MRS():
         self._fid_scaling = 1.0
 
     @property
-    def axes(self):
+    def axes(self) -> Axes:
         return self._axes_obj
 
     @property
@@ -237,6 +246,14 @@ class MRS():
     @property
     def basis(self):
         """Returns the currently formatted basis spectra"""
+        return self.get_basis()
+
+    def get_basis(self, copy=True):
+        """Returns the currently formatted basis spectra.
+
+        :param copy: Return a mutable copy of the formatted basis, defaults to True.
+        :type copy: bool, optional
+        """
         if self._basis is None:
             return None
         else:
@@ -246,14 +263,16 @@ class MRS():
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale).conj()
+                    indept_scale=self._indept_scale,
+                    copy=copy).conj()
             else:
                 return self._basis.get_formatted_basis(
                     self.bandwidth,
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale)
+                    indept_scale=self._indept_scale,
+                    copy=copy)
 
     @basis.setter
     def basis(self, basis):
@@ -388,8 +407,16 @@ class MRS():
         return {'FID': self.fid_scaling,
                 'basis': self.basis_scaling[0]}
 
+    @property
+    def scaling_limits(self) -> tuple[float, float] | None:
+        return self._scaling_limits
+
+    @scaling_limits.setter
+    def scaling_limits(self, limits: tuple[float, float] | None):
+        self._scaling_limits = limits
+
     # Get methods
-    def get_spec(self, ppmlim: tuple = None, shift=True):
+    def get_spec(self, ppmlim: tuple | None = None, shift=True):
         """Returns spectrum over defined ppm limits
 
         :param ppmlim: Chemical shift range over which to return the spectrum, defaults to None
@@ -556,8 +583,9 @@ class MRS():
         :param ind_scaling: List of basis spectra to independently scale, defaults to []
         :type ind_scaling: List of strings, optional
         """
-
-        _, scaling = misc.rescale_FID(self._FID, scale=scale)
+        _, scaling = misc.rescale_FID(
+            self._FID if self.scaling_limits is None else self.get_spec(self.scaling_limits),
+            scale=scale)
         # Set scaling that will be dynamically applied when the FID is fetched.
         self._fid_scaling = scaling
 

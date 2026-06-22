@@ -367,10 +367,62 @@ def grad(x, nu, t, m, B, G, g, data, indices: slice):
 
     returns gradient vector
     """
+    n = m.shape[1]
+    con, gamma, eps, phi0, phi1, b = x2param(x, n, g)
 
-    S, dS = forward_and_jac(x, nu, t, m, B, G, g, indices)
+    E = np.zeros((m.shape[0], g), dtype=complex)
+    for gg in range(g):
+        E[:, gg] = np.exp(-(1j * eps[gg] + gamma[gg]) * t).flatten()
+
+    e_term = np.zeros(m.shape, dtype=complex)
+    c = np.zeros((con.size, g))
+    for i, gg in enumerate(G):
+        e_term[:, i] = E[:, gg]
+        c[i, gg] = con[i]
+    m_term = m * e_term
+
+    phi_term = np.exp(-1j * (phi0 + phi1 * nu))
+
+    Fmet = FIDToSpec(m_term)
+    Ftmet = FIDToSpec(t * m_term)
+    Ftmetc = Ftmet @ c
+    Fmetcon = Fmet @ con[:, None]
+
+    S = (phi_term * Fmetcon)
+    if B is not None:
+        S += B @ b[:, None]
+
+    dSdc = phi_term * Fmet
+    dSdgamma = phi_term * (-Ftmetc)
+    dSdeps = phi_term * (-1j * Ftmetc)
+    dSdphi0 = -1j * phi_term * (Fmetcon)
+    dSdphi1 = -1j * nu * phi_term * (Fmetcon)
+    dSdb = B
+
+    S = S[indices]
+    dSdc = dSdc[indices, :]
+    dSdgamma = dSdgamma[indices, :]
+    dSdeps = dSdeps[indices, :]
+    dSdphi0 = dSdphi0[indices]
+    dSdphi1 = dSdphi1[indices]
+    dSdb = dSdb[indices]
+
     Spec = data[indices, None]
-    grad = np.real(np.sum(S * np.conj(dS) + np.conj(S) * dS - np.conj(Spec) * dS - Spec * np.conj(dS), axis=0))
+    resid = S - Spec
+    grad = np.empty(n + 2 * g + 2 + dSdb.shape[1], dtype=float)
+
+    offset = 0
+    grad[offset:offset + n] = 2 * np.real(np.sum(resid * np.conj(dSdc), axis=0))
+    offset += n
+    grad[offset:offset + g] = 2 * np.real(np.sum(resid * np.conj(dSdgamma), axis=0))
+    offset += g
+    grad[offset:offset + g] = 2 * np.real(np.sum(resid * np.conj(dSdeps), axis=0))
+    offset += g
+    grad[offset] = 2 * np.real(np.sum(resid * np.conj(dSdphi0)))
+    offset += 1
+    grad[offset] = 2 * np.real(np.sum(resid * np.conj(dSdphi1)))
+    offset += 1
+    grad[offset:] = 2 * np.real(np.sum(resid * np.conj(dSdb), axis=0))
 
     return grad
 
@@ -384,7 +436,7 @@ def _init_params(mrs, baseline, ppmlim):
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
     def modify_basis(mrs, gamma, eps):
-        bs = mrs.basis * np.exp(-(gamma + 1j * eps) * mrs.timeAxis)
+        bs = mrs.get_basis(copy=False) * np.exp(-(gamma + 1j * eps) * mrs.timeAxis)
         bs = FIDToSpec(bs, axis=0)
         bs = bs[indices, :]
         return np.concatenate((np.real(bs), np.imag(bs)), axis=0)

@@ -24,14 +24,16 @@ if TYPE_CHECKING:
 def fit_FSLModel(mrs: "MRS",
                  method: str = 'Newton',
                  ppmlim: tuple[float, float] | None = None,
-                 baseline: str = 'polynomial, 2',
+                 baseline: str | bline.Baseline = 'polynomial, 2',
                  baseline_order: int | None = None,
-                 metab_groups: list[int] = None,
+                 metab_groups: list[int] | None = None,
                  model: models.model_strings = 'voigt',
-                 x0: list[float] = None,
+                 x0: list[float] | None = None,
                  MHSamples: int = 500,
                  disable_mh_priors: bool = False,
-                 fit_baseline_mh: bool = False):
+                 fit_baseline_mh: bool = False,
+                 scipy_min_options_dict: dict | None = dict(maxfun=1E5),
+                 capture_minimize_output: bool = False) -> FitRes:
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
@@ -42,6 +44,8 @@ def fit_FSLModel(mrs: "MRS",
     :type method: str, optional
     :param ppmlim: ppm range over which to fit, defaults to nucleus standard (via None) e.g. (.2, 4.2) for 1H.
     :type ppmlim: tuple, optional
+    :param baseline: Baseline specification string or reusable Baseline object, defaults to 'polynomial, 2'
+    :type baseline: str or fsl_mrs.utils.baseline.Baseline, optional
     :param baseline_order: Polynomial baseline order, defaults to 2, -1 disables.
     :type baseline_order: int, optional
     :param metab_groups: List of metabolite groupings, defaults to None
@@ -56,6 +60,11 @@ def fit_FSLModel(mrs: "MRS",
     :type disable_mh_priors: bool, optional
     :param fit_baseline_mh: If true baseline parameters are also fit using MH, defaults to False
     :type fit_baseline_mh: bool, optional
+    :param scipy_min_options_dict: Options dict passed to scipy.minimise TNC function.
+    :type scipy_min_options_dict: dict or None, optional
+    :param capture_minimize_output: Attach the scipy.optimize.minimize result object for diagnostics,
+        defaults to False.
+    :type capture_minimize_output: bool, optional
 
     :return: Fit results object
     :rtype: fsl_mrs.utils.FitRes
@@ -67,10 +76,23 @@ def fit_FSLModel(mrs: "MRS",
 
     data = mrs.get_spec().copy()              # data copied to keep it safe
 
+    # A supplied Baseline object defines both the baseline basis and, if
+    # ppmlim is omitted, the fit range it was constructed for.
+    if isinstance(baseline, bline.Baseline):
+        if baseline_order is not None:
+            raise ValueError('baseline_order cannot be used when baseline is a Baseline object.')
+        baseline_obj = baseline
+        if ppmlim is None:
+            ppmlim = baseline_obj.ppmlim
+    elif isinstance(baseline, str):
+        baseline_obj = None
+    else:
+        raise TypeError('baseline must be a string or fsl_mrs.utils.baseline.Baseline object.')
+
     # Find appropriate ppm limit for nucleus
-    if ppmlim is None:
+    if ppmlim is None and baseline_obj is None:
         ppmlim = nucleus_constants(mrs.nucleus).ppm_range
-    if ppmlim is None:
+    if ppmlim is None and baseline_obj is None:
         raise ValueError(
             'Please specify a fitting range (ppmlim): '
             f'No ppmlim specified and no default found for nucleus {mrs.nucleus}.')
@@ -81,14 +103,17 @@ def fit_FSLModel(mrs: "MRS",
         metab_groups = [0] * len(mrs.names)
 
     # shorter names for some of the useful stuff
-    freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.basis
+    freq, time, basis = mrs.frequencyAxis, mrs.timeAxis, mrs.get_basis(copy=False)
 
     # Prepare baseline
-    baseline_obj = bline.Baseline(
-        mrs,
-        ppmlim,
-        baseline,
-        baseline_order)
+    if baseline_obj is None:
+        baseline_obj = bline.Baseline(
+            mrs,
+            ppmlim,
+            baseline,
+            baseline_order)
+    else:
+        baseline_obj.validate_mrs(mrs, ppmlim)
 
     # Constants
     if metab_groups is None:
@@ -124,9 +149,11 @@ def fit_FSLModel(mrs: "MRS",
             method='TNC',
             jac=grad_func,
             bounds=bounds,
-            options=dict(maxfun=1E5))
+            options=scipy_min_options_dict)
         # Results
         results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim)
+        if capture_minimize_output:
+            results.scipy_minimize_result = res
 
     elif method == 'init':
         results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim)
@@ -210,7 +237,8 @@ def fit_FSLModel(mrs: "MRS",
             metab_groups=metab_groups,
             baseline=baseline,
             baseline_order=baseline_order,
-            model=model)
+            model=model,
+            capture_minimize_output=capture_minimize_output)
         # Create masks and bounds for MH fit
         p0 = res.params
 
@@ -242,6 +270,8 @@ def fit_FSLModel(mrs: "MRS",
 
         # collect results
         results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim)
+        if capture_minimize_output and hasattr(res, 'scipy_minimize_result'):
+            results.scipy_minimize_result = res.scipy_minimize_result
 
     else:
         raise Exception('Unknown optimisation method.')

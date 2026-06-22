@@ -90,12 +90,14 @@ class MRSI():
         # MRS output options
         self.conj_basis     = None
         self.rescale        = False
+        self._scaling_limits = None
         self._keep          = []
         self._ignore        = []
         self._keep_ignore   = []
         self.ind_scaling    = None
 
         self._store_scalings = None
+        self._cached_mrs_basis = None
 
     @property
     def axes(self):
@@ -168,16 +170,26 @@ class MRSI():
         self._ignore += metabs
         self._keep_ignore += metabs
 
+    @property
+    def scaling_limits(self) -> tuple[float, float] | None:
+        return self._scaling_limits
+
+    @scaling_limits.setter
+    def scaling_limits(self, limits: tuple[float, float] | None):
+        self._scaling_limits = limits
+
     def __iter__(self):
         shape = self.data.shape
         self._store_scalings = []
+        basis, copy_basis = self._basis_for_generated_mrs()
         for idx in np.ndindex(shape[:3]):
             if self.mask[idx]:
                 mrs_out = MRS(FID=self.data[idx],
                               header=self.header,
-                              basis=self._basis,
+                              basis=basis,
                               H2O=self.H2O[idx],
-                              axes=self.axes)
+                              axes=self.axes,
+                              copy_basis=copy_basis)
 
                 self._process_mrs(mrs_out)
                 self._store_scalings.append(mrs_out.scaling)
@@ -213,21 +225,23 @@ class MRSI():
         else:
             return self._store_scalings
 
-    def mrs_by_index(self, index):
+    def mrs_by_index(self, index) -> MRS:
         ''' Return MRS object by index (tuple - x,y,z).'''
         if not np.array_equal(self.H2O, np.full(self.data.shape[:3], None)):
             H2O = self.H2O[index[0], index[1], index[2], :]
         else:
             H2O = None
+        basis, copy_basis = self._basis_for_generated_mrs()
         mrs_out = MRS(FID=self.data[index[0], index[1], index[2], :],
                       header=self.header,
-                      basis=self._basis,
+                      basis=basis,
                       H2O=H2O,
-                      axes=self.axes)
+                      axes=self.axes,
+                      copy_basis=copy_basis)
         self._process_mrs(mrs_out)
         return mrs_out
 
-    def mrs_from_average(self):
+    def mrs_from_average(self) -> MRS:
         '''
         Return average of all masked voxels
         as a single MRS object.
@@ -240,12 +254,18 @@ class MRSI():
         else:
             H2O = None
 
+        basis, copy_basis = self._basis_for_generated_mrs()
         mrs_out = MRS(FID=FID,
                       header=self.header,
-                      basis=self._basis,
+                      basis=basis,
                       H2O=H2O,
-                      axes=self.axes)
+                      axes=self.axes,
+                      copy_basis=copy_basis)
         self._process_mrs(mrs_out)
+        if mrs_out._basis is not None:
+            self._basis = mrs_out._basis
+            self._cached_mrs_basis = mrs_out._basis
+            self.conj_basis = mrs_out.conj_Basis
         return mrs_out
 
     def seg_by_index(self, index):
@@ -257,7 +277,7 @@ class MRSI():
         else:
             raise ValueError('Load tissue segmentation first.')
 
-    def _process_mrs(self, mrs):
+    def _process_mrs(self, mrs: MRS):
         ''' Process (conjugate, rescale)
             basis and FID and apply basis operations
             to all voxels.
@@ -273,8 +293,15 @@ class MRSI():
             mrs.keep = self._keep
             mrs.ignore = self._ignore
 
+        mrs.scaling_limits = self.scaling_limits
         if self.rescale:
             mrs.rescaleForFitting(ind_scaling=self.ind_scaling)
+
+    def _basis_for_generated_mrs(self):
+        """Return the Basis object and copy policy for generated MRS objects."""
+        if self._cached_mrs_basis is not None:
+            return self._cached_mrs_basis, False
+        return self._basis, True
 
     def plot(self, mask=True, ppmlim=None):
         '''Plot (masked) grid of spectra.'''
@@ -413,13 +440,13 @@ class MRSI():
         return data
 
     def check_basis(self, ppmlim=None):
-        """Check orientation of basis using a single generated mrs object.
+        """Check orientation of basis using the average masked MRS object.
 
         :param ppmlim: Region of expected signal, defaults to nucleus standard
         :type ppmlim: tuple, optional
         """
         if self._basis is not None:
-            mrs = self.mrs_by_index((0, 0, 0))
+            mrs = self.mrs_from_average()
             mrs.check_Basis(ppmlim=ppmlim, repair=True)
             self.conj_basis = mrs.conj_Basis
         else:
