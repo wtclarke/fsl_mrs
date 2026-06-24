@@ -13,10 +13,9 @@ from pytest import fixture, raises
 from fsl.data.image import Image
 
 from fsl_mrs.utils.preproc import mrsi
-from fsl_mrs.utils.mrs_io import read_FID, read_basis
+from fsl_mrs import read_FID, read_basis, merge, reorder
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
-from fsl_mrs.core import nifti_mrs as ntools
 from nifti_mrs.axes import Axes
 
 
@@ -196,9 +195,8 @@ def test_mrsi_freq_align():
     assert np.allclose(shift_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # Test with higher dimensions
-    import fsl_mrs.core.nifti_mrs as ntools
-    mrsi_higher = ntools.reorder(mrsi_data, ['DIM_DYN', None, None])
-    mrsi_higher = ntools.merge((mrsi_higher, mrsi_higher), 'DIM_DYN')
+    mrsi_higher = reorder(mrsi_data, ['DIM_DYN', None, None])
+    mrsi_higher = merge((mrsi_higher, mrsi_higher), 'DIM_DYN')
 
     aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
@@ -256,9 +254,9 @@ def test_mrsi_phase_corr():
     assert np.allclose(phs_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # handling multi-dimensional data
-    mrsi_data_hd = ntools.merge([
-        ntools.reorder(mrsi_data, ['DIM_DYN', None, None]),
-        ntools.reorder(mrsi_data, ['DIM_DYN', None, None])],
+    mrsi_data_hd = merge([
+        reorder(mrsi_data, ['DIM_DYN', None, None]),
+        reorder(mrsi_data, ['DIM_DYN', None, None])],
         'DIM_DYN')
 
     phased_data_hd, phs_hd_avg = mrsi.mrsi_phase_corr(mrsi_data_hd, mask=mask)

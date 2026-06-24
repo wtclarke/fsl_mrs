@@ -6,10 +6,8 @@ Copyright Will Clarke, University of Oxford, 2021
 '''
 from pathlib import Path
 
-from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
+from fsl_mrs import proc, split, read_FID, read_basis
 from fsl_mrs.utils.preproc import dyn_based_proc as dproc
-from fsl_mrs.utils.mrs_io import read_FID, read_basis
-from fsl_mrs.core.nifti_mrs import split
 from fsl_mrs.utils import basis_tools as btools
 
 
@@ -23,13 +21,13 @@ basis_path = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis'
 def test_dyn_align(tmp_path):
     nmrs_obj = read_FID(metab)
     nmrs_ref_obj = read_FID(wrefc)
-    nmrs_ref_obj = nproc.average(nmrs_ref_obj, 'DIM_DYN')
+    nmrs_ref_obj = proc.average(nmrs_ref_obj, 'DIM_DYN')
 
-    combined = nproc.coilcombine(nmrs_obj, reference=nmrs_ref_obj)
+    combined = proc.coilcombine(nmrs_obj, reference=nmrs_ref_obj)
 
     reduced_data, _ = split(combined, 'DIM_DYN', 2)
 
-    aligned_1 = nproc.align(reduced_data, 'DIM_DYN', ppmlim=(0.2, 4.2))
+    aligned_1 = proc.align(reduced_data, 'DIM_DYN', ppmlim=(0.2, 4.2))
 
     basis = btools.conjugate_basis(read_basis(basis_path))
 

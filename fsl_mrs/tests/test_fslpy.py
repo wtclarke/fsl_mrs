@@ -19,7 +19,7 @@ pytest.importorskip('fsl.wrappers')
 from fsl.data.image import Image
 from fsl.wrappers import fsl_mrs, fsl_mrsi, fsl_mrs_preproc, fsl_mrs_preproc_edit, \
                          fsl_mrs_proc, svs_segment, mrsi_segment
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_basis
 from fsl_mrs.utils.validate_results import compare_folders
 
 fsl_bin = str(Path(sys.prefix) / 'bin')
@@ -274,7 +274,7 @@ def test_fsl_mrs(tmp_path):
             overwrite=True,
             TE='11',
             metab_groups='Mac',
-            basis=mrs_io.read_basis(fsl_mrs_data['basis']),
+            basis=read_basis(fsl_mrs_data['basis']),
         )
     assert (object_out / 'summary.csv').exists()
 
@@ -332,7 +332,7 @@ def test_fsl_mrsi(tmp_path):
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrsi(
             data=Image(fsl_mrsi_data['metab']),
-            basis=mrs_io.read_basis(fsl_mrsi_data['basis']),
+            basis=read_basis(fsl_mrsi_data['basis']),
             output=object_out,
             metab_groups=['MM09', 'MM12', 'MM14', 'MM17', 'MM21'],
             h2o=Image(fsl_mrsi_data['water']),

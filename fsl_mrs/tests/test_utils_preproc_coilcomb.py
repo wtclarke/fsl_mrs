@@ -11,7 +11,7 @@ import pytest
 
 from fsl_mrs.utils.preproc import combine
 from fsl_mrs.utils import synthetic as syn
-from fsl_mrs.utils.preproc.nifti_mrs_proc import coilcombine
+from fsl_mrs import proc, split
 from fsl_mrs.core.nifti_mrs import create_nmrs
 
 
@@ -234,10 +234,10 @@ def test_nifti_mrs_coilcomb():
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        combined_wcov = coilcombine(data, covariance=cov)
-        combined_wnoise = coilcombine(data, noise=noise.T)
+        combined_wcov = proc.coilcombine(data, covariance=cov)
+        combined_wnoise = proc.coilcombine(data, noise=noise.T)
 
-        combined_wocov = coilcombine(data)
+        combined_wocov = proc.coilcombine(data)
 
     assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
@@ -262,10 +262,10 @@ def test_nifti_mrs_coilcomb():
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        combined_wcov = coilcombine(data, covariance=cov)
-        combined_wnoise = coilcombine(data, noise=noise.T)
+        combined_wcov = proc.coilcombine(data, covariance=cov)
+        combined_wnoise = proc.coilcombine(data, noise=noise.T)
 
-        combined_wocov = coilcombine(data)
+        combined_wocov = proc.coilcombine(data)
 
     assert np.allclose(combined_wcov[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wcov[1, 0, 0, :, 0], comb_test_v2)
@@ -277,10 +277,9 @@ def test_nifti_mrs_coilcomb():
     assert np.allclose(combined_wocov[1, 0, 0, :, 0], comb_test_v2, atol=1E-2)
 
     # Repeat with reference (use same data)
-    from fsl_mrs.core import nifti_mrs as ntools
-    ref_data, _ = ntools.split(data, 'DIM_DYN', 0)
+    ref_data, _ = split(data, 'DIM_DYN', 0)
     print(ref_data.shape)
-    combined_wref = coilcombine(data, covariance=cov, reference=ref_data)
+    combined_wref = proc.coilcombine(data, covariance=cov, reference=ref_data)
 
     assert np.allclose(combined_wref[0, 0, 0, :, 0], comb_test_v1)
     assert np.allclose(combined_wref[1, 0, 0, :, 0], comb_test_v2)

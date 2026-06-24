@@ -7,7 +7,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 import subprocess
 from pathlib import Path
 
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_FID
 
 testsPath = Path(__file__).parent
 data = testsPath / 'testdata/fsl_mrs_preproc_edit'
@@ -213,9 +213,9 @@ def test_preproc_noavg(tmp_path):
     assert (tmp_path / 'mergedReports.html').exists()
     assert (tmp_path / 'voxel_location.png').exists()
 
-    diff = mrs_io.read_FID(tmp_path / 'diff.nii.gz')
-    on = mrs_io.read_FID(tmp_path / 'edit_0.nii.gz')
-    off = mrs_io.read_FID(tmp_path / 'edit_1.nii.gz')
+    diff = read_FID(tmp_path / 'diff.nii.gz')
+    on = read_FID(tmp_path / 'edit_0.nii.gz')
+    off = read_FID(tmp_path / 'edit_1.nii.gz')
 
     assert diff.shape[-1] == 16
     assert on.shape[-1] == 16
@@ -243,5 +243,5 @@ def test_noalign(tmp_path):
     assert retcode == 0
     assert (tmp_path / 'edit_0.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'edit_0.nii.gz')
+    proc_nii = read_FID(tmp_path / 'edit_0.nii.gz')
     assert all(['.align, dim=DIM_DYN' not in step['Details'] for step in proc_nii.hdr_ext['ProcessingApplied']])

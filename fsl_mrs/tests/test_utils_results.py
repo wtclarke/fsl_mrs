@@ -14,7 +14,7 @@ from fsl_mrs.utils import quantify
 from fsl_mrs.core import MRS
 from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
-import fsl_mrs.utils.mrs_io as mrsio
+from fsl_mrs import read_FID, read_basis
 
 import pytest
 import numpy as np
@@ -247,15 +247,15 @@ def test_combined_lw_estimates():
 
 # Use real data to test the water quantification
 metabfile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_WS.txt')
-h2ofile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_nWS.txt')
+h2ofile   = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_nWS.txt')
 basisfile = op.join(op.dirname(__file__), 'testdata/quantify/basisset_JMRUI')
 
 
 @pytest.fixture(scope='module')
 def concentration_scaling_data() -> dict[str, Any]:
-    basis = mrsio.read_basis(basisfile)
-    data = mrsio.read_FID(metabfile)
-    dataw = mrsio.read_FID(h2ofile)
+    basis = read_basis(basisfile)
+    data  = read_FID(metabfile)
+    dataw = read_FID(h2ofile)
 
     basis.add_peak(7.0, 0.1, 'fake', gamma=6.0)
 

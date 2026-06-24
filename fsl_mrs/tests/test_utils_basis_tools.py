@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_basis
 from fsl_mrs.utils import basis_tools
 from fsl_mrs.utils.mrs_io import fsl_io
 from fsl_mrs.utils.constants import GYRO_MAG_RATIO
@@ -28,8 +28,8 @@ def test_convert_lcmodel(tmp_path):
     out_loc = tmp_path / 'test_basis'
     basis_tools.convert_lcm_basis(lcm_basis_path, out_loc)
 
-    basis = mrs_io.read_basis(lcm_basis_path)
-    new_basis = mrs_io.read_basis(out_loc)
+    basis = read_basis(lcm_basis_path)
+    new_basis = read_basis(out_loc)
 
     assert basis.names == new_basis.names
     # Check that a conjugation has taken place. This is an annoying hack at the moment because
@@ -43,7 +43,7 @@ def test_convert_lcmodel_nuc(tmp_path):
     out_loc = tmp_path / 'test_basis'
     basis_tools.convert_lcm_basis(lcm_basis_path, out_loc, nucleus="31P")
 
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = read_basis(out_loc)
 
     assert new_basis.nucleus == "31P"
 
@@ -56,7 +56,7 @@ def test_convert_raw(tmp_path):
         3.0 * GYRO_MAG_RATIO['1H'],
         out_loc)
 
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = read_basis(out_loc)
 
     assert new_basis.names == ['Cr', 'GPC', 'NAA']
     assert new_basis.original_basis_array.shape == (2048, 3)
@@ -72,7 +72,7 @@ def test_convert_raw_optional_args(tmp_path):
         '31P',
         3.0)
 
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = read_basis(out_loc)
 
     assert new_basis.names == ['Cr', 'GPC', 'NAA']
     assert new_basis.original_basis_array.shape == (2048, 3)
@@ -86,7 +86,7 @@ def test_convert_jmrui(tmp_path):
         jmrui_basis_path,
         out_loc)
 
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = read_basis(out_loc)
 
     assert new_basis.original_basis_array.shape == (2048, 21)
 
@@ -97,14 +97,14 @@ def test_convert_jmrui_vespa(tmp_path):
         jmrui_vespa_basis_path,
         out_loc)
 
-    new_basis = mrs_io.read_basis(out_loc)
+    new_basis = read_basis(out_loc)
 
     assert new_basis.original_basis_array.shape == (4096, 2)
     assert new_basis.names == ['creatine', 'n-acetylaspartate']
 
 
 def test_add_basis():
-    basis = mrs_io.read_basis(fsl_basis_path)
+    basis = read_basis(fsl_basis_path)
 
     mac_in = fsl_io.readJSON(extra_basis)
     fid = np.asarray(mac_in['basis_re']) + 1j * np.asarray(mac_in['basis_im'])
@@ -139,9 +139,9 @@ def test_add_basis():
 
 
 def test_shift():
-    basis = mrs_io.read_basis(fsl_basis_path)
+    basis = read_basis(fsl_basis_path)
 
-    shifted = basis_tools.shift_basis(mrs_io.read_basis(fsl_basis_path), 'NAA', 1.0)
+    shifted = basis_tools.shift_basis(read_basis(fsl_basis_path), 'NAA', 1.0)
 
     index = basis.names.index('NAA')
     amount_in_hz = 1.0 * basis.cf
@@ -152,7 +152,7 @@ def test_shift():
 
 
 def test_rescale():
-    basis = mrs_io.read_basis(fsl_basis_path)
+    basis = read_basis(fsl_basis_path)
 
     index = basis.names.index('Mac')
     indexed_fid = basis.original_basis_array[:, index]
@@ -174,8 +174,8 @@ basis_off = testsPath / 'testdata' / 'basis_tools' / 'low_res_on'
 
 
 def test_add_sub():
-    basis_1 = mrs_io.read_basis(basis_off)
-    basis_2 = mrs_io.read_basis(basis_on)
+    basis_1 = read_basis(basis_off)
+    basis_2 = read_basis(basis_on)
 
     # Test addition
     new = basis_tools.difference_basis_sets(basis_1, basis_2)
@@ -201,10 +201,10 @@ def test_add_sub():
 
 
 def test_conj():
-    basis = mrs_io.read_basis(basis_off)
-    basis_conj = basis_tools.conjugate_basis(mrs_io.read_basis(basis_off))
+    basis = read_basis(basis_off)
+    basis_conj = basis_tools.conjugate_basis(read_basis(basis_off))
     assert np.allclose(basis_conj.original_basis_array, basis.original_basis_array.conj())
 
-    basis_conj = basis_tools.conjugate_basis(mrs_io.read_basis(basis_off), name='NAA')
+    basis_conj = basis_tools.conjugate_basis(read_basis(basis_off), name='NAA')
     index = basis_conj.names.index('NAA')
     assert np.allclose(basis_conj.original_basis_array[:, index], basis.original_basis_array[:, index].conj())
