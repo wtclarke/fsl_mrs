@@ -58,26 +58,28 @@ Loading and preparing the data:
 
 .. code-block:: python
 
-    from fsl_mrs.utils import mrs_io
+    from fsl_mrs import read_FID
 
     FID_file     = 'example_usage/example_data/metab.nii'
     basis_folder = 'example_usage/example_data/steam_11ms'    
 
     mrs = data.mrs(basis_file=basis_folder)
-    data = mrs_io.read_FID(FID_file)
+    data = read_FID(FID_file)
     mrs.processForFitting()
 
 Fitting the model to the data:
 
 .. code-block:: python
 
-    from fsl_mrs.utils import fitting
-    results = fitting.fit_FSLModel(mrs)
+    results = mrs.fit()
 
 Visualising the fit:
 
 .. code-block:: python
 
+    # option 1
+    _ = res.plot(mrs)
+    # option 2
     from fsl_mrs.utils import plotting
     plotting.plotly_fit(mrs,results)
 

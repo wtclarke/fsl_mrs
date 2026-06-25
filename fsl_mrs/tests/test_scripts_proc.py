@@ -20,9 +20,8 @@ from fsl.data.image import Image
 
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from fsl_mrs.utils.synthetic import syntheticFID
-from fsl_mrs.utils.mrs_io import read_FID
-from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc, \
-                                  mrsi as mrsi_proc
+from fsl_mrs import read_FID, proc
+from fsl_mrs.utils.preproc import mrsi as mrsi_proc
 
 testsPath = Path(__file__).parent
 test_data = testsPath / 'testdata'
@@ -291,7 +290,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     # Run directly
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        directRun = preproc.coilcombine(svsdata)
+        directRun = proc.coilcombine(svsdata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -308,7 +307,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     # Run directly
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        directRun = preproc.coilcombine(mrsidata)
+        directRun = proc.coilcombine(mrsidata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -326,7 +325,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.coilcombine(svsdata, covariance=0.1 * np.eye(4))
+    directRun = proc.coilcombine(svsdata, covariance=0.1 * np.eye(4))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -356,7 +355,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.coilcombine(svsdata, noise=noise.T)
+    directRun = proc.coilcombine(svsdata, noise=noise.T)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -364,7 +363,7 @@ def test_coilcombine(svs_data_uncomb, mrsi_data_uncomb, tmp_path):
 def test_coilcombine_datachecks(tmp_path):
 
     # Test unaveraged reference data
-    met_raw = test_data / 'fsl_mrs_preproc' / 'metab_raw.nii.gz'
+    met_raw = test_data / 'fsl_mrs_proc' / 'metab_raw.nii.gz'
     with pytest.raises(subprocess.CalledProcessError) as exc_info:
         _ = subprocess.run(
             ['fsl_mrs_proc',
@@ -406,7 +405,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.average(svsdata, 'DIM_DYN')
+    directRun = proc.average(svsdata, 'DIM_DYN')
 
     assert np.allclose(data[:], directRun[:])
 
@@ -422,7 +421,7 @@ def test_average(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.average(mrsidata, 'DIM_DYN')
+    directRun = proc.average(mrsidata, 'DIM_DYN')
 
     assert np.allclose(data[:], directRun[:])
 
@@ -443,7 +442,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10))
+    directRun = proc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -459,7 +458,7 @@ def test_align(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.align(mrsidata, 'DIM_DYN', ppmlim=(-10, 10))
+    directRun = proc.align(mrsidata, 'DIM_DYN', ppmlim=(-10, 10))
 
     assert np.allclose(data[:], directRun[:], atol=1E-1, rtol=1E-1)
 
@@ -481,7 +480,7 @@ def test_align_all(svs_data_uncomb_reps, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.align(svsdata, 'all', ppmlim=(-10, 10))
+    directRun = proc.align(svsdata, 'all', ppmlim=(-10, 10))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -503,12 +502,12 @@ def test_align_xcorr(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10), method='xcorr')
+    directRun = proc.align(svsdata, 'DIM_DYN', ppmlim=(-10, 10), method='xcorr')
 
     assert np.allclose(data[:], directRun[:])
 
     # With target
-    target = preproc.average(svsdata, dim='DIM_DYN')
+    target = proc.average(svsdata, dim='DIM_DYN')
     target.save(tmp_path / 'target.nii.gz')
 
     subprocess.check_call(['fsl_mrs_proc',
@@ -525,7 +524,7 @@ def test_align_xcorr(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
 
     # Run directly
-    directRun = preproc.align(
+    directRun = proc.align(
         svsdata,
         'DIM_DYN',
         ppmlim=(-10, 10),
@@ -550,7 +549,7 @@ def test_ecc(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.ecc(svsdata, svsdata)
+    directRun = proc.ecc(svsdata, svsdata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -566,7 +565,7 @@ def test_ecc(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.ecc(mrsidata, mrsidata)
+    directRun = proc.ecc(mrsidata, mrsidata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -586,7 +585,7 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.remove_peaks(svsdata, (-10, 10))
+    directRun = proc.remove_peaks(svsdata, (-10, 10))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -602,7 +601,7 @@ def test_remove(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.remove_peaks(mrsidata, (-10, 10))
+    directRun = proc.remove_peaks(mrsidata, (-10, 10))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -623,7 +622,7 @@ def test_model(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.hlsvd_model_peaks(svsdata, (-10, 10), components=5)
+    directRun = proc.hlsvd_model_peaks(svsdata, (-10, 10), components=5)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -640,7 +639,7 @@ def test_model(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.hlsvd_model_peaks(mrsidata, (-10, 10), components=5)
+    directRun = proc.hlsvd_model_peaks(mrsidata, (-10, 10), components=5)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -660,11 +659,11 @@ def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.aligndiff(svsdata,
-                                  'DIM_DYN',
-                                  'DIM_EDIT',
-                                  'add',
-                                  ppmlim=(-10, 10))
+    directRun = proc.aligndiff(svsdata,
+                               'DIM_DYN',
+                               'DIM_EDIT',
+                               'add',
+                               ppmlim=(-10, 10))
 
     assert np.allclose(data[:], directRun[:])
     # TODO: finish MRSI test
@@ -684,7 +683,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.fshift(svsdata, 1.0 * 123.2)
+    directRun = proc.fshift(svsdata, 1.0 * 123.2)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -701,7 +700,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
+    directRun = proc.shift_to_reference(svsdata, 4.0, (-5.0, 5.0))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -717,7 +716,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.fshift(mrsidata, 10.0)
+    directRun = proc.fshift(mrsidata, 10.0)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -736,7 +735,7 @@ def test_fshift(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.fshift(mrsidata, shifts)
+    directRun = proc.fshift(mrsidata, shifts)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -756,7 +755,7 @@ def test_conj(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.conjugate(svsdata)
+    directRun = proc.conjugate(svsdata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -771,7 +770,7 @@ def test_conj(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.conjugate(mrsidata)
+    directRun = proc.conjugate(mrsidata)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -793,7 +792,7 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.apply_fixed_phase(svsdata, 90, 0.001)
+    directRun = proc.apply_fixed_phase(svsdata, 90, 0.001)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -811,7 +810,7 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.apply_fixed_phase(svsdata, 90, 0.001, p1_type='linphase')
+    directRun = proc.apply_fixed_phase(svsdata, 90, 0.001, p1_type='linphase')
 
     assert np.allclose(data[:], directRun[:])
 
@@ -828,7 +827,7 @@ def test_fixed_phase(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.apply_fixed_phase(mrsidata, 90, 0.001)
+    directRun = proc.apply_fixed_phase(mrsidata, 90, 0.001)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -850,7 +849,7 @@ def test_apodize(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.apodize(svsdata, (10,))
+    directRun = proc.apodize(svsdata, (10,))
 
     assert np.allclose(data[:], directRun[:])
 
@@ -867,7 +866,7 @@ def test_apodize(svs_data, mrsi_data, tmp_path):
     data = read_FID(op.join(tmp_path, 'tmp.nii.gz'))
 
     # Run directly
-    directRun = preproc.apodize(mrsidata, (10, 1), filter='l2g')
+    directRun = proc.apodize(mrsidata, (10, 1), filter='l2g')
 
     assert np.allclose(data[:], directRun[:])
 
@@ -908,7 +907,7 @@ def test_unlike(svs_data, mrsi_data, tmp_path):
     assert "DIM_DYN Indices" in data.hdr_ext
 
     # Run directly
-    directRun, _ = preproc.remove_unlike(svsdata, sdlimit=1.0, niter=3)
+    directRun, _ = proc.remove_unlike(svsdata, sdlimit=1.0, niter=3)
 
     assert np.allclose(data[:], directRun[:])
 
@@ -961,7 +960,7 @@ def test_tshift(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
-    directRun = preproc.tshift(svsdata, tshiftStart=10.0, tshiftEnd=10.0, samples=1024)
+    directRun = proc.tshift(svsdata, tshiftStart=10.0, tshiftEnd=10.0, samples=1024)
     assert np.allclose(data[:], directRun[:])
     assert len(list(tmp_path.glob('report*.html'))) == 1
 
@@ -981,7 +980,7 @@ def test_tshift(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
-    directRun = preproc.tshift(svsdata, tshiftStart=-10.0, tshiftEnd=-10.0, samples=512)
+    directRun = proc.tshift(svsdata, tshiftStart=-10.0, tshiftEnd=-10.0, samples=512)
     assert np.allclose(data[:], directRun[:])
 
 
@@ -1003,7 +1002,7 @@ def test_truncate(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
-    directRun = preproc.truncate_or_pad(svsdata, 10, position='first')
+    directRun = proc.truncate_or_pad(svsdata, 10, position='first')
     assert np.allclose(data[:], directRun[:])
     assert len(list(tmp_path.glob('report*.html'))) == 1
 
@@ -1023,7 +1022,7 @@ def test_truncate(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
-    directRun = preproc.truncate_or_pad(svsdata, -10, position='first')
+    directRun = proc.truncate_or_pad(svsdata, -10, position='first')
     assert np.allclose(data[:], directRun[:])
 
     # Remove points at end
@@ -1041,7 +1040,7 @@ def test_truncate(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
-    directRun = preproc.truncate_or_pad(svsdata, -10, position='last')
+    directRun = proc.truncate_or_pad(svsdata, -10, position='last')
     assert np.allclose(data[:], directRun[:])
 
 
@@ -1061,7 +1060,7 @@ def test_phase(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
-    directRun = preproc.phase_correct(svsdata, (0, 4))
+    directRun = proc.phase_correct(svsdata, (0, 4))
     assert np.allclose(data[:], directRun[:])
     assert len(list(tmp_path.glob('report*.html'))) == 1
 
@@ -1080,7 +1079,7 @@ def test_phase(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
-    directRun = preproc.phase_correct(svsdata, (0, 4), hlsvd=True)
+    directRun = proc.phase_correct(svsdata, (0, 4), hlsvd=True)
     assert np.allclose(data[:], directRun[:])
 
     # With avg
@@ -1098,7 +1097,7 @@ def test_phase(svs_data, mrsi_data, tmp_path):
 
     # Load result for comparison against direct run
     data = read_FID(op.join(tmp_path, 'tmp2.nii.gz'))
-    directRun = preproc.phase_correct(svsdata, (0, 4), use_avg=True)
+    directRun = proc.phase_correct(svsdata, (0, 4), use_avg=True)
     assert np.allclose(data[:], directRun[:])
 
 
@@ -1116,7 +1115,7 @@ def test_add(svs_data_uncomb_reps, tmp_path):
         capture_output=True)
 
     data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
-    directRun = preproc.add(svsdata, svsdata)
+    directRun = proc.add(svsdata, svsdata)
     assert np.allclose(data[:], directRun[:])
 
     # Single file add across dim
@@ -1133,7 +1132,7 @@ def test_add(svs_data_uncomb_reps, tmp_path):
         capture_output=True)
 
     data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
-    directRun = preproc.add(svsdata, dim='DIM_DYN')
+    directRun = proc.add(svsdata, dim='DIM_DYN')
     assert np.allclose(data[:], directRun[:])
     assert len(list(tmp_path.glob('report*.html'))) == 1
 
@@ -1152,7 +1151,7 @@ def test_subtract(svs_data_uncomb_reps, tmp_path):
         capture_output=True)
 
     data = read_FID(op.join(tmp_path, 'tmp0.nii.gz'))
-    directRun = preproc.subtract(svsdata, svsdata)
+    directRun = proc.subtract(svsdata, svsdata)
     assert np.allclose(data[:], directRun[:])
 
     # Single file subtract across dim
@@ -1169,7 +1168,7 @@ def test_subtract(svs_data_uncomb_reps, tmp_path):
         capture_output=True)
 
     data = read_FID(op.join(tmp_path, 'tmp1.nii.gz'))
-    directRun = preproc.subtract(svsdata, dim='DIM_DYN')
+    directRun = proc.subtract(svsdata, dim='DIM_DYN')
     assert np.allclose(data[:], directRun[:])
     assert len(list(tmp_path.glob('report*.html'))) == 1
 
@@ -1212,7 +1211,7 @@ def test_mrsi_align(svs_data, mrsi_data, tmp_path):
     assert phs.shape == (mrsidata.shape[:3] + mrsidata.shape[4:])
 
     # With target and ppmlim
-    target = preproc.average(svsdata, 'DIM_DYN')
+    target = proc.average(svsdata, 'DIM_DYN')
     target.save(tmp_path / 'target.nii.gz')
 
     _ = subprocess.run(

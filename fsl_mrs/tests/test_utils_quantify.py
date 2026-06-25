@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import pandas as pd
 
-import fsl_mrs.utils.mrs_io as mrsio
+from fsl_mrs import read_FID, read_basis
 from fsl_mrs.utils.fitting import fit_FSLModel
 import fsl_mrs.utils.quantify as quant
 from fsl_mrs.utils.constants import STANDARD_T1, STANDARD_T2
@@ -208,9 +208,9 @@ def test_corrected_water_conc():
 
 
 def test_quantifyWater():
-    basis = mrsio.read_basis(basisfile)
-    data = mrsio.read_FID(metabfile)
-    dataw = mrsio.read_FID(h2ofile)
+    basis = read_basis(basisfile)
+    data  = read_FID(metabfile)
+    dataw = read_FID(h2ofile)
 
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
@@ -265,9 +265,9 @@ def test_quantifyInternal_rejects_zero_reference() -> None:
 
 @pytest.fixture(scope='module')
 def water_quantification_failure_data() -> dict[str, Any]:
-    basis = mrsio.read_basis(basisfile)
-    data = mrsio.read_FID(metabfile)
-    dataw = mrsio.read_FID(h2ofile)
+    basis = read_basis(basisfile)
+    data  = read_FID(metabfile)
+    dataw = read_FID(h2ofile)
 
     basis.add_peak(7.0, 0.1, 'fake', gamma=6.0)
 
