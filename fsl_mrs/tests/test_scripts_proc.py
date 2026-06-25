@@ -660,10 +660,10 @@ def test_align_diff(svs_data_diff, mrsi_data_diff, tmp_path):
 
     # Run directly
     directRun = proc.aligndiff(svsdata,
-                                  'DIM_DYN',
-                                  'DIM_EDIT',
-                                  'add',
-                                  ppmlim=(-10, 10))
+                               'DIM_DYN',
+                               'DIM_EDIT',
+                               'add',
+                               ppmlim=(-10, 10))
 
     assert np.allclose(data[:], directRun[:])
     # TODO: finish MRSI test
