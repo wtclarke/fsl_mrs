@@ -9,7 +9,7 @@ import os.path as op
 import pytest
 from pathlib import Path
 
-import fsl_mrs.utils.mrs_io as mrsio
+from fsl_mrs import read_FID, read_basis
 import fsl_mrs.utils.mrs_io.fsl_io as fslio
 import fsl_mrs.utils.mrs_io.jmrui_io as jmruiio
 from fsl_mrs.utils.mrs_io.main import _check_datatype, IncompatibleBasisFormat
@@ -30,9 +30,9 @@ def test_read_FID_SVS():
     # .raw
     # .txt
 
-    data_nifti = mrsio.read_FID(SVSTestData['nifti'])
-    data_raw = mrsio.read_FID(SVSTestData['raw'])
-    data_txt = mrsio.read_FID(SVSTestData['txt'])
+    data_nifti = read_FID(SVSTestData['nifti'])
+    data_raw = read_FID(SVSTestData['raw'])
+    data_txt = read_FID(SVSTestData['txt'])
 
     # Check that the data from each of these matches - it should they are all the same bit of data.
     datamean = np.mean([data_nifti[:],
@@ -77,18 +77,18 @@ def test_read_Basis() -> None:
     # jmrui - folder of .txt
 
     with pytest.raises(IncompatibleBasisFormat) as exc_info:
-        _ = mrsio.read_basis(BasisTestData['raw'])
+        _ = read_basis(BasisTestData['raw'])
 
     assert exc_info.type is IncompatibleBasisFormat
     assert exc_info.value.args[0] == "LCModel raw files don't contain enough information"\
                                      " to generate a Basis object. Please use fsl_mrs.utils.mrs_io"\
                                      ".lcm_io.read_basis_files to load the partial information."
 
-    basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
-    basis_txt = mrsio.read_basis(BasisTestData['txt'])
-    basis_mrui = mrsio.read_basis(BasisTestData['mrui'])
-    basis_txt_single = mrsio.read_basis(BasisTestData['txt_single'])
-    basis_lcm = mrsio.read_basis(BasisTestData['lcm'])
+    basis_fsl = read_basis(BasisTestData['fsl'])
+    basis_txt = read_basis(BasisTestData['txt'])
+    basis_mrui = read_basis(BasisTestData['mrui'])
+    basis_txt_single = read_basis(BasisTestData['txt_single'])
+    basis_lcm = read_basis(BasisTestData['lcm'])
 
     # Check each returns a basis object
     assert isinstance(basis_fsl, Basis)
@@ -130,7 +130,7 @@ def test_read_mruiBasis_files() -> None:
 
 def test_fslBasisRegen():
     pointsToGen = 100
-    basis_fsl = mrsio.read_basis(BasisTestData['fsl'])
+    basis_fsl = read_basis(BasisTestData['fsl'])
     basis_fsl2 = fslio.readFSLBasisFiles(BasisTestData['fsl'],
                                          readoutShift=4.65,
                                          bandwidth=4000,
@@ -215,4 +215,4 @@ def test_load_symlink(tmp_path):
 
     import os.path as op
     assert op.islink(tmp_path / 'test1.nii')
-    assert mrsio.read_FID(tmp_path / 'test1.nii').shape == (1, 1, 1, 4096)
+    assert read_FID(tmp_path / 'test1.nii').shape == (1, 1, 1, 4096)

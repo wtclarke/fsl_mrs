@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from fsl_mrs.utils.mrs_io.main import read_FID
+from fsl_mrs import read_FID
 from fsl_mrs.utils import misc
 from fsl_mrs.utils import synthetic as synth
 

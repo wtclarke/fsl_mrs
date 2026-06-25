@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from fsl_mrs.scripts import basis2spec
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_FID
 from fsl_mrs.utils.synthetic import syntheticFromBasisFile
 
 testsPath = Path(__file__).parent
@@ -30,11 +30,11 @@ def _run_basis2spec(monkeypatch, output_path, extra_args):
     monkeypatch.setattr(sys, 'argv', cli_args)
     basis2spec.main()
 
-    return mrs_io.read_FID(output_path)
+    return read_FID(output_path)
 
 
 def _expected_output(linewidth, ignore):
-    ref = mrs_io.read_FID(reference_path)
+    ref = read_FID(reference_path)
     expected, _ = syntheticFromBasisFile(
         basisFile=basis_path,
         ignore=ignore,
@@ -60,7 +60,7 @@ def test_basis2spec(monkeypatch, tmp_path, extra_args, linewidth, ignore):
 
     result = _run_basis2spec(monkeypatch, output, extra_args)
     expected = _expected_output(linewidth, ignore)
-    reference = mrs_io.read_FID(reference_path)
+    reference = read_FID(reference_path)
 
     assert output.is_file()
     assert result.shape == expected.shape

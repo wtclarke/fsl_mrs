@@ -6,7 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_basis
 import numpy as np
 from pathlib import Path
 
@@ -85,7 +85,7 @@ def test_syntheticFromBasis():
 
     # Test with single coil
     nmrs, _ = syn.syntheticFromBasisFile(
-        mrs_io.read_basis(basis_path),
+        read_basis(basis_path),
         ignore=['Scyllo'],
         baseline=[0.0, 0.0],
         concentrations={'Mac': 2.0},
@@ -119,7 +119,7 @@ def test_syntheticFromBasis_baseline():
 
 def test_synthetic_spectra_from_model():
 
-    names = mrs_io.read_basis(str(basis_path)).names
+    names = read_basis(str(basis_path)).names
 
     time_var = np.arange(0, 10)
     period = 10.0

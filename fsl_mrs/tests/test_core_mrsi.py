@@ -6,7 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 from fsl_mrs.core import MRSI, mrsi_from_files
 from pathlib import Path
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_FID, read_basis
 import numpy as np
 import nibabel as nib
 
@@ -22,9 +22,9 @@ data = {'metab': testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
 
 def test_manual_load():
 
-    fid = mrs_io.read_FID(str(data['metab']))
-    fid_w = mrs_io.read_FID(str(data['water']))
-    basis = mrs_io.read_basis(str(data['basis']))
+    fid = read_FID(str(data['metab']))
+    fid_w = read_FID(str(data['water']))
+    basis = read_basis(str(data['basis']))
 
     mrsi = MRSI(fid,
                 cf=fid.spectrometer_frequency[0],
@@ -94,7 +94,7 @@ def test_fetch_mrs():
 
     iter_indices = mrsi.get_indices_in_order(mask=True)
 
-    fid = mrs_io.read_FID(str(data['metab']))
+    fid = read_FID(str(data['metab']))
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
         assert np.allclose(mrs.FID, fid[iter_indices[idx]])

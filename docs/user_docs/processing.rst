@@ -127,11 +127,11 @@ The mandatory and optional arguments match exactly the CLI commands, so you can 
 
 Without *fslpy*
 ~~~~~~~~~~~~~~~
-To access the processing methods in either a python or interactive python environment load the `preproc` module:
+To access the processing methods in either a python or interactive python environment load the `proc` module:
 
 .. code-block:: python
 
-    from fsl_mrs.utils.preproc import nifti_mrs_proc
+    from fsl_mrs import proc
 
 Reports and figures can be generated using the :code:`figure` and :code:`report` keyword arguments.
 

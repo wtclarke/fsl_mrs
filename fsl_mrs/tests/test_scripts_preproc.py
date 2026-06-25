@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_FID
 
 testsPath = Path(__file__).parent
 data = testsPath / 'testdata/fsl_mrs_preproc'
@@ -45,7 +45,7 @@ def test_preproc(tmp_path):
     assert (tmp_path / 'metab.nii.gz').exists()
     assert (tmp_path / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4095)
 
 
@@ -77,7 +77,7 @@ def test_depreciated_options(tmp_path):
     assert (tmp_path / 'metab.nii.gz').exists()
     assert (tmp_path / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4095)
 
 
@@ -102,7 +102,7 @@ def test_noalign(tmp_path):
     assert retcode == 0
     assert (tmp_path / 'metab.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4096)
     assert all(['.align' not in step['Details'] for step in proc_nii.hdr_ext['ProcessingApplied']])
 
@@ -136,7 +136,7 @@ def test_window_align_preproc(tmp_path):
     assert (tmp_path / 'metab.nii.gz').exists()
     assert (tmp_path / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4095)
 
 
@@ -173,7 +173,7 @@ def test_preproc_wnoise(tmp_path):
     assert (out / 'metab.nii.gz').exists()
     assert (out / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(out / 'metab.nii.gz')
+    proc_nii = read_FID(out / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4096)
 
 
@@ -204,7 +204,7 @@ def test_preproc_fmrs(tmp_path):
     assert (tmp_path / 'metab.nii.gz').exists()
     assert (tmp_path / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4095, 64)
 
 
@@ -241,16 +241,15 @@ def test_wref_singleton_preproc(tmp_path):
     """
 
     # Make data with right attributes
-    from fsl_mrs.utils import mrs_io
-    from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
+    from fsl_mrs import proc
 
     metab = data / 'metab_raw.nii.gz'
-    wrefc = mrs_io.read_FID(data / 'wref_raw.nii.gz')
-    wrefq = mrs_io.read_FID(data / 'quant_raw.nii.gz')
-    ecc = mrs_io.read_FID(data / 'ecc.nii.gz')
+    wrefc = read_FID(data / 'wref_raw.nii.gz')
+    wrefq = read_FID(data / 'quant_raw.nii.gz')
+    ecc   = read_FID(data / 'ecc.nii.gz')
 
-    wrefc = nproc.average(wrefc, 'DIM_DYN')
-    wrefq = nproc.average(wrefq, 'DIM_DYN')
+    wrefc = proc.average(wrefc, 'DIM_DYN')
+    wrefq = proc.average(wrefq, 'DIM_DYN')
 
     wrefc.set_dim_tag(5, 'DIM_DYN')
     assert wrefc.dim_tags[1] == 'DIM_DYN'
@@ -289,5 +288,5 @@ def test_wref_singleton_preproc(tmp_path):
     assert (tmp_path / 'preproc' / 'metab.nii.gz').exists()
     assert (tmp_path / 'preproc' / 'wref.nii.gz').exists()
 
-    proc_nii = mrs_io.read_FID(tmp_path / 'preproc' / 'metab.nii.gz')
+    proc_nii = read_FID(tmp_path / 'preproc' / 'metab.nii.gz')
     assert proc_nii.shape == (1, 1, 1, 4095)
