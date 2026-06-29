@@ -1,5 +1,10 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.16 (Monday 29th June 2026)
+-----------------------------------
+- Locked fslpy dependency for future API changes
+- Removed fsl_sub from dependecies
+
 2.4.15 (Wednesday 10th June 2026)
 -----------------------------------
 - Simulator now calls updated `fsl-denmatsim` package.
