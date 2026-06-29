@@ -1,16 +1,21 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.16 (Monday 29th June 2026)
+------------------------------
+- Locked fslpy dependency for future API changes
+- Removed fsl_sub from dependecies
+
 2.4.15 (Wednesday 10th June 2026)
------------------------------------
+---------------------------------
 - Simulator now calls updated `fsl-denmatsim` package.
 - Replaced `fsl_sub` with `dask` in `fsl_dynmrs`
 
 2.4.14 (Wednesday 27th May 2026)
------------------------------------
+--------------------------------
 - Updated requirements list
 
 2.4.13 (Wednesday 20th May 2026)
------------------------------------
+--------------------------------
 - Added Osprey .mat file conversion to FSL-MRS Basis in `basis_tools convert`.
 - `fsl_mrsi` now creates a file-tree file in the output folder (mrsi.tree) to be used in `fsleyes-plugin-mrs`.
 - Improved test suite execution time
@@ -24,7 +29,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fix bugs introduced by stricter numpy array to scaler conversion rules.
 
 2.4.11 (Friday 28th November 2025)
------------------------------------
+----------------------------------
 - Fixed unnecessary warnings in `fsl_mrs_summarise` terminal output when viewing MH results.
 - Added mean baseline and residual traces to average plot in `fsl_mrs_summarise`.
 - Fixed bug in `fmrs_stats` for explicit group mean contrast (and other 1x1 matrices).
@@ -123,7 +128,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fix bug for numpy versions < 2 calculating quantifiaction areas
 
 2.2.0 (Tuesday 9th July 2024)
---------------------------------
+-----------------------------
 - Increment minimum python version to 3.9, testing now takes place on python 3.11, matching main FSL.
 - Numpy 2.0 compatibility
 
@@ -267,7 +272,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Truncation step in `fsl_mrs_preproc` now happens earlier in series.
 
 2.0.7 (Thursday 20th October 2022)
------------------------------------
+----------------------------------
 - Added linear phase modulation to phasing processing tool, alternative to (interpolated) time domain time-shift
 - Added more linear phase metrics to static fitting report.
 - Refactored fitting models. 'Freeshift' model added to enable unconstrained frequency shifts.
