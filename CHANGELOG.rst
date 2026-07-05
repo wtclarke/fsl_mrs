@@ -32,6 +32,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
 - `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
 - Some commonly-used functions and methods are now available as module level imports.
+- Added tests for fslpy wrappers: fsl_dynmrs, basis2spec, fmrs_stats.
 
 2.4.15 (Wednesday 10th June 2026)
 ---------------------------------
