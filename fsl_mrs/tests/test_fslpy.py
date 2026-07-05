@@ -82,11 +82,7 @@ fmrs_stats_data = {
         testsPath / 'testdata/fmrs_tools/sim_fmrs/sub1/ctrl'],
     'fl_contrasts': testsPath / 'testdata/fmrs_tools/fl_contrasts.json',
     'design_gm': testsPath / 'testdata/fmrs_tools/design_groupmean.mat',
-    'con_gm': testsPath / 'testdata/fmrs_tools/design_groupmean.con',
-    'design_paired': testsPath / 'testdata/fmrs_tools/design.mat',
-    'con_paired': testsPath / 'testdata/fmrs_tools/design.con',
-    'ftest': testsPath / 'testdata/fmrs_tools/design.fts',
-    'ftests': testsPath / 'testdata/fmrs_tools/design2.fts'}
+    'con_gm': testsPath / 'testdata/fmrs_tools/design_groupmean.con'}
 
 def _run_fsl_mrs_proc_cli(input_dir, output_dir):
     # 1. Combine water reference data for combination across dynamics
@@ -769,12 +765,12 @@ def test_fmrs_stats(tmp_path):
     # fslpy call
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fmrs_stats(
-            data=str(results_list),
-            output=str(wrapper_out),
-            fl_contrasts=str(fmrs_stats_data['fl_contrasts']),
+            data=results_list,
+            output=wrapper_out,
+            fl_contrasts=fmrs_stats_data['fl_contrasts'],
             combine=[['NAA', 'NAAG'], ['Cr', 'PCr'], ['PCh', 'GPC']],
-            hl_design=str(fmrs_stats_data['design_gm']),
-            hl_contrasts=str(fmrs_stats_data['con_gm']),
+            hl_design=fmrs_stats_data['design_gm'],
+            hl_contrasts=fmrs_stats_data['con_gm'],
             hl_contrast_names=['positive', 'negative'],
             overwrite=True,
         )
