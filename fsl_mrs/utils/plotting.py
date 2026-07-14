@@ -912,6 +912,8 @@ def plot_general_corr(corr_mat, labels, title='Correlation', nan_diag=True):
     :return: _description_
     :rtype: _type_
     """
+    corr_mat = corr_mat.copy()
+
     fig = go.Figure()
     if nan_diag:
         np.fill_diagonal(corr_mat, np.nan)
