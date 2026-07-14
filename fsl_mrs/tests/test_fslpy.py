@@ -20,7 +20,7 @@ from fsl.data.image import Image
 from fsl.wrappers import fsl_mrs, fsl_mrsi, fsl_mrs_preproc, fsl_mrs_preproc_edit, \
                          fsl_mrs_proc, svs_segment, mrsi_segment, fsl_dynmrs, \
                          basis2spec, fmrs_stats
-from fsl_mrs import read_basis
+from fsl_mrs import read_basis, NIFTI_MRS
 from fsl_mrs.utils.validate_results import compare_folders
 
 fsl_bin = str(Path(sys.prefix) / 'bin')
@@ -188,13 +188,13 @@ def _run_fsl_mrs_proc_cli(input_dir, output_dir):
 def _run_fsl_mrs_proc_wrapper(input_dir, output_dir, use_objects=False):
     # 1. Combine water reference data for combination across dynamics
     file = input_dir['water']
-    file = Image(file) if use_objects else file
+    file = NIFTI_MRS(file) if use_objects else file
     filename = output_dir / 'wref_comb'
     fsl_mrs_proc.average(file, output_dir, dim='DIM_DYN', filename=filename)
 
     # 2. Run coil combination on the three sets of data
     for file in (input_dir['metab'], input_dir['quant'], input_dir['ecc']):
-        file = Image(file) if use_objects else file
+        file = NIFTI_MRS(file) if use_objects else file
         fsl_mrs_proc.coilcombine(file, output_dir, reference=filename)
 
     # 3. Align averages of water ref and metab data
@@ -202,14 +202,14 @@ def _run_fsl_mrs_proc_wrapper(input_dir, output_dir, use_objects=False):
      [output_dir / input_dir['metab'].name, output_dir / input_dir['quant'].name],
      [output_dir / 'metab_align', output_dir / 'water_align'],
      [(1.8, 3.5), (4, 6)]):
-        file = Image(file) if use_objects else file
+        file = NIFTI_MRS(file) if use_objects else file
         fsl_mrs_proc.align(file, output_dir, filename=filename, ppm=ppm)
 
     # 4. Combine data across averages
     for file, filename in zip(
      [output_dir / 'metab_align', output_dir / 'water_align'],
      [output_dir / 'metab_comb', output_dir / 'wquant_comb']):
-        file = Image(file) if use_objects else file
+        file = NIFTI_MRS(file) if use_objects else file
         fsl_mrs_proc.average(file, output_dir, dim='DIM_DYN', filename=filename)
 
     # 5. Run the eddy current correction on the data
@@ -217,31 +217,31 @@ def _run_fsl_mrs_proc_wrapper(input_dir, output_dir, use_objects=False):
      [output_dir / 'metab_comb', output_dir / 'wquant_comb'],
      [output_dir / input_dir['ecc'].name, output_dir / 'wquant_comb'],
      [output_dir / 'metab_comb_ecc', output_dir / 'wquant_comb_ecc']):
-        file = Image(file) if use_objects else file
-        reference = Image(reference) if use_objects else reference
+        file = NIFTI_MRS(file) if use_objects else file
+        reference = NIFTI_MRS(reference) if use_objects else reference
         fsl_mrs_proc.ecc(file, output=output_dir, reference=reference, filename=filename)
 
     # 6. Remove the first FID point
     for file in (output_dir / 'metab_comb_ecc',
                  output_dir / 'wquant_comb_ecc'):
-        file = Image(file) if use_objects else file
+        file = NIFTI_MRS(file) if use_objects else file
         fsl_mrs_proc.truncate(file, output_dir, points=-1, pos='first')
 
     # 7. Run HLSVD on the data
     file = output_dir / 'metab_comb_ecc'
-    file = Image(file) if use_objects else file
+    file = NIFTI_MRS(file) if use_objects else file
     filename = output_dir / 'metab_comb_ecc_hlsvd'
     fsl_mrs_proc.remove(file, output_dir, filename=filename)
 
     # 8. Phase the data
     file = output_dir / 'metab_comb_ecc_hlsvd'
-    file = Image(file) if use_objects else file
+    file = NIFTI_MRS(file) if use_objects else file
     filename = output_dir / 'metab'
     fsl_mrs_proc.phase(file, output_dir, filename=filename)
 
     file = output_dir / 'wquant_comb_ecc'
     filename = output_dir / 'water'
-    file = Image(file) if use_objects else file
+    file = NIFTI_MRS(file) if use_objects else file
     fsl_mrs_proc.phase(file, output_dir, filename=filename, ppm=(4.6, 4.7))
 
 
@@ -322,8 +322,8 @@ def test_fsl_mrs(tmp_path):
     # fslpy call with objects
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrs(
-            data=Image(fsl_mrs_data['metab']),
-            h2o=Image(fsl_mrs_data['water']),
+            data=NIFTI_MRS(fsl_mrs_data['metab']),
+            h2o=NIFTI_MRS(fsl_mrs_data['water']),
             output=object_out,
             tissue_frac=fsl_mrs_data['seg'],
             overwrite=True,
@@ -449,7 +449,7 @@ def test_fsl_mrs_preproc(tmp_path):
     # fslpy call with objects
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrs_preproc(
-            data=Image(preproc_data['metab']),
+            data=NIFTI_MRS(preproc_data['metab']),
             reference=Image(preproc_data['water']),
             quant=Image(preproc_data['quant']),
             output=object_out,
@@ -505,9 +505,9 @@ def test_fsl_mrs_preproc_edit(tmp_path):
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_mrs_preproc_edit(
             data=Image(preproc_edit_data['metab']),
-            reference=Image(preproc_edit_data['wrefc']),
-            quant=Image(preproc_edit_data['wrefq']),
-            ecc=Image(preproc_edit_data['ecc']),
+            reference=NIFTI_MRS(preproc_edit_data['wrefc']),
+            quant=NIFTI_MRS(preproc_edit_data['wrefq']),
+            ecc=NIFTI_MRS(preproc_edit_data['ecc']),
             t1=Image(preproc_edit_data['t1']),
             output=object_out,
             truncate_fid='2',
@@ -550,7 +550,7 @@ def test_svs_segment(tmp_path):
     object_out.mkdir()
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         svs_segment(
-            svs=Image(svs_segment_data['metab']),
+            svs=NIFTI_MRS(svs_segment_data['metab']),
             anat=svs_segment_data['anat'],
             output=object_out,
         )
@@ -589,7 +589,7 @@ def test_mrsi_segment(tmp_path):
     object_out.mkdir()
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         mrsi_segment(
-            mrsi=Image(mrsi_segment_data['metab']),
+            mrsi=NIFTI_MRS(mrsi_segment_data['metab']),
             anat=mrsi_segment_data['anat'],
             output=object_out,
         )
@@ -676,7 +676,7 @@ def test_fsl_dynmrs(tmp_path):
     # fslpy call with objects
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         fsl_dynmrs(
-            data=Image(data_str),
+            data=NIFTI_MRS(data_str),
             basis=read_basis(basis_str),
             dyn_config=model_str,
             time_variables=tv_str,
@@ -722,7 +722,7 @@ def test_basis2spec(tmp_path):
     with patch('fsl.utils.run.FSL_PREFIX', fsl_bin):
         basis2spec(
             basis=read_basis(basis2spec_data['basis']),
-            reference=Image(basis2spec_data['reference']),
+            reference=NIFTI_MRS(basis2spec_data['reference']),
             output=object_out,
         )
 

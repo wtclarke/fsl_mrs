@@ -28,6 +28,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrsi` has improved logging and qc metrics around fitting failures.
 - Improved automatic pre-fitting scaling in `fsl_mrsi`.
 - Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
+- 'Raw' concentration in fitting results (``FitRes``) is now scaled by `basis_scaling` and `fid_scaling` to produce consistent concentrations in edited sequences and synthetic data.
 - FID conjugation has been removed from `MRS` and `MRSI` classes (``check_FID``, ``conj_FID``).
 - `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
 - `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
