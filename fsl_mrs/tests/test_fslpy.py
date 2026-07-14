@@ -84,6 +84,7 @@ fmrs_stats_data = {
     'design_gm': testsPath / 'testdata/fmrs_tools/design_groupmean.mat',
     'con_gm': testsPath / 'testdata/fmrs_tools/design_groupmean.con'}
 
+
 def _run_fsl_mrs_proc_cli(input_dir, output_dir):
     # 1. Combine water reference data for combination across dynamics
     file = input_dir['water']

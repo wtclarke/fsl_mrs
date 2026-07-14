@@ -722,7 +722,7 @@ class FitRes:
         if scaling is None:
             return rawConc
         elif scaling in {'raw', 'internal', 'molality', 'molarity'}:
-            return rawConc *  self._get_conc_scaling(scaling)
+            return rawConc * self._get_conc_scaling(scaling)
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 
