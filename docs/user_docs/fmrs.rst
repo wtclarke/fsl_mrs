@@ -9,7 +9,7 @@ FSL-MRS includes the :code:`fmrs_stats` script to:
 
 The higher-level analysis uses the *FLAMEO* tool packaged in FSL (which is also used for higher-level FSL FEAT analysis).
 
-To understand the use of higher-level GLM analysis please see the `FSL documentation <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/GLM/CreatingDesignMatricesByHand>`_ and `FSL course <https://open.win.ox.ac.uk/pages/fslcourse/website/online_materials.html>`_, specifically the `FMRI2 E2 video <https://www.youtube.com/watch?v=-nf9Hcthnm8>`_.
+To understand the use of higher-level GLM analysis please see the `FSL documentation <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/GLM/CreatingDesignMatricesByHand>`_ and `FSL course <https://open.oxcin.ox.ac.uk/pages/fslcourse/website/online_materials.html>`_, specifically the `FMRI2 E2 video <https://www.youtube.com/watch?v=-nf9Hcthnm8>`_.
 
 Using fmrs_stats
 ----------------

@@ -13,7 +13,7 @@
 #                  to https://github.com/wtclarke/lcm_validation/
 #
 #    4. doc:       Building user documentation which appears at:
-#                  https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/
+#                  https://open.oxcin.ox.ac.uk/pages/fsl/fsl_mrs/
 #
 #    5. build
 #       & deploy:  Build conda package in three stages fsl-ci-pre,

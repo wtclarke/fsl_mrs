@@ -1,0 +1,60 @@
+[workspace]
+authors = ["Saad Jbabdi <saad@fmrib.ox.ac.uk>", "William Clarke <william.clarke@ndcn.ox.ac.uk>"]
+channels = ["https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/", "conda-forge"]
+name = "fsl_mrs"
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[environments]
+default = { features = [] }
+dev = { features = ["dev"] }
+fsl = { features = ["fsl"] }
+dev-fsl = { features = ["dev", "fsl"] }
+
+[tasks]
+install = "python -m pip install -e . --no-deps"
+
+[dependencies]
+python = ">=3.11,<3.15"
+pip = "*"
+numpy = ">=1.26,<3.0"
+scipy = ">=1.13,<2.0"
+matplotlib = ">=3.10,<4.0"
+plotly = ">=5.24,<6.0"
+pandas = ">=2.2,<4.0"
+jinja2 = ">=3.1.5,<4.0"
+beautifulsoup4 = ">=4.13,<5.0"
+nibabel = ">=5.3,<6.0"
+hlsvdpropy = ">=2.0.2,<3.0"
+fslpy = ">=3.28.1,<4.0"
+pillow = ">=11.0,<12.0"
+spec2nii = ">=0.8.12,<0.9.0"
+dill = ">=0.3.9,<0.4.0"
+dash = ">=3.0,<4.0"
+flask = ">=3.1,<4.0"
+nifti-mrs = ">=1.4.1,<2.0.0"
+dask-core = ">=2025,<2026"
+dask-jobqueue = ">=0.9.0"
+fsl-denmatsim = ">=2.0.0"
+
+[feature.dev.dependencies]
+pytest = "*"
+flake8 = "*"
+python-build = "*"
+
+[feature.dev.tasks]
+lint = "flake8 fsl_mrs --config=setup.cfg"
+test = "pytest fsl_mrs/tests"
+build = "python -m build"
+
+[feature.fsl]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+[feature.fsl.dependencies]
+fsl-avwutils = "*"
+fsl-flameo = "*"
+fsl-flirt = "*"
+fsl-fugue = "*"
+
+[feature.fsl.activation.env]
+FSLDIR = "${CONDA_PREFIX}"
+FSLOUTPUTTYPE = "NIFTI_GZ"

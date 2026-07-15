@@ -53,19 +53,22 @@ Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and ex
 
     git clone --recurse-submodules https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
     cd fsl_mrs
-    conda install -c conda-forge -c defaults \
-            -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
-            --file requirements.txt
-    pip install --no-deps .
+    pixi install
 
-To access all features (those which rely on other FSL tools, e.g. the :code:`svs_segment` scripts), you should either install FSL or run the following commands within your conda environment:
+To access all features (those which rely on other FSL tools, e.g. the :code:`svs_segment` scripts), you should use the 'fsl' pixi environment:
 ::
 
-    conda install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
-    export FSLDIR="${CONDA_PREFIX}"
-    export FSLOUTPUTTYPE="NIFTI_GZ"
+    pixi shell -e fsl
 
-**Note**: You may need to re-activate your conda environment to access the CLI tools.
+**Note**: If FSL is already installed in the base environment and visible by pixi, then you could activate the default environment (``pixi shell``).
+
+Running FSL-MRS CLI
+-------------------
+Once the environment is activated, you can use the FSL-MRS commands similarly to FSL or conda installation.
+However, with pixi, you do not need to activate the environment as you could run a command as follows:
+::
+
+    pixi run -e fsl fsl_mrs ...
 
 
 .. _win-instructions:
