@@ -218,6 +218,7 @@ class FitRes:
     @staticmethod
     def _empty_conc_scalings() -> dict[str, Any]:
         return {
+            'raw': None,
             'internal': None,
             'internalRef': None,
             'molarity': None,
@@ -250,6 +251,7 @@ class FitRes:
         self.referenceMetab = internal_reference
 
         conc_scalings = self._empty_conc_scalings()
+        conc_scalings['raw'] = mrs.scaling['basis'] / mrs.scaling['FID']
         conc_scalings['internalRef'] = internal_ref_label
 
         try:
@@ -640,6 +642,7 @@ class FitRes:
         scaling_value = self.concScalings.get(scaling)
         if scaling_value is None:
             scaling_names = {
+                'raw': 'Raw',
                 'internal': 'Internal',
                 'molality': 'Molality',
                 'molarity': 'Molarity'}
@@ -689,10 +692,10 @@ class FitRes:
     # Functions to return physically meaningful units from the fitting results
     def getConc(
             self,
-            scaling: str = 'raw',
+            scaling: str | None = None,
             metab: str | list[str] | None = None,
             function: str | None = 'mean') -> Any:
-        scaling = scaling.lower()
+        scaling = scaling.lower() if scaling is not None else None
         if function is None:
             def dfFunc(m):
                 return self.fitResults[m]
@@ -716,16 +719,10 @@ class FitRes:
         else:
             rawConc = dfFunc(self.metabs)
 
-        if scaling == 'raw':
+        if scaling is None:
             return rawConc
-        elif scaling == 'internal':
-            return rawConc * self._get_conc_scaling('internal')
-
-        elif scaling == 'molality':
-            return rawConc * self._get_conc_scaling('molality')
-
-        elif scaling == 'molarity':
-            return rawConc * self._get_conc_scaling('molarity')
+        elif scaling in {'raw', 'internal', 'molality', 'molarity'}:
+            return rawConc * self._get_conc_scaling(scaling)
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 
@@ -909,7 +906,7 @@ class FitRes:
                 abs_std.append(self.fitResults[m].std())
         abs_std = np.asarray(abs_std)
         if type.lower() == 'raw':
-            return abs_std
+            return abs_std * self._get_conc_scaling('raw')
         elif type.lower() == 'molarity':
             return abs_std * self._get_conc_scaling('molarity')
         elif type.lower() == 'molality':

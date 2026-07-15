@@ -34,7 +34,7 @@ def main():
     required.add_argument('--data',
                           required=True, nargs='+', type=Path, metavar='<FILE> or <DIRS>',
                           action=DataAction,
-                          help='File containing list of results direcotries, or list of result directories.')
+                          help='File containing list of results directories, or list of result directories.')
     required.add_argument('--output',
                           required=True, type=Path, metavar='<str>',
                           help='output folder')

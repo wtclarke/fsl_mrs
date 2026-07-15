@@ -13,6 +13,7 @@ import numpy as np
 import json
 from pathlib import Path
 from pandas import read_csv, isna
+from pandas.api.types import is_numeric_dtype
 import numbers
 
 
@@ -51,7 +52,7 @@ class FolderTester:
                 self._is_different(ref.name, 'CSV data are NOT equal!')
                 return
 
-            if np.issubdtype(ref_csv[key].dtype, np.number):
+            if is_numeric_dtype(ref_csv[key].dtype):
                 if not np.allclose(ref_csv[key], est_csv[key], atol=0.001, equal_nan=True):
                     self._is_different(ref.name, 'CSV data are NOT equal!')
                     return

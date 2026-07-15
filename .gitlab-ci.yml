@@ -137,12 +137,6 @@ flake8:
     paths:
       - failures/
 
-test:3.10:
-  <<: *test_template
-  <<: *test_merge_rules
-  variables:
-    PYTHON_VERSION: "3.10"
-
 test:3.11:
   <<: *test_template
   <<: *test_merge_rules

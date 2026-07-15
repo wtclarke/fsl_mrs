@@ -28,10 +28,18 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - `fsl_mrsi` has improved logging and qc metrics around fitting failures.
 - Improved automatic pre-fitting scaling in `fsl_mrsi`.
 - Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
+- 'Raw' concentration in fitting results (``FitRes``) is now scaled by `basis_scaling` and `fid_scaling` to produce consistent concentrations in edited sequences and synthetic data.
 - FID conjugation has been removed from `MRS` and `MRSI` classes (``check_FID``, ``conj_FID``).
 - `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
 - `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
 - Some commonly-used functions and methods are now available as module level imports.
+- Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
+- Removed Python 3.10 support.
+
+2.4.16 (Monday 29th June 2026)
+------------------------------
+- Locked fslpy dependency for future API changes
+- Removed fsl_sub from dependencies
 
 2.4.15 (Wednesday 10th June 2026)
 ---------------------------------
@@ -57,7 +65,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fix bugs introduced by stricter numpy array to scaler conversion rules.
 
 2.4.11 (Friday 28th November 2025)
------------------------------------
+----------------------------------
 - Fixed unnecessary warnings in `fsl_mrs_summarise` terminal output when viewing MH results.
 - Added mean baseline and residual traces to average plot in `fsl_mrs_summarise`.
 - Fixed bug in `fmrs_stats` for explicit group mean contrast (and other 1x1 matrices).
@@ -156,7 +164,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Fix bug for numpy versions < 2 calculating quantifiaction areas
 
 2.2.0 (Tuesday 9th July 2024)
---------------------------------
+-----------------------------
 - Increment minimum python version to 3.9, testing now takes place on python 3.11, matching main FSL.
 - Numpy 2.0 compatibility
 
@@ -300,7 +308,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Truncation step in `fsl_mrs_preproc` now happens earlier in series.
 
 2.0.7 (Thursday 20th October 2022)
------------------------------------
+----------------------------------
 - Added linear phase modulation to phasing processing tool, alternative to (interpolated) time domain time-shift
 - Added more linear phase metrics to static fitting report.
 - Refactored fitting models. 'Freeshift' model added to enable unconstrained frequency shifts.

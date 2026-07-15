@@ -682,7 +682,7 @@ def quantifyWater(
     :type verbose: bool, optional
     :return: conc_molal, scaling parameter to convert raw fitted concentrations to molality units of mols/kg
     :rtype: float
-    :return: conc_molar, caling parameter to convert raw fitted concentrations to molarity units of mols/dm^3
+    :return: conc_molar, scaling parameter to convert raw fitted concentrations to molarity units of mols/dm^3
     :rtype: float
     :return: Dict containing water and reference integration classes.
     :rtype: dict
