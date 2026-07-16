@@ -70,6 +70,8 @@ However, with pixi, you do not need to activate the environment as you could run
 
     pixi run -e fsl fsl_mrs ...
 
+**Note**: To deactivate the pixi environment you have to run ``exit`` in the terminal.
+
 
 .. _win-instructions:
 
