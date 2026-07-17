@@ -3,7 +3,8 @@ from copy import deepcopy
 from pathlib import Path
 from sys import stdout
 import argparse
-import os.path as op
+import os
+import threading
 
 # 3rd party imports
 import pandas as pd
@@ -16,6 +17,7 @@ from dash.dash_table.Format import Format
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
+import webbrowser
 
 # FSL-MRS imports
 from fsl_mrs.utils import results
@@ -41,13 +43,17 @@ def main():
         help='Directory containing individual results directories '
              'or Text file containing line-separated list of results directories.')
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     parser.add_argument('-v', '--verbose',
                         required=False, action="store_true")
     parser.add_argument('-p', '--port',
                         required=False,
                         type=int,
                         default=8050)
+    parser.add_argument('--debug',
+                        required=False,
+                        action='store_true',
+                        help=argparse.SUPPRESS)
 
     # Parse command-line arguments
     args = parser.parse_args()
@@ -83,7 +89,7 @@ def main():
         raise ValueError('Input directories must not be duplicated.')
 
     # Look for common paths of the path
-    common_path = Path(op.commonpath(res_dir))
+    common_path = Path(os.path.commonpath(res_dir))
     # Form path names out of the remaining paths after anything common is removed
     fit_names = [str(cpath.relative_to(common_path)) for cpath in res_dir]
 
@@ -215,7 +221,6 @@ def main():
     avg_fig = plotting.plotly_avg_fit(list(mrs_store.values()), list(res_store.values()))
     avg_fig.update_layout(
         title='Average data',
-        height=450,
         margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
         template='plotly_white')
 
@@ -245,6 +250,7 @@ def main():
         print('Rendering...')
 
     app.layout = html.Div([
+        # layout of top bar
         html.Div([
             html.Div([
                 dcc.Dropdown(
@@ -252,68 +258,66 @@ def main():
                     start_metabs,
                     multi=True,
                     id='metabolite-selection')],
-                style={'width': '48%', 'display': 'inline-block'}),
+            style={'width': '48%', 'display': 'inline-block'}),
             html.Div([
                 dcc.Dropdown(
                     columns_conc,
                     columns_start,
                     id='conc-selection')],
-                style={'width': '23%', 'display': 'inline-block'}),
+            style={'width': '23%', 'display': 'inline-block'}),
             html.Div([
-                html.Div(children='Copy Conc:', style={'display': 'inline-block'}),
+                html.Div(children='Copy Conc:', style={'display': 'inline-block', 'marginLeft': '2rem'}),
                 dcc.Clipboard(
                     id="conc-table-copy",
                     className="button",
-                    style={'height': 35, 'width': 35, 'display': 'inline-block'}),
+                    style={'display': 'inline-block', 'marginLeft': '1rem', 'marginRight': '2rem'}),
                 html.Div(children='Copy QC:', style={'display': 'inline-block'}),
                 dcc.Clipboard(
                     id="qc-table-copy",
                     className="button",
-                    style={'height': 35, 'width': 35, 'display': 'inline-block'})],
-                style={'width': '28%', 'float': 'right', 'display': 'inline-block'})
-        ]),
+                    style={'display': 'inline-block', 'marginLeft': '1rem'})],
+            style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'})],
+        style={'flex': '0 0 auto', 'marginBottom': '1rem'}),
 
+        # layout of violin plots
         html.Div([
-            html.Div([
-                dcc.Graph(
-                    id='conc-figure',
-                )],
-                style={'width': '60%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id='fwhm-figure',
-                )],
-                style={'width': '19%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id='snr-figure',
-                )],
-                style={'width': '19%', 'float': 'right', 'display': 'inline-block'}),
-        ]),
+            html.Div([dcc.Graph(id='conc-figure', style={'height': '100%'})],
+                style={'width': '60%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
+            html.Div([dcc.Graph(id='fwhm-figure', style={'height': '100%'}),],
+                style={'width': '18%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
+            html.Div([dcc.Graph(id='snr-figure', style={'height': '100%'}),],
+                style={'width': '18%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),],
+        style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem'}),
 
+        # layout of tables
         html.Div([
             html.Div(
                 [blank_table('conc-table')],
                 id='conc-table-container',
-                style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block'}),
+                style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
             html.Div(
                 [blank_table('qc-table')],
                 id='qc-table-container',
-                style={'width': '35%', 'vertical-align': 'middle', 'float': 'right', 'display': 'inline-block'})
-        ]),
+                style={'width': '36%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'})],
+        style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem', 'overflow': 'auto'}),
 
+        # layout of spectra plots
         html.Div([
             html.Div([
                 dcc.Graph(
                     id='results-figure',
-                    figure=blank_fig())],
-                style={'width': '48%', 'display': 'inline-block'}),
+                    figure=blank_fig(),
+                    style={'height': '100%'})],
+                style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'}),
             html.Div([
                 dcc.Graph(
                     id='avg-plot',
-                    figure=avg_fig)],
-                style={'width': '48%', 'display': 'inline-block', 'float': 'right'})])
-    ])
+                    figure=avg_fig,
+                    style={'height': '100%'})],
+                style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'})],
+        style={'flex': '1 1 0', 'minHeight': '0', 'display': 'flex', 'paddingBottom': '3rem'})
+    ],
+    style={'height': '100vh', 'width': '100vw', 'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'space-between'})
 
     def create_conc_violin(metabs, field, selecteddataset):
         formatted_df = conc_df.loc[metabs].reset_index().rename(columns={'mean': 'Conc', 'std': 'SD'})
@@ -374,7 +378,6 @@ def main():
         fig = plotting.plotly_spectrum(mrs_store[dataset], res_store[dataset])
         fig.update_layout(
             title=dataset,
-            height=450,
             margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
             template='plotly_white')
         fig.update_traces(
@@ -545,7 +548,7 @@ def main():
             columns=col_format,
             style_cell_conditional=[
                 {'if': {'column_id': 'index'},
-                 'width': '17%',
+                 'width': '10%',
                  'textAlign': 'left'},
                 {'if': {'column_type': 'numeric'},
                  'textAlign': 'center'}],
@@ -567,7 +570,17 @@ def main():
         dff = pd.DataFrame(data)
         return dff.to_csv(index=False)  # includes headers
 
-    app.run(debug=True, port=args.port)
+    # start a webbrowser with defined host and port number
+    host = "127.0.0.1"
+    port = args.port
+
+    def open_browser():
+        webbrowser.open_new(f"http://{host}:{port}")
+
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        threading.Timer(1, open_browser).start()
+
+    app.run(debug=args.debug, host=host, port=port)
 
 
 if __name__ == '__main__':
