@@ -365,7 +365,7 @@ def main():
                         'backgroundColor': 'white',
                         'zIndex': 1}),
                 ],
-                style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'})],
+                style={'position': 'relative', 'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'})],
             style={'flex': '1 1 0', 'minHeight': '0', 'display': 'flex', 'paddingBottom': '3rem'}),
         dcc.Interval(id='avg-status-poll', interval=1000, n_intervals=0)
         ],
