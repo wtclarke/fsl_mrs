@@ -18,6 +18,7 @@ from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
 import webbrowser
+from flask import send_file
 
 # FSL-MRS imports
 from fsl_mrs.utils import results
@@ -50,7 +51,7 @@ def main():
                         required=False,
                         type=int,
                         default=8050)
-    parser.add_argument('--debug',
+    parser.add_argument('--no_debug',
                         required=False,
                         action='store_true',
                         help=argparse.SUPPRESS)
@@ -67,9 +68,10 @@ def main():
 
     '''
     Load the data
-    1. The concentration.csv files
-    2. The qc.csv files
-    3. Load the all_parameters.csv and regenerate mrs/results objects
+    1. The report.html files
+    2. The concentration.csv files
+    3. The qc.csv files
+    4. Load the all_parameters.csv and regenerate mrs/results objects
     '''
 
     verbose = args.verbose
@@ -93,7 +95,18 @@ def main():
     # Form path names out of the remaining paths after anything common is removed
     fit_names = [str(cpath.relative_to(common_path)) for cpath in res_dir]
 
-    # 1. Concentration.csv
+    # 1. report.html
+    all_reports = {fit_name: fp / "report.html" for fit_name, fp in zip(fit_names, res_dir)}
+    report_urls = {fit_name: f'/report/{idx}' for idx, fit_name in enumerate(fit_names)}
+
+    @app.server.route('/report/<int:index>')
+    def serve_report(index):
+        """Serve a report through Flask so browsers do not need a file:// URL."""
+        if index < 0 or index >= len(res_dir):
+            return 'Report not found', 404
+        return send_file(all_reports[fit_names[index]].resolve())
+
+    # 2. Concentration.csv
     if verbose:
         print('Loading concentration data.')
     all_conc = []
@@ -105,7 +118,7 @@ def main():
     conc_df.columns = col
     conc_df = conc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
-    # 2. qc.csv
+    # 3. qc.csv
     if verbose:
         print('Loading QC data.')
     all_qc = []
@@ -114,7 +127,7 @@ def main():
     qc_df = pd.concat(all_qc, keys=fit_names, names=['dataset', 'Metabolite'])
     qc_df = qc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
-    # 3. Load the all_parameters.csv and regenerate mrs/results objects
+    # 4. Load the all_parameters.csv and regenerate mrs/results objects
     if verbose:
         print('Loading data & results.')
     mrs_store = {}
@@ -199,7 +212,7 @@ def main():
     if verbose:
         print('\n')
 
-    # Figure out metabolites in dataset. Select a metabolite to initilise
+    # Figure out metabolites in dataset. Select a metabolite to initialise
     all_metabs = conc_df.index.get_level_values(0).unique().to_list()
     if 'NAA' in all_metabs:
         start_metabs = ['NAA']
@@ -294,12 +307,12 @@ def main():
             html.Div(
                 [blank_table('conc-table')],
                 id='conc-table-container',
-                style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
+                style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0', 'overflow': 'auto'}),
             html.Div(
                 [blank_table('qc-table')],
                 id='qc-table-container',
-                style={'width': '36%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'})],
-        style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem', 'overflow': 'auto'}),
+                style={'width': '36%', 'vertical-align': 'middle', 'display': 'inline-block', 'height': '100%', 'minHeight': '0', 'overflow': 'auto'})],
+        style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem'}),
 
         # layout of spectra plots
         html.Div([
@@ -307,12 +320,14 @@ def main():
                 dcc.Graph(
                     id='results-figure',
                     figure=blank_fig(),
+                    responsive=True,
                     style={'height': '100%'})],
                 style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'}),
             html.Div([
                 dcc.Graph(
                     id='avg-plot',
                     figure=avg_fig,
+                    responsive=True,
                     style={'height': '100%'})],
                 style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'})],
         style={'flex': '1 1 0', 'minHeight': '0', 'display': 'flex', 'paddingBottom': '3rem'})
@@ -377,9 +392,16 @@ def main():
     def create_results_figure(dataset):
         fig = plotting.plotly_spectrum(mrs_store[dataset], res_store[dataset])
         fig.update_layout(
-            title=dataset,
+            title=dict(
+                text=(
+                    f'{dataset}: '
+                    f'<a href="{report_urls[dataset]}" target="_blank">'
+                    f'{all_reports[dataset].name}</a>'
+                )
+            ),
             margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
-            template='plotly_white')
+            template='plotly_white',
+        )
         fig.update_traces(
             cells=dict(height=15),
             cells_font=dict(size=8),
@@ -580,7 +602,8 @@ def main():
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         threading.Timer(1, open_browser).start()
 
-    app.run(debug=args.debug, host=host, port=port)
+    # TODO setup a WSGI server for no_debug mode
+    app.run(debug=not args.no_debug, host=host, port=port)
 
 
 if __name__ == '__main__':

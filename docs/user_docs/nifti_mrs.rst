@@ -154,4 +154,4 @@ This method may also take `display_dim` (Dim tag), `ppmlim` (ppm range), `plot_a
 .. note::
     For SVS data, `MRS.plot()` is similar but not equivalent to `NIFTI_MRS.plot()`, as the latter plots multiple spectra on the same figure.
 
-NIfTI-MRS data can also be viewed in FSLeyes with `the MRS plugin <https://open.oxcin.ox.ac.uk/pages/wclarke/fsleyes-plugin-mrs/viewing.html>`_
+NIfTI-MRS data can also be viewed in FSLeyes with `the MRS plugin <https://open.oxcin.ox.ac.uk/pages/wclarke/fsleyes-plugin-mrs/viewing.html>`_.
