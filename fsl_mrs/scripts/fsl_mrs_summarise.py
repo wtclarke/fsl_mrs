@@ -238,12 +238,18 @@ def main():
 
     # AvgFig placeholder
     # Build this after startup so the dashboard can be used while it runs.
-    avg_state = {'figure': None, 'status': 'pending'}
+    avg_state = {'figure': None, 'status': 'pending', 'done': False}
     avg_state_lock = threading.Lock()
 
     def generate_average_plot():
         try:
-            datasets = [load_dataset(name) for name in fit_names]
+            datasets = []
+            total = len(fit_names)
+            for idx, name in enumerate(fit_names, start=1):
+                datasets.append(load_dataset(name))
+                with avg_state_lock:
+                    avg_state['status'] = (
+                        f'Generating average plot: {idx}/{total} datasets')
             mrs_list, res_list = zip(*datasets)
             avg_fig = plotting.plotly_avg_fit(list(mrs_list), list(res_list))
             avg_fig.update_layout(
@@ -251,10 +257,11 @@ def main():
                 margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
                 template='plotly_white')
             with avg_state_lock:
-                avg_state.update(figure=avg_fig, status='ready')
+                avg_state.update(figure=avg_fig, status='ready', done=True)
         except Exception as exc:
             with avg_state_lock:
-                avg_state['status'] = f'Average data plot failed: {exc}'
+                avg_state.update(
+                    status=f'Average data plot failed: {exc}', done=True)
 
     threading.Thread(target=generate_average_plot, daemon=True).start()
 
@@ -483,6 +490,7 @@ def main():
         with avg_state_lock:
             figure = avg_state['figure']
             status = avg_state['status']
+            done = avg_state['done']
         if figure is None:
             if status == 'pending':
                 status = 'Average data plot is getting generated...'
@@ -493,7 +501,7 @@ def main():
                 'alignItems': 'center',
                 'justifyContent': 'center',
                 'backgroundColor': 'white',
-                'zIndex': 1}, status != 'pending'
+                'zIndex': 1}, done
         return figure, '', {'display': 'none'}, True
 
     # QC
