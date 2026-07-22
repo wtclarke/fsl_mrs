@@ -1,4 +1,5 @@
 .. _processing:
+
 Processing
 ==========
 **For SVS**
@@ -71,6 +72,7 @@ Merging processing HTML reports
     merge_mrs_reports -d [description] -o [output folder] -f [report name] *.html
 
 .. _fsl_mrs_preproc:
+
 fsl_mrs_preproc
 ---------------
 

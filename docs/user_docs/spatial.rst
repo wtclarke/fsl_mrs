@@ -1,4 +1,5 @@
 .. _spatial:
+
 Spatial Information
 ===================
 
