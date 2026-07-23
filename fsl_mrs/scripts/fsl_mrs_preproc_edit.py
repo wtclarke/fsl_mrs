@@ -39,7 +39,7 @@ def main():
                           required=True, type=str, metavar='<str>',
                           help='output folder')
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--quant', type=str,
                           default=None, metavar='<str>',
                           help='Water reference data for'

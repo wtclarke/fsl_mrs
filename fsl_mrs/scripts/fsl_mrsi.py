@@ -108,7 +108,7 @@ def main():
     fitting_args.add_argument('--disable_MH_priors', action="store_true",
                               help="Disable MH priors.")
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('--TE', type=float, default=None, metavar='TE',
                           help='Echo time for relaxation correction (ms)')
     optional.add_argument('--TR', type=float, default=None, metavar='TR',

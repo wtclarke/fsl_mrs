@@ -32,6 +32,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - FID conjugation has been removed from `MRS` and `MRSI` classes (``check_FID``, ``conj_FID``).
 - `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
 - `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
+- Layout improvements in `fsl_mrs_summarise` dashboard.
 - Some commonly-used functions and methods are now available as module level imports.
 - Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
 - Removed Python 3.10 support.

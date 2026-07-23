@@ -1,9 +1,9 @@
 import json
-from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
-from sys import stdout
 import argparse
-import os.path as op
+import os
+import threading
 
 # 3rd party imports
 import pandas as pd
@@ -16,6 +16,8 @@ from dash.dash_table.Format import Format
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
+import webbrowser
+from flask import send_file
 
 # FSL-MRS imports
 from fsl_mrs.utils import results
@@ -41,13 +43,17 @@ def main():
         help='Directory containing individual results directories '
              'or Text file containing line-separated list of results directories.')
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     parser.add_argument('-v', '--verbose',
                         required=False, action="store_true")
     parser.add_argument('-p', '--port',
                         required=False,
                         type=int,
                         default=8050)
+    parser.add_argument('--no_debug',
+                        required=False,
+                        action='store_true',
+                        help=argparse.SUPPRESS)
 
     # Parse command-line arguments
     args = parser.parse_args()
@@ -61,9 +67,10 @@ def main():
 
     '''
     Load the data
-    1. The concentration.csv files
-    2. The qc.csv files
-    3. Load the all_parameters.csv and regenerate mrs/results objects
+    1. The report.html files
+    2. The concentration.csv files
+    3. The qc.csv files
+    4. Load the all_parameters.csv and regenerate mrs/results objects
     '''
 
     verbose = args.verbose
@@ -83,11 +90,22 @@ def main():
         raise ValueError('Input directories must not be duplicated.')
 
     # Look for common paths of the path
-    common_path = Path(op.commonpath(res_dir))
+    common_path = Path(os.path.commonpath(res_dir))
     # Form path names out of the remaining paths after anything common is removed
     fit_names = [str(cpath.relative_to(common_path)) for cpath in res_dir]
 
-    # 1. Concentration.csv
+    # 1. report.html
+    all_reports = {fit_name: fp / "report.html" for fit_name, fp in zip(fit_names, res_dir)}
+    report_urls = {fit_name: f'/report/{idx}' for idx, fit_name in enumerate(fit_names)}
+
+    @app.server.route('/report/<int:index>')
+    def serve_report(index):
+        """Serve a report through Flask so browsers do not need a file:// URL."""
+        if index < 0 or index >= len(res_dir):
+            return 'Report not found', 404
+        return send_file(all_reports[fit_names[index]].resolve())
+
+    # 2. Concentration.csv
     if verbose:
         print('Loading concentration data.')
     all_conc = []
@@ -99,7 +117,7 @@ def main():
     conc_df.columns = col
     conc_df = conc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
-    # 2. qc.csv
+    # 3. qc.csv
     if verbose:
         print('Loading QC data.')
     all_qc = []
@@ -108,13 +126,24 @@ def main():
     qc_df = pd.concat(all_qc, keys=fit_names, names=['dataset', 'Metabolite'])
     qc_df = qc_df.reorder_levels(['Metabolite', 'dataset'], axis=0).sort_index()
 
-    # 3. Load the all_parameters.csv and regenerate mrs/results objects
-    if verbose:
-        print('Loading data & results.')
-    mrs_store = {}
-    res_store = {}
-    n_data = len(res_dir)
-    for idx, (fp, name) in enumerate(zip(res_dir, fit_names)):
+    # 4. Load the all_parameters.csv and regenerate mrs/results objects on demand
+    # because reading FIDs and basis sets is expensive for large collections of results.
+    dataset_store = {}
+    dataset_locks = {name: threading.Lock() for name in fit_names}
+
+    @lru_cache(maxsize=256)
+    def load_dataset(name):
+        if name in dataset_store:
+            return dataset_store[name]
+
+        # The background average worker and a user callback can request the
+        # same dataset at the same time.
+        dataset_locks[name].acquire()
+        if name in dataset_store:
+            dataset_locks[name].release()
+            return dataset_store[name]
+
+        fp = res_dir[fit_names.index(name)]
         param_df = pd.read_csv(fp / 'all_parameters.csv')
 
         # Read options.txt
@@ -172,7 +201,7 @@ def main():
             baseline_order)
 
         # Generate results object
-        res_store[name] = results.FitRes(
+        res = results.FitRes(
             mrs,
             param_df['mean'].to_numpy(),
             model,
@@ -183,17 +212,13 @@ def main():
             runqc=False)
 
         if orig_args['combine'] is not None:
-            res_store[name].combine(orig_args['combine'])
+            res.combine(orig_args['combine'])
 
-        mrs_store[name] = deepcopy(mrs)
-        if verbose:
-            stdout.write(f'\r{idx + 1}/{n_data} data & results loaded.')
-            stdout.flush()
-            # print()
-    if verbose:
-        print('\n')
+        dataset_store[name] = (mrs, res)
+        dataset_locks[name].release()
+        return mrs, res
 
-    # Figure out metabolites in dataset. Select a metabolite to initilise
+    # Figure out metabolites in dataset. Select a metabolite to initialise
     all_metabs = conc_df.index.get_level_values(0).unique().to_list()
     if 'NAA' in all_metabs:
         start_metabs = ['NAA']
@@ -211,13 +236,34 @@ def main():
     else:
         columns_start = 'Conc|raw'
 
-    # AvgFig
-    avg_fig = plotting.plotly_avg_fit(list(mrs_store.values()), list(res_store.values()))
-    avg_fig.update_layout(
-        title='Average data',
-        height=450,
-        margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
-        template='plotly_white')
+    # AvgFig placeholder
+    # Build this after startup so the dashboard can be used while it runs.
+    avg_state = {'figure': None, 'status': 'pending', 'done': False}
+    avg_state_lock = threading.Lock()
+
+    def generate_average_plot():
+        try:
+            datasets = []
+            total = len(fit_names)
+            for idx, name in enumerate(fit_names, start=1):
+                datasets.append(load_dataset(name))
+                with avg_state_lock:
+                    avg_state['status'] = (
+                        f'Generating average plot: {idx}/{total} datasets')
+            mrs_list, res_list = zip(*datasets)
+            avg_fig = plotting.plotly_avg_fit(list(mrs_list), list(res_list))
+            avg_fig.update_layout(
+                title='Average data',
+                margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
+                template='plotly_white')
+            with avg_state_lock:
+                avg_state.update(figure=avg_fig, status='ready', done=True)
+        except Exception as exc:
+            with avg_state_lock:
+                avg_state.update(
+                    status=f'Average data plot failed: {exc}', done=True)
+
+    threading.Thread(target=generate_average_plot, daemon=True).start()
 
     # Default blank figure for init
     def blank_fig():
@@ -245,6 +291,7 @@ def main():
         print('Rendering...')
 
     app.layout = html.Div([
+        # layout of top bar
         html.Div([
             html.Div([
                 dcc.Dropdown(
@@ -252,68 +299,85 @@ def main():
                     start_metabs,
                     multi=True,
                     id='metabolite-selection')],
-                style={'width': '48%', 'display': 'inline-block'}),
+                style={'flex': '2 1 0', 'minWidth': '0'}),
             html.Div([
                 dcc.Dropdown(
                     columns_conc,
                     columns_start,
                     id='conc-selection')],
-                style={'width': '23%', 'display': 'inline-block'}),
+                style={'flex': '1 1 0', 'minWidth': '0'}),
             html.Div([
-                html.Div(children='Copy Conc:', style={'display': 'inline-block'}),
+                html.Div(children='Copy Conc:', style={'marginLeft': '1rem'}),
                 dcc.Clipboard(
                     id="conc-table-copy",
-                    className="button",
-                    style={'height': 35, 'width': 35, 'display': 'inline-block'}),
-                html.Div(children='Copy QC:', style={'display': 'inline-block'}),
+                    className="button"),
+                html.Div(children='Copy QC:', style={'marginLeft': '1rem'}),
                 dcc.Clipboard(
                     id="qc-table-copy",
-                    className="button",
-                    style={'height': 35, 'width': 35, 'display': 'inline-block'})],
-                style={'width': '28%', 'float': 'right', 'display': 'inline-block'})
-        ]),
+                    className="button")],
+                style={'flex': '0 0 auto', 'display': 'flex', 'flexWrap': 'nowrap',
+                       'alignItems': 'center', 'whiteSpace': 'nowrap', 'gap': '0.5rem'})],
+            style={'display': 'flex', 'flexWrap': 'nowrap', 'alignItems': 'center', 'width': '96%',
+                   'minWidth': '0', 'gap': '1rem', 'marginBottom': '1rem'}),
 
+        # layout of violin plots
         html.Div([
-            html.Div([
-                dcc.Graph(
-                    id='conc-figure',
-                )],
-                style={'width': '60%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id='fwhm-figure',
-                )],
-                style={'width': '19%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id='snr-figure',
-                )],
-                style={'width': '19%', 'float': 'right', 'display': 'inline-block'}),
-        ]),
+            html.Div([dcc.Graph(id='conc-figure', style={'height': '100%'})],
+                     style={'width': '60%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
+            html.Div([dcc.Graph(id='fwhm-figure', style={'height': '100%'}),],
+                     style={'width': '18%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),
+            html.Div([dcc.Graph(id='snr-figure', style={'height': '100%'}),],
+                     style={'width': '18%', 'display': 'inline-block', 'height': '100%', 'minHeight': '0'}),],
+                 style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem'}),
 
+        # layout of tables
         html.Div([
             html.Div(
-                [blank_table('conc-table')],
-                id='conc-table-container',
-                style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block'}),
+                    [blank_table('conc-table')],
+                    id='conc-table-container',
+                    style={'width': '60%', 'vertical-align': 'middle', 'display': 'inline-block',
+                           'height': '100%', 'minHeight': '0', 'overflow': 'auto'}),
             html.Div(
-                [blank_table('qc-table')],
-                id='qc-table-container',
-                style={'width': '35%', 'vertical-align': 'middle', 'float': 'right', 'display': 'inline-block'})
-        ]),
+                    [blank_table('qc-table')],
+                    id='qc-table-container',
+                    style={'width': '36%', 'vertical-align': 'middle', 'display': 'inline-block',
+                           'height': '100%', 'minHeight': '0', 'overflow': 'auto'})
+                 ],
+                 style={'flex': '1 1 0', 'minHeight': '0', 'marginBottom': '1rem'}),
 
+        # layout of spectra plots
         html.Div([
             html.Div([
                 dcc.Graph(
                     id='results-figure',
-                    figure=blank_fig())],
-                style={'width': '48%', 'display': 'inline-block'}),
+                    figure=blank_fig(),
+                    responsive=True,
+                    style={'height': '100%'})],
+                style={'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'}),
             html.Div([
                 dcc.Graph(
                     id='avg-plot',
-                    figure=avg_fig)],
-                style={'width': '48%', 'display': 'inline-block', 'float': 'right'})])
-    ])
+                    figure=blank_fig(),
+                    responsive=True,
+                    style={'height': '100%'}),
+                html.Div(
+                    id='avg-status',
+                    children='Average data plot is getting generated...',
+                    style={
+                        'position': 'absolute',
+                        'inset': '0',
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'justifyContent': 'center',
+                        'backgroundColor': 'white',
+                        'zIndex': 1}),
+                ],
+                style={'position': 'relative', 'flex': '0 0 48%', 'height': '100%', 'minHeight': '0'})],
+            style={'flex': '1 1 0', 'minHeight': '0', 'display': 'flex', 'paddingBottom': '3rem'}),
+        dcc.Interval(id='avg-status-poll', interval=1000, n_intervals=0)
+        ],
+        style={'height': '100vh', 'width': '100vw', 'display': 'flex',
+               'flexDirection': 'column', 'justifyContent': 'space-between'})
 
     def create_conc_violin(metabs, field, selecteddataset):
         formatted_df = conc_df.loc[metabs].reset_index().rename(columns={'mean': 'Conc', 'std': 'SD'})
@@ -370,13 +434,21 @@ def main():
         return create_conc_violin(metabs, field, selecteddataset)
 
     # Results
+    @lru_cache(maxsize=64)
     def create_results_figure(dataset):
-        fig = plotting.plotly_spectrum(mrs_store[dataset], res_store[dataset])
+        mrs, res = load_dataset(dataset)
+        fig = plotting.plotly_spectrum(mrs, res)
         fig.update_layout(
-            title=dataset,
-            height=450,
+            title=dict(
+                text=(
+                    f'{dataset}: '
+                    f'<a href="{report_urls[dataset]}" target="_blank">'
+                    f'{all_reports[dataset].name}</a>'
+                )
+            ),
             margin={'l': 10, 'b': 5, 'r': 10, 't': 40},
-            template='plotly_white')
+            template='plotly_white',
+        )
         fig.update_traces(
             cells=dict(height=15),
             cells_font=dict(size=8),
@@ -407,6 +479,30 @@ def main():
             dataset = None
             return blank_fig()
         return create_results_figure(dataset)
+
+    @app.callback(
+        Output('avg-plot', 'figure'),
+        Output('avg-status', 'children'),
+        Output('avg-status', 'style'),
+        Output('avg-status-poll', 'disabled'),
+        Input('avg-status-poll', 'n_intervals'))
+    def update_average_plot(_):
+        with avg_state_lock:
+            figure = avg_state['figure']
+            status = avg_state['status']
+            done = avg_state['done']
+        if figure is None:
+            if status == 'pending':
+                status = 'Average data plot is getting generated...'
+            return blank_fig(), status, {
+                'position': 'absolute',
+                'inset': '0',
+                'display': 'flex',
+                'alignItems': 'center',
+                'justifyContent': 'center',
+                'backgroundColor': 'white',
+                'zIndex': 1}, done
+        return figure, '', {'display': 'none'}, True
 
     # QC
     def create_qc_figure(metabolite, selecteddataset, qctype, colour):
@@ -545,7 +641,7 @@ def main():
             columns=col_format,
             style_cell_conditional=[
                 {'if': {'column_id': 'index'},
-                 'width': '17%',
+                 'width': '10%',
                  'textAlign': 'left'},
                 {'if': {'column_type': 'numeric'},
                  'textAlign': 'center'}],
@@ -567,7 +663,18 @@ def main():
         dff = pd.DataFrame(data)
         return dff.to_csv(index=False)  # includes headers
 
-    app.run(debug=True, port=args.port)
+    # start a webbrowser with defined host and port number
+    host = "127.0.0.1"
+    port = args.port
+
+    def open_browser():
+        webbrowser.open_new(f"http://{host}:{port}")
+
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        threading.Timer(1, open_browser).start()
+
+    # TODO setup a WSGI server for no_debug mode
+    app.run(debug=not args.no_debug, use_reloader=False, host=host, port=port)
 
 
 if __name__ == '__main__':
