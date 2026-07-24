@@ -2,7 +2,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 2.4.17 (Friday 24th July 2026)
 ------------------------------
-- Reverted fslpy lock for FSL release
+- Bumped fslpy dependency
 
 2.4.16 (Monday 29th June 2026)
 ------------------------------
