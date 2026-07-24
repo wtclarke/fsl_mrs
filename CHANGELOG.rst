@@ -1,9 +1,14 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.4.17 (Friday 24th July 2026)
+------------------------------
+- Bumped fslpy dependency
+- Removed Python 3.10 support. 
+
 2.4.16 (Monday 29th June 2026)
 ------------------------------
 - Locked fslpy dependency for future API changes
-- Removed fsl_sub from dependecies
+- Removed fsl_sub from dependencies
 
 2.4.15 (Wednesday 10th June 2026)
 ---------------------------------
