@@ -33,7 +33,7 @@ To get the source code with the packaged example data, make sure [git-lfs](https
 
 Install with [pixi](https://pixi.prefix.dev/latest/installation/):
 
-    pixi run install
+    pixi install
 
 ### Local development with Pixi
 
