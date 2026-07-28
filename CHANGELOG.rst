@@ -35,18 +35,22 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Layout improvements in `fsl_mrs_summarise` dashboard.
 - Some commonly-used functions and methods are now available as module level imports.
 - Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
-- Removed Python 3.10 support.
 - Added Pixi for local builds.
+
+2.4.17 (Friday 24th July 2026)
+------------------------------
+- Bumped fslpy dependency.
+- Removed Python 3.10 support.
 
 2.4.16 (Monday 29th June 2026)
 ------------------------------
-- Locked fslpy dependency for future API changes
-- Removed fsl_sub from dependencies
+- Locked fslpy dependency for future API changes.
+- Removed fsl_sub from dependencies.
 
 2.4.15 (Wednesday 10th June 2026)
 ---------------------------------
 - Simulator now calls updated `fsl-denmatsim` package.
-- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`
+- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`.
 
 2.4.14 (Wednesday 27th May 2026)
 --------------------------------
