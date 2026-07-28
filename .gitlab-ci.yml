@@ -13,7 +13,7 @@
 #                  to https://github.com/wtclarke/lcm_validation/
 #
 #    4. doc:       Building user documentation which appears at:
-#                  https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/
+#                  https://open.oxcin.ox.ac.uk/pages/fsl/fsl_mrs/
 #
 #    5. build
 #       & deploy:  Build conda package in three stages fsl-ci-pre,
@@ -94,6 +94,18 @@ stages:
 # ############
 # # 1. style 
 # ############
+lockfile:
+  <<: *except_releases
+  image: python:3.12
+  stage: style
+  tags:
+    - docker
+  before_script:
+    - curl -fsSL https://pixi.sh/install.sh | sh
+    - export PATH="$HOME/.pixi/bin:$PATH"
+  script:
+    - pixi install -e dev312 --locked
+
 flake8:
   <<: *except_releases
   image: python:3.12
@@ -101,10 +113,12 @@ flake8:
   tags:
     - docker
   before_script:
-  - python --version
-  - pip install flake8
+    - python --version
+    - curl -fsSL https://pixi.sh/install.sh | sh
+    - export PATH="$HOME/.pixi/bin:$PATH"
+    - pixi install -e dev312 --frozen
   script:
-  - flake8 fsl_mrs
+    - pixi run -e dev312 lint
   allow_failure: true
 
 ############
@@ -120,17 +134,11 @@ flake8:
     - docker
   before_script:
     - mkdir -p failures
-    - git config --global --add safe.directory /builds/$CI_PROJECT_PATH
-    - git submodule update --init --recursive
-    - micromamba create -n fsl_mrs -c conda-forge -y python=$PYTHON_VERSION
-    - eval "$(micromamba shell hook --shell bash)"
-    - micromamba activate fsl_mrs
-    - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue pytest
-    - export FSLOUTPUTTYPE="NIFTI_GZ"
-    - export FSLDIR="/opt/conda/envs/fsl_mrs"
-    - pip install --no-deps .
+    - curl -fsSL https://pixi.sh/install.sh | sh
+    - export PATH="$HOME/.pixi/bin:$PATH"
+    - pixi install -e "$PIXI_ENV" --frozen
   script:
-    - pytest fsl_mrs/tests
+    - pixi run -e "$PIXI_ENV" test
   artifacts:
     when: on_failure
     expire_in: 1 day
@@ -141,26 +149,26 @@ test:3.11:
   <<: *test_template
   <<: *test_merge_rules
   variables:
-    PYTHON_VERSION: "3.11"
+    PIXI_ENV: dev311
 
 # this is the main testing environment so tests will be run every time
 test:3.12:
   <<: *test_template
   <<: *test_rules
   variables:
-    PYTHON_VERSION: "3.12"
+    PIXI_ENV: dev312
 
 test:3.13:
   <<: *test_template
   <<: *test_merge_rules
   variables:
-    PYTHON_VERSION: "3.13"
+    PIXI_ENV: dev313
 
 test:3.14:
   <<: *test_template
   <<: *test_merge_rules
   variables:
-    PYTHON_VERSION: "3.14"
+    PIXI_ENV: dev314
 
 ############
 # 3. Validate 
@@ -178,40 +186,35 @@ fit-validate:
   tags:
     - docker
   before_script:
-  # Create an environment to work in
-  - micromamba create -n fsl_mrs -c conda-forge -y python=3.12
-  - eval "$(micromamba shell hook --shell bash)"
-  - micromamba activate fsl_mrs
-  # Install all the FSL tools needed and get the git tags.
-  - git config --global --add safe.directory /builds/wclarke/fsl_mrs
-  - git config --global --add safe.directory /builds/fsl/fsl_mrs
-  - micromamba install -y -c conda-forge -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ --file requirements.txt fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
-  - export FSLOUTPUTTYPE="NIFTI_GZ"
-  - export FSLDIR="/opt/conda/envs/fsl_mrs"
-  - pip install --no-deps .
-  # Setup ssh communication with the github instance
-  # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor
-  - eval $(ssh-agent -s)
-  - echo "$LCM_VALIDATION_KEY" | tr -d '\r' | ssh-add -
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-
+    # Create an environment to work in
+    - curl -fsSL https://pixi.sh/install.sh | sh
+    - export PATH="$HOME/.pixi/bin:$PATH"
+    # Install all the FSL tools needed and get the git tags.
+    - git config --global --add safe.directory /builds/wclarke/fsl_mrs
+    - git config --global --add safe.directory /builds/fsl/fsl_mrs
+    - pixi install -e dev312 --frozen
+    # Setup ssh communication with the github instance
+    # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor
+    - eval $(ssh-agent -s)
+    - echo "$LCM_VALIDATION_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H github.com >> ~/.ssh/known_hosts
   script:
-  - FSL_MRS_VERSION=${CI_COMMIT_TAG:-"$CI_COMMIT_SHORT_SHA"} && export FSL_MRS_VERSION
-  - echo $FSL_MRS_VERSION
-  - git clone git@github.com:wtclarke/lcm_validation.git
-  - cd lcm_validation
-  - git config --global user.name "wtclarke"
-  - git config --global user.email "william.clarke@ndcn.ox.ac.uk"
-  - git checkout -b "fsl_mrs_updates_${FSL_MRS_VERSION}" main
-  - python ../validation/mrs_challenge.py --mh_samples 20 results $FSL_MRS_VERSION
-  - ls results/fsl_mrs_newton
-  - git add *
-  - git commit -m "Results for FSL-MRS ${FSL_MRS_VERSION}"
-  - git push origin "fsl_mrs_updates_${FSL_MRS_VERSION}"
-  - echo $DEPLOY_CURL_COMMAND
-  - 'eval "$DEPLOY_CURL_COMMAND"'
+    - FSL_MRS_VERSION=${CI_COMMIT_TAG:-"$CI_COMMIT_SHORT_SHA"} && export FSL_MRS_VERSION
+    - echo $FSL_MRS_VERSION
+    - git clone git@github.com:wtclarke/lcm_validation.git
+    - cd lcm_validation
+    - git config --global user.name "wtclarke"
+    - git config --global user.email "william.clarke@ndcn.ox.ac.uk"
+    - git checkout -b "fsl_mrs_updates_${FSL_MRS_VERSION}" main
+    - python ../validation/mrs_challenge.py --mh_samples 20 results $FSL_MRS_VERSION
+    - ls results/fsl_mrs_newton
+    - git add *
+    - git commit -m "Results for FSL-MRS ${FSL_MRS_VERSION}"
+    - git push origin "fsl_mrs_updates_${FSL_MRS_VERSION}"
+    - echo $DEPLOY_CURL_COMMAND
+    - 'eval "$DEPLOY_CURL_COMMAND"'
   allow_failure: true
 
 ############
@@ -230,10 +233,10 @@ pages:
   tags:
     - docker
   script:
-  - git describe --tag --dirty
-  - pip install -U sphinx sphinx_rtd_theme "docutils<0.21" "snowballstemmer<3"
-  - pip install --no-deps .
-  - sphinx-build -b html ./docs/user_docs public
+    - git describe --tag --dirty
+    - pip install -U sphinx sphinx_rtd_theme "docutils<0.21" "snowballstemmer<3"
+    - pip install --no-deps .
+    - sphinx-build -b html ./docs/user_docs public
   artifacts:
     paths:
-    - public
+      - public

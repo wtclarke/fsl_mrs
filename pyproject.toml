@@ -1,0 +1,162 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsl_mrs"
+dynamic = ["version"]
+description = "FSL Tools for Spectroscopy"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11,<3.15"
+authors = [
+    { name = "Saad Jbabdi", email = "saad@fmrib.ox.ac.uk" },
+    { name = "William Clarke", email = "william.clarke@ndcn.ox.ac.uk" },
+]
+
+[project.urls]
+"Homepage" = "www.fmrib.ox.ac.uk/fsl"
+
+[tool.setuptools]
+packages = [
+    "fsl_mrs",
+    "fsl_mrs.scripts",
+    "fsl_mrs.core",
+    "fsl_mrs.models",
+    "fsl_mrs.utils",
+    "fsl_mrs.utils.mrs_io",
+    "fsl_mrs.utils.stats",
+    "fsl_mrs.utils.preproc",
+    "fsl_mrs.utils.synthetic",
+    "fsl_mrs.utils.fmrs_tools",
+    "fsl_mrs.dynamic",
+    "fsl_mrs.mmbasis",
+    "fsl_mrs.auxiliary",
+]
+
+[tool.setuptools.package-data]
+"fsl_mrs.mmbasis" = ["mmbasis.json"]
+"fsl_mrs.utils.preproc" = ["templates/*.html"]
+"fsl_mrs" = ["pkg_data/mrs_fitting_challenge/*/*"]
+
+[tool.setuptools_scm]
+fallback_version = "0+unknown"
+
+[project.scripts]
+fsl_mrs = "fsl_mrs.scripts.fsl_mrs:main"
+fsl_mrsi = "fsl_mrs.scripts.fsl_mrsi:main"
+fsl_dynmrs = "fsl_mrs.scripts.fsl_dynmrs:main"
+fsl_mrs_preproc = "fsl_mrs.scripts.fsl_mrs_preproc:main"
+fsl_mrs_preproc_edit = "fsl_mrs.scripts.fsl_mrs_preproc_edit:main"
+fsl_mrs_proc = "fsl_mrs.scripts.fsl_mrs_proc:main"
+fsl_mrs_sim = "fsl_mrs.scripts.fsl_mrs_sim:main"
+fmrs_stats = "fsl_mrs.scripts.fmrs_stats:main"
+basis_tools = "fsl_mrs.scripts.basis_tools:main"
+merge_mrs_reports = "fsl_mrs.scripts.merge_mrs_reports:main"
+svs_segment = "fsl_mrs.scripts.svs_segment:main"
+mrsi_segment = "fsl_mrs.scripts.mrsi_segment:main"
+fsl_mrs_summarise = "fsl_mrs.scripts.fsl_mrs_summarise:main"
+fsl_mrs_verify = "fsl_mrs.scripts.fsl_mrs_verify:main"
+basis2spec = "fsl_mrs.scripts.basis2spec:main"
+
+[tool.flake8]
+ignore = [
+    "E121",
+    "E123",
+    "E126",
+    "E221",
+    "E226",
+    "E24",
+    "E272",
+    "E701",
+    "E704",
+    "W503",
+    "W504"
+]
+per-file-ignores = [
+    "__init__.py: F401",
+    "fsl_mrs/utils/report.py: E501",
+    "fsl_mrs/tests/test_fslpy.py: E402",
+]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".vscode",
+    "mmbasis",
+    "fsl_mrs/utils/stats/vb.py",
+    "fsl_mrs/auxiliary/configargparse.py",
+    "fsl_mrs/tests/testdata",
+    "fsl_mrs/utils/splash.py",
+    "fsl_mrs/tests/mc_validation/two_model.py",
+]
+max-line-length = 120
+
+[tool.pixi.workspace]
+authors = ["Saad Jbabdi <saad@fmrib.ox.ac.uk>", "William Clarke <william.clarke@ndcn.ox.ac.uk>"]
+channels = ["https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/", "conda-forge"]
+name = "fsl_mrs"
+platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64", "win-64"]
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.environments]
+default = { features = [] }
+dev311 = { features = ["dev", "py311"] }
+dev312 = { features = ["dev", "py312"] }
+dev313 = { features = ["dev", "py313"] }
+dev314 = { features = ["dev", "py314"] }
+
+[tool.pixi.dependencies]
+python = ">=3.11,<3.15"
+numpy = ">=1.26,<3.0"
+scipy = ">=1.13,<2.0"
+matplotlib = ">=3.10,<4.0"
+plotly = ">=5.24,<6.0"
+pandas = ">=2.2,<4.0"
+jinja2 = ">=3.1.5,<4.0"
+beautifulsoup4 = ">=4.13,<5.0"
+nibabel = ">=5.3,<6.0"
+hlsvdpropy = ">=2.0.2,<3.0"
+fslpy = ">=3.28.1,<4.0"
+pillow = ">=11.0,<12.0"
+spec2nii = ">=0.8.12,<0.9.0"
+dill = ">=0.3.9,<0.4.0"
+dash = ">=3.0,<4.0"
+flask = ">=3.1,<4.0"
+nifti-mrs = ">=1.4.1,<2.0.0"
+dask-core = ">=2025,<2026"
+dask-jobqueue = ">=0.9.0"
+fsl-denmatsim = ">=2.0.0"
+
+[tool.pixi.feature.dev.dependencies]
+pytest = "*"
+flake8 = "*"
+flake8-pyproject = "*"
+python-build = "*"
+
+[tool.pixi.pypi-dependencies]
+fsl_mrs = { path = ".", editable = true }
+
+[tool.pixi.feature.dev.tasks]
+lint = "flake8 fsl_mrs"
+test = "pytest fsl_mrs/tests"
+build = "python -m build"
+
+[tool.pixi.target.unix.dependencies]
+fsl-avwutils = "*"
+fsl-flameo = "*"
+fsl-flirt = "*"
+fsl-fugue = "*"
+
+[tool.pixi.target.unix.activation.env]
+FSLDIR = "$CONDA_PREFIX"
+FSLOUTPUTTYPE = "NIFTI_GZ"

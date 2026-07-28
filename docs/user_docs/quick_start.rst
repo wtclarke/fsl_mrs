@@ -6,13 +6,13 @@ This page aims to take you though fitting your first set of data in FSL-MRS. Thi
 
 FSL Course
 ----------
-The `FSL Course <https://open.win.ox.ac.uk/pages/fslcourse/website/index.html>`_ now contains a dedicated section on MRS. This includes three videos on:
+The `FSL Course <https://open.oxcin.ox.ac.uk/pages/fslcourse/website/index.html>`_ now contains a dedicated section on MRS. This includes three videos on:
 
 1. `An introduction to MRS analysis <https://youtu.be/rt-oP_XNqSQ>`_
 2. `MRS pre-processing <https://youtu.be/L7V5Ffhf4EM>`_
 3. `MRS fitting <https://youtu.be/tLJG28Gs_xE>`_
 
-and an `online written practical <https://open.win.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html>`_. Data for the practical is available by following the `online instructions <https://open.win.ox.ac.uk/pages/fslcourse/website/downloads.html>`_.
+and an `online written practical <https://open.oxcin.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html>`_. Data for the practical is available by following the `online instructions <https://open.oxcin.ox.ac.uk/pages/fslcourse/website/downloads.html>`_.
 
 Online Guide
 ------------

@@ -28,7 +28,7 @@ See our page on setting up a :ref:`conda environment <conda>` for a step by step
 Set *FSLDIR* and *FSLOUTPUTTYPE* environment variables within your activated environment - Do not set them in the `base` environment!
 ::
 
-    export FSLDIR="${CONDA_PREFIX}"
+    export FSLDIR="$CONDA_PREFIX"
     export FSLOUTPUTTYPE="NIFTI_GZ"
 
 To check the version installed run :code:`fsl_mrs --version`. FSL-MRS can be updated by running :code:`conda update`:
@@ -41,31 +41,35 @@ To check the version installed run :code:`fsl_mrs --version`. FSL-MRS can be upd
 
 Example data with conda
 -----------------------
-Installation with conda is easy, but you won't get the packaged example data and notebooks. This can be downloaded separately here: |fslmrs_pkg_data_notebooks|_.
+Installation with conda is easy, but you won't get the packaged example data and notebooks.
+This can be downloaded separately here: |fslmrs_pkg_data_notebooks|_.
 
 .. _mac-git-option:
 
 Option 3: From GitLab
 ~~~~~~~~~~~~~~~~~~~~~
-Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and example Jupyter notebooks, download the full package from gitlab. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
+Download or clone from |fslmrs_gitlab|_. To get FSL-MRS with example data and example Jupyter notebooks,
+download the full package from gitlab. `Git LFS <https://git-lfs.github.com/>`_ must be installed to download package data.
 
 ::
 
     git clone --recurse-submodules https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
     cd fsl_mrs
-    conda install -c conda-forge -c defaults \
-            -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ \
-            --file requirements.txt
-    pip install --no-deps .
+    pixi install
 
-To access all features (those which rely on other FSL tools, e.g. the :code:`svs_segment` scripts), you should either install FSL or run the following commands within your conda environment:
+The installation will automatically install all required FSL features and set the *FSLDIR* and *FSLOUTPUTTYPE* environment variables,
+hence no need to manually run them as in :ref:`conda option<mac-conda-option>`.
+
+Running FSL-MRS CLI
+-------------------
+Similarly to conda, you can activate the environment by running :code:`pixi shell`
+and use the FSL-MRS commands similarly to the FSL or conda installation.
+However, with pixi, you do not need to activate the environment as you could run a command as follows:
 ::
 
-    conda install -c https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public/ -c conda-forge fsl-flirt fsl-flameo fsl-avwutils fsl-fugue
-    export FSLDIR="${CONDA_PREFIX}"
-    export FSLOUTPUTTYPE="NIFTI_GZ"
+    pixi run -e fsl fsl_mrs ...
 
-**Note**: You may need to re-activate your conda environment to access the CLI tools.
+**Note**: To deactivate the pixi environment you have to run ``exit`` in the terminal.
 
 
 .. _win-instructions:

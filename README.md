@@ -28,12 +28,22 @@ Finally install FSL-MRS and its dependencies from the FSL conda channel.
 
 To get the source code with the packaged example data, make sure [git-lfs](https://git-lfs.github.com/) is installed.
 
-    git clone --recurse-submodules https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
+    git clone https://git.fmrib.ox.ac.uk/fsl/fsl_mrs.git
     cd fsl_mrs
-    pip install .
 
+Install with [pixi](https://pixi.prefix.dev/latest/installation/):
 
-After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/quick_start.html).
+    pixi install
+
+### Local development with Pixi
+
+For a local editable environment, linting, testing, and package builds use the following pixi commands. Pixi is a package manager, with simple installation instructions available online at https://pixi.prefix.dev.
+
+    pixi run lint
+    pixi run test
+    pixi run build
+
+After installation see the [quick start guide](https://open.oxcin.ox.ac.uk/pages/fsl/fsl_mrs/quick_start.html).
 
 ---
 
@@ -61,7 +71,7 @@ After installation see the [quick start guide](https://open.win.ox.ac.uk/pages/f
 
 ## Documentation
 
-Documentation can be found online on the [WIN open science website](https://open.win.ox.ac.uk/pages/fsl/fsl_mrs/).
+Documentation can be found online on the [WIN open science website](https://open.oxcin.ox.ac.uk/pages/fsl/fsl_mrs/).
 
 For each of the wrapper scripts above, simply type `<name_of_script> --help` to get the usage.
 
@@ -90,7 +100,3 @@ If you use FSL-MRS in your research please cite:
 
 
 Please see the [LICENSE](https://git.fmrib.ox.ac.uk/saad/fsl_mrs/-/blob/master/LICENSE) file for licensing information.
-
-
-
-

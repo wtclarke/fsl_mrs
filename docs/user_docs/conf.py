@@ -47,7 +47,7 @@ rst_epilog = """
 .. _fslmrs_pkg_data_notebooks: https://git.fmrib.ox.ac.uk/fsl/fsl_mrs/-/archive/master/fsl_mrs-master.zip?path=example_usage
 
 .. |fsl_course| replace:: FSL Course
-.. _fsl_course: https://open.win.ox.ac.uk/pages/fslcourse/website/online_materials.html
+.. _fsl_course: https://open.oxcin.ox.ac.uk/pages/fslcourse/website/online_materials.html
 
 .. |dev_email| replace:: developers
 .. _dev_email: mailto:william.clarke@ndcn.ox.ac.uk,saad@fmrib.ox.ac.uk
