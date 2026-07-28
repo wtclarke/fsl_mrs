@@ -141,7 +141,6 @@ fsl-denmatsim = ">=2.0.0"
 pytest = "*"
 flake8 = "*"
 flake8-pyproject = "*"
-python-build = "*"
 
 [tool.pixi.pypi-dependencies]
 fsl_mrs = { path = ".", editable = true }
@@ -149,7 +148,6 @@ fsl_mrs = { path = ".", editable = true }
 [tool.pixi.feature.dev.tasks]
 lint = "flake8 fsl_mrs"
 test = "pytest fsl_mrs/tests"
-build = "python -m build"
 
 [tool.pixi.target.unix.dependencies]
 fsl-avwutils = "*"
