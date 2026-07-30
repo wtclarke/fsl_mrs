@@ -506,7 +506,7 @@ def create_dyn_sections(dynres, location_fig):
 
     sections.append(
         f"""
-        <h1><a name="uncertainty">Free Parameter Uncertianty</a></h1>
+        <h1><a name="uncertainty">Free Parameter Uncertainty</a></h1>
         <div id=fit>{dyn_free_parameter_uncertainties(dynres)}</div>
         <hr>
         """)
@@ -522,7 +522,7 @@ def create_dyn_sections(dynres, location_fig):
         'summary': 'Summary',
         'model_vis': 'Model Visualisation',
         'free_params': 'Free Parameter Summary',
-        'uncertainty': 'Free Parameter Uncertianty',
+        'uncertainty': 'Free Parameter Uncertainty',
         'methods': 'Methods'}
 
     return sections, sections_titles
