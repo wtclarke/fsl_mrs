@@ -32,7 +32,8 @@ class FitRes(object):
             metab_groups,
             baseline_obj,
             ppmlim,
-            runqc=True):
+            runqc=True,
+            storeOldWrongMolality=False):
 
         # Store options from
         known_models = ['lorentzian', 'free_shift_lorentzian', 'voigt', 'free_shift', 'negativevoigt']
@@ -43,6 +44,7 @@ class FitRes(object):
         self.method = method
         self.ppmlim = ppmlim
         self._baseline_obj = baseline_obj
+        self.molalityWrong = storeOldWrongMolality
 
         self.fill_names(mrs.names, nbaseline=baseline_obj.n_basis, metab_groups=metab_groups)
 
@@ -224,10 +226,10 @@ class FitRes(object):
         internalRefScaling = quant.quantifyInternal(internal_reference, self.getConc(), self.metabs)
 
         if mrs.H2O is not None and quant_info is not None:
-            molalityScaling, molarityScaling, ref_info = quant.quantifyWater(mrs,
-                                                                             self,
-                                                                             quant_info,
-                                                                             verbose=verbose)
+            molalityScaling, molarityScaling, ref_info, molalityScalingWrong = quant.quantifyWater(mrs,
+                                                                                                   self,
+                                                                                                   quant_info,
+                                                                                                   verbose=verbose)
             if ref_info['metab_ref'].integral == 0.0:
                 raise self.QuantificationError(
                     f'Metabolite reference {quant_info.ref_metab} has not been fit (conc=0). '
@@ -241,6 +243,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': molarityScaling,
                 'molality': molalityScaling,
+                **({'molalityWrong': molalityScalingWrong} if self.molalityWrong else {}),
                 'quant_info': quant_info,
                 'ref_info': ref_info}
         else:
@@ -249,6 +252,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': None,
                 'molality': None,
+                **({'molalityWrong': None} if self.molalityWrong else {}),
                 'quant_info': None,
                 'ref_info': None}
 
@@ -480,6 +484,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'molalityWrong' in self.concScalings.keys() and \
+               self.concScalings['molalityWrong'] is not None:
+                scaling_type.append('molalityWrong')
 
             std = [self.getUncertainties(type=st) for st in scaling_type]
             mean = [self.getConc(scaling=st, function='mean').T for st in scaling_type]
@@ -500,6 +507,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'molalityWrong' in self.concScalings.keys() and \
+               self.concScalings['molalityWrong'] is not None:
+                scaling_type.append('molalityWrong')
 
             all_df = []
             for st in scaling_type:
@@ -646,6 +656,11 @@ class FitRes(object):
             if self.concScalings['molarity'] is None:
                 raise ValueError('Molarity concetration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molarity']
+
+        elif scaling == 'molalityWrong':
+            if self.concScalings['molalityWrong'] is None:
+                raise ValueError('Molality concetration scaling not calculated, run calculateConcScaling method.')
+            return rawConc * self.concScalings['molalityWrong']
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 

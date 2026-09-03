@@ -77,7 +77,8 @@ def test_QuantificationInfo():
     qci.set_fractions({'GM': 0.45, 'WM': 0.45, 'CSF': 0.1})
     assert qci._fractions is not None
 
-    assert np.isclose(qci.csf_corr, 1 / 0.9)
+    assert np.isclose(qci.csf_corr_molar, 1 / (1 - 0.1))
+    assert np.isclose(qci.csf_corr_molal, 1 / (1 - 0.1 * 0.97 / (0.45 * 0.78 + 0.45 * 0.65 + 0.1 * 0.97)))
 
     qci.add_corr = 5.0
     assert qci.add_corr == 5.0
@@ -220,7 +221,8 @@ def test_quantifyWater():
     Fitargs = {'ppmlim': [0.2, 5.2],
                'method': 'MH',
                'baseline_order': 0,
-               'metab_groups': [0]}
+               'metab_groups': [0],
+               'storeOldWrongMolality': True}
 
     res = fit_FSLModel(mrs, **Fitargs)
 
@@ -254,3 +256,4 @@ def test_quantifyWater():
     assert np.allclose(res.getConc(scaling='internal'), 1.0)
     assert np.allclose(res.getConc(scaling='molarity'), 10.78, atol=3E-1)
     assert np.allclose(res.getConc(scaling='molality'), 10.78 * 1 / (0.6 * 0.78 + 0.4 * 0.65), atol=3E-1)
+    assert np.allclose(res.getConc(scaling='molalityWrong'), 10.78 * 1 / (0.6 * 0.78 + 0.4 * 0.65), atol=3E-1)

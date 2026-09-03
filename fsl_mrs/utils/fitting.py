@@ -31,7 +31,8 @@ def fit_FSLModel(mrs: "MRS",
                  x0: list[float] = None,
                  MHSamples: int = 500,
                  disable_mh_priors: bool = False,
-                 fit_baseline_mh: bool = False):
+                 fit_baseline_mh: bool = False,
+                 storeOldWrongMolality: bool = False):
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
@@ -54,8 +55,11 @@ def fit_FSLModel(mrs: "MRS",
     :type MHSamples: int, optional
     :param disable_mh_priors: If True all priors are disabled for MH fitting, defaults to False
     :type disable_mh_priors: bool, optional
-    :param fit_baseline_mh: If true baseline parameters are also fit using MH, defaults to False
+    :param fit_baseline_mh: If True baseline parameters are also fit using MH, defaults to False
     :type fit_baseline_mh: bool, optional
+    :param storeOldWrongMolality: If True the previous wrong molality concentration will be calculated
+                                  in addition to the correct one, defaults to False
+    :type storeOldWrongMolality: bool, optional
 
     :return: Fit results object
     :rtype: fsl_mrs.utils.FitRes
@@ -241,7 +245,8 @@ def fit_FSLModel(mrs: "MRS",
         samples = mcmc.fit(p0, LB=LB, UB=UB, verbose=False, mask=mask)
 
         # collect results
-        results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim)
+        results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim,
+                         storeOldWrongMolality=storeOldWrongMolality)
 
     else:
         raise Exception('Unknown optimisation method.')

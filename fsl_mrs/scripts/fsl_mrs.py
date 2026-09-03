@@ -189,6 +189,9 @@ def main():
                           help="Output fit without baseline")
     optional.add_argument('--export_separate', action="store_true",
                           help="Output individual metabolites")
+    optional.add_argument('--export_old_wrong_molality', action="store_true",
+                          help="Output the previous wrong molality concentration"
+                          " (for backwards reproducibility)")
     optional.add_argument('-f', '--filename', type=str,
                           help='Output file name', default='fit')
     optional.add('--config', required=False, is_config_file=True,
@@ -241,6 +244,10 @@ def main():
 
     # Save chosen arguments
     with open(args.output / "options.txt", "w") as f:
+        # write software version
+        from fsl_mrs import __version__
+        f.write(f"FSL-MRS version {__version__}")
+        f.write("\n--------\n")
         # Deal with any path objects
         f.write(json.dumps(vars(args), default=str))
         f.write("\n--------\n")
@@ -332,7 +339,8 @@ def main():
         'metab_groups': misc.parse_metab_groups(mrs, args.metab_groups),
         'disable_mh_priors': args.disable_MH_priors,
         'MHSamples': args.mh_samples,
-        'fit_baseline_mh': fit_baseline_mh}
+        'fit_baseline_mh': fit_baseline_mh,
+        'storeOldWrongMolality': args.export_old_wrong_molality}
 
     if args.baseline_order:
         Fitargs['baseline_order'] = args.baseline_order

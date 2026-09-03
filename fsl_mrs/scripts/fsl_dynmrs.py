@@ -523,6 +523,10 @@ def process_single_voxel(idx, args, time_variables, parser_values, is_mrsi=False
 
     # Save chosen arguments
     with open(out_dir / "options.txt", "w") as f:
+        # write software version
+        from fsl_mrs import __version__
+        f.write(f"FSL-MRS version {__version__}")
+        f.write("\n--------\n")
         # Deal with stupid non-serialisability of pathlib path objects
         var_print = {}
         for key in vars(args):
