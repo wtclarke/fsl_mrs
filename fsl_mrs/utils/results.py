@@ -44,7 +44,7 @@ class FitRes(object):
         self.method = method
         self.ppmlim = ppmlim
         self._baseline_obj = baseline_obj
-        self.molalityWrong = storeOldWrongMolality
+        self.wrong_molality = storeOldWrongMolality
 
         self.fill_names(mrs.names, nbaseline=baseline_obj.n_basis, metab_groups=metab_groups)
 
@@ -243,7 +243,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': molarityScaling,
                 'molality': molalityScaling,
-                **({'molalityWrong': molalityScalingWrong} if self.molalityWrong else {}),
+                **({'old_WRONG_molality': molalityScalingWrong} if self.wrong_molality else {}),
                 'quant_info': quant_info,
                 'ref_info': ref_info}
         else:
@@ -252,7 +252,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': None,
                 'molality': None,
-                **({'molalityWrong': None} if self.molalityWrong else {}),
+                **({'old_WRONG_molality': None} if self.wrong_molality else {}),
                 'quant_info': None,
                 'ref_info': None}
 
@@ -484,9 +484,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
-            if 'molalityWrong' in self.concScalings.keys() and \
-               self.concScalings['molalityWrong'] is not None:
-                scaling_type.append('molalityWrong')
+            if 'old_WRONG_molality' in self.concScalings.keys() and \
+               self.concScalings['old_WRONG_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             std = [self.getUncertainties(type=st) for st in scaling_type]
             mean = [self.getConc(scaling=st, function='mean').T for st in scaling_type]
@@ -507,9 +507,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
-            if 'molalityWrong' in self.concScalings.keys() and \
-               self.concScalings['molalityWrong'] is not None:
-                scaling_type.append('molalityWrong')
+            if 'old_WRONG_molality' in self.concScalings.keys() and \
+               self.concScalings['old_WRONG_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             all_df = []
             for st in scaling_type:
@@ -657,10 +657,10 @@ class FitRes(object):
                 raise ValueError('Molarity concetration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molarity']
 
-        elif scaling == 'molalityWrong':
-            if self.concScalings['molalityWrong'] is None:
+        elif scaling == 'old_WRONG_molality':
+            if self.concScalings['old_WRONG_molality'] is None:
                 raise ValueError('Molality concetration scaling not calculated, run calculateConcScaling method.')
-            return rawConc * self.concScalings['molalityWrong']
+            return rawConc * self.concScalings['old_WRONG_molality']
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 
@@ -846,6 +846,8 @@ class FitRes(object):
             return abs_std * self.concScalings['molarity']
         elif type.lower() == 'molality':
             return abs_std * self.concScalings['molality']
+        elif type.lower() == 'old_wrong_molality':
+            return abs_std * self.concScalings['old_WRONG_molality']
         elif type.lower() == 'internal':
             internal_ref = self.concScalings['internalRef']
             if self.method == 'Newton':

@@ -130,10 +130,12 @@ def fit_FSLModel(mrs: "MRS",
             bounds=bounds,
             options=dict(maxfun=1E5))
         # Results
-        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim)
+        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim,
+                         storeOldWrongMolality=storeOldWrongMolality)
 
     elif method == 'init':
-        results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim)
+        results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim,
+                         storeOldWrongMolality=storeOldWrongMolality)
 
     elif method == 'MH':
         from fsl_mrs.utils.stats import mh, dist

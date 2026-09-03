@@ -204,7 +204,6 @@ def main():
     # Save chosen arguments
     with open(os.path.join(args.output, "options.txt"), "w") as f:
         # write software version
-        from fsl_mrs import __version__
         f.write(f"FSL-MRS version {__version__}")
         f.write("\n--------\n")
         # write arguments
@@ -420,6 +419,9 @@ def main():
         scalings.append('molarity')
     if results[0][0].concScalings['molality'] is not None:
         scalings.append('molality')
+    if 'old_WRONG_molality' in results[0][0].concScalings.keys() and \
+       results[0][0].concScalings['old_WRONG_molality'] is not None:
+        scalings.append('old_WRONG_molality')
 
     def save_img_output(fname, data):
         if data.ndim > 3 and data.shape[3] == mrsi.FID_points:
