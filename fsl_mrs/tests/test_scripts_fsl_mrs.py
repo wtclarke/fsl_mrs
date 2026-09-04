@@ -45,6 +45,43 @@ def test_fsl_mrs(tmp_path):
     assert (tmp_path / 'h2o.nii.gz').is_file()
     assert (tmp_path / 'quantification_info.csv').is_file()
 
+    # read concentrations.csv and check that 'old_WRONG_molality' column does not exist
+    concs = pd.read_csv(tmp_path / 'concentrations.csv')
+    assert 'molality' in concs.iloc[0].values
+    assert 'old_WRONG_molality' not in concs.iloc[0].values
+
+
+def test_fsl_mrs_old_molality(tmp_path):
+
+    subprocess.check_call(['fsl_mrs',
+                           '--data', data['metab'],
+                           '--basis', data['basis'],
+                           '--output', tmp_path,
+                           '--h2o', data['water'],
+                           '--TE', '11',
+                           '--metab_groups', 'Mac',
+                           '--tissue_frac', data['seg'],
+                           '--overwrite',
+                           '--combine', 'Cr', 'PCr',
+                           '--export_old_wrong_molality',
+                           '--report'])
+
+    assert (tmp_path / 'report.html').is_file()
+    assert (tmp_path / 'summary.csv').is_file()
+    assert (tmp_path / 'concentrations.csv').is_file()
+    assert (tmp_path / 'qc.csv').is_file()
+    assert (tmp_path / 'all_parameters.csv').is_file()
+    assert (tmp_path / 'options.txt').is_file()
+    assert (tmp_path / 'data.nii.gz').is_file()
+    assert (tmp_path / 'basis').is_dir()
+    assert (tmp_path / 'h2o.nii.gz').is_file()
+    assert (tmp_path / 'quantification_info.csv').is_file()
+
+    # read concentrations.csv and check if 'old_WRONG_molality' column exists
+    concs = pd.read_csv(tmp_path / 'concentrations.csv')
+    assert 'molality' in concs.iloc[0].values
+    assert 'old_WRONG_molality' in concs.iloc[0].values
+
 
 def test_fsl_mrs_models(tmp_path):
     cmd = ['fsl_mrs',
