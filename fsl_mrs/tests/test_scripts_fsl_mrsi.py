@@ -83,52 +83,6 @@ def test_fsl_mrsi(tmp_path):
     assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
 
 
-def test_fsl_mrsi_old_molality(tmp_path):
-
-    subprocess.check_call(['fsl_mrsi',
-                           '--data', data['metab'],
-                           '--basis', data['basis'],
-                           '--output', str(tmp_path / 'fit_out'),
-                           '--metab_groups', 'MM09', 'MM12', 'MM14', 'MM17', 'MM21',
-                           '--h2o', data['water'],
-                           '--TE', '30',
-                           '--TR', '2.0',
-                           '--mask', data['mask'],
-                           '--tissue_frac',
-                           data['seg_wm'],
-                           data['seg_gm'],
-                           data['seg_csf'],
-                           '--output_correlations',
-                           '--export_old_wrong_molality',
-                           '--overwrite',
-                           '--combine', 'Cr', 'PCr'])
-
-    assert (tmp_path / 'fit_out/fit').exists()
-    assert (tmp_path / 'fit_out/qc').exists()
-    assert (tmp_path / 'fit_out/uncertainties').exists()
-    assert (tmp_path / 'fit_out/concs').exists()
-    assert (tmp_path / 'fit_out/nuisance').exists()
-
-    assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
-    assert (tmp_path / 'fit_out/concs/molality/NAA.nii.gz').exists()
-    assert (tmp_path / 'fit_out/concs/old_WRONG_molality/NAA.nii.gz').exists()
-    assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
-    assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
-    assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()
-    assert (tmp_path / 'fit_out/mrsi.tree').exists()
-
-    assert (tmp_path / 'fit_out/nuisance/p0.nii.gz').exists()
-    assert (tmp_path / 'fit_out/nuisance/p1.nii.gz').exists()
-    assert (tmp_path / 'fit_out/nuisance/shift_group0.nii.gz').exists()
-    assert (tmp_path / 'fit_out/nuisance/combined_lw_group0.nii.gz').exists()
-    assert (tmp_path / 'fit_out/nuisance/gamma_group0.nii.gz').exists()
-    assert (tmp_path / 'fit_out/nuisance/sigma_group0.nii.gz').exists()
-
-    assert (tmp_path / 'fit_out/misc/metabolite_groups.json').exists()
-    assert (tmp_path / 'fit_out/misc/mrs_fit_parameters.json').exists()
-    assert (tmp_path / 'fit_out/misc/fit_correlations.nii.gz').exists()
-
-
 def test_fsl_mrsi_models(tmp_path):
 
     def gen_cmd(out_path):
@@ -228,6 +182,7 @@ def test_alt_ref(tmp_path):
                            data['seg_gm'],
                            data['seg_csf'],
                            '--output_correlations',
+                           '--export_old_wrong_molality',
                            '--overwrite',
                            '--combine', 'Cr', 'PCr',
                            '--wref_metabolite', 'PCho', 'GPC',
@@ -242,6 +197,7 @@ def test_alt_ref(tmp_path):
 
     assert (tmp_path / 'fit_out/concs/raw/NAA.nii.gz').exists()
     assert (tmp_path / 'fit_out/concs/molality/NAA.nii.gz').exists()
+    assert (tmp_path / 'fit_out/concs/old_WRONG_molality/NAA.nii.gz').exists()
     assert (tmp_path / 'fit_out/uncertainties/NAA_sd.nii.gz').exists()
     assert (tmp_path / 'fit_out/qc/NAA_snr.nii.gz').exists()
     assert (tmp_path / 'fit_out/fit/fit.nii.gz').exists()

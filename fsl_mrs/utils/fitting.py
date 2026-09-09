@@ -31,8 +31,7 @@ def fit_FSLModel(mrs: "MRS",
                  x0: list[float] = None,
                  MHSamples: int = 500,
                  disable_mh_priors: bool = False,
-                 fit_baseline_mh: bool = False,
-                 storeOldWrongMolality: bool = False):
+                 fit_baseline_mh: bool = False):
     """Run linear combination fitting on the passed mrs object.
 
     Can run either with a truncated Newton (method='Newton') or Metropolis Hastings (method='MH') optimiser.
@@ -57,9 +56,6 @@ def fit_FSLModel(mrs: "MRS",
     :type disable_mh_priors: bool, optional
     :param fit_baseline_mh: If True baseline parameters are also fit using MH, defaults to False
     :type fit_baseline_mh: bool, optional
-    :param storeOldWrongMolality: If True the previous wrong molality concentration will be calculated
-                                  in addition to the correct one, defaults to False
-    :type storeOldWrongMolality: bool, optional
 
     :return: Fit results object
     :rtype: fsl_mrs.utils.FitRes
@@ -130,12 +126,10 @@ def fit_FSLModel(mrs: "MRS",
             bounds=bounds,
             options=dict(maxfun=1E5))
         # Results
-        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim,
-                         storeOldWrongMolality=storeOldWrongMolality)
+        results = FitRes(mrs, res.x, model, method, metab_groups, baseline_obj, ppmlim)
 
     elif method == 'init':
-        results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim,
-                         storeOldWrongMolality=storeOldWrongMolality)
+        results = FitRes(mrs, x0, model, method, metab_groups, baseline_obj, ppmlim)
 
     elif method == 'MH':
         from fsl_mrs.utils.stats import mh, dist
@@ -247,8 +241,7 @@ def fit_FSLModel(mrs: "MRS",
         samples = mcmc.fit(p0, LB=LB, UB=UB, verbose=False, mask=mask)
 
         # collect results
-        results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim,
-                         storeOldWrongMolality=storeOldWrongMolality)
+        results = FitRes(mrs, samples, model, method, metab_groups, baseline_obj, ppmlim)
 
     else:
         raise Exception('Unknown optimisation method.')

@@ -190,8 +190,7 @@ def main():
     optional.add_argument('--export_separate', action="store_true",
                           help="Output individual metabolites")
     optional.add_argument('--export_old_wrong_molality', action="store_true",
-                          help="Output the previous wrong molality concentration"
-                          " (for backwards reproducibility)")
+                          help="Output the previously used (<=2.4.17) incorrect molality concentration")
     optional.add_argument('-f', '--filename', type=str,
                           help='Output file name', default='fit')
     optional.add('--config', required=False, is_config_file=True,
@@ -338,8 +337,7 @@ def main():
         'metab_groups': misc.parse_metab_groups(mrs, args.metab_groups),
         'disable_mh_priors': args.disable_MH_priors,
         'MHSamples': args.mh_samples,
-        'fit_baseline_mh': fit_baseline_mh,
-        'storeOldWrongMolality': args.export_old_wrong_molality}
+        'fit_baseline_mh': fit_baseline_mh}
 
     if args.baseline_order:
         Fitargs['baseline_order'] = args.baseline_order
@@ -416,7 +414,8 @@ def main():
         res.calculateConcScaling(mrs,
                                  quant_info=q_info,
                                  internal_reference=args.internal_ref,
-                                 verbose=args.verbose)
+                                 verbose=args.verbose,
+                                 wrong_molality=args.export_old_wrong_molality)
 
         # Save quantification information as output
         with open(args.output / 'quantification_info.csv', 'w') as qfp:
@@ -436,7 +435,8 @@ def main():
                 'H2O file provided but could not determine TR: '
                 'no absolute quantification will be performed.',
                 UserWarning)
-        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose,
+                                 wrong_molality=args.export_old_wrong_molality)
 
     # Combine metabolites.
     if args.combine is not None:

@@ -153,8 +153,7 @@ def main():
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis/H2O.')
     optional.add_argument('--export_old_wrong_molality', action="store_true",
-                          help="Output the previous wrong molality concentration"
-                          " (for backwards reproducibility)")
+                          help="Output the previously used (<=2.4.17) incorrect molality concentration")
     optional.add('--config', required=False, is_config_file=True,
                  help='configuration file')
 
@@ -277,8 +276,7 @@ def main():
     # Store info in dictionaries to be passed to MRS and fitting
     Fitargs = {'ppmlim': args.ppmlim,
                'method': args.algo,
-               'metab_groups': metab_groups,
-               'storeOldWrongMolality': args.export_old_wrong_molality}
+               'metab_groups': metab_groups}
 
     if args.baseline_order:
         Fitargs['baseline_order'] = args.baseline_order
@@ -646,7 +644,8 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
                     'H2O file provided but could not determine TR:'
                     ' no absolute quantification will be performed.',
                     UserWarning)
-            res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+            res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose,
+                                     wrong_molality=args.export_old_wrong_molality)
         else:
             # Form quantification information
             q_info = quantify.QuantificationInfo(
@@ -667,7 +666,8 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
                 mrs,
                 quant_info=q_info,
                 internal_reference=args.internal_ref,
-                verbose=args.verbose)
+                verbose=args.verbose,
+                wrong_molality=args.export_old_wrong_molality)
         # Combine metabolites.
         if args.combine is not None:
             res.combine(args.combine)
