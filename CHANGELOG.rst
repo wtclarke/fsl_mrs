@@ -1,9 +1,15 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+2.5.0 (Thursday 10th September 2026)
+------------------------------------
+- Bug fix in molality calculation, using ``1 / (1 - self.f_CSF)`` instead of ``1 / (1 - self.f_CSF_H2O)`` correction.
+- Added option in `fsl_mrs` and `fsl_mrsi` to output the previously used (<=2.4.17) incorrect molality concentration as well.
+- Added software version printout in options.txt files.
+
 2.4.17 (Friday 24th July 2026)
 ------------------------------
 - Bumped fslpy dependency
-- Removed Python 3.10 support. 
+- Removed Python 3.10 support
 
 2.4.16 (Monday 29th June 2026)
 ------------------------------
