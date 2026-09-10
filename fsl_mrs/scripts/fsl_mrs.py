@@ -189,6 +189,8 @@ def main():
                           help="Output fit without baseline")
     optional.add_argument('--export_separate', action="store_true",
                           help="Output individual metabolites")
+    optional.add_argument('--export_old_wrong_molality', action="store_true",
+                          help="Output the previously used (<=2.4.17) incorrect molality concentration")
     optional.add_argument('-f', '--filename', type=str,
                           help='Output file name', default='fit')
     optional.add('--config', required=False, is_config_file=True,
@@ -241,6 +243,9 @@ def main():
 
     # Save chosen arguments
     with open(args.output / "options.txt", "w") as f:
+        # write software version
+        f.write(f"FSL-MRS version {__version__}")
+        f.write("\n--------\n")
         # Deal with any path objects
         f.write(json.dumps(vars(args), default=str))
         f.write("\n--------\n")
@@ -409,7 +414,8 @@ def main():
         res.calculateConcScaling(mrs,
                                  quant_info=q_info,
                                  internal_reference=args.internal_ref,
-                                 verbose=args.verbose)
+                                 verbose=args.verbose,
+                                 wrong_molality=args.export_old_wrong_molality)
 
         # Save quantification information as output
         with open(args.output / 'quantification_info.csv', 'w') as qfp:
@@ -429,7 +435,8 @@ def main():
                 'H2O file provided but could not determine TR: '
                 'no absolute quantification will be performed.',
                 UserWarning)
-        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+        res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose,
+                                 wrong_molality=args.export_old_wrong_molality)
 
     # Combine metabolites.
     if args.combine is not None:

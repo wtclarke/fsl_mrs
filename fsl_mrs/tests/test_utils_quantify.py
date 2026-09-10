@@ -77,7 +77,8 @@ def test_QuantificationInfo():
     qci.set_fractions({'GM': 0.45, 'WM': 0.45, 'CSF': 0.1})
     assert qci._fractions is not None
 
-    assert np.isclose(qci.csf_corr, 1 / 0.9)
+    assert np.isclose(qci.csf_corr_molar, 1 / (1 - 0.1))
+    assert np.isclose(qci.csf_corr_molal, 1 / (1 - 0.1 * 0.97 / (0.45 * 0.78 + 0.45 * 0.65 + 0.1 * 0.97)))
 
     qci.add_corr = 5.0
     assert qci.add_corr == 5.0
@@ -224,7 +225,7 @@ def test_quantifyWater():
 
     res = fit_FSLModel(mrs, **Fitargs)
 
-    tissueFractions = {'GM': 0.6, 'WM': 0.4, 'CSF': 0.0}
+    tissueFractions = {'GM': 0.5, 'WM': 0.4, 'CSF': 0.1}
     TE = 0.03
     TR = 20
     T2dict = {'H2O_GM': 0.110,
@@ -244,13 +245,21 @@ def test_quantifyWater():
     res.calculateConcScaling(mrs,
                              q_info,
                              internal_reference=['Cr'],
-                             verbose=True)
+                             verbose=True,
+                             wrong_molality=True)
 
     print(res.getConc(scaling='raw'))
     print(res.getConc(scaling='internal'))
     print(res.getConc(scaling='molality'))
     print(res.getConc(scaling='molarity'))
 
+    old_molal_scaling = 1 / (tissueFractions['GM'] * 0.78 +
+                             tissueFractions['WM'] * 0.65 +
+                             tissueFractions['CSF'] * 0.97)
+    new_molal_scaling = old_molal_scaling * (1 - tissueFractions['CSF']) / \
+        (1 - tissueFractions['CSF'] * 0.97 * old_molal_scaling)
+
     assert np.allclose(res.getConc(scaling='internal'), 1.0)
-    assert np.allclose(res.getConc(scaling='molarity'), 10.78, atol=3E-1)
-    assert np.allclose(res.getConc(scaling='molality'), 10.78 * 1 / (0.6 * 0.78 + 0.4 * 0.65), atol=3E-1)
+    assert np.allclose(res.getConc(scaling='molarity'), 12.77, atol=3E-1)
+    assert np.allclose(res.getConc(scaling='molality'), 12.77 * new_molal_scaling, atol=3E-1)
+    assert np.allclose(res.getConc(scaling='old_WRONG_molality'), 12.77 * old_molal_scaling, atol=3E-1)

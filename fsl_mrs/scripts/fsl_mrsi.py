@@ -152,6 +152,8 @@ def main():
                           help='Forbid automatic conjugation of basis')
     optional.add_argument('--no_rescale', action="store_true",
                           help='Forbid rescaling of FID/basis/H2O.')
+    optional.add_argument('--export_old_wrong_molality', action="store_true",
+                          help="Output the previously used (<=2.4.17) incorrect molality concentration")
     optional.add('--config', required=False, is_config_file=True,
                  help='configuration file')
 
@@ -200,6 +202,10 @@ def main():
 
     # Save chosen arguments
     with open(os.path.join(args.output, "options.txt"), "w") as f:
+        # write software version
+        f.write(f"FSL-MRS version {__version__}")
+        f.write("\n--------\n")
+        # write arguments
         f.write(str(args))
         f.write("\n--------\n")
         f.write(p.format_values())
@@ -271,6 +277,7 @@ def main():
     Fitargs = {'ppmlim': args.ppmlim,
                'method': args.algo,
                'metab_groups': metab_groups}
+
     if args.baseline_order:
         Fitargs['baseline_order'] = args.baseline_order
     else:
@@ -410,6 +417,9 @@ def main():
         scalings.append('molarity')
     if results[0][0].concScalings['molality'] is not None:
         scalings.append('molality')
+    if 'old_WRONG_molality' in results[0][0].concScalings.keys() and \
+       results[0][0].concScalings['old_WRONG_molality'] is not None:
+        scalings.append('old_WRONG_molality')
 
     def save_img_output(fname, data):
         if data.ndim > 3 and data.shape[3] == mrsi.FID_points:
@@ -634,7 +644,8 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
                     'H2O file provided but could not determine TR:'
                     ' no absolute quantification will be performed.',
                     UserWarning)
-            res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose)
+            res.calculateConcScaling(mrs, internal_reference=args.internal_ref, verbose=args.verbose,
+                                     wrong_molality=args.export_old_wrong_molality)
         else:
             # Form quantification information
             q_info = quantify.QuantificationInfo(
@@ -655,7 +666,8 @@ def runvoxel(mrs_in, args, Fitargs, echotime, repetition_time):
                 mrs,
                 quant_info=q_info,
                 internal_reference=args.internal_ref,
-                verbose=args.verbose)
+                verbose=args.verbose,
+                wrong_molality=args.export_old_wrong_molality)
         # Combine metabolites.
         if args.combine is not None:
             res.combine(args.combine)

@@ -205,7 +205,8 @@ class FitRes(object):
                              mrs,
                              quant_info=None,
                              internal_reference=['Cr', 'PCr'],
-                             verbose=False):
+                             verbose=False,
+                             wrong_molality=False):
         """Run calculation of internal and (if possible) water concentration scaling.
 
         :param mrs: MRS object
@@ -214,6 +215,9 @@ class FitRes(object):
         :type quant_info: fsl_mrs.utils.quantify.QuantificationInfo, optional
         :param internal_reference: Internal referencing metabolite, defaults to ['Cr', 'PCr'] i.e. tCr
         :type internal_reference: list, optional
+        :param wrong_molality: If True, the previous incorrect molality concentration will be calculated
+                                in addition to the correct one, defaults to False
+        :type wrong_molality: bool, optional
         :param verbose: Enable for verbose output, defaults to False
         :type verbose: bool, optional
         """
@@ -224,10 +228,10 @@ class FitRes(object):
         internalRefScaling = quant.quantifyInternal(internal_reference, self.getConc(), self.metabs)
 
         if mrs.H2O is not None and quant_info is not None:
-            molalityScaling, molarityScaling, ref_info = quant.quantifyWater(mrs,
-                                                                             self,
-                                                                             quant_info,
-                                                                             verbose=verbose)
+            molalityScaling, molarityScaling, ref_info, molalityScalingWrong = quant.quantifyWater(mrs,
+                                                                                                   self,
+                                                                                                   quant_info,
+                                                                                                   verbose=verbose)
             if ref_info['metab_ref'].integral == 0.0:
                 raise self.QuantificationError(
                     f'Metabolite reference {quant_info.ref_metab} has not been fit (conc=0). '
@@ -241,6 +245,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': molarityScaling,
                 'molality': molalityScaling,
+                **({'old_WRONG_molality': molalityScalingWrong} if wrong_molality else {}),
                 'quant_info': quant_info,
                 'ref_info': ref_info}
         else:
@@ -249,6 +254,7 @@ class FitRes(object):
                 'internalRef': self.intrefstr,
                 'molarity': None,
                 'molality': None,
+                **({'old_WRONG_molality': None} if wrong_molality else {}),
                 'quant_info': None,
                 'ref_info': None}
 
@@ -480,6 +486,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'old_WRONG_molality' in self.concScalings.keys() and \
+               self.concScalings['old_WRONG_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             std = [self.getUncertainties(type=st) for st in scaling_type]
             mean = [self.getConc(scaling=st, function='mean').T for st in scaling_type]
@@ -500,6 +509,9 @@ class FitRes(object):
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'old_WRONG_molality' in self.concScalings.keys() and \
+               self.concScalings['old_WRONG_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             all_df = []
             for st in scaling_type:
@@ -634,18 +646,23 @@ class FitRes(object):
             return rawConc
         elif scaling == 'internal':
             if self.concScalings['internal'] is None:
-                raise ValueError('Internal concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Internal concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['internal']
 
         elif scaling == 'molality':
             if self.concScalings['molality'] is None:
-                raise ValueError('Molality concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molality concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molality']
 
         elif scaling == 'molarity':
             if self.concScalings['molarity'] is None:
-                raise ValueError('Molarity concetration scaling not calculated, run calculateConcScaling method.')
+                raise ValueError('Molarity concentration scaling not calculated, run calculateConcScaling method.')
             return rawConc * self.concScalings['molarity']
+
+        elif scaling == 'old_WRONG_molality':
+            if self.concScalings['old_WRONG_molality'] is None:
+                raise ValueError('Molality concentration scaling not calculated, run calculateConcScaling method.')
+            return rawConc * self.concScalings['old_WRONG_molality']
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
 
@@ -831,6 +848,8 @@ class FitRes(object):
             return abs_std * self.concScalings['molarity']
         elif type.lower() == 'molality':
             return abs_std * self.concScalings['molality']
+        elif type.lower() == 'old_wrong_molality':
+            return abs_std * self.concScalings['old_WRONG_molality']
         elif type.lower() == 'internal':
             internal_ref = self.concScalings['internalRef']
             if self.method == 'Newton':

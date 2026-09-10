@@ -133,6 +133,10 @@ def main():
 
     # Save chosen arguments
     with open(op.join(args.output, "options.txt"), "w") as f:
+        # write software version
+        f.write(f"FSL-MRS version {__version__}")
+        f.write("\n--------\n")
+        # write arguments
         f.write(str(args))
         f.write("\n--------\n")
         f.write(p.format_values())

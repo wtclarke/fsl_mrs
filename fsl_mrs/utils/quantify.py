@@ -511,7 +511,7 @@ class QuantificationInfo(object):
     @property
     def relax_corr_water_molal(self):
         """Relaxation (T1, T2) corrected water molality (mmol/kg).
-        If volume fractions aren't availible then relaxation correction will be based on
+        If volume fractions aren't available then relaxation correction will be based on
         a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
 
         :return: concentration
@@ -526,8 +526,8 @@ class QuantificationInfo(object):
 
     @property
     def relax_corr_water_molar(self):
-        """Relaxation (T1, T2) corrected water molariyt (mmol/dm^3 = mM).
-        If volume fractions aren't availible then relaxation correction will be based on
+        """Relaxation (T1, T2) corrected water molarity (mmol/dm^3 = mM).
+        If volume fractions aren't available then relaxation correction will be based on
         a 50/50 split of GM/WM T1/T2s and pure water will be assumed.
 
         :return: concentration
@@ -547,11 +547,18 @@ class QuantificationInfo(object):
 
     # Additional terms
     @property
-    def csf_corr(self):
+    def csf_corr_molar(self):
         if self._fractions is None:
             return 1.0
         else:
             return 1 / (1 - self.f_CSF)
+
+    @property
+    def csf_corr_molal(self):
+        if self._fractions is None:
+            return 1.0
+        else:
+            return 1 / (1 - self.f_CSF_H2O)
 
     @property
     def add_corr(self):
@@ -674,10 +681,14 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     # Note the difference between Q.f_X and Q.f_X_H2O. Equation 5 of reference. With thanks to Alex Craig-Craven
     # for pointing this out.
 
-    conc_molal = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * \
-        quant_info.relax_corr_water_molal * quant_info.csf_corr * quant_info.add_corr * quant_info.relax_corr_metab
-    conc_molar = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * \
-        quant_info.relax_corr_water_molar * quant_info.csf_corr * quant_info.add_corr * quant_info.relax_corr_metab
+    # correct molality concentration - thanks to Diego Ramírez González
+    conc_molal = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molal * quant_info.csf_corr_molal * quant_info.relax_corr_metab
+    # old incorrect molality concentration for backwards reproducibility
+    conc_molal_old = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molal * quant_info.csf_corr_molar * quant_info.relax_corr_metab
+    conc_molar = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molar * quant_info.csf_corr_molar * quant_info.relax_corr_metab
 
     if verbose:
         rcorwaterconc = quant_info.relax_corr_water_molar
@@ -694,15 +705,16 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     metabtoRefScaling = quantifyInternal(quant_info.ref_metab,
                                          results.getConc(),
                                          results.metabs)
-    conc_molal *= metabtoRefScaling
-    conc_molar *= metabtoRefScaling
+    conc_molal      *= metabtoRefScaling
+    conc_molar      *= metabtoRefScaling
+    conc_molal_old  *= metabtoRefScaling
 
     if verbose:
         print(f'Ref to other metabolite scaling = {metabtoRefScaling:0.2e}')
         print(f'Final molality scaling = {conc_molal:0.2e}')
         print(f'Final molarity scaling = {conc_molar:0.2e}')
 
-    return conc_molal, conc_molar, {'metab_ref': mref, 'water_ref': wref}
+    return conc_molal, conc_molar, {'metab_ref': mref, 'water_ref': wref}, conc_molal_old
 
 
 def create_quant_info(header, mrs, tissueFractions=None, additional_scale=1.0):
