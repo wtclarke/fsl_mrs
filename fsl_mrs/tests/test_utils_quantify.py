@@ -253,11 +253,10 @@ def test_quantifyWater():
     print(res.getConc(scaling='molality'))
     print(res.getConc(scaling='molarity'))
 
-    old_molal_scaling = 55.51E3 / 55.01E3 / (tissueFractions['GM'] * 0.78 +
-                             tissueFractions['WM'] * 0.65 +
-                             tissueFractions['CSF'] * 0.97)
+    denom = tissueFractions['GM'] * 0.78 + tissueFractions['WM'] * 0.65 + tissueFractions['CSF'] * 0.97
+    old_molal_scaling = 55.51E3 / 55.01E3 / denom
     new_molal_scaling = old_molal_scaling * (1 - tissueFractions['CSF']) / \
-        (1 - tissueFractions['CSF'] * 0.97 * old_molal_scaling)
+        (1 - tissueFractions['CSF'] * 0.97 / denom)
 
     assert np.allclose(res.getConc(scaling='internal'), 1.0)
     assert np.allclose(res.getConc(scaling='molarity'), 12.65, atol=3E-1)
