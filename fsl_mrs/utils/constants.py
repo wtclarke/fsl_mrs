@@ -78,7 +78,8 @@ TISSUE_WATER_DENSITY = {'GM': 0.78, 'WM': 0.65, 'CSF': 0.97}
 # doi: 10.1006/jmrb.1993.1055.
 
 H2O_MOLECULAR_MASS = 18.01528   # g/mol
-H2O_MOLALITY = 55.51E3    # mmol/kg
+H2O_MOLALITY = 55.51E3          # mmol/kg
+H2O_MOLARITY = 55.01E3          # mmol/L at 37°C and 1 bar of pressure
 H2O_PROTONS = 2
 
 # Water referencing metabolites

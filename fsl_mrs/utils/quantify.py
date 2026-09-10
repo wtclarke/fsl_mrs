@@ -13,7 +13,7 @@ from scipy.optimize import minimize
 import pandas as pd
 
 from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
-from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY, \
+from fsl_mrs.utils.constants import H2O_MOLALITY, H2O_MOLARITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
     WATER_SCALING_METAB_PROTONS, \
@@ -534,9 +534,9 @@ class QuantificationInfo(object):
         :rtype: float
         """
         if self._fractions is None:
-            return self.R_H2O * H2O_MOLALITY
+            return self.R_H2O * H2O_MOLARITY
         else:
-            return H2O_MOLALITY * (self.f_GM * self.d_GM * self.R_H2O_GM
+            return H2O_MOLARITY * (self.f_GM * self.d_GM * self.R_H2O_GM
                                    + self.f_WM * self.d_WM * self.R_H2O_WM
                                    + self.f_CSF * self.d_CSF * self.R_H2O_CSF)
 
@@ -667,16 +667,18 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     SMObs = mref.integral
 
     # Calculate concentration scalings
-    # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
+    # EQ 4 in https://doi.org/10.1002/nbm.4257
     # conc_molal =  (SMObs *(Q.f_GM_H20*Q.R_H2O_GM + Q.f_WM_H20*Q.R_H2O_WM + Q.f_CSF_H20*Q.R_H2O_CSF)\
     #                       / (SH2OObs*(1-Q.f_CSF_H20)*Q.R_M)) \
     #                 * (H2O_PROTONS/refProtons)\
     #                 * H2O_MOLALITY
 
+    # EQ A21 from https://doi.org/10.1002/nbm.4257 SI & https://doi.org/10.1002/nbm.3914
+    # (notice the difference from EQ 6 of the main manuscript that uses H2O_MOLALITY instead of H2O_MOLARITY)
     # conc_molar =  (SMObs *(Q.f_GM*Q.d_GM*Q.R_H2O_GM + Q.f_WM*Q.d_WM*Q.R_H2O_WM + Q.f_CSF*Q.d_CSF*Q.R_H2O_CSF)\
     #                       / (SH2OObs*(1-Q.f_CSF)*Q.R_M))\
     #                 * (H2O_PROTONS/refProtons)\
-    #                 * H2O_MOLALITY
+    #                 * H2O_MOLARITY
 
     # Note the difference between Q.f_X and Q.f_X_H2O. Equation 5 of reference. With thanks to Alex Craig-Craven
     # for pointing this out.

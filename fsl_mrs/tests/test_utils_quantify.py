@@ -45,11 +45,11 @@ def test_QuantificationInfo():
     qci = quant.QuantificationInfo(0.000, 40, ['Cr', 'NAA'], 298)
     assert isinstance(qci.summary_table, pd.DataFrame)
     assert qci.relax_corr_water_molal > 55500
-    assert qci.relax_corr_water_molar > 55500
+    assert qci.relax_corr_water_molar > 55000
 
     qci = quant.QuantificationInfo(0.000, 40, ['Cr', 'NAA'], 127)
     assert qci.relax_corr_water_molal > 55500
-    assert qci.relax_corr_water_molar > 55500
+    assert qci.relax_corr_water_molar > 55000
 
     qci = quant.QuantificationInfo(0.010, 3, ['Cr', 'NAA'], 127)
     t2s = STANDARD_T2['3T']
@@ -166,7 +166,7 @@ def test_molefraction_calc():
     qci = quant.QuantificationInfo(0.010, 3, ['NAA'], 298)
     qci.set_fractions({'GM': 0.45, 'WM': 0.40, 'CSF': 0.15})
 
-    # Densitites are 'GM': 0.78, 'WM': 0.65, 'CSF': 0.97
+    # Densities are 'GM': 0.78, 'WM': 0.65, 'CSF': 0.97
     sum_frac = (0.45 * 0.78 + 0.40 * 0.65 + 0.15 * 0.97)
     assert np.isclose(qci.f_GM_H2O, 0.45 * 0.78 / sum_frac)
     assert np.isclose(qci.f_WM_H2O, 0.40 * 0.65 / sum_frac)
@@ -183,7 +183,7 @@ def test_corrected_water_conc():
     # Molality should be close to pure water as density term cancels
     assert np.isclose(qci.relax_corr_water_molal, 55510)
     # Molarity should be scaled by density term as volume fixed
-    assert np.isclose(qci.relax_corr_water_molar, 55510 * 0.78)
+    assert np.isclose(qci.relax_corr_water_molar, 55010 * 0.78)
 
     qci.set_fractions({'GM': 0.50, 'WM': 0.5, 'CSF': 0.0})
 
@@ -192,7 +192,7 @@ def test_corrected_water_conc():
     # Molality should be close to pure water as density term cancels
     assert np.isclose(qci.relax_corr_water_molal, 55510)
     # Molarity should be scaled by density terms as volume fixed
-    assert np.isclose(qci.relax_corr_water_molar, 55510 * (0.78 + 0.65) / 2)
+    assert np.isclose(qci.relax_corr_water_molar, 55010 * (0.78 + 0.65) / 2)
 
     qci = quant.QuantificationInfo(1E-10, 1, ['NAA'], 298)
     qci.set_fractions({'GM': 0.50, 'WM': 0.5, 'CSF': 0.0})
@@ -204,7 +204,7 @@ def test_corrected_water_conc():
     mf_wm = 0.5 * 0.65 / (0.5 * 0.78 + 0.5 * 0.65)
     assert np.isclose(qci.relax_corr_water_molal, 55510 * (qci.R_H2O_GM * mf_gm + qci.R_H2O_WM * mf_wm))
     # Molarity should be scaled by density terms * relaxation terms
-    assert np.isclose(qci.relax_corr_water_molar, 55510 * (0.78 * qci.R_H2O_GM + 0.65 * qci.R_H2O_WM) / 2)
+    assert np.isclose(qci.relax_corr_water_molar, 55010 * (0.78 * qci.R_H2O_GM + 0.65 * qci.R_H2O_WM) / 2)
 
 
 def test_quantifyWater():
@@ -253,13 +253,13 @@ def test_quantifyWater():
     print(res.getConc(scaling='molality'))
     print(res.getConc(scaling='molarity'))
 
-    old_molal_scaling = 1 / (tissueFractions['GM'] * 0.78 +
+    old_molal_scaling = 55.51E3 / 55.01E3 / (tissueFractions['GM'] * 0.78 +
                              tissueFractions['WM'] * 0.65 +
                              tissueFractions['CSF'] * 0.97)
     new_molal_scaling = old_molal_scaling * (1 - tissueFractions['CSF']) / \
         (1 - tissueFractions['CSF'] * 0.97 * old_molal_scaling)
 
     assert np.allclose(res.getConc(scaling='internal'), 1.0)
-    assert np.allclose(res.getConc(scaling='molarity'), 12.77, atol=3E-1)
-    assert np.allclose(res.getConc(scaling='molality'), 12.77 * new_molal_scaling, atol=3E-1)
-    assert np.allclose(res.getConc(scaling='old_WRONG_molality'), 12.77 * old_molal_scaling, atol=3E-1)
+    assert np.allclose(res.getConc(scaling='molarity'), 12.65, atol=3E-1)
+    assert np.allclose(res.getConc(scaling='molality'), 12.65 * new_molal_scaling, atol=3E-1)
+    assert np.allclose(res.getConc(scaling='old_WRONG_molality'), 12.65 * old_molal_scaling, atol=3E-1)
