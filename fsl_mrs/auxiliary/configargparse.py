@@ -858,7 +858,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
     def format_values(self):
         """Returns a string with all args and settings and where they came from
-        (eg. commandline, config file, enviroment variable or default)
+        (eg. commandline, config file, environment variable or default)
         """
         source_key_to_display_value_map = {
             _COMMAND_LINE_SOURCE_KEY: "Command Line Args: ",

@@ -14,7 +14,7 @@ from scipy.optimize import minimize
 import pandas as pd
 
 from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
-from fsl_mrs.utils.constants import H2O_MOLALITY, TISSUE_WATER_DENSITY, \
+from fsl_mrs.utils.constants import H2O_MOLALITY, H2O_MOLARITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
     WATER_SCALING_METAB_PROTONS, \
@@ -571,9 +571,9 @@ class QuantificationInfo():
         :rtype: float
         """
         if self._fractions is None:
-            return self.R_H2O * H2O_MOLALITY
+            return self.R_H2O * H2O_MOLARITY
         else:
-            return H2O_MOLALITY * (self.f_GM * self.d_GM * self.R_H2O_GM
+            return H2O_MOLARITY * (self.f_GM * self.d_GM * self.R_H2O_GM
                                    + self.f_WM * self.d_WM * self.R_H2O_WM
                                    + self.f_CSF * self.d_CSF * self.R_H2O_CSF)
 
@@ -584,11 +584,18 @@ class QuantificationInfo():
 
     # Additional terms
     @property
-    def csf_corr(self):
+    def csf_corr_molar(self):
         if self._fractions is None:
             return 1.0
         else:
             return 1 / (1 - self.f_CSF)
+
+    @property
+    def csf_corr_molal(self):
+        if self._fractions is None:
+            return 1.0
+        else:
+            return 1 / (1 - self.f_CSF_H2O)
 
     @property
     def add_corr(self):
@@ -702,24 +709,30 @@ def quantifyWater(
         f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite integral.')
 
     # Calculate concentration scalings
-    # EQ 4 and 6 in https://doi.org/10.1002/nbm.4257
+    # EQ 4 in https://doi.org/10.1002/nbm.4257
     # conc_molal =  (SMObs *(Q.f_GM_H20*Q.R_H2O_GM + Q.f_WM_H20*Q.R_H2O_WM + Q.f_CSF_H20*Q.R_H2O_CSF)\
     #                       / (SH2OObs*(1-Q.f_CSF_H20)*Q.R_M)) \
     #                 * (H2O_PROTONS/refProtons)\
     #                 * H2O_MOLALITY
 
+    # EQ A21 from https://doi.org/10.1002/nbm.4257 SI & https://doi.org/10.1002/nbm.3914
+    # (notice the difference from EQ 6 of the main manuscript that uses H2O_MOLALITY instead of H2O_MOLARITY)
     # conc_molar =  (SMObs *(Q.f_GM*Q.d_GM*Q.R_H2O_GM + Q.f_WM*Q.d_WM*Q.R_H2O_WM + Q.f_CSF*Q.d_CSF*Q.R_H2O_CSF)\
     #                       / (SH2OObs*(1-Q.f_CSF)*Q.R_M))\
     #                 * (H2O_PROTONS/refProtons)\
-    #                 * H2O_MOLALITY
+    #                 * H2O_MOLARITY
 
     # Note the difference between Q.f_X and Q.f_X_H2O. Equation 5 of reference. With thanks to Alex Craig-Craven
     # for pointing this out.
 
-    conc_molal = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * \
-        quant_info.relax_corr_water_molal * quant_info.csf_corr * quant_info.add_corr * quant_info.relax_corr_metab
-    conc_molar = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * \
-        quant_info.relax_corr_water_molar * quant_info.csf_corr * quant_info.add_corr * quant_info.relax_corr_metab
+    # correct molality concentration - thanks to Diego Ramírez González
+    conc_molal = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molal * quant_info.csf_corr_molal * quant_info.relax_corr_metab
+    # old incorrect molality concentration for backwards reproducibility
+    conc_molal_old = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molal * quant_info.csf_corr_molar * quant_info.relax_corr_metab
+    conc_molar = (SMObs / SH2OObs) * (H2O_PROTONS / quant_info.ref_protons) * quant_info.add_corr * \
+        quant_info.relax_corr_water_molar * quant_info.csf_corr_molar * quant_info.relax_corr_metab
 
     if verbose:
         rcorwaterconc = quant_info.relax_corr_water_molar
@@ -742,21 +755,25 @@ def quantifyWater(
         ref_conc,
         f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite concentration.')
     metabtoRefScaling = 1 / ref_conc
-    conc_molal *= metabtoRefScaling
-    conc_molar *= metabtoRefScaling
+    conc_molal      *= metabtoRefScaling
+    conc_molar      *= metabtoRefScaling
+    conc_molal_old  *= metabtoRefScaling
     _validate_positive_finite(
         conc_molal,
         'Molality scaling is zero or non-finite.')
     _validate_positive_finite(
         conc_molar,
         'Molarity scaling is zero or non-finite.')
+    _validate_positive_finite(
+        conc_molal_old,
+        'Old wrong molality scaling is zero or non-finite.')
 
     if verbose:
         print(f'Ref to other metabolite scaling = {metabtoRefScaling:0.2e}')
         print(f'Final molality scaling = {conc_molal:0.2e}')
         print(f'Final molarity scaling = {conc_molar:0.2e}')
 
-    return conc_molal, conc_molar, {'metab_ref': mref, 'water_ref': wref}
+    return conc_molal, conc_molar, {'metab_ref': mref, 'water_ref': wref}, conc_molal_old
 
 
 def create_quant_info(header, mrs, tissueFractions=None, additional_scale=1.0):

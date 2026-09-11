@@ -231,7 +231,8 @@ class FitRes:
                              mrs: 'MRS',
                              quant_info: Any | None = None,
                              internal_reference: str | list[str] | tuple[str, ...] = ['Cr', 'PCr'],
-                             verbose: bool = False) -> None:
+                             verbose: bool = False,
+                             wrong_molality: bool = False) -> None:
         """Run calculation of internal and (if possible) water concentration scaling.
 
         :param mrs: MRS object
@@ -240,6 +241,9 @@ class FitRes:
         :type quant_info: fsl_mrs.utils.quantify.QuantificationInfo, optional
         :param internal_reference: Internal referencing metabolite, defaults to ['Cr', 'PCr'] i.e. tCr
         :type internal_reference: list, optional
+        :param wrong_molality: If True, the previous incorrect molality concentration will be calculated
+                                in addition to the correct one, defaults to False
+        :type wrong_molality: bool, optional
         :param verbose: Enable for verbose output, defaults to False
         :type verbose: bool, optional
         """
@@ -266,7 +270,7 @@ class FitRes:
         if mrs.H2O is not None and quant_info is not None:
             conc_scalings['quant_info'] = quant_info
             try:
-                molalityScaling, molarityScaling, ref_info = quant.quantifyWater(
+                molalityScaling, molarityScaling, ref_info, molalityScalingWrong = quant.quantifyWater(
                     mrs,
                     self,
                     quant_info,
@@ -274,10 +278,14 @@ class FitRes:
             except quant.InvalidScalingError as exc:
                 conc_scalings['errors']['molality'] = str(exc)
                 conc_scalings['errors']['molarity'] = str(exc)
+                if wrong_molality:
+                    conc_scalings['errors']['old_wrong_molality'] = str(exc)
                 warnings.warn(str(exc), UserWarning, stacklevel=2)
             else:
                 conc_scalings['molarity'] = molarityScaling
                 conc_scalings['molality'] = molalityScaling
+                if wrong_molality:
+                    conc_scalings['old_wrong_molality'] = molalityScalingWrong
                 conc_scalings['ref_info'] = ref_info
 
         self.concScalings = conc_scalings
@@ -513,6 +521,9 @@ class FitRes:
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'old_wrong_molality' in self.concScalings.keys() and \
+               self.concScalings['old_wrong_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             std = [self.getUncertainties(type=st) for st in scaling_type]
             mean = [self.getConc(scaling=st, function='mean').T for st in scaling_type]
@@ -533,6 +544,9 @@ class FitRes:
                 scaling_type.append('molality')
             if self.concScalings['molarity'] is not None:
                 scaling_type.append('molarity')
+            if 'old_wrong_molality' in self.concScalings.keys() and \
+               self.concScalings['old_wrong_molality'] is not None:
+                scaling_type.append('old_WRONG_molality')
 
             all_df = []
             for st in scaling_type:
@@ -721,7 +735,7 @@ class FitRes:
 
         if scaling is None:
             return rawConc
-        elif scaling in {'raw', 'internal', 'molality', 'molarity'}:
+        elif scaling in {'raw', 'internal', 'molality', 'molarity', 'old_wrong_molality'}:
             return rawConc * self._get_conc_scaling(scaling)
         else:
             raise ValueError(f'Unrecognised scaling value {scaling}.')
@@ -905,12 +919,8 @@ class FitRes:
             elif self.method == 'MH':
                 abs_std.append(self.fitResults[m].std())
         abs_std = np.asarray(abs_std)
-        if type.lower() == 'raw':
-            return abs_std * self._get_conc_scaling('raw')
-        elif type.lower() == 'molarity':
-            return abs_std * self._get_conc_scaling('molarity')
-        elif type.lower() == 'molality':
-            return abs_std * self._get_conc_scaling('molality')
+        if type.lower() in {'raw', 'molality', 'molarity', 'old_wrong_molality'}:
+            return abs_std * self._get_conc_scaling(type.lower())
         elif type.lower() == 'internal':
             internal_scaling = self._get_conc_scaling('internal')
             internalRefSD = self._get_internal_reference_sd()

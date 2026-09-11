@@ -58,7 +58,7 @@ def fit_FSLModel(mrs: "MRS",
     :type MHSamples: int, optional
     :param disable_mh_priors: If True all priors are disabled for MH fitting, defaults to False
     :type disable_mh_priors: bool, optional
-    :param fit_baseline_mh: If true baseline parameters are also fit using MH, defaults to False
+    :param fit_baseline_mh: If True baseline parameters are also fit using MH, defaults to False
     :type fit_baseline_mh: bool, optional
     :param scipy_min_options_dict: Options dict passed to scipy.minimise TNC function.
     :type scipy_min_options_dict: dict or None, optional
