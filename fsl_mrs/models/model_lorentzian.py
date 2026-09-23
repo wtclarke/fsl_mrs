@@ -432,7 +432,9 @@ def _init_params(mrs, baseline, ppmlim):
     indices = mrs.axes.ppmShiftIndices(ppmlim)
     y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y), np.imag(y)), axis=0).flatten()
-    B = baseline[indices, :].copy()
+    baseline_obj = baseline if hasattr(baseline, 'regressor') else None
+    baseline_regressor = baseline_obj.regressor if baseline_obj is not None else baseline
+    B = baseline_regressor[indices, :].copy()
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
     def modify_basis(mrs, gamma, eps):
@@ -445,7 +447,11 @@ def _init_params(mrs, baseline, ppmlim):
         gamma, eps = np.exp(p[0]), p[1]
         basis = modify_basis(mrs, gamma, eps)
         desmat = np.concatenate((basis, B), axis=1)
-        beta = np.real(np.linalg.pinv(desmat) @ y)
+        if baseline_obj is not None:
+            desmat_init, y_init = baseline_obj.prepare_penalised_initialisation(desmat, y)
+        else:
+            desmat_init, y_init = desmat, y
+        beta = np.real(np.linalg.pinv(desmat_init) @ y_init)
         beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis], 0, None)  # project onto >0 concentration
         pred = np.matmul(desmat, beta)
         val = np.mean(np.abs(pred - y)**2)
@@ -462,6 +468,8 @@ def _init_params(mrs, baseline, ppmlim):
     # get concentrations and baseline params
     basis = modify_basis(mrs, g, e)
     desmat = np.concatenate((basis, B), axis=1)
+    if baseline_obj is not None:
+        desmat, y = baseline_obj.prepare_penalised_initialisation(desmat, y)
     beta = np.real(np.linalg.pinv(desmat) @ y)
     con = np.clip(beta[:mrs.numBasis], 0, None)
     # con    = beta[:mrs.numBasis]

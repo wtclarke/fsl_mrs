@@ -397,14 +397,18 @@ def modify_basis(mrs, gamma, sigma, eps, indices: slice):
     return np.concatenate((np.real(bs), np.imag(bs)), axis=0)
 
 
-def loss(p, mrs, B, y, indices: slice):
+def loss(p, mrs, B, y, indices: slice, baseline_obj=None):
     gamma, sigma, eps = np.exp(p[0]), np.exp(p[1]), p[2]
     basis = modify_basis(mrs, gamma, sigma, eps, indices)
     desmat = np.concatenate((basis, B), axis=1)
-    # pinv = np.linalg.pinv(desmat)
-    # beta = np.real(pinv @ y)
-    # beta = np.linalg.lstsq(desmat, y)[0]
-    beta = sp_lstsq(desmat, y, lapack_driver='gelsy', check_finite=False)[0]
+    if baseline_obj is not None:
+        desmat_init, y_init = baseline_obj.prepare_penalised_initialisation(desmat, y)
+    else:
+        desmat_init, y_init = desmat, y
+    # pinv = np.linalg.pinv(desmat_init)
+    # beta = np.real(pinv @ y_init)
+    # beta = np.linalg.lstsq(desmat_init, y_init)[0]
+    beta = sp_lstsq(desmat_init, y_init, lapack_driver='gelsy', check_finite=False)[0]
     # project onto >0 concentration
     beta[:mrs.numBasis] = np.clip(beta[:mrs.numBasis], 0, None)
     pred = np.matmul(desmat, beta)
@@ -417,11 +421,13 @@ def _init_params_voigt(mrs, baseline, ppmlim):
     indices = mrs.axes.ppmShiftIndices(ppmlim)
     y = mrs.get_spec(ppmlim=ppmlim)
     y = np.concatenate((np.real(y), np.imag(y)), axis=0).flatten()
-    B = baseline[indices, :].copy()
+    baseline_obj = baseline if hasattr(baseline, 'regressor') else None
+    baseline_regressor = baseline_obj.regressor if baseline_obj is not None else baseline
+    B = baseline_regressor[indices, :].copy()
     B = np.concatenate((np.real(B), np.imag(B)), axis=0)
 
     def local_loss(x):
-        return loss(x, mrs, B, y, indices)
+        return loss(x, mrs, B, y, indices, baseline_obj)
 
     x0 = np.array([np.log(1), np.log(1), 0])
     bounds = (
@@ -435,6 +441,8 @@ def _init_params_voigt(mrs, baseline, ppmlim):
     # get concentrations and baseline params
     basis = modify_basis(mrs, g, s, e, indices)
     desmat = np.concatenate((basis, B), axis=1)
+    if baseline_obj is not None:
+        desmat, y = baseline_obj.prepare_penalised_initialisation(desmat, y)
     beta = np.real(np.linalg.pinv(desmat) @ y)
     con = np.clip(beta[:mrs.numBasis], 0, None)
     # con    = beta[:mrs.numBasis]

@@ -124,7 +124,7 @@ def fit_FSLModel(mrs: "MRS",
 
     if x0 is None:
         # Initialise all params
-        x0 = init_func(mrs, metab_groups, baseline_obj.regressor, ppmlim)
+        x0 = init_func(mrs, metab_groups, baseline_obj, ppmlim)
 
     # Fitting
     if method == 'Newton':

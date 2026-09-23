@@ -171,7 +171,7 @@ class Baseline:
     def n_basis(self) -> int:
         """Returns the number of regressors (for each of real/imag)
 
-        :return: Number of baselien regressors per real/imag channel
+        :return: Number of baseline regressors per real/imag channel
         :rtype: int
         """
         return int(self.regressor.shape[1] / 2)
@@ -305,6 +305,27 @@ class Baseline:
             self._diff_term = 2 * self._spline_penalty_lambda() * (diff_mat @ diff_mat.T)
             self._diff_term.setflags(write=False)
         return self._diff_term
+
+    def prepare_penalised_initialisation(self, design: np.ndarray,
+                                         observations: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Augment a linear initialisation system with the spline penalty.
+
+        The baseline coefficients are the final real and imaginary blocks in
+        ``design``.  The returned system has the same least-squares solution
+        as the unpenalised system for polynomial and disabled baselines.
+        """
+        if self.mode != "spline":
+            return design, observations
+
+        n_basis = self.n_basis
+        diff_mat = self._spline_diff_mat()
+        penalty_rows = np.zeros((2 * diff_mat.shape[1], design.shape[1]))
+        scale = np.sqrt(self._spline_penalty_lambda())
+        penalty_rows[:diff_mat.shape[1], -2 * n_basis:-n_basis] = scale * diff_mat.T
+        penalty_rows[diff_mat.shape[1]:, -n_basis:] = scale * diff_mat.T
+
+        return (np.vstack((design, penalty_rows)),
+                np.concatenate((observations, np.zeros(penalty_rows.shape[0]))))
 
     def __str__(self) -> str:
         if self.mode == "polynomial":
