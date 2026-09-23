@@ -292,8 +292,7 @@ def main():
         mrsi.set_tissue_seg(csf, wm, gm)
 
     # Handle default ppm limit
-    ppmlim = nucleus_constants(
-        mrsi_data.nucleus[0]).ppm_range
+    ppmlim = args.ppmlim if args.ppmlim else nucleus_constants(mrsi_data.nucleus[0]).ppm_range
 
     # Set mrs output options from MRSI class object
     mrsi.rescale = not args.no_rescale
