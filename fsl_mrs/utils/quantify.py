@@ -105,19 +105,32 @@ class WaterRef(FIDIntegrator):
                 * np.exp(-t * (gamma + t * sigma + 1j * omega))\
                 * np.exp(1j * phi)
 
+        # Normalise the water-reference FID and fit parameters so that the
+        # optimisation is less sensitive to arbitrary input-FID amplitude scaling.
+        # The fitted amplitude is restored to the original signal units afterwards.
+        signal_power = np.mean(np.abs(self.original_fid)**2)
+        if not np.isfinite(signal_power) or signal_power <= 0:
+            raise InvalidScalingError(
+                'Water reference has zero or non-finite integral.')
+        signal_scale = np.sqrt(signal_power)
+        normalised_fid = self.original_fid / signal_scale
+
         def fit_func(p):
             amp, gamma, sigma, omega, phi = p
             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
-            return np.mean(np.abs(fid - self.original_fid)**2)
+            residual = np.mean(np.abs(fid - normalised_fid)**2)
+            return residual
 
-        p0 = [np.mean(np.abs(self.original_fid[:5])), 10, 10, 0, 0]
+        p0 = [np.mean(np.abs(normalised_fid[:5])), 10, 10, 0, 0]
         bounds = ((0, None),
                   (0, None),
                   (0, None),
                   (None, None),
                   (None, None))
         pout = minimize(fit_func, p0, bounds=bounds)
-        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0)
+        fitted_params = pout.x.copy()
+        fitted_params[0] *= signal_scale
+        self.fid = fid_func(self.t_axis, *fitted_params[:3], 0, 0)
 
     def plot_fit(self) -> plt.Figure:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
