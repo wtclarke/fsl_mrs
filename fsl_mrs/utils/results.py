@@ -95,6 +95,19 @@ class FitRes:
                 self.g,
                 indices)
 
+        # Scale amplitude-like parameters with the RMS data amplitude. This
+        # prevents the covariance regulariser from depending on the arbitrary
+        # numerical scale of the FID. Linewidths, shifts, and phases are not
+        # amplitude parameters and remain at unit scale.
+        signal_scale = np.sqrt(np.mean(np.abs(data)**2))
+        parameter_scale = np.ones(len(self.params_names))
+        amplitude_names = set(self.metabs)
+        amplitude_names.update(
+            name for name in self.params_names if name.startswith('B_real_') or name.startswith('B_imag_'))
+        for index, name in enumerate(self.params_names):
+            if name in amplitude_names:
+                parameter_scale[index] = signal_scale
+
         # Calculate uncertainties using covariance derived from Fisher information
         # Tested in fsl_mrs/tests/mc_validation/uncertainty_validation.ipynb
         # Empirical factor of 2 found, likely to arise from complex data/residuals
@@ -103,7 +116,8 @@ class FitRes:
             forward_lim,
             data,
             jac_lim(self.params).T,
-            additional_term=baseline_obj.cov_penalty_term(len(self.params)))
+            additional_term=baseline_obj.cov_penalty_term(len(self.params)),
+            parameter_scale=parameter_scale)
         self._cov /= 2  # Apply factor 2 correction
 
         # Calculate mcmc metrics

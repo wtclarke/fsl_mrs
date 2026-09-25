@@ -386,7 +386,8 @@ def calculate_crlb(x, f, data):
     return crlb
 
 
-def calculate_lap_cov(x, f, data, grad=None, sig2=None, additional_term=None):
+def calculate_lap_cov(x, f, data, grad=None, sig2=None, additional_term=None,
+                      parameter_scale=None):
     """
       Calculate approximate covariance using
       Fisher information matrix
@@ -400,6 +401,7 @@ def calculate_lap_cov(x, f, data, grad=None, sig2=None, additional_term=None):
        grad : optional jacobian matrix
        sig2 : optional noise variance
        additional_term: optional additional (penalty) term
+       parameter_scale: optional scale for each model parameter
 
       Returns:
         2D array
@@ -412,14 +414,32 @@ def calculate_lap_cov(x, f, data, grad=None, sig2=None, additional_term=None):
         grad = gradient(x, f)
 
     J = np.concatenate((np.real(grad), np.imag(grad)), axis=1)
-    P0 = np.diag(np.ones(N) * 1E-5)
     P = np.dot(J, J.transpose()) / sig2
+
+    if parameter_scale is None:
+        parameter_scale = np.ones(N)
+    parameter_scale = np.asarray(parameter_scale, dtype=float)
+    if parameter_scale.shape != (N,) or not np.all(np.isfinite(parameter_scale)) \
+            or np.any(parameter_scale <= 0):
+        raise ValueError('parameter_scale must contain N positive finite values.')
+
+    # Work in parameters normalised to a common numerical range. This keeps
+    # P0 useful without making it dependent on the arbitrary FID amplitude.
+    # If x = Dq, the Fisher matrix in the normalised parameters q is DPD.
+    D = np.diag(parameter_scale)
+    P_normalised = D @ P @ D
+    P0 = np.eye(N) * 1E-5
     if additional_term is not None:
         if additional_term.shape != P.shape:
             raise ValueError(f'additional_term must be the same size as P {P.shape}.')
-        C = np.linalg.inv(P + P0 + additional_term)
+        penalty_normalised = D @ additional_term @ D
+        C_normalised = np.linalg.inv(P_normalised + P0 + penalty_normalised)
     else:
-        C = np.linalg.inv(P + P0)
+        C_normalised = np.linalg.inv(P_normalised + P0)
+
+    # Return covariance in the original parameter units so reported CRLBs
+    # retain the correct amplitude scaling.
+    C = D @ C_normalised @ D
 
     return C
 
