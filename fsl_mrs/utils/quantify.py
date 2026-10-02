@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import pandas as pd
 
-from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
+from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits, rescale_FID
 from fsl_mrs.utils.constants import H2O_MOLALITY, H2O_MOLARITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
@@ -112,7 +112,7 @@ class WaterRef(FIDIntegrator):
             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
             spec = FIDToSpec(fid)
 
-            return np.mean(np.abs(spec[self.indices] - self.original_spec[self.indices])**2)
+            return np.mean(np.abs(spec[self.indices] - fit_spec[self.indices])**2)
 
         def grad_func(p):
             amp, gamma, sigma, omega, phi = p
@@ -136,13 +136,20 @@ class WaterRef(FIDIntegrator):
             dSdsigma = FIDToSpec(dfid_dsigma)[self.indices]
             dSdomega = FIDToSpec(dfid_domega)[self.indices]
             dSdphi = FIDToSpec(dfid_dphi)[self.indices]
-            Spec = self.original_spec[self.indices]
+            Spec = fit_spec[self.indices]
 
             resid = S - Spec
             dS = np.stack((dSdamp, dSdgamma, dSdsigma, dSdomega, dSdphi), axis=1)
             grad = 2 * np.real(np.sum(resid[:, None] * np.conj(dS), axis=0)) / resid.size
 
             return grad
+
+        # Apply rescaling to 100 on water FID, similar to metabolites in rescaleForFitting function
+        _, fid_scaling = rescale_FID(
+            self.original_fid if self.limits is None else self.original_spec[self.limits],
+            scale=100.0)
+        fit_fid = self.original_fid * fid_scaling
+        fit_spec = FIDToSpec(fit_fid)
 
         # Changes to initialisation:
         # Since f(t) = amp*exp(-t*gamma -t^2sigma) * exp(i*omegat+i*phi)
@@ -152,9 +159,9 @@ class WaterRef(FIDIntegrator):
         # 
         # GLM for gamma and sigma and amplitude
         desmat = np.stack([np.ones_like(self.t_axis), -self.t_axis, -self.t_axis**2], axis=1)
-        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat), np.log(np.abs(self.original_fid)))
+        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat), np.log(np.abs(fit_fid)))
         # GLM for phi and omega
-        rotating = self.original_fid * np.exp(gamma_init*self.t_axis) * np.exp(sigma_init*self.t_axis**2) / np.exp(ln_amp_init)
+        rotating = fit_fid * np.exp(gamma_init*self.t_axis) * np.exp(sigma_init*self.t_axis**2) / np.exp(ln_amp_init)
         phi_init, omega_init = np.dot(np.linalg.pinv(np.stack( [ np.ones_like(self.t_axis), self.t_axis ], axis=1 )),np.angle(rotating))
 
         # gamma and sigma not constrained to be >0 in the GLM
@@ -181,7 +188,8 @@ class WaterRef(FIDIntegrator):
                         options={'maxfun': 1E5,}
                 )
         print(pout)
-        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0)
+        # The fitted amplitude corresponds to fit_fid, so restore the amplitude scale
+        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0) / fid_scaling
 
     def plot_fit(self) -> plt.Figure:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
@@ -195,62 +203,6 @@ class WaterRef(FIDIntegrator):
         ax2.set_xlim([3.65, 5.65])
         ax2.legend()
         return fig
-
-
-# class WaterRef(FIDIntegrator):
-#     def __init__(self, mrs_obj: Any, limits: tuple[float, float] | None = None) -> None:
-#         super().__init__(mrs_obj, limits)
-
-#         self.original_fid = mrs_obj.H2O
-
-#         self._fit_w_ref()
-
-#     def _fit_w_ref(self) -> None:
-#         '''Fit unsuppressed water with single voigt lineshape.
-#         Fitted fid is then phase and frequency corrected.'''
-#         def fid_func(t, amp, gamma, sigma, omega, phi):
-#             return amp\
-#                 * np.exp(-t * (gamma + t * sigma + 1j * omega))\
-#                 * np.exp(1j * phi)
-
-#         # Normalise the water-reference FID and fit parameters so that the
-#         # optimisation is less sensitive to arbitrary input-FID amplitude scaling.
-#         # The fitted amplitude is restored to the original signal units afterwards.
-#         signal_power = np.mean(np.abs(self.original_fid)**2)
-#         if not np.isfinite(signal_power) or signal_power <= 0:
-#             raise InvalidScalingError(
-#                 'Water reference has zero or non-finite integral.')
-#         signal_scale = np.sqrt(signal_power)
-#         normalised_fid = self.original_fid / signal_scale
-
-#         def fit_func(p):
-#             amp, gamma, sigma, omega, phi = p
-#             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
-#             residual = np.mean(np.abs(fid - normalised_fid)**2)
-#             return residual
-
-#         p0 = [np.mean(np.abs(normalised_fid[:5])), 10, 10, 0, 0]
-#         bounds = ((0, None),
-#                   (0, None),
-#                   (0, None),
-#                   (None, None),
-#                   (None, None))
-#         self.pout = minimize(fit_func, p0, bounds=bounds)
-#         print("pout:", self.pout)
-#         fitted_params = self.pout.x.copy()
-#         fitted_params[0] *= signal_scale
-#         self.fid = fid_func(self.t_axis, *fitted_params[:3], 0, 0)
-
-#     def plot_fit(self) -> plt.Figure:
-#         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
-#         ax1.plot(self.t_axis, self.original_fid.real, label='original')
-#         ax1.plot(self.t_axis, self.fid.real, label='fit')
-#         ax1.set_xscale('log')
-
-#         ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, label='original')
-#         ax2.plot(self.ppm_axis, FIDToSpec(self.fid).real, label='fit')
-#         ax2.set_xlim([3.65, 5.65])
-#         return fig
 
 
 class RefIntegral(FIDIntegrator):
@@ -819,17 +771,13 @@ def quantifyWater(
 
     # Calculate observed areas
     wref = WaterRef(mrs, quant_info.h2o_limits)
-    # print("water pout:", wref.pout)
     SH2OObs = wref.integral
-    print("water area:", SH2OObs)
     _validate_positive_finite(
         SH2OObs,
         'Water reference has zero or non-finite integral.')
 
     mref = RefIntegral(mrs, results, quant_info.ref_metab, quant_info.ref_limits)
     SMObs = mref.integral
-    print("FID area:", SMObs)
-    print("")
     _validate_positive_finite(
         SMObs,
         f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite integral.')
