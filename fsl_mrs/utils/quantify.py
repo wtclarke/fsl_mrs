@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import pandas as pd
 
-from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
+from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits, rescale_FID
 from fsl_mrs.utils.constants import H2O_MOLALITY, H2O_MOLARITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
@@ -94,7 +94,7 @@ class WaterRef(FIDIntegrator):
         super().__init__(mrs_obj, limits)
 
         self.original_fid = mrs_obj.H2O
-
+        self.original_spec = FIDToSpec(mrs_obj.H2O)
         self._fit_w_ref()
 
     def _fit_w_ref(self) -> None:
@@ -106,28 +106,106 @@ class WaterRef(FIDIntegrator):
                 * np.exp(1j * phi)
 
         def fit_func(p):
+            # Change to this function: the error is in freq domain over the water range
             amp, gamma, sigma, omega, phi = p
             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
-            return np.mean(np.abs(fid - self.original_fid)**2)
+            spec = FIDToSpec(fid)
 
-        p0 = [np.mean(np.abs(self.original_fid[:5])), 10, 10, 0, 0]
+            return np.mean(np.abs(spec[self.limits] - fit_spec[self.limits])**2)
+
+        def grad_func(p):
+            amp, gamma, sigma, omega, phi = p
+            fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
+            S = FIDToSpec(fid)
+
+            envelope = np.exp(-self.t_axis * (gamma + self.t_axis * sigma + 1j * omega)) \
+                * np.exp(1j * phi)
+
+            # Gradients in time domain
+            dfid_damp = envelope
+            dfid_dgamma = -self.t_axis * envelope * amp
+            dfid_dsigma = -(self.t_axis**2) * envelope * amp
+            dfid_domega = -1j * self.t_axis * envelope * amp
+            dfid_dphi = 1j * envelope * amp
+
+            # Gradients in ppm domain within a range
+            S = S[self.limits]
+            dSdamp = FIDToSpec(dfid_damp)[self.limits]
+            dSdgamma = FIDToSpec(dfid_dgamma)[self.limits]
+            dSdsigma = FIDToSpec(dfid_dsigma)[self.limits]
+            dSdomega = FIDToSpec(dfid_domega)[self.limits]
+            dSdphi = FIDToSpec(dfid_dphi)[self.limits]
+            Spec = fit_spec[self.limits]
+
+            resid = S - Spec
+            dS = np.stack((dSdamp, dSdgamma, dSdsigma, dSdomega, dSdphi), axis=1)
+            grad = 2 * np.real(np.sum(resid[:, None] * np.conj(dS), axis=0)) / resid.size
+
+            return grad
+
+        # Apply rescaling to 100 on water FID, similar to metabolites in rescaleForFitting function
+        _, fid_scaling = rescale_FID(
+            self.original_fid if self.limits is None else self.original_spec[self.limits],
+            scale=100.0)
+        fit_fid = self.original_fid * fid_scaling
+        fit_spec = FIDToSpec(fit_fid)
+
+        # Changes to initialisation:
+        # Since f(t) = amp*exp(-t*gamma -t^2sigma) * exp(i*omegat+i*phi)
+        # Then |f(t)| = amp*exp(-t*gamma-t^2*sigma)
+        # So we can use a GLM on log(|f(t)|) to get gamma and sigma
+        # Then a GLM on Angle(f(t)) to get omega and phi
+        #
+        # GLM for gamma and sigma and amplitude
+        fid_abs = np.abs(fit_fid)
+        isvalid = np.isfinite(fid_abs) & (fid_abs > 0)
+        if np.count_nonzero(isvalid) < 3:
+            raise InvalidScalingError('Water reference has zero or non-finite integral.')
+        desmat = np.stack([np.ones_like(self.t_axis), -self.t_axis, -self.t_axis**2], axis=1)
+        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.log(fid_abs[isvalid]))
+
+        # GLM for phi and omega
+        rotating = fit_fid * np.exp(gamma_init*self.t_axis) * np.exp(sigma_init*self.t_axis**2) / np.exp(ln_amp_init)
+        desmat = np.stack([np.ones_like(self.t_axis), self.t_axis], axis=1)
+        phi_init, omega_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.angle(rotating[isvalid]))
+
+        # gamma and sigma not constrained to be >0 in the GLM
+        # so need to clip them before feeding to init
+        p0 = [
+            np.exp(ln_amp_init),              # amp
+            np.maximum(gamma_init, 1E-3),     # gamma
+            np.maximum(sigma_init, 1E-3),     # sigma
+            omega_init,                       # omega
+            phi_init,                         # phi
+        ]
+
         bounds = ((0, None),
                   (0, None),
                   (0, None),
                   (None, None),
                   (None, None))
-        pout = minimize(fit_func, p0, bounds=bounds)
-        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0)
+        # Another change here: method='TNC' instead of default
+        options = {'maxfun': 1E5, 'ftol': 1e-12}
+        pout = minimize(fit_func,
+                        p0,
+                        bounds=bounds,
+                        method='TNC',
+                        jac=grad_func,
+                        options=options)
+        # The fitted amplitude corresponds to fit_fid, so restore the amplitude scale
+        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0) / fid_scaling
 
     def plot_fit(self) -> plt.Figure:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
-        ax1.plot(self.t_axis, self.original_fid.real, label='original')
-        ax1.plot(self.t_axis, self.fid.real, label='fit')
+        ax1.plot(self.t_axis, np.abs(self.original_fid), label='original')
+        ax1.plot(self.t_axis, np.abs(self.fid), label='fit')
         ax1.set_xscale('log')
+        ax1.legend()
 
-        ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, label='original')
+        ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, ".", label='original')
         ax2.plot(self.ppm_axis, FIDToSpec(self.fid).real, label='fit')
         ax2.set_xlim([3.65, 5.65])
+        ax2.legend()
         return fig
 
 
