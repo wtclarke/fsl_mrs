@@ -29,11 +29,13 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Improved automatic pre-fitting scaling in `fsl_mrsi`.
 - Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
 - 'Raw' concentration in fitting results (``FitRes``) is now scaled by `basis_scaling` and `fid_scaling` to produce consistent concentrations in edited sequences and synthetic data.
+- ``No_rescale`` option is now hidden in `fsl_mrs`, `fsl_mrsi` and `fsl_dynmrs`, as no longer required.
 - FID conjugation has been removed from `MRS` and `MRSI` classes (``check_FID``, ``conj_FID``).
 - `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
 - `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
 - Layout improvements in `fsl_mrs_summarise` dashboard.
 - Added spline penalty to baseline initialisation.
+- Improved water fitting function.
 - Some commonly-used functions and methods are now available as module level imports.
 - Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
 - Added Pixi for local builds.

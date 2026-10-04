@@ -185,7 +185,7 @@ def main():
     optional.add_argument('--no_conj_basis', action="store_true",
                           help='Forbid automatic conjugation of basis')
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis/H2O.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--export_old_wrong_molality', action="store_true",
                           help="Output the previously used (<=2.4.17) incorrect molality concentration")
     optional.add('--config', required=False, is_config_file=True,
@@ -246,6 +246,9 @@ def main():
         f.write(p.format_values())
 
     # ######  Do the work #######
+    if args.no_rescale:
+        print("WARNING: CRLB values under '--no_rescale' option are unreliable!"
+              " Recommended to allow automatic rescaling by not setting this option.")
 
     # Read files
     mrsi_data = mrs_io.read_FID(args.data)

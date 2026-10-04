@@ -104,7 +104,7 @@ def main():
                           default=None,
                           help="Number of cores (local), or workers (cluster) to use.")
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--save-fit', action="store_true",
                           help='Save the predicted fit as a NIfTI-MRS file.')
     optional.add_argument('--full-save', action="store_true",
@@ -165,6 +165,10 @@ def main():
             shutil.rmtree(out_dir)
 
     # Do the work
+    if args.no_rescale:
+        print("WARNING: CRLB values under '--no_rescale' option are unreliable!"
+              " Recommended to allow automatic rescaling by not setting this option.")
+
     def verbose_print(x):
         if args.verbose:
             print(x)
