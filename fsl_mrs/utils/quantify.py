@@ -95,7 +95,6 @@ class WaterRef(FIDIntegrator):
 
         self.original_fid = mrs_obj.H2O
         self.original_spec = FIDToSpec(mrs_obj.H2O)
-        self.indices = mrs_obj.axes.ppmShiftIndices(limits=limits)  # Hard-coded limits for fitting water!!
         self._fit_w_ref()
 
     def _fit_w_ref(self) -> None:
@@ -112,7 +111,7 @@ class WaterRef(FIDIntegrator):
             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
             spec = FIDToSpec(fid)
 
-            return np.mean(np.abs(spec[self.indices] - fit_spec[self.indices])**2)
+            return np.mean(np.abs(spec[self.limits] - fit_spec[self.limits])**2)
 
         def grad_func(p):
             amp, gamma, sigma, omega, phi = p
@@ -120,7 +119,7 @@ class WaterRef(FIDIntegrator):
             S = FIDToSpec(fid)
 
             envelope = np.exp(-self.t_axis * (gamma + self.t_axis * sigma + 1j * omega)) \
-                        * np.exp(1j * phi)
+                * np.exp(1j * phi)
 
             # Gradients in time domain
             dfid_damp = envelope
@@ -128,15 +127,15 @@ class WaterRef(FIDIntegrator):
             dfid_dsigma = -(self.t_axis**2) * envelope * amp
             dfid_domega = -1j * self.t_axis * envelope * amp
             dfid_dphi = 1j * envelope * amp
-            
+
             # Gradients in ppm domain within a range
-            S = S[self.indices]
-            dSdamp = FIDToSpec(dfid_damp)[self.indices]
-            dSdgamma = FIDToSpec(dfid_dgamma)[self.indices]
-            dSdsigma = FIDToSpec(dfid_dsigma)[self.indices]
-            dSdomega = FIDToSpec(dfid_domega)[self.indices]
-            dSdphi = FIDToSpec(dfid_dphi)[self.indices]
-            Spec = fit_spec[self.indices]
+            S = S[self.limits]
+            dSdamp = FIDToSpec(dfid_damp)[self.limits]
+            dSdgamma = FIDToSpec(dfid_dgamma)[self.limits]
+            dSdsigma = FIDToSpec(dfid_dsigma)[self.limits]
+            dSdomega = FIDToSpec(dfid_domega)[self.limits]
+            dSdphi = FIDToSpec(dfid_dphi)[self.limits]
+            Spec = fit_spec[self.limits]
 
             resid = S - Spec
             dS = np.stack((dSdamp, dSdgamma, dSdsigma, dSdomega, dSdphi), axis=1)
@@ -156,22 +155,28 @@ class WaterRef(FIDIntegrator):
         # Then |f(t)| = amp*exp(-t*gamma-t^2*sigma)
         # So we can use a GLM on log(|f(t)|) to get gamma and sigma
         # Then a GLM on Angle(f(t)) to get omega and phi
-        # 
+        #
         # GLM for gamma and sigma and amplitude
+        fid_abs = np.abs(fit_fid)
+        isvalid = np.isfinite(fid_abs) & (fid_abs > 0)
+        if np.count_nonzero(isvalid) < 3:
+            raise InvalidScalingError('Water reference has zero or non-finite integral.')
         desmat = np.stack([np.ones_like(self.t_axis), -self.t_axis, -self.t_axis**2], axis=1)
-        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat), np.log(np.abs(fit_fid)))
+        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.log(fid_abs[isvalid]))
+
         # GLM for phi and omega
         rotating = fit_fid * np.exp(gamma_init*self.t_axis) * np.exp(sigma_init*self.t_axis**2) / np.exp(ln_amp_init)
-        phi_init, omega_init = np.dot(np.linalg.pinv(np.stack( [ np.ones_like(self.t_axis), self.t_axis ], axis=1 )),np.angle(rotating))
+        desmat = np.stack([np.ones_like(self.t_axis), self.t_axis], axis=1)
+        phi_init, omega_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.angle(rotating[isvalid]))
 
         # gamma and sigma not constrained to be >0 in the GLM
         # so need to clip them before feeding to init
         p0 = [
             np.exp(ln_amp_init),              # amp
-            np.maximum(gamma_init,1E-3),      # gamma
-            np.maximum(sigma_init,1E-3),      # sigma
+            np.maximum(gamma_init, 1E-3),     # gamma
+            np.maximum(sigma_init, 1E-3),     # sigma
             omega_init,                       # omega
-            phi_init,                         # phi            
+            phi_init,                         # phi
         ]
 
         bounds = ((0, None),
@@ -180,14 +185,13 @@ class WaterRef(FIDIntegrator):
                   (None, None),
                   (None, None))
         # Another change here: method='TNC' instead of default
+        options = {'maxfun': 1E5, 'ftol': 1e-12}
         pout = minimize(fit_func,
                         p0,
                         bounds=bounds,
                         method='TNC',
                         jac=grad_func,
-                        options={'maxfun': 1E5,}
-                )
-        print(pout)
+                        options=options)
         # The fitted amplitude corresponds to fit_fid, so restore the amplitude scale
         self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0) / fid_scaling
 
@@ -197,7 +201,7 @@ class WaterRef(FIDIntegrator):
         ax1.plot(self.t_axis, np.abs(self.fid), label='fit')
         ax1.set_xscale('log')
         ax1.legend()
-    
+
         ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, ".", label='original')
         ax2.plot(self.ppm_axis, FIDToSpec(self.fid).real, label='fit')
         ax2.set_xlim([3.65, 5.65])

@@ -177,7 +177,7 @@ def main():
                           help='Forbid automatic conjugation of basis')
     optional.set_defaults(conjbasis=None)
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis/H2O.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--export_baseline', action="store_true",
                           help="Output just baseline")
     optional.add_argument('--export_no_baseline', action="store_true",
@@ -247,6 +247,9 @@ def main():
         f.write(p.format_values())
 
     # Do the work
+    if args.no_rescale:
+        print("WARNING: CRLB values under '--no_rescale' option are unreliable!"
+              " Recommended to allow automatic rescaling by not setting this option.")
 
     # Read data/h2o/basis
     verboseprint('--->> Read input data and basis\n')
