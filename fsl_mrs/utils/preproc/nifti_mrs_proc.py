@@ -15,7 +15,7 @@ from fsl_mrs.utils.preproc.align_xcor import xcorr_align
 from fsl_mrs.core import NIFTI_MRS, MRS
 from fsl_mrs.core import nifti_mrs as ntools
 from fsl_mrs.core.basis import Basis
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 
 
 class DimensionsDoNotMatch(Exception):
