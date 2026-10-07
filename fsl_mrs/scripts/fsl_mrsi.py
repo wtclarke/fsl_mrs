@@ -15,7 +15,7 @@ import warnings
 from typing import Any, TYPE_CHECKING
 
 from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 # NOTE!!!! THERE ARE MORE IMPORTS IN THE CODE BELOW (AFTER ARGPARSING)
 

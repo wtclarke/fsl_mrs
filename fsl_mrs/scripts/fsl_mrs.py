@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fsl_mrs.auxiliary import configargparse
 
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 
 

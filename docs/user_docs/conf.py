@@ -1,5 +1,5 @@
 import datetime
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 date = datetime.date.today()
 
 # Configuration file for the Sphinx documentation builder.

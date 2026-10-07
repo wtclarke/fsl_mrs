@@ -20,7 +20,7 @@ import sys
 import pandas as pd
 import numpy as np
 
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 
 
 def main():

@@ -9,7 +9,7 @@
 
 # Quick imports
 from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 import os.path as op
 from os import mkdir
