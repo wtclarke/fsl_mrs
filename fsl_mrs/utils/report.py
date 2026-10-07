@@ -110,6 +110,18 @@ def svs_table_tissue_quant(res):
     return to_div(fig)
 
 
+def _svs_num_format(val):
+    if val == 0:
+        return '0.000'
+
+    abs_val = abs(val)
+    if abs_val < 1e-3 or abs_val >= 1e3:
+        return f'{val:.0E}'
+
+    decimals = min(3, 3 - int(np.floor(np.log10(abs_val))))
+    return f'{val:.{decimals}f}'
+
+
 def svs_table_quant(res):
     """ Table containing Quantification information
     Table of CSF,GM,WM
@@ -159,11 +171,11 @@ def svs_table_quant(res):
             </tr>
             <tr>
                 <td class="titles">Raw concentration to molarity scaling:</td>
-                <td>{res.concScalings["molarity"]:0.2f}</td>
+                <td>{_svs_num_format(res.concScalings["molarity"])}</td>
             </tr>
             <tr>
                 <td class="titles">Raw concentration to molality scaling:</td>
-                <td>{res.concScalings["molality"]:0.2f}</td>
+                <td>{_svs_num_format(res.concScalings["molality"])}</td>
             </tr>
         </table>
         <hr>
@@ -205,11 +217,11 @@ def svs_table_quant(res):
             </tr>
             <tr>
                 <td class="titles">Raw concentration to molarity scaling</td>
-                <td> : {res.concScalings["molarity"]:0.2f}</td>
+                <td> : {_svs_num_format(res.concScalings["molarity"])}</td>
             </tr>
             <tr>
                 <td class="titles">Raw concentration to molality scaling</td>
-                <td> : {res.concScalings["molality"]:0.2f}</td>
+                <td> : {_svs_num_format(res.concScalings["molality"])}</td>
             </tr>
         </table>
         <hr>
@@ -225,7 +237,7 @@ def svs_plot_refs(mrs, res):
 
 def svs_methods_summary(res: "FitRes"):
     """Text summary of the methods used."""
-    from fsl_mrs import __version__
+    from fsl_mrs._version import __version__
     if res.method == "Newton":
         algo = "Model fitting was performed using the truncated Newton algorithm as implemented in Scipy."
     elif res.method == "MH":
@@ -438,7 +450,7 @@ def dyn_free_parameter_uncertainties(dynres):
 
 def dyn_methods_summary(res: "dyn_results.dynRes"):
     """Text summary of the methods used."""
-    from fsl_mrs import __version__
+    from fsl_mrs._version import __version__
 
     base_str = \
         "<p>Fitting was performed using FSL-MRS's dynamic model fitting tool "\
