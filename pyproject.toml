@@ -7,7 +7,7 @@ name = "fsl_mrs"
 dynamic = ["version"]
 description = "FSL Tools for Spectroscopy"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<3.16"
 authors = [
     { name = "Saad Jbabdi", email = "saad@fmrib.ox.ac.uk" },
     { name = "William Clarke", email = "william.clarke@ndcn.ox.ac.uk" },
@@ -108,15 +108,19 @@ python = "3.13.*"
 [tool.pixi.feature.py314.dependencies]
 python = "3.14.*"
 
+[tool.pixi.feature.py315.dependencies]
+python = "3.15.*"
+
 [tool.pixi.environments]
 default = { features = [] }
 dev311 = { features = ["dev", "py311"] }
 dev312 = { features = ["dev", "py312"] }
 dev313 = { features = ["dev", "py313"] }
 dev314 = { features = ["dev", "py314"] }
+dev315 = { features = ["dev", "py315"] }
 
 [tool.pixi.dependencies]
-python = ">=3.11,<3.15"
+python = ">=3.11,<3.16"
 numpy = ">=1.26,<3.0"
 scipy = ">=1.13,<2.0"
 matplotlib = ">=3.10,<4.0"
@@ -127,7 +131,7 @@ beautifulsoup4 = ">=4.13,<5.0"
 nibabel = ">=5.3,<6.0"
 hlsvdpropy = ">=2.0.2,<3.0"
 fslpy = ">=3.28.1,<4.0"
-pillow = ">=11.0,<12.0"
+pillow = ">=11.0,<14.0"
 spec2nii = ">=0.8.12,<1.0"
 dill = ">=0.3.9,<1.0"
 dash = ">=3.0,<4.0"

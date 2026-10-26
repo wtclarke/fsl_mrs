@@ -96,7 +96,7 @@ stages:
 # ############
 lockfile:
   <<: *except_releases
-  image: python:3.12
+  image: python:3.14
   stage: style
   tags:
     - docker
@@ -104,11 +104,11 @@ lockfile:
     - curl -fsSL https://pixi.sh/install.sh | sh
     - export PATH="$HOME/.pixi/bin:$PATH"
   script:
-    - pixi install -e dev312 --locked
+    - pixi install -e dev314 --locked
 
 flake8:
   <<: *except_releases
-  image: python:3.12
+  image: python:3.14
   stage: style
   tags:
     - docker
@@ -116,9 +116,9 @@ flake8:
     - python --version
     - curl -fsSL https://pixi.sh/install.sh | sh
     - export PATH="$HOME/.pixi/bin:$PATH"
-    - pixi install -e dev312 --frozen
+    - pixi install -e dev314 --frozen
   script:
-    - pixi run -e dev312 lint
+    - pixi run -e dev314 lint
   allow_failure: true
 
 ############
@@ -151,10 +151,9 @@ test:3.11:
   variables:
     PIXI_ENV: dev311
 
-# this is the main testing environment so tests will be run every time
 test:3.12:
   <<: *test_template
-  <<: *test_rules
+  <<: *test_merge_rules
   variables:
     PIXI_ENV: dev312
 
@@ -164,11 +163,18 @@ test:3.13:
   variables:
     PIXI_ENV: dev313
 
+# this is the main testing environment so tests will be run every time
 test:3.14:
+  <<: *test_template
+  <<: *test_rules
+  variables:
+    PIXI_ENV: dev314
+
+test:3.15:
   <<: *test_template
   <<: *test_merge_rules
   variables:
-    PIXI_ENV: dev314
+    PIXI_ENV: dev315
 
 ############
 # 3. Validate 
@@ -192,7 +198,7 @@ fit-validate:
     # Install all the FSL tools needed and get the git tags.
     - git config --global --add safe.directory /builds/wclarke/fsl_mrs
     - git config --global --add safe.directory /builds/fsl/fsl_mrs
-    - pixi install -e dev312 --frozen
+    - pixi install -e dev314 --frozen
     # Setup ssh communication with the github instance
     # https://docs.gitlab.com/ee/ci/ssh_keys/#ssh-keys-when-using-the-docker-executor
     - eval $(ssh-agent -s)
@@ -228,7 +234,7 @@ pages:
   only:
     - branches@wclarke/fsl_mrs
     - tags@fsl/fsl_mrs
-  image: python:3.12
+  image: python:3.14
   stage: doc
   tags:
     - docker
