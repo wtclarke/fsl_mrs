@@ -39,6 +39,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 - Some commonly-used functions and methods are now available as module level imports.
 - Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
 - Added Pixi for local builds.
+- Python 3.15 support.
 
 2.5.0 (Friday 11th September 2026)
 ----------------------------------
