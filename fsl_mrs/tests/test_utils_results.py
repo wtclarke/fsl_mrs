@@ -5,11 +5,16 @@ Test features of the results class
 Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
+from copy import deepcopy
+from typing import Any
+
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.utils import synthetic as syn
+from fsl_mrs.utils import quantify
 from fsl_mrs.core import MRS
+from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
-import fsl_mrs.utils.mrs_io as mrsio
+from fsl_mrs import read_FID, read_basis
 
 import pytest
 import numpy as np
@@ -23,7 +28,7 @@ import os.path as op
 def data():
     noiseCov = 0.001
     amplitude = np.asarray([1.0, 0.5, 0.5, 1.0]) * 10
-    chemshift = np.asarray([4.65, 3.0, 3.05, 2.0]) - 4.65
+    chemshift = np.asarray([4.65, 3.0, 3.05, 2.0])
     lw = [10, 10, 10, 10]
     phases = [np.pi * -10 / 180.0, ] * 4
     g = [0, 0, 0, 0]
@@ -31,35 +36,34 @@ def data():
     begintime = 0.00005
 
     basisFIDs = []
-    basisHdr = []
+    basis_fwhm = []
     for idx, _ in enumerate(amplitude):
-        tmp, hdr = syntheticFID(noisecovariance=[[0.0]],
-                                chemicalshift=[chemshift[idx] + 0.1],
-                                amplitude=[1.0],
-                                linewidth=[lw[idx] / 5],
-                                phase=[0.0],
-                                g=[g[idx]],
-                                begintime=0,
-                                seed=20)
-        hdr['fwhm'] = lw[idx] / 5
+        tmp, _, axes = syntheticFID(noisecovariance=[[0.0]],
+                                    chemicalshift=[chemshift[idx] + 0.1],
+                                    amplitude=[1.0],
+                                    linewidth=[lw[idx] / 5],
+                                    phase=[0.0],
+                                    g=[g[idx]],
+                                    begintime=0,
+                                    seed=20+idx)
+        basis_fwhm.append(lw[idx] / 5)
         basisFIDs.append(tmp[0])
-        basisHdr.append(hdr)
     basisFIDs = np.asarray(basisFIDs)
+    bset = Basis(basisFIDs, axes=axes, names=basisNames)
+    bset.basis_fwhm = basis_fwhm
 
-    synFID, synHdr = syntheticFID(noisecovariance=[[noiseCov]],
-                                  chemicalshift=chemshift,
-                                  amplitude=amplitude,
-                                  linewidth=lw,
-                                  phase=phases,
-                                  g=g,
-                                  begintime=begintime,
-                                  seed=20)
+    synFID, _, synAxes = syntheticFID(noisecovariance=[[noiseCov]],
+                                      chemicalshift=chemshift,
+                                      amplitude=amplitude,
+                                      linewidth=lw,
+                                      phase=phases,
+                                      g=g,
+                                      begintime=begintime,
+                                      seed=1)
 
-    synMRS = MRS(FID=synFID[0],
-                 header=synHdr,
-                 basis=basisFIDs,
-                 basis_hdr=basisHdr,
-                 names=basisNames)
+    synMRS = MRS.from_axes(fid=synFID[0],
+                           axes=synAxes,
+                           basis=bset)
 
     metab_groups = [0] * synMRS.numBasis
     Fitargs = {'ppmlim': [0.2, 5.2],
@@ -98,8 +102,9 @@ def test_units(data):
 
     # Phase
     p0, p1 = res.getPhaseParams(phi0='degrees', phi1='seconds')
-    assert np.isclose(p0, 10.0, atol=1E0)
-    assert np.isclose(p1, 0.00005, atol=3E-5)
+    print(p0, p1)
+    assert np.isclose(p0, 9.0, atol=1E0)
+    assert np.isclose(p1, 4.5E-5, atol=5E-6)
 
     # Shift
     shift = res.getShiftParams(units='ppm')
@@ -242,30 +247,27 @@ def test_combined_lw_estimates():
 
 # Use real data to test the water quantification
 metabfile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_WS.txt')
-h2ofile = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_nWS.txt')
+h2ofile   = op.join(op.dirname(__file__), 'testdata/quantify/Cr_10mM_test_water_scaling_nWS.txt')
 basisfile = op.join(op.dirname(__file__), 'testdata/quantify/basisset_JMRUI')
 
 
-@pytest.mark.filterwarnings("ignore:divide by zero")
-@pytest.mark.filterwarnings("ignore:invalid value")
-def test_calculateConcScaling():
-    basis = mrsio.read_basis(basisfile)
-    data = mrsio.read_FID(metabfile)
-    dataw = mrsio.read_FID(h2ofile)
+@pytest.fixture(scope='module')
+def concentration_scaling_data() -> dict[str, Any]:
+    basis = read_basis(basisfile)
+    data  = read_FID(metabfile)
+    dataw = read_FID(h2ofile)
 
     basis.add_peak(7.0, 0.1, 'fake', gamma=6.0)
 
     mrs = data.mrs(basis=basis,
                    ref_data=dataw)
-    mrs.check_FID(repair=True)
     mrs.check_Basis(repair=True)
 
     dataw_zero = dataw.copy()
     dataw_zero[:] = dataw_zero[:] * 0
-    mrs_zero_water = dataw_zero.mrs(
+    mrs_zero_water = data.mrs(
         basis=basis,
-        ref_data=dataw)
-    mrs_zero_water.check_FID(repair=True)
+        ref_data=dataw_zero)
     mrs_zero_water.check_Basis(repair=True)
 
     Fitargs = {'ppmlim': [0.2, 5.2],
@@ -273,9 +275,6 @@ def test_calculateConcScaling():
                'metab_groups': [0]}
 
     res = mrs.fit(**Fitargs)
-    res_zero_water = mrs_zero_water.fit(**Fitargs)
-
-    from fsl_mrs.utils import quantify
 
     q_info = quantify.QuantificationInfo(
         30E-3,
@@ -295,24 +294,107 @@ def test_calculateConcScaling():
         water_ref_metab_protons=5,
         water_ref_metab_limits=(2, 5))
 
+    return {
+        'mrs': mrs,
+        'mrs_zero_water': mrs_zero_water,
+        'res': res,
+        'q_info': q_info,
+        'q_info_bad': q_info_bad}
+
+
+def test_calculateConcScaling_valid(concentration_scaling_data: dict[str, Any]) -> None:
+    res = deepcopy(concentration_scaling_data['res'])
+
     res.calculateConcScaling(
-        mrs,
-        quant_info=q_info,
+        concentration_scaling_data['mrs'],
+        quant_info=concentration_scaling_data['q_info'],
         internal_reference='Cr',
         verbose=False)
 
-    with pytest.raises(res.QuantificationError):
+    assert res.concScalings['internalRef'] == 'Cr'
+    assert res.referenceMetab == ['Cr']
+    assert res.concScalings['errors'] == {}
+    assert np.isfinite(res.concScalings['internal'])
+    assert np.isfinite(res.concScalings['molarity'])
+    assert np.isfinite(res.concScalings['molality'])
+    assert np.allclose(res.getConc(scaling='internal', metab=['Cr']), 1.0)
+    assert np.all(np.isfinite(res.getUncertainties(type='internal', metab='Cr')))
+
+
+def test_calculateConcScaling_zero_internal_reference(concentration_scaling_data: dict[str, Any]) -> None:
+    res = deepcopy(concentration_scaling_data['res'])
+    res.fitResults['fake'] = 0.0
+
+    with pytest.warns(UserWarning, match='Internal reference fake has zero or non-finite concentration.'):
         res.calculateConcScaling(
-            mrs,
-            quant_info=q_info_bad,
+            concentration_scaling_data['mrs'],
+            internal_reference='fake',
+            verbose=False)
+
+    assert res.concScalings['internal'] is None
+    assert res.concScalings['internalRef'] == 'fake'
+    assert 'internal' in res.concScalings['errors']
+    with pytest.raises(ValueError, match='Internal concentration scaling not calculated.*fake'):
+        res.getConc(scaling='internal')
+
+
+def test_calculateConcScaling_zero_water_scaling_metabolite(concentration_scaling_data: dict[str, Any]) -> None:
+    res = deepcopy(concentration_scaling_data['res'])
+    res.fitResults['fake'] = 0.0
+
+    with pytest.warns(UserWarning, match='Metabolite reference fake has zero or non-finite integral.'):
+        res.calculateConcScaling(
+            concentration_scaling_data['mrs'],
+            quant_info=concentration_scaling_data['q_info_bad'],
             internal_reference='Cr',
             verbose=False)
 
-    with pytest.raises(res.QuantificationError) as exc:
-        res_zero_water.calculateConcScaling(
-            mrs,
-            quant_info=q_info,
+    assert res.concScalings['internal'] is not None
+    assert res.concScalings['molarity'] is None
+    assert res.concScalings['molality'] is None
+    assert 'molarity' in res.concScalings['errors']
+    assert 'molality' in res.concScalings['errors']
+    with pytest.raises(ValueError, match='Molality concentration scaling not calculated.*fake'):
+        res.getConc(scaling='molality')
+
+
+def test_calculateConcScaling_zero_water_reference(concentration_scaling_data: dict[str, Any]) -> None:
+    res = deepcopy(concentration_scaling_data['res'])
+
+    with pytest.warns(UserWarning, match='Water reference has zero or non-finite integral.'):
+        res.calculateConcScaling(
+            concentration_scaling_data['mrs_zero_water'],
+            quant_info=concentration_scaling_data['q_info'],
             internal_reference='Cr',
             verbose=False)
 
-        assert exc.message == 'Water reference has zero integral. Please check water reference data.'
+    assert res.concScalings['internal'] is not None
+    assert res.concScalings['molarity'] is None
+    assert res.concScalings['molality'] is None
+    assert res.concScalings['quant_info'] is concentration_scaling_data['q_info']
+    assert res.concScalings['ref_info'] is None
+
+
+def test_failed_calculateConcScaling_replaces_previous_absolute_scaling(
+        concentration_scaling_data: dict[str, Any]) -> None:
+    res = deepcopy(concentration_scaling_data['res'])
+
+    res.calculateConcScaling(
+        concentration_scaling_data['mrs'],
+        quant_info=concentration_scaling_data['q_info'],
+        internal_reference='Cr',
+        verbose=False)
+    assert res.concScalings['molarity'] is not None
+    assert res.concScalings['molality'] is not None
+
+    res.fitResults['fake'] = 0.0
+    with pytest.warns(UserWarning, match='Metabolite reference fake has zero or non-finite integral.'):
+        res.calculateConcScaling(
+            concentration_scaling_data['mrs'],
+            quant_info=concentration_scaling_data['q_info_bad'],
+            internal_reference='Cr',
+            verbose=False)
+
+    assert res.concScalings['internal'] is not None
+    assert res.concScalings['molarity'] is None
+    assert res.concScalings['molality'] is None

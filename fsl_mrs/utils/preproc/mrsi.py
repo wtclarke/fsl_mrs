@@ -27,7 +27,7 @@ def mrsi_phase_corr(
         mask: Image | None = None,
         ppmlim: tuple[float, float] | None = None,
         apodize: str | float = "auto",
-        higher_dim_index: int | slice = slice(None)) -> NIFTI_MRS:
+        higher_dim_index: list[int] | slice = slice(None)) -> tuple[NIFTI_MRS, Image]:
     """Run phase correction on MRSI
 
     Implements either a simple maximise real over limits or LCModel's Phasta algorithm
@@ -44,23 +44,24 @@ def mrsi_phase_corr(
     :type apodize: str | float, optional
     :param higher_dim_index: For phasta algorithm use a sub-set of a single higher dimension, defaults to slice(None)
     :type higher_dim_index: list[int] | slice, optional
-    :return: Phase corrected MRSI
-    :rtype: NIFTI_MRS
+    :return: Phase corrected MRSI and phases
+    :rtype: tuple[NIFTI_MRS, Image]
     """
     if mask is None:
         mask = np.ones(data.shape[:3]).astype(bool)
     else:
         mask = mask[:].astype(bool)
 
-    if data.ndim > 4:
-        limits = data.mrs()[0].mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
-    else:
-        limits = data.mrs().mrs_from_average().ppmlim_to_range(ppmlim, shift=True)
+    # Create an Axes object to get the timeAxis and ppm limits
+    # (Note that you should use the Axes and not the MRS timeAxis,
+    # because we need them to be 1D arrays)
+    axes = data.axes
+    limits = axes.ppmShiftIndices(ppmlim)
 
     if apodize == "auto":
         apodize = calc_aprox_t2decay(
             np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]),
-            data.dwelltime
+            axes.timeAxis
         )
         print(f'Setting apodization filter to {apodize:0.1f} Hz.')
     elif not (isinstance(apodize, (float, int)) and apodize >= 0):
@@ -74,7 +75,7 @@ def mrsi_phase_corr(
         if method.lower() == "max-real":
             out[idx], phs = phase_corr_max_real(
                 dd,
-                data.dwelltime,
+                axes.timeAxis,
                 limits=limits,
                 apodization=apodize)
 
@@ -82,7 +83,7 @@ def mrsi_phase_corr(
         elif method.lower() == "phasta":
             out[idx], phs_array[idx[:3] + idx[4:]] = phasta(
                 dd,
-                data.dwelltime,
+                axes.timeAxis,
                 limits=limits,
                 apodization=apodize,
                 indices_to_use=higher_dim_index
@@ -95,7 +96,7 @@ def mrsi_phase_corr(
 
 def phase_corr_max_real(
         fids: np.ndarray,
-        dwelltime: float,
+        timeaxis: np.ndarray,
         limits=None,
         apodization: float = 0) -> tuple[np.ndarray, np.ndarray]:
     """Phase correction of multiple FIDs based on maximising the real part of the spectrum
@@ -103,19 +104,19 @@ def phase_corr_max_real(
 
     :param fids: list of FIDs
     :type fids: list or np.array
-    :param dwelltime: Dwelltime (1 / spectral bandwidth)
-    :type dwelltime: float
+    :param timeaxis: Time axis
+    :type timeaxis: np.ndarray
     :param limits: limits over which to maximise real part, index of array, defaults to None
-    :type limits: tuple, optional
+    :type limits: slice, optional
     :param apodization: Apply apodization, defaults to 0 (no apodization)
     :type apodization: float, optional
     :return: Phased FIDs, array of applied phases
     :rtype: (np.array, np.array)
     """
 
-    data_apod = [apodize(fid, dwelltime, apodization) for fid in fids]
+    data_apod = [apodize(fid, timeaxis, apodization) for fid in fids]
 
-    limits = slice(None) if limits is None else slice(limits[0], limits[1])
+    limits = slice(None) if limits is None else limits
 
     phases = []
     for fid in data_apod:
@@ -130,11 +131,12 @@ def mrsi_freq_align(
         data: NIFTI_MRS,
         target: None | NIFTI_MRS | Basis = None,
         basis_ignore: list[str] = [],
-        mask: Image = None,
+        mask: Image | None = None,
         zpad_factor: int = 1,
-        apodize: str | float = "auto",
-        higher_dimensions: str | int = "separate") -> tuple[NIFTI_MRS, Image]:
-    """Frequency align MRSI data using cross correlation.
+        apodize: str | float | None = "auto",
+        higher_dimensions: str | int = "separate",
+        ppmlim: None | tuple[float, float] = None) -> tuple[NIFTI_MRS, Image, Image]:
+    """Frequency and phase alignment of MRSI data using cross correlation.
 
     Align either to mean, to a provided target, or to a basis spectrum
     A target FID must be a single FID with no higher dimensions.
@@ -156,40 +158,24 @@ def mrsi_freq_align(
     :param zpad_factor: Multiples of zero padding applied to FID before alignment, defaults to 1, 0 disables
     :type zpad_factor: int, optional
     :param apodize: Amount of apodization to apply in hertz, defaults to "auto" which estimates amount.
-    :type apodize: str | float, optional
+    :type apodize: str | float | None, optional
     :param higher_dimensions: How to handle higher dimensions.
         "separate" runs alignment on each higher index separately.
         "combine" runs alignment on all indices together.
         Passing an index (int) indicates the result of that index should be applied to all others.
         Defaults to "separate"
     :type higher_dimensions: str | int, optional
-    :return: Returns shifted MRSI data and Image containing shifts applied in Hz
-    :rtype: tuple[NIFTI_MRS, Image]
+    :param ppmlim: Run alignment over limited ppm range, defaults to None
+    :type ppmlim: None | tuple[float, float], optional
+    :return: Returns shifted MRSI data and Images containing shifts applied in Hz and phases in radians
+    :rtype: tuple[NIFTI_MRS, Image, Image]
     """
-    # Handle target
-    if isinstance(target, Basis):
-        target = np.sum(
-            target.get_formatted_basis(
-                data.bandwidth,
-                data.shape[3],
-                ignore=basis_ignore
-            ), axis=-1)
-    elif isinstance(target, NIFTI_MRS):
-        if not np.isclose(target.dwelltime, data.dwelltime)\
-                or not np.isclose(target.shape[3], data.shape[3]):
-            raise ValueError('Target must have the same dwell time and number of points as data.')
-
-        if np.prod(target.shape[4:]) > 1:
-            raise ValueError('Target must not have any higher dimensions.')
-
-        if target.shape[:3] != (1, 1, 1):
-            raise ValueError('Target must be single voxel.')
-        else:
-            target = target[0, 0, 0, :]
-    elif target is None:
-        pass
-    else:
-        raise TypeError('target must be a NIFTI_MRS or Basis object, or None.')
+    from fsl_mrs.utils.preproc.nifti_mrs_proc import _process_target
+    target = _process_target(
+        target,
+        data,
+        basis_ignore
+    )
 
     if mask is None:
         mask = np.ones(data.shape[:3]).astype(bool)
@@ -200,57 +186,85 @@ def mrsi_freq_align(
     if apodize == "auto":
         apodize = calc_aprox_t2decay(
             np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]),
-            data.dwelltime
+            data.axes.timeAxis
         )
         print(f'Setting apodization filter to {apodize:0.1f} Hz.')
-    elif not (isinstance(apodize, (float, int)) and apodize >= 0):
-        raise ValueError('Apodize should be a value >= 0.')
+    elif isinstance(apodize, (float, int)):
+        if not apodize >= 0:
+            raise ValueError('Apodize should be a value >= 0.')
+    else:
+        apodize = 0
 
     # Define nested function to avoid repeating lots of options for each case
     def xcorr_align_worker(dat):
         return xcorr_align(
             dat,
-            data.dwelltime,
+            data.axes,
             target=target,
             zpad_factor=zpad_factor,
-            apodize_hz=apodize)
+            apodize_hz=apodize,
+            ppmlim=ppmlim)
 
     shift_array = np.zeros(data.shape[:3] + data.shape[4:])
+    phases_array = np.zeros(data.shape[:3] + data.shape[4:])
+    shifts = np.zeros(data.shape[:3])
+    phases = np.zeros(data.shape[:3])
+
+    # Align each higer dimension separately
     if higher_dimensions == "separate":
         out = data.copy()
-        shifts = np.zeros(data.shape[:3])
         for dd, idx in data.iterate_over_dims(iterate_over_space=False):
-            dd[mask, :], shifts[mask] = xcorr_align_worker(dd[mask, :])
+            dd[mask, :], shifts[mask], phases[mask] = xcorr_align_worker(dd[mask, :])
             out[idx] = dd
             shift_array[idx[:3] + idx[4:]] = shifts
-        return out, Image(shift_array, xform=data.voxToWorldMat)
+            phases_array[idx[:3] + idx[4:]] = phases
+        return out, Image(shift_array, xform=data.voxToWorldMat), Image(phases_array, xform=data.voxToWorldMat)
+
+    # Align each higer dimension element based on a single element
     elif isinstance(higher_dimensions, int):
         if higher_dimensions >= data.shape[4]:
             raise ValueError('higher_dimensions index must be < data.shape[4]')
         out = data.copy()
-        shifts = np.zeros(data.shape[:3])
-        _, shifts[mask] = xcorr_align_worker(data[:][mask, :, higher_dimensions])
+        _, shifts[mask], phases[mask] = xcorr_align_worker(data[:][mask, :, higher_dimensions])
         for dd, idx in data.iterate_over_dims(iterate_over_space=False):
+
+            # Apply the single shift/phases to the data in each higher dimension
             out[idx] = freqshift_array(
                 dd,
-                data.dwelltime,
-                shifts)
+                data.axes,
+                shifts) * np.exp(1j * phases)[..., np.newaxis]
+            # Store output
             shift_array[idx[:3] + idx[4:]] = shifts
-        return out, Image(shift_array, xform=data.voxToWorldMat)
+            phases_array[idx[:3] + idx[4:]] = phases
+        return out, Image(shift_array, xform=data.voxToWorldMat), Image(phases_array, xform=data.voxToWorldMat)
 
+    # Align each higer dimension element based on the mean
     elif higher_dimensions == "combine":
         out = data[:].copy()
-        tmp, shifts = xcorr_align_worker(
-            np.moveaxis(data[:][mask, :], 1, -1).reshape(-1, data.shape[3]))
+        tmp, shifts, phases = xcorr_align_worker(
+            np.moveaxis(
+                data[:][mask, :],
+                1,
+                -1).reshape(-1, data.shape[3]))
 
-        out[mask, :] = np.moveaxis(tmp.reshape((np.sum(mask),) + data.shape[4:] + (data.shape[3],)), -1, 1)
+        out[mask, :] = np.moveaxis(
+            tmp.reshape((np.sum(mask),) + data.shape[4:] + (data.shape[3],)),
+            -1,
+            1)
         if shift_array.ndim == 3:
             shift_array[mask] = shifts.reshape((np.sum(mask),) + data.shape[4:])
+            phases_array[mask] = phases.reshape((np.sum(mask),) + data.shape[4:])
         else:
             shift_array[mask, :] = shifts.reshape((np.sum(mask),) + data.shape[4:])
-        return NIFTI_MRS(out, header=data.header), Image(shift_array, xform=data.voxToWorldMat)
+            phases_array[mask, :] = phases.reshape((np.sum(mask),) + data.shape[4:])
+        return NIFTI_MRS(out, header=data.header), \
+            Image(shift_array, xform=data.voxToWorldMat), \
+            Image(shift_array, xform=data.voxToWorldMat)
     else:
         raise ValueError('higher_dimensions must be "separate", "combine" or an integer index.')
+
+
+mrsi_align = mrsi_freq_align
 
 
 def lipid_removal_l2(data, beta=1E-5, lipid_mask=None, lipid_basis=None):

@@ -6,9 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 # Imports
 from pathlib import Path
-
-from fsl_mrs.core import NIFTI_MRS
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import NIFTI_MRS, read_basis
 
 # Files
 testsPath = Path(__file__).parent
@@ -47,7 +45,7 @@ def test_nifti_mrs_gen_mrs():
         assert mrs[0].basis.shape == (4096, 20)
         break
 
-    basis = mrs_io.read_basis(str(data['basis']))
+    basis = read_basis(str(data['basis']))
     for mrs in obj.generate_mrs(dim='DIM_DYN',
                                 basis=basis,
                                 ref_data=str(data['water'])):

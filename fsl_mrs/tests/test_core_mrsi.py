@@ -6,7 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 from fsl_mrs.core import MRSI, mrsi_from_files
 from pathlib import Path
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_FID, read_basis
 import numpy as np
 import nibabel as nib
 
@@ -22,9 +22,9 @@ data = {'metab': testsPath / 'testdata/fsl_mrsi/FID_Metab.nii.gz',
 
 def test_manual_load():
 
-    fid = mrs_io.read_FID(str(data['metab']))
-    fid_w = mrs_io.read_FID(str(data['water']))
-    basis = mrs_io.read_basis(str(data['basis']))
+    fid = read_FID(str(data['metab']))
+    fid_w = read_FID(str(data['water']))
+    basis = read_basis(str(data['basis']))
 
     mrsi = MRSI(fid,
                 cf=fid.spectrometer_frequency[0],
@@ -92,20 +92,37 @@ def test_fetch_mrs():
                            gm_file=str(data['seg_gm']),
                            wm_file=str(data['seg_wm']))
 
-    iter_indicies = mrsi.get_indicies_in_order(mask=True)
+    iter_indices = mrsi.get_indices_in_order(mask=True)
 
-    fid = mrs_io.read_FID(str(data['metab']))
+    fid = read_FID(str(data['metab']))
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
-        assert np.allclose(mrs.FID, fid[iter_indicies[idx]])
-        assert index == iter_indicies[idx]
+        assert np.allclose(mrs.FID, fid[iter_indices[idx]])
+        assert index == iter_indices[idx]
         assert np.isclose(seg['CSF'] + seg['WM'] + seg['GM'], 1.0)
 
     # test some of the flags
-    mrsi.conj_FID       = True
     mrsi.rescale        = True
     mrsi.keep           = ['NAA']
 
     for idx, (mrs, index, seg) in enumerate(mrsi):
         assert mrs.names == ['NAA']
-        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indicies[idx]].conj())
+        assert np.allclose(mrs.FID / mrs.scaling['FID'], fid[iter_indices[idx]])
+
+
+def test_fetch_mrs_reuses_average_basis_cache():
+
+    mrsi = mrsi_from_files(str(data['metab']),
+                           mask_file=str(data['mask']),
+                           basis_file=str(data['basis']),
+                           H2O_file=str(data['water']))
+
+    avg_mrs = mrsi.mrs_from_average()
+    _ = avg_mrs.basis
+    formatted_cache_size = len(avg_mrs._basis._formatted_basis_cache)
+
+    voxel_mrs = mrsi.mrs_by_index(mrsi.get_indices_in_order(mask=True)[0])
+
+    assert voxel_mrs._basis is avg_mrs._basis
+    _ = voxel_mrs.basis
+    assert len(avg_mrs._basis._formatted_basis_cache) == formatted_cache_size

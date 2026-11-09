@@ -16,17 +16,19 @@ from fsl_mrs.utils import misc
 from fsl_mrs.utils.constants import nucleus_constants, GYRO_MAG_RATIO
 from fsl_mrs.core.basis import Basis
 from fsl_mrs.utils.fitting import fit_FSLModel
+from nifti_mrs.axes import Axes
 
 import numpy as np
 
 
-class MRS(object):
+class MRS():
     """
       MRS Class - The basic unit for fitting. Encapsulates a single spectrum, the basis spectra,
       and water reference information required to carry out fitting.
     """
-    def __init__(self, FID=None, header=None, basis=None, names=None,
-                 basis_hdr=None, H2O=None, cf=None, bw=None, nucleus=None):
+    def __init__(self, FID=None, header=None, basis=None, names=None, basis_hdr=None,
+                 axes=None, H2O=None, cf=None, bw=None, nucleus=None, chemShift=None,
+                 RxOffset=0.0, copy_basis=True):
         """Main init for the MRS class
 
         :param FID: [description], defaults to None
@@ -39,6 +41,8 @@ class MRS(object):
         :type names: [type], optional
         :param basis_hdr: [description], defaults to None
         :type basis_hdr: [type], optional
+        :param axes: [description], defaults to None
+        :type axes: [type], optional
         :param H2O: [description], defaults to None
         :type H2O: [type], optional
         :param cf: [description], defaults to None
@@ -47,6 +51,12 @@ class MRS(object):
         :type bw: [type], optional
         :param nucleus: [description], defaults to None
         :type nucleus: [type], optional
+        :param chemShift: [description], defaults to None
+        :type chemShift: [type], optional
+        :param RxOffset: [description], defaults to 0.0
+        :type RxOffset: [type], optional
+        :param copy_basis: Deep-copy a supplied Basis object, defaults to True.
+        :type copy_basis: bool, optional
         :raises ValueError: [description]
         :raises TypeError: [description]
         """
@@ -56,8 +66,8 @@ class MRS(object):
         self._ignore = []
         self._keep_ignore = []
         self._conj_basis = False
-        self._conj_fid = False
         self._scaling_factor = None
+        self._scaling_limits = None
         self._indept_scale = []
 
         # Read in class data input
@@ -69,28 +79,48 @@ class MRS(object):
             self.set_acquisition_params(
                 header['centralFrequency'],
                 header['bandwidth'])
-
             self.set_nucleus(header=header, nucleus=nucleus)
-            self._calculate_axes()
+
+        elif axes is not None:
+            self.set_acquisition_params(
+                axes.SpectrometerFrequency * 1E6,
+                axes.SpectralWidth)
+            self.set_nucleus(nucleus=axes.ResonantNucleus)
 
         elif (cf is not None) and (bw is not None):
             self.set_acquisition_params(
                 cf,
                 bw)
             self.set_nucleus(nucleus=nucleus)
-            self._calculate_axes()
         else:
-            raise ValueError('You must pass a header'
-                             ' or bandwidth, nucleus, and central frequency.')
+            raise ValueError('You must pass a header or axes object,'
+                             ' or bandwidth & nucleus & central frequency.')
+
+        # Set Axes info
+        if axes is None:
+            if chemShift is None:
+                chemShift = self.default_ppm_shift
+            self._axes_obj = Axes(ResonantNucleus=self.nucleus,
+                                  SpectrometerFrequency=self.centralFrequency/1E6,
+                                  dwelltime=self.dwellTime,
+                                  SpecFreqChemShift=chemShift,
+                                  RxOffset=RxOffset,
+                                  npoints=self.numPoints)
+        else:
+            self._axes_obj = axes
+        self._calculate_axes()
 
         # Set Basis info
         # After refactor still handle the old syntax of basis, names, headers
-        # But also handle a Basis obejct
+        # But also handle a Basis object
         if basis is not None:
             if isinstance(basis, np.ndarray):
                 self.basis = Basis(basis, names, basis_hdr)
             elif isinstance(basis, Basis):
-                self.basis = deepcopy(basis)
+                if copy_basis:
+                    self.basis = deepcopy(basis)
+                else:
+                    self.basis = basis
             else:
                 raise TypeError('Basis must be a numpy array (+ names & headers) or a fsl_mrs.core.Basis object.')
         else:
@@ -100,6 +130,7 @@ class MRS(object):
         cf_MHz = self.centralFrequency / 1e6
         cf_T = self.centralFrequency / self.gyromagnetic_ratio / 1e6
 
+        # TODO update this with the new attributes
         out = '------- MRS Object ---------\n'
         out += f'     FID.shape             = {self.FID.shape}\n'
         out += f'     FID.centralFreq (MHz) = {cf_MHz:0.3f}\n'
@@ -120,14 +151,23 @@ class MRS(object):
     def __repr__(self) -> str:
         return str(self)
 
+    @classmethod
+    def from_axes(cls, fid: np.typing.NDArray[np.complex64], axes: Axes,
+                  basis: Basis = None, H2O: np.typing.NDArray[np.complex64] = None,
+                  copy_basis: bool = True):
+        """Construct an MRS object from fid using metadata from axes."""
+        return MRS(
+            FID=fid,
+            axes=axes,
+            basis=basis,
+            H2O=H2O,
+            copy_basis=copy_basis)
+
     # Properties
     @property
     def FID(self):
         """Returns the FID"""
-        if self._conj_fid:
-            return self._FID.conj() * self._fid_scaling
-        else:
-            return self._FID * self._fid_scaling
+        return self._FID * self._fid_scaling
 
     @FID.setter
     def FID(self, FID):
@@ -141,6 +181,10 @@ class MRS(object):
         self._fid_scaling = 1.0
 
     @property
+    def axes(self) -> Axes:
+        return self._axes_obj
+
+    @property
     def numPoints(self):
         return self.FID.size
 
@@ -150,10 +194,7 @@ class MRS(object):
         if self._H2O is None:
             return None
 
-        if self._conj_fid:
-            return self._H2O.conj() * self._fid_scaling
-        else:
-            return self._H2O * self._fid_scaling
+        return self._H2O * self._fid_scaling
 
     @H2O.setter
     def H2O(self, FID):
@@ -203,22 +244,16 @@ class MRS(object):
         return self._nucleus
 
     @property
-    def conj_FID(self):
-        """Conjugation state of FID"""
-        return self._conj_fid
-
-    @conj_FID.setter
-    def conj_FID(self, value):
-        """Set conjugation state of FID
-
-        :param value: True or False
-        :type value: Bool
-        """
-        self._conj_fid = value
-
-    @property
     def basis(self):
         """Returns the currently formatted basis spectra"""
+        return self.get_basis()
+
+    def get_basis(self, copy=True):
+        """Returns the currently formatted basis spectra.
+
+        :param copy: Return a mutable copy of the formatted basis, defaults to True.
+        :type copy: bool, optional
+        """
         if self._basis is None:
             return None
         else:
@@ -228,14 +263,16 @@ class MRS(object):
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale).conj()
+                    indept_scale=self._indept_scale,
+                    copy=copy).conj()
             else:
                 return self._basis.get_formatted_basis(
                     self.bandwidth,
                     self.numPoints,
                     ignore=self._keep_ignore,
                     scale_factor=self._scaling_factor,
-                    indept_scale=self._indept_scale)
+                    indept_scale=self._indept_scale,
+                    copy=copy)
 
     @basis.setter
     def basis(self, basis):
@@ -345,7 +382,7 @@ class MRS(object):
 
     @basis_scaling_target.setter
     def basis_scaling_target(self, scale):
-        """Set ccaling target for basis"""
+        """Set scaling target for basis"""
         self._scaling_factor = scale
 
     @property
@@ -370,56 +407,66 @@ class MRS(object):
         return {'FID': self.fid_scaling,
                 'basis': self.basis_scaling[0]}
 
+    @property
+    def scaling_limits(self) -> tuple[float, float] | None:
+        return self._scaling_limits
+
+    @scaling_limits.setter
+    def scaling_limits(self, limits: tuple[float, float] | None):
+        self._scaling_limits = limits
+
     # Get methods
-    def get_spec(self, ppmlim=None, shift=True):
+    def get_spec(self, ppmlim: tuple | None = None, shift=True):
         """Returns spectrum over defined ppm limits
 
-        :param ppmlim: Chemical shift range over which to retun the spectrum, defaults to None
+        :param ppmlim: Chemical shift range over which to return the spectrum, defaults to None
         :type ppmlim: 2-tuple of floats, optional
-        :param shift: Applies referenciing shift if True, defaults to True
+        :param shift: Applies referencing shift if True, defaults to True
         :type shift: bool, optional
         :return: Complex spectrum over requested range
         :rtype: numpy.array
         """
         spectrum = misc.FIDToSpec(self.FID)
-        first, last = self.ppmlim_to_range(ppmlim, shift=shift)
-        return spectrum[first:last]
+        if shift:
+            indices = self.axes.ppmShiftIndices(ppmlim)
+        else:
+            indices = self.axes.ppmIndices(ppmlim)
+        return spectrum[indices]
 
-    def getAxes(self, axis='ppmshift', ppmlim=None):
+    # TODO add new methods that call getAxes with correct 'axis' and limits
+    def getAxes(self, axis='ppmshift', limits=None):
         """Return x axis over defined limits
         Options: ppmshift, ppm, freq, or time
 
         :param axis: One of ppmshift, ppm, freq, or time, defaults to 'ppmshift'
         :type axis: str, optional
-        :param ppmlim: Chemical shift range over which to retun the axes, defaults to None
-            No effect on 'time'
-        :type ppmlim: 2-tuple of floats, optional
+        :param limits: Value range over which to return the axes, defaults to None
+        :type limits: 2-tuple of floats, optional
         :return: Returns the requested axis as numpy array
         :rtype: numpy.array
         """
+        if self.axes is None:
+            raise AttributeError("'Axes' object is not created for this MRS object.")
         if axis.lower() == 'ppmshift':
-            first, last = self.ppmlim_to_range(ppmlim, shift=True)
-            return np.squeeze(self.ppmAxisShift[first:last])
+            return np.squeeze(self.ppmAxisShift[self.axes.ppmShiftIndices(limits)])
         elif axis.lower() == 'ppm':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.ppmAxis[first:last])
+            return np.squeeze(self.ppmAxis[self.axes.ppmIndices(limits)])
         elif axis.lower() == 'freq':
-            first, last = self.ppmlim_to_range(ppmlim, shift=False)
-            return np.squeeze(self.frequencyAxis[first:last])
+            return np.squeeze(self.frequencyAxis[self.axes.frequencyIndices(limits)])
         elif axis.lower() == 'time':
-            return np.squeeze(self.timeAxis)
+            return np.squeeze(self.timeAxis[self.axes.timeIndices(limits)])
         else:
             raise ValueError('axis must be one of ppmshift, '
                              'ppm, freq or time.')
 
-    # Initilisation/setting methods
+    # Initialisation/setting methods
     def set_acquisition_params(self, centralFrequency, bandwidth):
         """
           Set useful params for fitting
 
           Parameters
           ----------
-          centralFrequency : float  (unit=Hz)
+          centralFrequency : float (unit=Hz)
           bandwidth : float (unit=Hz)
 
         """
@@ -481,7 +528,7 @@ class MRS(object):
                (cf_MHz > ninefourt_range[0] and cf_MHz < ninefourt_range[1]) or \
                (cf_MHz > elevensevent_range[0] and cf_MHz < elevensevent_range[1]):
                 # print(f'Identified as {key} nucleus data.'
-                #      f' Esitmated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
+                #      f' Estimated field: {cf_MHz/GYRO_MAG_RATIO[key]} T.')
                 return key
 
         raise ValueError(f'Unidentified nucleus,'
@@ -490,15 +537,10 @@ class MRS(object):
 
     def _calculate_axes(self):
         ''' Calculate axes'''
-        axes = misc.calculateAxes(self.bandwidth,
-                                  self.centralFrequency,
-                                  self.numPoints,
-                                  self.default_ppm_shift)
-
-        self.timeAxis = axes['time']
-        self.frequencyAxis = axes['freq']
-        self.ppmAxis = axes['ppm']
-        self.ppmAxisShift = axes['ppmshift']
+        self.timeAxis = self.axes.timeAxis
+        self.frequencyAxis = self.axes.frequencyAxis
+        self.ppmAxis = self.axes.ppmAxis
+        self.ppmAxisShift = self.axes.ppmAxisShift
 
         # turn into column vectors
         self.timeAxis = self.timeAxis[:, None]
@@ -517,7 +559,7 @@ class MRS(object):
                 * integers : output same as input
                 * strings : each string is interpreted as metab name and has own group
 
-        :param metab_grp_str:metabolite groups
+        :param metab_grp_str: metabolite groups
         :type metab_grp_str: str or list
         :return: metabolite group indices
         :rtype: list
@@ -525,32 +567,11 @@ class MRS(object):
         from fsl_mrs.utils.misc import parse_metab_groups
         return parse_metab_groups(self, metab_grp_str)
 
-    def ppmlim_to_range(self, ppmlim=None, shift=True):
-        """
-           turns ppmlim into data range
-
-           Parameters:
-           -----------
-
-           ppmlim : tuple
-
-           Outputs:
-           --------
-
-           int : first position
-           int : last position
-        """
-        if shift:
-            return misc.limit_to_range(self.ppmAxisShift, ppmlim)
-        else:
-            return misc.limit_to_range(self.ppmAxis, ppmlim)
-
     def processForFitting(self, ppmlim=None, ind_scaling=None):
         """ Apply rescaling and run the conjugation checks"""
         if ppmlim is None:
             ppmlim = self.default_ppm_range
 
-        self.check_FID(ppmlim=ppmlim, repair=True)
         self.check_Basis(ppmlim=ppmlim, repair=True)
         self.rescaleForFitting(ind_scaling=ind_scaling)
 
@@ -562,45 +583,15 @@ class MRS(object):
         :param ind_scaling: List of basis spectra to independently scale, defaults to []
         :type ind_scaling: List of strings, optional
         """
-
-        _, scaling = misc.rescale_FID(self._FID, scale=scale)
+        _, scaling = misc.rescale_FID(
+            self._FID if self.scaling_limits is None else self.get_spec(self.scaling_limits),
+            scale=scale)
         # Set scaling that will be dynamically applied when the FID is fetched.
         self._fid_scaling = scaling
 
         # Set scaling options that will be dynamically applied when the formatted basis is fetched.
         self._scaling_factor = scale
         self._indept_scale = ind_scaling
-
-    def check_FID(self, ppmlim=None, repair=False):
-        """
-           Check if FID needs to be conjugated
-           by looking at total power within ppmlim range
-
-        Parameters
-        ----------
-        ppmlim : list
-        repair : if True applies conjugation to FID
-
-        Returns
-        -------
-        0 if check successful and -1 if not (also issues warning)
-
-        """
-        if ppmlim is None:
-            ppmlim = self.default_ppm_range
-
-        if misc.detect_conjugation(
-                self.FID,
-                self.ppmAxisShift,
-                ppmlim):
-            if repair is False:
-                warnings.warn('YOU MAY NEED TO CONJUGATE YOUR FID!!!')
-                return -1
-            else:
-                self.conj_FID = True
-                return 1
-
-        return 0
 
     def check_Basis(self, ppmlim=None, repair=False):
         """
@@ -622,8 +613,7 @@ class MRS(object):
 
         if misc.detect_conjugation(
                 self.basis.T,
-                self.ppmAxisShift,
-                ppmlim):
+                self.axes.ppmShiftIndices(ppmlim)):
             if repair is False:
                 warnings.warn('YOU MAY NEED TO CONJUGATE YOUR BASIS!!!')
                 return -1

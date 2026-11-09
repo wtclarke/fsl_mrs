@@ -18,7 +18,7 @@ class ConfigFileError(Exception):
     pass
 
 
-class VariableMapping(object):
+class VariableMapping():
     def __init__(self,
                  param_names,
                  param_sizes,

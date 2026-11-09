@@ -13,70 +13,113 @@ from pytest import fixture, raises
 from fsl.data.image import Image
 
 from fsl_mrs.utils.preproc import mrsi
-from fsl_mrs.utils.mrs_io import read_FID, read_basis
+from fsl_mrs import read_FID, read_basis, merge, reorder
 from fsl_mrs.utils.synthetic import syntheticFID
 from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
-from fsl_mrs.core import nifti_mrs as ntools
+from nifti_mrs.axes import Axes
 
 
 # Algorithm tests
 @fixture
 def test_data():
-    fids, hdrs = syntheticFID(
+    fids, _, _ = syntheticFID(
         coilamps=[1, 1],
-        coilphase=[0, np.pi],
+        coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
-        chemicalshift=[1, 3])
+        chemicalshift=[1, 3],
+        linewidth=[10, 10])
 
-    fids_shift, hdrs = syntheticFID(
+    fids_shift, _, _ = syntheticFID(
         coilamps=[1, 1],
-        coilphase=[0, np.pi],
+        coilphase=[0, 10 * np.pi / 180],
         noisecovariance=np.zeros((2, 2)),
-        chemicalshift=[1.1, 3.1])
+        chemicalshift=[1.05, 3.05],
+        linewidth=[10, 10])
 
     return np.concatenate((fids, fids_shift))
 
 
 def test_xcorr_align(test_data):
-    # Test default
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000)
+    # create Axes for test_data
+    axes = Axes(npoints=test_data.shape[1],
+                dwelltime=1 / 4000,
+                SpectrometerFrequency=123.2,
+                ResonantNucleus='1H')
 
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    # Test default
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes)
+
+    # import matplotlib.pyplot as plt
+    # from fsl_mrs.utils.plotting import FID2Spec
+    # plt.plot(FID2Spec(test_data.T), 'b')
+    # plt.plot(FID2Spec(test_data[0, :]), 'k')
+    # plt.plot(FID2Spec(sfids.T), 'r')
+    # plt.show()
+    # breakpoint()
+
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     # Test apodisation and zeropadding options
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, apodize_hz=5)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes,
+        apodize_hz=5)
 
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, zpad_factor=0)
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes,
+        zpad_factor=0)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
-    sfids, shifts = mrsi.xcorr_align(test_data, 1 / 4000, zpad_factor=2)
-    assert np.isclose(shifts[-1], -123.2 / 10, atol=1E0)
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes,
+        zpad_factor=2)
+    assert np.isclose(shifts[-1], -123.2 * 0.025, atol=1E0)
+    assert np.isclose(phases[-1], -5 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     # Test Target
-    sfids, shifts = mrsi.xcorr_align(
+    sfids, shifts, phases = mrsi.xcorr_align(
         test_data,
-        1 / 4000,
+        axes,
         target=test_data[0, :])
-    assert np.allclose(shifts, [0, 0, -12.3, -12.3], atol=1E0)
+    assert np.allclose(shifts, [0, 0, -6.16, -6.16], atol=1E0)
+    assert np.isclose(phases[-1], -10 * np.pi / 180, atol=1E-1)
     assert sfids.shape == test_data.shape
 
     with raises(ValueError):
-        sfids, shifts = mrsi.xcorr_align(
+        sfids, shifts, phases = mrsi.xcorr_align(
             test_data,
-            1 / 4000,
+            axes,
             target=np.zeros(100))
+
+    # Test ppmlim
+    sfids, shifts, phases = mrsi.xcorr_align(
+        test_data,
+        axes,
+        target=test_data[0, :],
+        ppmlim=(1.0, 4.0))
+    assert np.allclose(shifts, [0, 0, 0, 0], atol=1E0)
+    assert np.isclose(phases[-1], -10 * np.pi / 180, atol=1E-1)
+    assert sfids.shape == test_data.shape
 
 
 def test_phase_corr_max_real(test_data):
-    pfids, phases = mrsi.phase_corr_max_real(test_data, 1 / 4000)
+    timeaxis = 0 + (1 / 4000) * np.arange(test_data.shape[1])
+    pfids, phases = mrsi.phase_corr_max_real(test_data, timeaxis)
 
-    assert np.allclose(np.abs(phases), [0, np.pi, 0, np.pi], atol=1E-1)
+    assert np.allclose(np.abs(phases), [0, 10 * np.pi / 180, 0, 10 * np.pi / 180], atol=1E-1)
     assert pfids.shape == test_data.shape
 
 
@@ -92,7 +135,9 @@ def test_mrsi_freq_align():
     mrsi_data = read_FID(metab_path)
     mask = Image(mask_path)
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(mrsi_data, mask=mask)
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        mask=mask)
 
     assert aligned_data.shape == mrsi_data.shape
     assert shift_img.shape == mrsi_data.shape[:3]
@@ -101,7 +146,10 @@ def test_mrsi_freq_align():
     assert np.allclose(shift_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # Now with no mask and no zero padding and fixed apod
-    aligned_data, shift_img = mrsi.mrsi_freq_align(mrsi_data, zpad_factor=0, apodize=20)
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        zpad_factor=0,
+        apodize=20)
 
     assert aligned_data.shape == mrsi_data.shape
     assert shift_img.shape == mrsi_data.shape[:3]
@@ -115,7 +163,7 @@ def test_mrsi_freq_align():
         mrsi_data.dwelltime,
         mrsi_data.spectrometer_frequency[0]
     )
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target)
@@ -128,12 +176,12 @@ def test_mrsi_freq_align():
 
     # Test with basis
     target = read_basis(basis_path)
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target)
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_data,
         mask=mask,
         target=target,
@@ -147,11 +195,10 @@ def test_mrsi_freq_align():
     assert np.allclose(shift_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # Test with higher dimensions
-    import fsl_mrs.core.nifti_mrs as ntools
-    mrsi_higher = ntools.reorder(mrsi_data, ['DIM_DYN', None, None])
-    mrsi_higher = ntools.merge((mrsi_higher, mrsi_higher), 'DIM_DYN')
+    mrsi_higher = reorder(mrsi_data, ['DIM_DYN', None, None])
+    mrsi_higher = merge((mrsi_higher, mrsi_higher), 'DIM_DYN')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,
@@ -159,7 +206,7 @@ def test_mrsi_freq_align():
         apodize=0,
         higher_dimensions='separate')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,
@@ -167,13 +214,22 @@ def test_mrsi_freq_align():
         apodize=0,
         higher_dimensions='combine')
 
-    aligned_data, shift_img = mrsi.mrsi_freq_align(
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
         mrsi_higher,
         mask=mask,
         target=target,
         basis_ignore=['GABA', 'Lac', 'Glu'],
         apodize=0,
         higher_dimensions=1)
+
+    # Test with ppmlim
+    aligned_data, shift_img, phs_img = mrsi.mrsi_freq_align(
+        mrsi_data,
+        mask=mask,
+        target=target,
+        ppmlim=(1.0, 4.0))
+    assert aligned_data.shape == mrsi_data.shape
+    assert shift_img.shape == mrsi_data.shape[:3]
 
 
 def test_mrsi_phase_corr():
@@ -198,9 +254,9 @@ def test_mrsi_phase_corr():
     assert np.allclose(phs_img.voxToWorldMat, mrsi_data.voxToWorldMat)
 
     # handling multi-dimensional data
-    mrsi_data_hd = ntools.merge([
-        ntools.reorder(mrsi_data, ['DIM_DYN', None, None]),
-        ntools.reorder(mrsi_data, ['DIM_DYN', None, None])],
+    mrsi_data_hd = merge([
+        reorder(mrsi_data, ['DIM_DYN', None, None]),
+        reorder(mrsi_data, ['DIM_DYN', None, None])],
         'DIM_DYN')
 
     phased_data_hd, phs_hd_avg = mrsi.mrsi_phase_corr(mrsi_data_hd, mask=mask)
@@ -213,7 +269,7 @@ def test_mrsi_phase_corr():
 
 @fixture
 def lipid_test_data():
-    fid_met, hdrs = syntheticFID(
+    fid_met, _, _ = syntheticFID(
         coilamps=[1],
         coilphase=[0],
         noisecovariance=[[0]],
@@ -221,7 +277,7 @@ def lipid_test_data():
         points=512,
         bandwidth=1000)
 
-    fid_lipid, hdrs = syntheticFID(
+    fid_lipid, _, _ = syntheticFID(
         coilamps=[100],
         coilphase=[0],
         noisecovariance=[[0]],

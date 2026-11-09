@@ -1,4 +1,5 @@
 .. _processing:
+
 Processing
 ==========
 **For SVS**
@@ -20,7 +21,7 @@ In addition we provide a few specific preprocessing tools for MRSI: inter voxel 
 fsl_mrs_proc
 ------------
 
-Processing in FSL-MRS is primarily accessed through the commandline program :code:`fsl_mrs_proc`. 
+Processing in FSL-MRS is primarily accessed through the command-line program :code:`fsl_mrs_proc`. 
 
 Subcommands
 ~~~~~~~~~~~
@@ -71,6 +72,7 @@ Merging processing HTML reports
     merge_mrs_reports -d [description] -o [output folder] -f [report name] *.html
 
 .. _fsl_mrs_preproc:
+
 fsl_mrs_preproc
 ---------------
 
@@ -98,10 +100,40 @@ The :code:`--ecc` option should be used to provide water reference data for eddy
 Python & Interactive Interface
 ------------------------------
 
-To access the processing methods in either a python or interactive python enviroment load the `preproc` module
-::
+With *fslpy*
+~~~~~~~~~~~~
+The simplest way to access the processing methods (i.e. `fsl_mrs_proc`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit`) in either a python or interactive python environment is to run them via their *fslpy* wrappers.
+The mandatory and optional arguments match exactly the CLI commands, so you can use the CLI help for details.
 
-    from fsl_mrs.utils.preproc import nifti_mrs_proc
+.. code-block:: python
+
+    from fsl.wrappers import fsl_mrs_preproc, fsl_mrs_proc
+
+    fsl_mrs_preproc(
+        data='metab.nii.gz',
+        reference='wref.nii.gz',
+        output='my_subj',
+        report=True)
+
+    fsl_mrs_proc.coilcombine(
+        file='metab.nii.gz',
+        output='my_subj',
+        reference='wref.nii.gz')
+
+    fsl_mrs_proc.phase(
+        file='wquant_comb_ecc.nii.gz',
+        output='my_subj',
+        filename='water.nii.gz',
+        ppm=(4.6, 4.7))
+
+
+Without *fslpy*
+~~~~~~~~~~~~~~~
+To access the processing methods in either a python or interactive python environment load the `proc` module:
+
+.. code-block:: python
+
+    from fsl_mrs import proc
 
 Reports and figures can be generated using the :code:`figure` and :code:`report` keyword arguments.
 
@@ -165,10 +197,10 @@ fsl_mrs_proc subcommand specifics
 References
 ----------
 
-.. [NEAR20] `Near J et al. Preprocessing, analysis and quantification in single‐voxel magnetic resonance spectroscopy: experts' consensus recommendations. NMR in Biomed 2020.  <https://pubmed.ncbi.nlm.nih.gov/32084297>`_
+.. [NEAR20] `Near J et al. Preprocessing, analysis and quantification in single-voxel magnetic resonance spectroscopy: experts' consensus recommendations. NMR in Biomed 2020.  <https://pubmed.ncbi.nlm.nih.gov/32084297>`_
 
 .. [RODG10] `Rodgers CT, Robson MD. Receive array magnetic resonance spectroscopy: Whitened singular value decomposition (WSVD) gives optimal Bayesian solution. Magn Reson Med 2010. <https://pubmed.ncbi.nlm.nih.gov/20373389>`_
 
 .. [LAUD02] `Laudadio T et al. Improved Lanczos Algorithms for Blackbox MRS Data Quantitation. J Magn Reson 2010. <https://pubmed.ncbi.nlm.nih.gov/12323148/>`_
 
-.. [BILG13]  `Bilgic B et al. Fast image reconstruction with L2-regularization. jMRI 2013. <https://doi.org/10.1002/jmri.24365>_`
+.. [BILG13]  `Bilgic B et al. Fast image reconstruction with L2-regularization. jMRI 2013. <https://doi.org/10.1002/jmri.24365>`_

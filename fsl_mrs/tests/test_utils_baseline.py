@@ -25,7 +25,7 @@ def test_spline_regressor_creation():
     fullbasis = baseline.prepare_pspline_regressor(
         100,
         (0, 4),
-        (0, 80),
+        slice(0, 80),
         bases_per_ppm=2)
 
     assert fullbasis.shape == (100, 22)
@@ -93,7 +93,7 @@ def test_prepare_penalised_functions():
     basis = baseline.prepare_pspline_regressor(
         100,
         (0, 5),
-        (0, 100))
+        slice(0, 100))
 
     # Check with no penalty applied
     moderr, modgrad = baseline.prepare_penalised_functions(
@@ -133,11 +133,11 @@ def test_polynomial_regressor_creation():
     B = baseline.prepare_polynomial_regressor(
         mrs.numPoints,
         baseline_order,
-        mrs.ppmlim_to_range(ppmlim))
+        mrs.axes.ppmShiftIndices(ppmlim))
 
     assert B.shape == (mrs.numPoints, 2 * (baseline_order + 1))
-    assert np.sum(B[:, 0]) == 100
-    assert np.sum(B[:, 1]) == 100j
+    assert np.sum(B[:, 0]) == 101
+    assert np.sum(B[:, 1]) == 101j
 
 
 # Test the Baseline class
@@ -150,7 +150,7 @@ def test_baseline_class_init():
         None)
 
     assert obj._spectral_points == mrs.numPoints
-    assert obj._ppm_range == mrs.ppmlim_to_range((0, 5))
+    assert obj._ppm_range == mrs.axes.ppmShiftIndices((0, 5))
     assert obj._ppm_limits == (0, 5)
 
     obj = baseline.Baseline(
@@ -159,7 +159,7 @@ def test_baseline_class_init():
         "poly, 1",
         None)
 
-    assert obj._ppm_range == (0, mrs.numPoints)
+    assert obj._ppm_range == slice(0, mrs.numPoints)
     assert obj._ppm_limits is None
 
 
@@ -332,3 +332,35 @@ def test_baseline_prepare_penalised_fit_functions():
 
     assert np.isclose(moderr(input), np.sum(input), atol=1E-1)
     assert np.allclose(modgrad(input), input, atol=1E-1)
+
+
+def test_baseline_spline_penalty_cache(monkeypatch):
+    mrs = MRS(FID=np.zeros((1000,)), cf=100, bw=2000, nucleus='1H')
+    obj = baseline.Baseline(
+        mrs,
+        (0, 5),
+        "spline, 10",
+        None)
+
+    lambda_calls = 0
+    original_lambda_from_ed = baseline.lambda_from_ed
+
+    def counted_lambda_from_ed(*args, **kwargs):
+        nonlocal lambda_calls
+        lambda_calls += 1
+        return original_lambda_from_ed(*args, **kwargs)
+
+    monkeypatch.setattr(baseline, 'lambda_from_ed', counted_lambda_from_ed)
+
+    obj.prepare_penalised_fit_functions(
+        lambda x: np.sum(x),
+        lambda x: x,
+        lambda x: x)
+    obj.prepare_penalised_fit_functions(
+        lambda x: np.sum(x),
+        lambda x: x,
+        lambda x: x)
+    obj.cov_penalty_term(obj.n_basis * 2)
+    obj.cov_penalty_term(obj.n_basis * 2)
+
+    assert lambda_calls == 1

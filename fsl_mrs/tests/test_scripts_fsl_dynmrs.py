@@ -31,12 +31,11 @@ def fixed_ratio_data(tmp_path, request):
 
     FID_basis1 = syn.syntheticFID(chemicalshift=[1, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
     FID_basis2 = syn.syntheticFID(chemicalshift=[3, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
-    FID_basis1[1]['fwhm'] = 3 * np.pi
-    FID_basis2[1]['fwhm'] = 3 * np.pi
     bset = basis.Basis(
         np.stack((FID_basis1[0][0], FID_basis2[0][0]), axis=1),
         ['Met1', 'Met2'],
-        [FID_basis1[1], FID_basis2[1]])
+        axes=FID_basis1[2])
+    bset.basis_fwhm = [3 * np.pi, 3 * np.pi]
 
     if is_mrsi:
         spatial_dims = (2, 2, 2)
@@ -59,8 +58,8 @@ def fixed_ratio_data(tmp_path, request):
     data = np.conj(data)
     nmrs = gen_nifti_mrs(
         data,
-        FID1[1]['dwelltime'],
-        FID1[1]['centralFrequency'],
+        FID1[2].dwelltime,
+        FID1[2].SpectrometerFrequency,
         dim_tags=['DIM_DYN', None, None])
 
     time_var = np.arange(2)

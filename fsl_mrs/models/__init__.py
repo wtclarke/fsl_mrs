@@ -96,7 +96,7 @@ def getModelJac(model):
 
 
 def getInit(model):
-    """Return the initilisation function
+    """Return the initialisation function
 
     :param model: fitting model name: 'lorentzian', 'voigt',
     'free_shift', 'free_shift_lorentzian', or 'negativevoigt'
@@ -290,7 +290,7 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
         return forward(params,
                        mrs.frequencyAxis,
                        mrs.timeAxis,
-                       mrs.basis,
+                       mrs.get_basis(copy=False),
                        bp,
                        metab_groups,
                        numGroups)
@@ -301,7 +301,7 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
         return forward(xx,
                        mrs.frequencyAxis,
                        mrs.timeAxis,
-                       mrs.basis,
+                       mrs.get_basis(copy=False),
                        bp,
                        metab_groups,
                        numGroups)
@@ -315,7 +315,7 @@ def getFittedModel(model, resParams, base_poly, metab_groups, mrs,
         return forward(xx,
                        mrs.frequencyAxis,
                        mrs.timeAxis,
-                       mrs.basis,
+                       mrs.get_basis(copy=False),
                        bp,
                        metab_groups,
                        numGroups)

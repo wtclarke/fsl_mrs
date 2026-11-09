@@ -10,7 +10,7 @@ Getting started
 ---------------
 Creation of basis spectra is a difficult step in the analysis of MRS data, with plenty of pitfalls even for experienced users. Please consult with local MRS experts or the technical community on the `MRSHub forums <https://forum.mrshub.org/>`_ for assistance and recommendations. The developers of FSL-MRS are aware that this area of the analysis pipeline remains a difficult stage and efforts are continuing to improve it for users. To that aim we have created two  resources for understanding basis set simulation in FSL-MRS:
 
-1. The  section of the online |fsl_course|_ dedicated to MRS `basis set simulation <https://open.win.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html#seq_description>`_.
+1. The  section of the online |fsl_course|_ dedicated to MRS `basis set simulation <https://open.oxcin.ox.ac.uk/pages/fslcourse/practicals/fsl_mrs/index.html#seq_description>`_.
 
 2. The description in this documentation and the example python notebook `Example basis spectra creation.ipynb`, downloadable from this link: |fslmrs_pkg_data_notebooks|_.
 

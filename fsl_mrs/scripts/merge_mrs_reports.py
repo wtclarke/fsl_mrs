@@ -33,7 +33,7 @@ def main():
                           required=True, type=str, metavar='<str>',
                           help='Dataset description.')
 
-    # ADDITONAL OPTIONAL ARGUMENTS
+    # ADDITIONAL OPTIONAL ARGUMENTS
     optional.add_argument('-o', '--output',
                           required=False, type=str, metavar='<str>',
                           default='.',

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fsl_mrs.auxiliary import configargparse
 
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 
 
@@ -169,20 +169,15 @@ def main():
                           help='spit out verbose info')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
-    optional.add_argument('--conj_fid', dest='conjfid', action="store_true",
-                          help='Force conjugation of FID')
-    optional.add_argument('--no_conj_fid', dest='conjfid',
-                          action="store_false",
-                          help='Forbid automatic conjugation of FID')
     optional.add_argument('--conj_basis', dest='conjbasis',
                           action="store_true",
                           help='Force conjugation of basis')
     optional.add_argument('--no_conj_basis', dest='conjbasis',
                           action="store_false",
                           help='Forbid automatic conjugation of basis')
-    optional.set_defaults(conjfid=None, conjbasis=None)
+    optional.set_defaults(conjbasis=None)
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis/H2O.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--export_baseline', action="store_true",
                           help="Output just baseline")
     optional.add_argument('--export_no_baseline', action="store_true",
@@ -252,6 +247,9 @@ def main():
         f.write(p.format_values())
 
     # Do the work
+    if args.no_rescale:
+        print("WARNING: CRLB values under '--no_rescale' option are unreliable!"
+              " Recommended to allow automatic rescaling by not setting this option.")
 
     # Read data/h2o/basis
     verboseprint('--->> Read input data and basis\n')
@@ -290,17 +288,7 @@ def main():
             'fsl_mrs only handles a single FID at a time. '
             'Please preprocess data first.')
 
-    # Check the FID and basis / conjugate
-    if args.conjfid is not None:
-        if args.conjfid:
-            mrs.conj_FID = True
-    else:
-        conjugated = mrs.check_FID(repair=True)
-        if args.verbose and conjugated == 1:
-            warnings.warn(
-                'FID has been checked and conjugated. Please check!',
-                UserWarning)
-
+    # Check basis / conjugate
     if args.conjbasis is not None:
         if args.conjbasis:
             mrs.conj_Basis = True

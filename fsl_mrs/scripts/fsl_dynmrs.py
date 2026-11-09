@@ -13,7 +13,7 @@
 from pathlib import Path
 
 from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 
 
 def main():
@@ -104,7 +104,7 @@ def main():
                           default=None,
                           help="Number of cores (local), or workers (cluster) to use.")
     optional.add_argument('--no_rescale', action="store_true",
-                          help='Forbid rescaling of FID/basis.')
+                          help=configargparse.SUPPRESS)
     optional.add_argument('--save-fit', action="store_true",
                           help='Save the predicted fit as a NIfTI-MRS file.')
     optional.add_argument('--full-save', action="store_true",
@@ -165,6 +165,10 @@ def main():
             shutil.rmtree(out_dir)
 
     # Do the work
+    if args.no_rescale:
+        print("WARNING: CRLB values under '--no_rescale' option are unreliable!"
+              " Recommended to allow automatic rescaling by not setting this option.")
+
     def verbose_print(x):
         if args.verbose:
             print(x)
@@ -265,7 +269,7 @@ def main():
 
         if args.parallel == "off":
             from tqdm import tqdm
-            _ = list(map(func, tqdm(tmp_mrsi.get_indicies_in_order())))
+            _ = list(map(func, tqdm(tmp_mrsi.get_indices_in_order())))
         elif args.parallel in ("local", "cluster"):
             if args.parallel == "local":
                 if args.parallel_workers:
@@ -290,7 +294,7 @@ def main():
 
                 client = Client(cluster)
 
-            result_futures = client.map(func, tmp_mrsi.get_indicies_in_order())
+            result_futures = client.map(func, tmp_mrsi.get_indices_in_order())
             progress(result_futures, notebook=False)
             _ = client.gather(result_futures)
             # close dask workers

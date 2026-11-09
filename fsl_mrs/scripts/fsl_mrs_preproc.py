@@ -10,7 +10,7 @@
 
 # Quick imports
 from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 import os.path as op
 from os import mkdir
@@ -53,6 +53,9 @@ def main():
                           default=None, metavar='<str>',
                           help='Noise data data for estimating coil covariance'
                                ' (used during coil combination, optional).')
+    optional.add_argument('--target', type=str,
+                          default=None, metavar='<str>',
+                          help='Target data for cross-correlation alignment.')
     optional.add_argument('--fmrs', action="store_true",
                           help='Preprocessing for fMRS, automatically sets noremoval and noaverage arguments')
     optional.add_argument('--noremoval', action="store_false", dest='unlike',
@@ -84,8 +87,6 @@ def main():
                           help='structural image (for report)')
     optional.add_argument('--verbose', action="store_true",
                           help='spit out verbose info')
-    optional.add_argument('--conjugate', action="store_true",
-                          help='apply conjugate to FID')
     optional.add_argument('--overwrite', action="store_true",
                           help='overwrite existing output folder')
     optional.add_argument('--report', action="store_true",
@@ -171,31 +172,24 @@ def main():
     ref_data = mrs_io.read_FID(args.reference)
     verbose_print(f'.... Found reference with shape {ref_data.shape}.\n\n')
 
-    if args.quant is not None:
+    if args.quant:
         # Separate quant data
         quant_data = mrs_io.read_FID(args.quant)
         verbose_print(f'.... Found quant with shape {quant_data.shape}.\n\n')
     else:
         quant_data = None
 
-    if args.ecc is not None:
+    if args.ecc:
         # Separate ecc data
         ecc_data = mrs_io.read_FID(args.ecc)
         verbose_print(f'.... Found ecc with shape {ecc_data.shape}.\n\n')
     else:
         ecc_data = None
 
-    # Data conjugation
-    if args.conjugate:
-        verbose_print('Conjugation explicitly set,'
-                      'applying conjugation.')
-
-        supp_data = nifti_mrs_proc.conjugate(supp_data)
-        ref_data = nifti_mrs_proc.conjugate(ref_data)
-        if args.quant is not None:
-            quant_data = nifti_mrs_proc.conjugate(quant_data)
-        if args.ecc is not None:
-            ecc_data = nifti_mrs_proc.conjugate(ecc_data)
+    # Target data
+    if args.target:
+        target_data = mrs_io.read_FID(args.target)
+        verbose_print(f'.... Found target with shape {target_data.shape}.\n\n')
 
     # Determine if coils have been combined already
     verbose_print('.... Determine if coil combination is needed')
@@ -221,7 +215,7 @@ def main():
             avg_ref_data = ref_data
 
         no_prewhiten = False
-        if args.noise is not None:
+        if args.noise:
             import numpy as np
             noise = mrs_io.read_FID(args.noise)
             noise = np.swapaxes(
@@ -281,12 +275,21 @@ def main():
 
     if args.align:
         verbose_print('... Align Dynamics (1st iteration) ...')
-        supp_data = nifti_mrs_proc.align(
-            supp_data,
-            'DIM_DYN',
-            ppmlim=args.align_limits,
-            window=args.align_window,
-            report=report_dir)
+        if args.target:
+            supp_data = nifti_mrs_proc.align(
+                supp_data,
+                'DIM_DYN',
+                method='xcorr',
+                target=target_data,
+                ppmlim=args.align_limits,
+                report=report_dir)
+        else:
+            supp_data = nifti_mrs_proc.align(
+                supp_data,
+                'DIM_DYN',
+                ppmlim=args.align_limits,
+                window=args.align_window,
+                report=report_dir)
 
         if has_multiple_dynamics(ref_data):
             ref_data = nifti_mrs_proc.align(ref_data, 'DIM_DYN', ppmlim=(0, 8))
@@ -322,12 +325,21 @@ def main():
         # After removal repeat frequency and phase align the FIDs
         if args.align:
             verbose_print('... Align Dynamics (2nd iteration) ...')
-            supp_data = nifti_mrs_proc.align(
-                supp_data,
-                'DIM_DYN',
-                ppmlim=args.align_limits,
-                window=args.align_window,
-                report=report_dir)
+            if args.target:
+                supp_data = nifti_mrs_proc.align(
+                    supp_data,
+                    'DIM_DYN',
+                    method='xcorr',
+                    target=target_data,
+                    ppmlim=args.align_limits,
+                    report=report_dir)
+            else:
+                supp_data = nifti_mrs_proc.align(
+                    supp_data,
+                    'DIM_DYN',
+                    ppmlim=args.align_limits,
+                    window=args.align_window,
+                    report=report_dir)
 
     # Average the data (if asked to do so)
     if args.average:

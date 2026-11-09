@@ -23,8 +23,7 @@ lcm_basis_encrypted = testsPath / 'testdata' / 'mrs_io' / 'press_te25_3t_v3.basi
 
 def test_load_and_constructors():
 
-    basis, names, bhdrs = fslio.readFSLBasisFiles(fsl_basis_path)
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual = fslio.readFSLBasisFiles(fsl_basis_path)
 
     from_file = basis_mod.Basis.from_file(fsl_basis_path)
 
@@ -50,7 +49,7 @@ def test_load_and_constructors():
     assert from_file.original_basis_array.dtype == complex
 
     # Test 1D FID
-    manual1D = basis_mod.Basis(basis[:, 0], [names[0]], [bhdrs[0]])
+    manual1D = basis_mod.Basis(manual.original_basis_array[:, [0]], manual.names, axes=manual.axes)
     assert manual1D.cf == 123.2189956
     assert manual1D.original_bw == 4000.0
     assert manual1D.original_dwell == 0.00025
@@ -60,7 +59,7 @@ def test_load_and_constructors():
     assert manual1D.original_basis_array.dtype == complex
 
     # Test transposed array
-    manual = basis_mod.Basis(basis.T, names, bhdrs)
+    manual = basis_mod.Basis(manual.original_basis_array.T, manual.names, axes=manual.axes)
     assert manual.cf == 123.2189956
     assert manual.original_bw == 4000.0
     assert manual.original_dwell == 0.00025
@@ -71,25 +70,17 @@ def test_load_and_constructors():
 
 
 def test_nuc_in_hdr():
-    basis, names, bhdrs = fslio.readFSLBasisFiles(fsl_basis_path)
-    manual = basis_mod.Basis(basis, names, bhdrs)
-
+    manual = fslio.readFSLBasisFiles(fsl_basis_path)
     assert manual.nucleus == "1H"
 
-    for hdr in bhdrs:
-        hdr['nucleus'] = "1H"
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual.nucleus = "1H"
     assert manual.nucleus == "1H"
 
-    for hdr in bhdrs:
-        hdr['nucleus'] = "31P"
-    manual = basis_mod.Basis(basis, names, bhdrs)
+    manual.nucleus = "31P"
     assert manual.nucleus == "31P"
 
     with pytest.raises(ValueError):
-        for hdr in bhdrs:
-            hdr['nucleus'] = "not_a_nuc"
-        manual = basis_mod.Basis(basis, names, bhdrs)
+        manual.nucleus = "not_a_nuc"
 
 
 def test_lcm_load():
@@ -162,6 +153,56 @@ def test_formatting():
     assert np.isclose(np.linalg.norm(np.mean(no_scale * rescale[0], axis=1)), 100)
 
 
+def test_formatting_cache(monkeypatch):
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+
+    call_count = 0
+    original_calculate = original._calculate_resampled_basis
+
+    def count_resamples(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return original_calculate(*args, **kwargs)
+
+    monkeypatch.setattr(original, '_calculate_resampled_basis', count_resamples)
+
+    first = original.get_formatted_basis(2000, 1024)
+    second = original.get_formatted_basis(2000, 1024)
+
+    assert call_count == 1
+    assert np.allclose(first, second)
+    assert first is not second
+    assert first.flags.writeable
+
+    cached = original.get_formatted_basis(2000, 1024, copy=False)
+    assert cached is original.get_formatted_basis(2000, 1024, copy=False)
+    assert not cached.flags.writeable
+
+
+def test_formatting_cache_keys_and_invalidation():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+
+    original.get_formatted_basis(2000, 1024, copy=False)
+    original.get_formatted_basis(2000, 1024, ignore=['Ins'], copy=False)
+    original.get_formatted_basis(2000, 1024, ignore=['Ins'], scale_factor=100, copy=False)
+
+    assert len(original._resampled_basis_cache) == 1
+    assert len(original._formatted_basis_cache) == 3
+
+    original.update_fid(original.original_basis_array[:, 0], original.names[0])
+
+    assert len(original._resampled_basis_cache) == 0
+    assert len(original._formatted_basis_cache) == 0
+    assert len(original._formatted_names_cache) == 0
+    assert len(original._rescale_values_cache) == 0
+
+    original.get_formatted_basis(2000, 1024, copy=False)
+    assert len(original._resampled_basis_cache) == 1
+
+    original.use_fourier_interp = False
+    assert len(original._resampled_basis_cache) == 0
+
+
 def test_formatting_linear_interp():
     original = basis_mod.Basis.from_file(fsl_basis_path)
     original.use_fourier_interp = False
@@ -204,6 +245,20 @@ def test_add_fid():
     assert 'test' in original.names
     assert original.basis_fwhm[-1] == 5.0
     assert original.n_metabs == 22
+
+
+def test_basis_fwhm_setter():
+    original = basis_mod.Basis.from_file(fsl_basis_path)
+    new_widths = [float(idx) for idx in range(original.n_metabs)]
+    original.basis_fwhm = new_widths
+    assert original.basis_fwhm == new_widths
+
+    original.add_fid_to_basis(
+        np.ones((original.original_points,), dtype=complex),
+        'test',
+        width=5.0,
+    )
+    assert original.basis_fwhm[-1] == 5.0
 
 
 def test_remove_fid():
