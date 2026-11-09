@@ -111,6 +111,12 @@ python = "3.14.*"
 [tool.pixi.feature.py315.dependencies]
 python = "3.15.*"
 
+[tool.pixi.feature.docs.dependencies]
+sphinx = "*"
+sphinx_rtd_theme = "*"
+docutils = "<0.21"
+snowballstemmer = "<3"
+
 [tool.pixi.environments]
 default = { features = [] }
 dev311 = { features = ["dev", "py311"] }
@@ -118,6 +124,7 @@ dev312 = { features = ["dev", "py312"] }
 dev313 = { features = ["dev", "py313"] }
 dev314 = { features = ["dev", "py314"] }
 dev315 = { features = ["dev", "py315"] }
+docs = { features = ["docs", "py314"] }
 
 [tool.pixi.dependencies]
 python = ">=3.11,<3.16"
