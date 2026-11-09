@@ -129,3 +129,7 @@ Inputs to fmrs_stats
     Allows the definition of one or more f-tests on the group level contrasts.
 
     This must also be formatted as a VEST file.
+
+**Note**: :code:`fmrs_stats` is also available with fslpy:
+::
+    from fsl.wrappers import fmrs_stats

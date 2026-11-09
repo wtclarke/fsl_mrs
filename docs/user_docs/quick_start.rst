@@ -99,7 +99,7 @@ If your data is unedited single voxel (SVS) try out the prepackaged processing p
 
     fsl_mrs_preproc --output processed --data my_metab_file.nii.gz --reference my_wref_file.nii.gz --report 
 
-Have a look at the source code for :code:`fsl_mrs_preproc` to see how you can construct your own python script using the processing modules. You can always prototype using Jupyter/IPython (see :ref:`Demos <demos>`)
+Have a look at the source code for :code:`fsl_mrs_preproc` to see how you can construct your own python script using the processing modules. You can always prototype using Jupyter/IPython (see :ref:`Demos <demos>`).
 
 3. Create Basis Spectra
 ~~~~~~~~~~~~~~~~~~~~~~~

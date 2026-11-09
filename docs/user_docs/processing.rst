@@ -21,7 +21,7 @@ In addition we provide a few specific preprocessing tools for MRSI: inter voxel 
 fsl_mrs_proc
 ------------
 
-Processing in FSL-MRS is primarily accessed through the commandline program :code:`fsl_mrs_proc`. 
+Processing in FSL-MRS is primarily accessed through the command-line program :code:`fsl_mrs_proc`. 
 
 Subcommands
 ~~~~~~~~~~~

@@ -1,7 +1,7 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
-3.0.0 (WIP)
------------
+3.0.0 (Monday 9th November 2026)
+--------------------------------
 - Restructured code to utilise `Axes` class from nifti-mrs-tools.
 - Axes and Spec limits are now inclusive across all methods.
 - `NIFTI_MRS` object can be generated with an `Axes` object.
@@ -45,7 +45,7 @@ This document contains the FSL-MRS release history in reverse chronological orde
 ----------------------------------
 - Bug fix in molality calculation, using ``1 / (1 - self.f_CSF)`` instead of ``1 / (1 - self.f_CSF_H2O)`` correction.
 - Bug fix in molarity calculation, using ``H2O_MOLALITY`` instead of ``H2O_MOLARITY``.
-- Added option in `fsl_mrs` and `fsl_mrsi` to output the previously used (<=2.4.17) incorrect molality concentration as well.
+- Added option ``--export_old_wrong_molality`` in `fsl_mrs` and `fsl_mrsi` to output the previously used (<=2.4.17) incorrect molality concentration as well.
 - Added software version printout in options.txt files.
 
 2.4.17 (Friday 24th July 2026)

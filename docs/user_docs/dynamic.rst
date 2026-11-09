@@ -150,5 +150,7 @@ Type :code:`fsl_dynmrs --help` to get the full set of available options.
     By default the lineshape is a Voigt (lorentzian+gaussian). Use this flag to set to Lorentzian.
 :code:`--report`
     Generate an HTML report of the fitting.
-:code:`--no_rescale`
-    Do not rescale the input data before fitting. By default all spectra are rescaled using a single scaling factor.
+
+**Note**: :code:`fsl_dynmrs` is also available with fslpy:
+::
+    from fsl.wrappers import fsl_dynmrs
