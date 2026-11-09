@@ -10,7 +10,7 @@
 
 # Quick imports
 import argparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
 # Note there are imports after argparse
 

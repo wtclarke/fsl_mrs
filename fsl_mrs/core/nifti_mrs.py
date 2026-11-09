@@ -1,8 +1,8 @@
-# NIFTI_MRS.py - NFITI_MRS class definition
+# NIFTI_MRS.py - NIFTI_MRS class definition
 # This module is primarily a shim around the niftimrs package
 # The intention is to extend the functionality of the
 # nifti-mrs package definitions for use in FSL-MRS
-# The need for this arise when splitting these useful generic nifti-mrs
+# The need for this arises when splitting these useful generic nifti-mrs
 # tools off from fsl-mrs, but wanting to keep the original fsl-mrs api
 #
 # Author: Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -16,35 +16,6 @@ from nifti_mrs import nifti_mrs
 from nifti_mrs import create_nmrs
 from nifti_mrs import tools
 import fsl_mrs.core as core
-
-
-def gen_nifti_mrs(*args, **kwargs):
-    """Generate NIfTI-MRS from data and required metadata
-
-    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to
-     implement additional functionality for FSL-MRS
-
-    :param data: Complex-typed numpy array of at least 4 dimensions (max 7)
-    :type data: numpy.array
-    :param dwelltime: Spectral (4th dimension) dwelltime in seconds
-    :type dwelltime: float
-    :param spec_freq: Spectrometer Frequency in MHz
-    :type spec_freq: float
-    :param nucleus: Resonant Nucleus string (e.g. 1H, 31P, 2H), defaults to '1H'
-    :type nucleus: str, optional
-    :param affine: 4x4 orientation/position affine, defaults to None which will use default (scaled identity).
-    :type affine: numpy.array, optional
-    :param dim_tags: List of dimension tags (e.g. DIM_DYN), defaults to [None, None, None]
-    :type dim_tags: list, optional
-    :param nifti_version: Version of NIfTI header format, defaults to 2
-    :type nifti_version: int, optional
-    :param no_conj: If true stops conjugation of data on creation, defaults to False
-    :type no_conj: bool, optional
-    :return: NIfTI-MRS object
-    :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
-    """
-    # To ensure the additional FSL-MRS functionallity present.
-    return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
 
 
 class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
@@ -151,19 +122,15 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
                         out.append(core.MRSI(FID=dd,
-                                             bw=self.bandwidth,
-                                             cf=self.spectrometer_frequency[0],
-                                             nucleus=self.nucleus[0],
                                              basis=basis,
-                                             H2O=ref_data))
+                                             H2O=ref_data,
+                                             axes=self.axes))
                     yield out
                 else:
                     yield core.MRSI(FID=data,
-                                    bw=self.bandwidth,
-                                    cf=self.spectrometer_frequency[0],
-                                    nucleus=self.nucleus[0],
                                     basis=basis,
-                                    H2O=ref_data)
+                                    H2O=ref_data,
+                                    axes=self.axes)
             else:
                 if ref_data is not None:
                     ref_data = ref_data.squeeze()
@@ -173,25 +140,50 @@ class NIFTI_MRS(nifti_mrs.NIFTI_MRS):
                     out = []
                     for dd in np.moveaxis(data.reshape(*data.shape[:4], -1), -1, 0):
                         out.append(core.MRS(FID=dd.squeeze(),
-                                            bw=self.bandwidth,
-                                            cf=self.spectrometer_frequency[0],
-                                            nucleus=self.nucleus[0],
                                             basis=basis,
-                                            H2O=ref_data))
+                                            H2O=ref_data,
+                                            axes=self.axes))
                     yield out
                 else:
                     yield core.MRS(FID=data.squeeze(),
-                                   bw=self.bandwidth,
-                                   cf=self.spectrometer_frequency[0],
-                                   nucleus=self.nucleus[0],
                                    basis=basis,
-                                   H2O=ref_data)
+                                   H2O=ref_data,
+                                   axes=self.axes)
 
     def mrs(self, *args, **kwargs):
         out = list(self.generate_mrs(*args, **kwargs))
         if len(out) == 1:
             out = out[0]
         return out
+
+
+def gen_nifti_mrs(*args, **kwargs) -> NIFTI_MRS:
+    """Generate NIfTI-MRS from data and required metadata
+
+    This is a wrapper around the nifti_mrs.create_nmrs.gen_nifti_mrs function to
+     implement additional functionality for FSL-MRS
+
+    :param data: Complex-typed numpy array of at least 4 dimensions (max 7)
+    :type data: numpy.array
+    :param dwelltime: Spectral (4th dimension) dwelltime in seconds
+    :type dwelltime: float
+    :param spec_freq: Spectrometer Frequency in MHz
+    :type spec_freq: float
+    :param nucleus: Resonant Nucleus string (e.g. 1H, 31P, 2H), defaults to '1H'
+    :type nucleus: str, optional
+    :param affine: 4x4 orientation/position affine, defaults to None which will use default (scaled identity).
+    :type affine: numpy.array, optional
+    :param dim_tags: List of dimension tags (e.g. DIM_DYN), defaults to [None, None, None]
+    :type dim_tags: list, optional
+    :param nifti_version: Version of NIfTI header format, defaults to 2
+    :type nifti_version: int, optional
+    :param no_conj: If true stops conjugation of data on creation, defaults to False
+    :type no_conj: bool, optional
+    :return: NIfTI-MRS object
+    :rtype: nifti_mrs.nifti_mrs.NIFTI_MRS
+    """
+    # To ensure the additional FSL-MRS functionallity present.
+    return NIFTI_MRS(create_nmrs.gen_nifti_mrs(*args, **kwargs))
 
 
 # Shims around the nifti_mrs.tools functions

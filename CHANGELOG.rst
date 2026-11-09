@@ -1,26 +1,67 @@
 This document contains the FSL-MRS release history in reverse chronological order.
 
+3.0.0 (Monday 9th November 2026)
+--------------------------------
+- Restructured code to utilise `Axes` class from nifti-mrs-tools.
+- Axes and Spec limits are now inclusive across all methods.
+- `NIFTI_MRS` object can be generated with an `Axes` object.
+- `MRS`, `MRSI` and `Basis` classes can be constructed with an `Axes` object.
+- `MRS` method ``getAxes`` now takes ``limits`` (previously called `ppmlim`) in each axis's units.
+- `MRS` method ``ppmlim_to_range`` is removed.
+- ``calculateAxes`` and ``limit_to_range`` functions in `fsl_mrs/utils/misc.py` are removed.
+- ``detect_conjugation`` function in `fsl_mrs/utils/misc.py` now takes a slice object argument instead of axis and limits.
+- `fsl_mrs/utils/preproc` functions now take `MRS` or `Axes` objects rather than FID + metadata arguments.
+- ``timeAxis`` in `fsl_mrs/utils/preproc/shifting.py` is now correctly defined with `dwelltime` steps.
+- ``syntheticFID`` in `fsl_mrs/utils/synthetic/synhtetic.py` now returns an `Axes` object as 3rd output.
+- Model methods in `fsl_mrs/models` now take a slice object argument rather than `first` and `last` values.
+- `io` utils have been updated to return a `Basis` object rather than `(FID, names, headers)`
+- `fsl_mrs_verify` target value has been updated to match the above changes.
+- Added basis set read and conversion for `.mrui` formatted files.
+- Add complex cross-correlation frequency/phase alignment functionality, similar to that described in https://doi.org/10.1002/mrm.30252 (Deelchand, MRM, 2024).
+- `fsl_mrs_proc mrsi-align` now uses complex cross-correlation to perform phase and frequency alignment.
+- A target spectrum for alignment can be created using the new ``basis2spec`` function.
+- `fsl_mrs_proc align` now has the option to use complex cross-correlation ``--method xcorr`` to perform phase and frequency alignment. It is recommended to use the `--reference` option to assign a target with this.
+- `fsl_mrs_proc align` now has a new default option for the ``--dim`` input, which is set to "all" (previously "DIM_DYN"). This eases the use fo this function for phase/frequency alignment of a single transient. 
+- `fsl_mrs_preproc` now has the option to use complex cross-correlation to perform phase and frequency alignment if a target is given: ``--target <str>``.
+- Partial fitting report will be generated even when reference metabolites aren't fit (or have conc = 0).
+- `fsl_mrsi` now submits batches of jobs through Dask to limit Dask graph size.
+- `fsl_mrsi` has improved logging and qc metrics around fitting failures.
+- Improved automatic pre-fitting scaling in `fsl_mrsi`.
+- Invariant components (basis spectra and baseline) are now cached for speed in MRSI fitting.
+- 'Raw' concentration in fitting results (``FitRes``) is now scaled by `basis_scaling` and `fid_scaling` to produce consistent concentrations in edited sequences and synthetic data.
+- ``No_rescale`` option is now hidden in `fsl_mrs`, `fsl_mrsi` and `fsl_dynmrs`, as no longer required.
+- FID conjugation has been removed from `MRS` and `MRSI` classes (``check_FID``, ``conj_FID``).
+- `fsl_mrs`, `fsl_mrsi`, `fsl_mrs_preproc`, `fsl_mrs_preproc_edit` no longer accept ``--conj_fid``, ``--no_conj_fid`` or ``--conjugate`` options.
+- `fsl_mrs_proc conj` subcommand is now hidden and prints a depreciation warning.
+- Layout improvements in `fsl_mrs_summarise` dashboard.
+- Added spline penalty to baseline initialisation.
+- Improved water fitting function.
+- Some commonly-used functions and methods are now available as module level imports.
+- Added tests for fslpy wrappers: `fsl_dynmrs`, `basis2spec`, `fmrs_stats`.
+- Added Pixi for local builds.
+- Python 3.15 support.
+
 2.5.0 (Friday 11th September 2026)
 ----------------------------------
 - Bug fix in molality calculation, using ``1 / (1 - self.f_CSF)`` instead of ``1 / (1 - self.f_CSF_H2O)`` correction.
 - Bug fix in molarity calculation, using ``H2O_MOLALITY`` instead of ``H2O_MOLARITY``.
-- Added option in `fsl_mrs` and `fsl_mrsi` to output the previously used (<=2.4.17) incorrect molality concentration as well.
+- Added option ``--export_old_wrong_molality`` in `fsl_mrs` and `fsl_mrsi` to output the previously used (<=2.4.17) incorrect molality concentration as well.
 - Added software version printout in options.txt files.
 
 2.4.17 (Friday 24th July 2026)
 ------------------------------
-- Bumped fslpy dependency
-- Removed Python 3.10 support
+- Bumped fslpy dependency.
+- Removed Python 3.10 support. 
 
 2.4.16 (Monday 29th June 2026)
 ------------------------------
-- Locked fslpy dependency for future API changes
-- Removed fsl_sub from dependencies
+- Locked fslpy dependency for future API changes.
+- Removed fsl_sub from dependencies.
 
 2.4.15 (Wednesday 10th June 2026)
 ---------------------------------
 - Simulator now calls updated `fsl-denmatsim` package.
-- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`
+- Replaced `fsl_sub` with `dask` in `fsl_dynmrs`.
 
 2.4.14 (Wednesday 27th May 2026)
 --------------------------------
@@ -508,9 +549,8 @@ This document contains the FSL-MRS release history in reverse chronological orde
 
 1.0.3 (Friday 10th July 2020)
 -----------------------------
-- Changed to pure python version of HLSVDPRO (hlsvdpropy). Slight speed penalty
-  but hopefully reduced cross-compilation issues.
-- fsl_mrs_preproc now outputs zipped NIFTI files to match the rest of the command-line   scripts.
+- Changed to pure python version of HLSVDPRO (hlsvdpropy). Slight speed penalty but hopefully reduced cross-compilation issues.
+- fsl_mrs_preproc now outputs zipped NIFTI files to match the rest of the command-line scripts.
 - Apodisation option added to alignment in fsl_mrs_proc and fsl_mrs_preproc. Reduces effect of noise. Default value is 10 Hz of exponential apodisation.
 - Fixed phasing subcommand added to fsl_mrs_proc allowing the user to apply a fixed 0th and 1st order phase.
 - mrs_vis now handles folders as an input for MRS data (still handles folders of basis files).

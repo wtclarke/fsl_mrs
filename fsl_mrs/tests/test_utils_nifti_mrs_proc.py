@@ -10,10 +10,7 @@ from re import escape
 from pytest import raises
 import numpy as np
 
-from fsl_mrs.utils.preproc import nifti_mrs_proc as nproc
-from fsl_mrs.utils.mrs_io import read_FID
-from fsl_mrs.core.nifti_mrs import split
-from fsl_mrs import __version__
+from fsl_mrs import read_FID, read_basis, proc, split, __version__
 
 
 testsPath = Path(__file__).parent
@@ -22,6 +19,7 @@ metab = data / 'metab_raw.nii.gz'
 wrefc = data / 'wref_raw.nii.gz'
 wrefq = data / 'quant_raw.nii.gz'
 ecc = data / 'ecc.nii.gz'
+basis = testsPath / 'testdata' / 'fsl_mrs' / 'steam_basis_no_mm'
 
 
 def test_update_processing_prov():
@@ -29,7 +27,7 @@ def test_update_processing_prov():
 
     assert 'ProcessingApplied' not in nmrs_obj.hdr_ext
 
-    nproc.update_processing_prov(nmrs_obj, 'test', 'test_str')
+    proc.update_processing_prov(nmrs_obj, 'test', 'test_str')
 
     assert 'ProcessingApplied' in nmrs_obj.hdr_ext
     assert isinstance(nmrs_obj.hdr_ext['ProcessingApplied'], list)
@@ -43,9 +41,9 @@ def test_update_processing_prov():
 def test_coilcombine():
     nmrs_obj = read_FID(metab)
     nmrs_ref_obj = read_FID(wrefc)
-    nmrs_ref_obj = nproc.average(nmrs_ref_obj, 'DIM_DYN')
+    nmrs_ref_obj = proc.average(nmrs_ref_obj, 'DIM_DYN')
 
-    combined = nproc.coilcombine(nmrs_obj, reference=nmrs_ref_obj)
+    combined = proc.coilcombine(nmrs_obj, reference=nmrs_ref_obj)
 
     assert combined.hdr_ext['ProcessingApplied'][0]['Method'] == 'RF coil combination'
     assert combined.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -60,64 +58,129 @@ def test_coilcombine_singleton():
     singleton_ref, _ = split(nmrs_ref_obj, 'DIM_DYN', 0)
     assert singleton_ref.shape[-1] == 1
 
-    combined = nproc.coilcombine(nmrs_obj, reference=singleton_ref)
+    combined = proc.coilcombine(nmrs_obj, reference=singleton_ref)
     assert combined.shape == (1, 1, 1, 4096, 64)
 
     # Remove trailing singleton dim and check again
     singleton_ref.set_dim_tag("DIM_DYN", None)
     assert singleton_ref.shape[-1] > 1
-    combined = nproc.coilcombine(nmrs_obj, reference=singleton_ref)
+    combined = proc.coilcombine(nmrs_obj, reference=singleton_ref)
     assert combined.shape == (1, 1, 1, 4096, 64)
 
 
 def test_average():
     nmrs_ref_obj = read_FID(wrefc)
-    combined = nproc.average(nmrs_ref_obj, 'DIM_DYN')
+    combined = proc.average(nmrs_ref_obj, 'DIM_DYN')
 
     assert combined.hdr_ext['ProcessingApplied'][0]['Method'] == 'Signal averaging'
     assert combined.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.average, dim=DIM_DYN.'
 
 
-def test_align():
+def test_align_specreg():
     nmrs_obj = read_FID(metab)
     with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
-    aligned1 = nproc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
+    aligned1 = proc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
-    combined = nproc.coilcombine(nmrs_obj)
-    aligned2 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
+    combined = proc.coilcombine(nmrs_obj)
+    aligned2 = proc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert aligned2.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
     # Align across all spectra
-    aligned3 = nproc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1)
+    aligned3 = proc.align(with_coils, 'all', ppmlim=(1.0, 4.0), niter=1)
 
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert aligned3.hdr_ext['ProcessingApplied'][0]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
-           'window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=None, target=None, ppmlim=(1.0, 4.0), niter=1.'
 
+
+def test_align_specreg_window():
     # Windowed alignment
-    aligned4 = nproc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, window=4)
+    nmrs_obj = read_FID(metab)
+    combined = proc.coilcombine(nmrs_obj)
+
+    aligned4 = proc.align(combined, 'DIM_DYN', ppmlim=(1.0, 4.0), niter=1, window=4)
 
     assert aligned4.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert aligned4.hdr_ext['ProcessingApplied'][1]['Details']\
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
-           'window=4, target used, ppmlim=(1.0, 4.0), niter=1.'
+           'method=specreg, window=4, target=None, ppmlim=(1.0, 4.0), niter=1.'
+
+
+def test_align_xcorr():
+    nmrs_obj = read_FID(metab)
+    with_coils, _ = split(nmrs_obj, 'DIM_COIL', 3)
+
+    # Defaults
+    aligned1 = proc.align(with_coils, 'DIM_DYN', method='xcorr')
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned1.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target=None, ppmlim=None, niter=2.'
+
+    # No target with ppm limit
+    aligned2 = proc.align(with_coils, 'DIM_DYN', ppmlim=(1.0, 4.0), method='xcorr')
+    assert aligned2.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
+    assert aligned2.hdr_ext['ProcessingApplied'][0]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target=None, ppmlim=(1.0, 4.0), niter=2.'
+
+    # With nifti target
+    combined = proc.coilcombine(nmrs_obj)
+    aligned3 = proc.align(
+        combined,
+        'DIM_DYN',
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=proc.average(combined, "DIM_DYN"))
+
+    assert aligned3.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned3.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
+
+    # With basis target
+    aligned4 = proc.align(
+        combined,
+        'DIM_DYN',
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=read_basis(basis),
+        basis_ignore=['Ala', ])
+
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
+    assert aligned4.hdr_ext['ProcessingApplied'][1]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=DIM_DYN, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
+
+    # Singleton
+    aligned5 = proc.align(
+        proc.average(combined, "DIM_DYN"),
+        method='xcorr',
+        ppmlim=(1.0, 4.0),
+        target=read_basis(basis),
+        basis_ignore=['Ala', ])
+
+    assert aligned5.hdr_ext['ProcessingApplied'][2]['Method'] == 'Frequency and phase correction'
+    assert aligned5.hdr_ext['ProcessingApplied'][2]['Details']\
+        == 'fsl_mrs.utils.preproc.nifti_mrs_proc.align, dim=all, '\
+           'method=xcorr, window=None, target used, ppmlim=(1.0, 4.0), niter=2.'
 
 
 def test_aligndiff():
     # For want of data this is a bizzare way of using this function.
     nmrs_obj = read_FID(wrefc)
-    aligned = nproc.aligndiff(nmrs_obj, 'DIM_COIL', 'DIM_DYN', 'add', ppmlim=(1.0, 4.0))
+    aligned = proc.aligndiff(nmrs_obj, 'DIM_COIL', 'DIM_DYN', 'add', ppmlim=(1.0, 4.0))
 
     assert aligned.hdr_ext['ProcessingApplied'][0]['Method'] == 'Alignment of subtraction sub-spectra'
     assert aligned.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -127,10 +190,10 @@ def test_aligndiff():
 
 def test_ecc():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
     ref_obj = read_FID(ecc)
 
-    corrected = nproc.ecc(nmrs_obj, reference=ref_obj)
+    corrected = proc.ecc(nmrs_obj, reference=ref_obj)
 
     assert corrected.hdr_ext['ProcessingApplied'][1]['Method'] == 'Eddy current correction'
     assert corrected.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -139,9 +202,9 @@ def test_ecc():
 
 def test_remove():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    corrected = nproc.remove_peaks(nmrs_obj, (4, 5.30))
+    corrected = proc.remove_peaks(nmrs_obj, (4, 5.30))
 
     assert corrected.hdr_ext['ProcessingApplied'][1]['Method'] == 'Nuisance peak removal'
     assert corrected.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -150,9 +213,9 @@ def test_remove():
 
 def test_hlsvd_model():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    modeled = nproc.hlsvd_model_peaks(nmrs_obj, (4, 5.30), components=3)
+    modeled = proc.hlsvd_model_peaks(nmrs_obj, (4, 5.30), components=3)
 
     assert modeled.hdr_ext['ProcessingApplied'][1]['Method'] == 'HLSVD modeling'
     assert modeled.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -162,9 +225,9 @@ def test_hlsvd_model():
 
 def test_tshift():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    shifted = nproc.tshift(nmrs_obj, tshiftStart=0.001, tshiftEnd=0.001, samples=1024)
+    shifted = proc.tshift(nmrs_obj, tshiftStart=0.001, tshiftEnd=0.001, samples=1024)
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Temporal resample'
     assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -173,9 +236,9 @@ def test_tshift():
 
 def test_truncate_or_pad():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    shifted = nproc.truncate_or_pad(nmrs_obj, -2, 'last')
+    shifted = proc.truncate_or_pad(nmrs_obj, -2, 'last')
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Zero-filling'
     assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -184,9 +247,9 @@ def test_truncate_or_pad():
 
 def test_apodize():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    apodized = nproc.apodize(nmrs_obj, (10.0,))
+    apodized = proc.apodize(nmrs_obj, (10.0,))
 
     assert apodized.hdr_ext['ProcessingApplied'][1]['Method'] == 'Apodization'
     assert apodized.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -203,9 +266,9 @@ def test_fshift():
         match=escape(
             'Shift map must be the same size as the NIfTI-MRS spatial + higher dimensions. '
             'Current size = (32, 1), required shape = (1, 1, 1, 32, 2).')):
-        shifted = nproc.fshift(nmrs_obj, np.ones((32, 1)))
+        shifted = proc.fshift(nmrs_obj, np.ones((32, 1)))
 
-    shifted = nproc.fshift(nmrs_obj, np.ones((1, 1, 1, 32, 2)))
+    shifted = proc.fshift(nmrs_obj, np.ones((1, 1, 1, 32, 2)))
 
     assert shifted.shape == nmrs_obj.shape
     assert shifted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
@@ -213,8 +276,8 @@ def test_fshift():
         == 'fsl_mrs.utils.preproc.nifti_mrs_proc.fshift, amount=per-voxel shifts specified.'
 
     # Test a single value shift
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
-    shifted = nproc.fshift(nmrs_obj, 10.0)
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
+    shifted = proc.fshift(nmrs_obj, 10.0)
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -223,9 +286,9 @@ def test_fshift():
 
 def test_shift_to_reference():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    shifted = nproc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0))
+    shifted = proc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0))
 
     assert shifted.hdr_ext['ProcessingApplied'][1]['Method'] == 'Frequency and phase correction'
     assert shifted.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -236,7 +299,7 @@ def test_shift_to_reference():
 def test_shift_to_reference_no_avg():
     nmrs_obj = read_FID(wrefc)
 
-    shifted = nproc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0), use_avg=True)
+    shifted = proc.shift_to_reference(nmrs_obj, 4.65, (4.0, 5.0), use_avg=True)
 
     assert shifted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Frequency and phase correction'
     assert shifted.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -246,14 +309,14 @@ def test_shift_to_reference_no_avg():
 
 def test_remove_unlike():
     nmrs_obj = read_FID(metab)
-    nmrs_obj = nproc.coilcombine(nmrs_obj)
+    nmrs_obj = proc.coilcombine(nmrs_obj)
 
     # Add a header of the right size to test
     nmrs_obj.set_dim_tag(
         'DIM_DYN',
         'DIM_DYN',
         header={'RepetitionTime': np.arange(nmrs_obj.shape[4]).tolist()})
-    processed, removed_fids = nproc.remove_unlike(nmrs_obj, sdlimit=1.0)
+    processed, removed_fids = proc.remove_unlike(nmrs_obj, sdlimit=1.0)
 
     assert processed.shape == (1, 1, 1, 4096, 53)
     assert processed.hdr_ext['ProcessingApplied'][1]['Method'] == 'Outlier removal'
@@ -268,9 +331,9 @@ def test_remove_unlike():
 
 def test_phase_correct():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    phased = nproc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False)
+    phased = proc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False)
 
     assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
     assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -279,7 +342,7 @@ def test_phase_correct():
 
 def test_phase_correct_use_avg():
     nmrs_obj = read_FID(wrefc)
-    phased = nproc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False, use_avg=True)
+    phased = proc.phase_correct(nmrs_obj, (4.0, 5.0), hlsvd=False, use_avg=True)
 
     assert phased.hdr_ext['ProcessingApplied'][0]['Method'] == 'Phasing'
     assert phased.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -288,9 +351,9 @@ def test_phase_correct_use_avg():
 
 def test_apply_fixed_phase():
     nmrs_obj = read_FID(wrefc)
-    nmrs_obj = nproc.average(nmrs_obj, 'DIM_DYN')
+    nmrs_obj = proc.average(nmrs_obj, 'DIM_DYN')
 
-    phased = nproc.apply_fixed_phase(nmrs_obj, 180.0, p1=0.001)
+    phased = proc.apply_fixed_phase(nmrs_obj, 180.0, p1=0.001)
 
     assert phased.hdr_ext['ProcessingApplied'][1]['Method'] == 'Phasing'
     assert phased.hdr_ext['ProcessingApplied'][1]['Details']\
@@ -300,7 +363,7 @@ def test_apply_fixed_phase():
 def test_subtract():
     nmrs_obj = read_FID(wrefc)
 
-    subtracted = nproc.subtract(nmrs_obj, dim='DIM_DYN')
+    subtracted = proc.subtract(nmrs_obj, dim='DIM_DYN')
 
     assert subtracted.hdr_ext['ProcessingApplied'][0]['Method'] == 'Subtraction of sub-spectra'
     assert subtracted.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -310,7 +373,7 @@ def test_subtract():
 def test_add():
     nmrs_obj = read_FID(wrefc)
 
-    added = nproc.add(nmrs_obj, dim='DIM_DYN')
+    added = proc.add(nmrs_obj, dim='DIM_DYN')
 
     assert added.hdr_ext['ProcessingApplied'][0]['Method'] == 'Addition of sub-spectra'
     assert added.hdr_ext['ProcessingApplied'][0]['Details']\
@@ -320,7 +383,7 @@ def test_add():
 def test_conjugate():
     nmrs_obj = read_FID(wrefc)
 
-    conjugated = nproc.conjugate(nmrs_obj)
+    conjugated = proc.conjugate(nmrs_obj)
 
     assert conjugated.hdr_ext['ProcessingApplied'][0]['Method'] == 'Conjugation'
     assert conjugated.hdr_ext['ProcessingApplied'][0]['Details']\

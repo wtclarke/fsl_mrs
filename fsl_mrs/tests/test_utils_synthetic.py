@@ -6,7 +6,7 @@ Copyright Will Clarke, University of Oxford, 2021'''
 
 from fsl_mrs.utils import synthetic as syn
 from fsl_mrs.utils.misc import FIDToSpec
-from fsl_mrs.utils import mrs_io
+from fsl_mrs import read_basis
 import numpy as np
 from pathlib import Path
 
@@ -20,11 +20,11 @@ def test_noisecov():
     inputnoisecov = np.random.random((2, 2))
     inputnoisecov = np.dot(inputnoisecov, inputnoisecov.T)
 
-    testFID, hdr = syn.syntheticFID(coilamps=[1.0, 1.0],
-                                    coilphase=[0.0, 0.0],
-                                    noisecovariance=inputnoisecov,
-                                    amplitude=[0.0, 0.0],
-                                    points=32768)
+    testFID, _, _ = syn.syntheticFID(coilamps=[1.0, 1.0],
+                                     coilphase=[0.0, 0.0],
+                                     noisecovariance=inputnoisecov,
+                                     amplitude=[0.0, 0.0],
+                                     points=32768)
 
     outcov = np.cov(np.asarray(testFID))
 
@@ -33,15 +33,15 @@ def test_noisecov():
 
 
 def test_syntheticFID():
-    testFID, hdr = syn.syntheticFID(noisecovariance=[[0.0]], points=16384)
+    testFID, hdr, axes = syn.syntheticFID(noisecovariance=[[0.0]], points=16384)
 
     # Check FID is sum of lorentzian lineshapes
     # anlytical solution
     T2 = 1 / (hdr['inputopts']['damping'][0])
     M0 = hdr['inputopts']['amplitude'][0]
-    f0 = hdr['inputopts']['centralfrequency'] * hdr['inputopts']['chemicalshift'][0]
-    f1 = hdr['inputopts']['centralfrequency'] * hdr['inputopts']['chemicalshift'][1]
-    f = hdr['faxis']
+    f0 = axes.SpectrometerFrequency * hdr['inputopts']['chemicalshift'][0]
+    f1 = axes.SpectrometerFrequency * hdr['inputopts']['chemicalshift'][1]
+    f = axes.frequencyAxis
     spec = (M0 * T2) \
         / (1 + 4 * np.pi**2 * (f0 - f)**2 * T2**2) \
         + 1j * (2 * np.pi * M0 * (f0 - f) * T2**2) \
@@ -60,15 +60,41 @@ def test_syntheticFID():
 
 
 def test_syntheticFromBasis():
-    fid, _, _ = syn.syntheticFromBasisFile(str(basis_path),
-                                           ignore=['Scyllo'],
-                                           baseline=[0.0, 0.0],
-                                           concentrations={'Mac': 2.0},
-                                           coilamps=[1.0, 1.0],
-                                           coilphase=[0.0, np.pi],
-                                           noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
+    fid, _, _ = syn.syntheticFromBasisFile(
+        str(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0, 1.0],
+        coilphase=[0.0, np.pi],
+        noisecovariance=[[0.1, 0.0], [0.0, 0.1]])
 
     assert fid.shape == (2048, 2)
+
+    nmrs, _ = syn.syntheticFromBasisFile(
+        str(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0, 1.0],
+        coilphase=[0.0, np.pi],
+        noisecovariance=[[0.1, 0.0], [0.0, 0.1]],
+        nifti_output=True)
+
+    assert nmrs.shape == (1, 1, 1, 2048, 2)
+
+    # Test with single coil
+    nmrs, _ = syn.syntheticFromBasisFile(
+        read_basis(basis_path),
+        ignore=['Scyllo'],
+        baseline=[0.0, 0.0],
+        concentrations={'Mac': 2.0},
+        coilamps=[1.0],
+        coilphase=[0.0],
+        noisecovariance=[[0.1]],
+        nifti_output=True)
+
+    assert nmrs.shape == (1, 1, 1, 2048)
 
 
 def test_syntheticFromBasis_baseline():
@@ -76,10 +102,10 @@ def test_syntheticFromBasis_baseline():
     fid, mrs, _ = syn.syntheticFromBasisFile(str(basis_path),
                                              baseline=[0.0, 0.0],
                                              concentrations={'Mac': 2.0},
-                                             noisecovariance=[[0.0]])
+                                             noisecovariance=[[0.0]],
+                                             nifti_output=False)
 
     mrs.FID = fid
-    mrs.conj_FID = True
 
     fid, mrs2, _ = syn.syntheticFromBasisFile(str(basis_path),
                                               baseline=[1.0, 1.0],
@@ -87,24 +113,24 @@ def test_syntheticFromBasis_baseline():
                                               noisecovariance=[[0.0]])
 
     mrs2.FID = fid
-    mrs2.conj_FID = True
 
-    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, -1.0))
+    assert np.allclose(mrs2.get_spec(), mrs.get_spec() + complex(1.0, 1.0))
 
 
 def test_synthetic_spectra_from_model():
 
-    names = mrs_io.read_basis(str(basis_path)).names
+    names = read_basis(str(basis_path)).names
 
     time_var = np.arange(0, 10)
     period = 10.0
     time_var = time_var / period
 
-    defined_vals = {'c_0': 'conc',
-                    'gamma_0': 20,
-                    'gamma_1': 0,
-                    'sigma_0': 20,
-                    'sigma_1': 0}
+    defined_vals: dict[str, str | int | float] = {
+        'c_0': 'conc',
+        'gamma_0': 20,
+        'gamma_1': 0,
+        'sigma_0': 20,
+        'sigma_1': 0}
 
     defined_vals.update({f'conc_{met}_c_amp': 0 for met in names})
     defined_vals['conc_NAA_c_amp'] = 2

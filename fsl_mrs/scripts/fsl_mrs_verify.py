@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# fsl_mrs_veridy - script to verify fsl_mrs sucessfull installation
+# fsl_mrs_verify - script to verify fsl_mrs successful installation
 #
 # Author: William Clarke <william.clarke@ndcn.ox.ac.uk>
 #         Saad Jbabdi <saad@fmrib.ox.ac.uk>
@@ -20,7 +20,7 @@ import sys
 import pandas as pd
 import numpy as np
 
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 
 
 def main():
@@ -89,7 +89,7 @@ def main():
     assert (Path('fsl_mrs_test_results') / 'voxel_location.png').is_file()
 
     svs_results = pd.read_csv(Path('fsl_mrs_test_results') / 'summary.csv', index_col=0)
-    assert np.isclose(svs_results.loc['NAA+NAAG', 'mM'], 13.07, atol=1E-2)
+    assert np.isclose(svs_results.loc['NAA+NAAG', 'mM'], 12.87, atol=1E-2)
 
     print('SVS fitting checks passed')
     print('All done')

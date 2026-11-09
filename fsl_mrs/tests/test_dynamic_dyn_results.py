@@ -10,6 +10,10 @@ import pandas as pd
 import fsl_mrs.utils.synthetic as syn
 from fsl_mrs.core import MRS, basis
 import fsl_mrs.dynamic as dyn
+from pathlib import Path
+
+testsPath = Path(__file__).parent
+model_path = testsPath / 'testdata/dynamic/simple_linear_model.py'
 
 
 # Fixture returning two MRS objects (with basis) linked by a concentration scaling of 2x.
@@ -17,22 +21,19 @@ import fsl_mrs.dynamic as dyn
 def fixed_ratio_mrs():
     FID_basis1 = syn.syntheticFID(chemicalshift=[1, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
     FID_basis2 = syn.syntheticFID(chemicalshift=[3, ], amplitude=[1], noisecovariance=[[0]], damping=[3])
-    FID_basis1[1]['fwhm'] = 3 * np.pi
-    FID_basis2[1]['fwhm'] = 3 * np.pi
     b = basis.Basis(
         np.stack((FID_basis1[0][0], FID_basis2[0][0]), axis=1),
         ['Met1', 'Met2'],
-        [FID_basis1[1], FID_basis2[1]])
+        axes=FID_basis1[2])
+    b.basis_fwhm = [3 * np.pi, 3 * np.pi]
 
     FID1 = syn.syntheticFID(chemicalshift=[1, 3], amplitude=[1, 1], noisecovariance=[[0.01]])
     FID2 = syn.syntheticFID(chemicalshift=[1, 3], amplitude=[2, 2], noisecovariance=[[0.01]])
 
-    mrs1 = MRS(FID=FID1[0][0], header=FID1[1], basis=b)
-    mrs2 = MRS(FID=FID2[0][0], header=FID2[1], basis=b)
+    mrs1 = MRS.from_axes(fid=FID1[0][0], axes=FID1[2], basis=b)
+    mrs2 = MRS.from_axes(fid=FID2[0][0], axes=FID2[2], basis=b)
 
-    mrs1.check_FID(repair=True)
     mrs1.check_Basis(repair=True)
-    mrs2.check_FID(repair=True)
     mrs2.check_Basis(repair=True)
 
     mrs_list = [mrs1, mrs2]
@@ -45,7 +46,7 @@ def test_dynRes(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -95,7 +96,7 @@ def test_dynRes_newton(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -130,7 +131,7 @@ def test_dynRes_mcmc(fixed_ratio_mrs):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],
@@ -165,7 +166,7 @@ def test_load_save(fixed_ratio_mrs, tmp_path):
     dyn_obj = dyn.dynMRS(
         mrs_list,
         [0, 1],
-        'fsl_mrs/tests/testdata/dynamic/simple_linear_model.py',
+        str(model_path),
         model='lorentzian',
         baseline_order=0,
         metab_groups=[0, 0],

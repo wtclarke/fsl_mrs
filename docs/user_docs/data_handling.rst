@@ -15,3 +15,5 @@ Data might need to be manipulated within the NIfTI-MRS storage framework before,
 :code:`mrs_tools merge` takes two or more files and merges them along a specified dimension e.g. :code:`--dim DIM_EDIT`.
 
 :code:`mrs_tools reorder` permutes the dimensions of an existing NIfTI-MRS file. For example, the 5th through 7th dimensions can be changed from :code:`DIM_COIL, DIM_DYN, DIM_EDIT` to :code:`DIM_DYN, DIM_EDIT, DIM_COIL` using :code:`--dim_order DIM_DYN DIM_EDIT DIM_COIL`.
+
+:code:`mrs_tools conjugate` takes a single file and conjugates the time-domain data, resulting in a flip of the frequency axis.

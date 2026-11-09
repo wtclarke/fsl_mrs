@@ -42,7 +42,7 @@ class OptimizeResult(dict):
         return list(self.keys())
 
 
-class NonlinVB(object):
+class NonlinVB():
     """
     Usage:
     model = NonlinVB()

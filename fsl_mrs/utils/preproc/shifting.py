@@ -8,63 +8,68 @@
 
 import numpy as np
 from fsl_mrs.core import MRS
+from nifti_mrs.axes import Axes
 from fsl_mrs.utils.misc import extract_spectrum
 
 
-def timeshift(FID, dwelltime, shiftstart, shiftend, samples=None):
+def timeshift(FID: np.ndarray,
+              axes: Axes,
+              shiftstart: float,
+              shiftend: float,
+              samples: int = None) -> tuple[np.ndarray, float]:
     """ Shift data on time axis
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwell time in seconds
+        axes (Axes): Metadata/axes source
         shiftstart (float): Shift start point in seconds
         shiftend (float): Shift end point in seconds
         samples (int, optional): Resample to this number of points
 
     Returns:
         FID (ndarray): Shifted FID
+        newDT (float): New dwell time
     """
-    originalAcqTime = dwelltime * (FID.size - 1)
-    originalTAxis = np.linspace(0, originalAcqTime, FID.size)
     if samples is None:
-        newDT = dwelltime
+        newDT = axes.dwelltime
     else:
-        totalacqTime = originalAcqTime - shiftstart + shiftend
+        totalacqTime = axes.timeAxis[-1] - axes.timeAxis[0] - shiftstart + shiftend
         newDT = totalacqTime / samples
-    newTAxis = np.arange(originalTAxis[0] + shiftstart, originalTAxis[-1] + shiftend, newDT)
-    FID = np.interp(newTAxis, originalTAxis, FID, left=0.0 + 1j * 0.0, right=0.0 + 1j * 0.0)
+    newTAxis = np.arange(axes.timeAxis[0] + shiftstart, axes.timeAxis[-1] + shiftend, newDT)
+    FID = np.interp(newTAxis, axes.timeAxis, FID, left=0.0 + 1j * 0.0, right=0.0 + 1j * 0.0)
 
     return FID, newDT
 
 
-def freqshift(FID, dwelltime, shift):
+def freqshift(FID: np.ndarray,
+              axes: Axes,
+              shift: float) -> np.ndarray:
     """ Shift data on frequency axis
 
     Args:
         FID (ndarray): Time domain data
-        dwelltime (float): dwelltime in seconds
+        axes (Axes): Metadata/axes source
         shift (float): shift in Hz
 
     Returns:
         FID (ndarray): Shifted FID
     """
-    tAxis = np.linspace(0, dwelltime * FID.size, FID.size)
-    phaseRamp = 2 * np.pi * tAxis * shift
+    phaseRamp = 2 * np.pi * axes.timeAxis * shift
     FID = FID * np.exp(1j * phaseRamp)
     return FID
 
 
 def freqshift_array(
         fid_array: np.ndarray,
-        dwelltime: float,
+        axes: Axes,
         shift_array: np.ndarray | float) -> np.ndarray:
     """Apply shifts to a grid of data without looping
 
     :param fid_array: ND array of FIDs. Last dimension is time.
     :type fid_array: np.ndarray
-    :param dwelltime: Dwell time (1/bandwidth) in seconds
-    :type dwelltime: float
-    :param shift_array: Either a single value or an array matching fid)array spatial size
+    :param axes: Metadata/axes source
+    :type axes: Axes
+    :param shift_array: Either a single value or an array matching fid_array spatial size
     :type shift_array: np.ndarray | float
     :return: Shifted FIDs
     :rtype: np.ndarray
@@ -73,27 +78,24 @@ def freqshift_array(
             and shift_array.shape != fid_array.shape[:-1]:
         raise ValueError('shift_array must be float or array matching spatial size of fid_array.')
 
-    tAxis = np.linspace(
-        0,
-        dwelltime * fid_array.shape[-1],
-        fid_array.shape[-1])
-
     if isinstance(shift_array, float):
-        phaseRamp = 2 * np.pi * tAxis * shift_array
+        phaseRamp = 2 * np.pi * axes.timeAxis * shift_array
     else:
-        phaseRamp = 2 * np.pi * tAxis * shift_array[..., np.newaxis]
+        phaseRamp = 2 * np.pi * axes.timeAxis * shift_array[..., np.newaxis]
 
     return fid_array * np.exp(1j * phaseRamp)
 
 
-def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True):
+def shiftToRef(FID: np.ndarray,
+               target: float,
+               axes: Axes,
+               ppmlim: tuple = (2.8, 3.2),
+               shift: bool = True) -> tuple[np.ndarray, float]:
     '''Find a maximum and shift that maximum to a reference position.
 
     :param FID: FID
     :param float target: reference position in ppm
-    :param float bw: Bandwidth or spectral width in Hz.
-    :param float cf: Central or spectrometer frequency (MHz)
-    :param str nucleus: Nucleus string, defaults to 1H
+    :param Axes axes: Metadata/axes source
     :param ppmlim: Search range for peak maximum
     :param bool shift: If True (default) ppm values include shift
 
@@ -103,22 +105,18 @@ def shiftToRef(FID, target, bw, cf, nucleus='1H', ppmlim=(2.8, 3.2), shift=True)
 
     # Find maximum of absolute spectrum in ppm limit
     padFID = pad(FID, FID.size * 3)
-    MRSargs = {'FID': padFID,
-               'bw': bw,
-               'cf': cf,
-               'nucleus': nucleus}
-    mrs = MRS(**MRSargs)
-    spec = extract_spectrum(mrs, padFID, ppmlim=ppmlim, shift=shift)
+    pad_mrs = MRS.from_axes(padFID, axes)
+    spec = extract_spectrum(pad_mrs, padFID, ppmlim=ppmlim, shift=shift)
     if shift:
-        extractedAxis = mrs.getAxes(ppmlim=ppmlim)
+        extractedAxis = pad_mrs.getAxes(limits=ppmlim)
     else:
-        extractedAxis = mrs.getAxes(ppmlim=ppmlim, axis='ppm')
+        extractedAxis = pad_mrs.getAxes(limits=ppmlim, axis='ppm')
 
     maxIndex = np.argmax(np.abs(spec))
     shiftAmount = extractedAxis[maxIndex] - target
-    shiftAmountHz = shiftAmount * mrs.centralFrequency / 1E6
+    shiftAmountHz = shiftAmount * pad_mrs.centralFrequency / 1E6
 
-    return freqshift(FID, 1 / bw, -shiftAmountHz), shiftAmount
+    return freqshift(FID, pad_mrs.axes, -shiftAmountHz), shiftAmount
 
 
 def truncate(FID, k, first_or_last='last'):
@@ -169,10 +167,8 @@ def pad(FID, k, first_or_last='last'):
         raise ValueError("Last parameter must either be 'first' or 'last'")
 
 
-def shift_report(inFID,
-                 outFID,
-                 inHdr,
-                 outHdr,
+def shift_report(in_mrs,
+                 out_mrs,
                  ppmlim=(0.2, 4.2),
                  html=None,
                  function='shift'):
@@ -183,9 +179,6 @@ def shift_report(inFID,
     from plotly.subplots import make_subplots
     from fsl_mrs.utils.preproc.reporting import plotStyles, plotAxesStyle
 
-    plotIn = MRS(FID=inFID, header=inHdr)
-    plotOut = MRS(FID=outFID, header=outHdr)
-
     # Fetch line styles
     lines, _, _ = plotStyles()
 
@@ -193,13 +186,13 @@ def shift_report(inFID,
     fig = make_subplots(rows=1, cols=2, subplot_titles=['Spectra', 'FID'])
 
     # Add lines to figure
-    trace1 = go.Scatter(x=plotIn.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotIn.get_spec(ppmlim=ppmlim)),
+    trace1 = go.Scatter(x=in_mrs.getAxes(limits=ppmlim),
+                        y=np.real(in_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Original',
                         line=lines['in'])
-    trace2 = go.Scatter(x=plotOut.getAxes(ppmlim=ppmlim),
-                        y=np.real(plotOut.get_spec(ppmlim=ppmlim)),
+    trace2 = go.Scatter(x=out_mrs.getAxes(limits=ppmlim),
+                        y=np.real(out_mrs.get_spec(ppmlim=ppmlim)),
                         mode='lines',
                         name='Shifted',
                         line=lines['out'])
@@ -207,13 +200,13 @@ def shift_report(inFID,
     fig.add_trace(trace2, row=1, col=1)
 
     # Add lines to figure
-    trace3 = go.Scatter(x=plotIn.getAxes(axis='time'),
-                        y=np.real(plotIn.FID),
+    trace3 = go.Scatter(x=in_mrs.getAxes(axis='time'),
+                        y=np.real(in_mrs.FID),
                         mode='lines',
                         name='Original',
                         line=lines['emph'])
-    trace4 = go.Scatter(x=plotOut.getAxes(axis='time'),
-                        y=np.real(plotOut.FID),
+    trace4 = go.Scatter(x=out_mrs.getAxes(axis='time'),
+                        y=np.real(out_mrs.FID),
                         mode='lines',
                         name='Shifted',
                         line=lines['diff'])
@@ -298,8 +291,8 @@ def reportStrings(funcName):
 
 #     fig,(ax1,ax2) = plt.subplots(1,2,figsize=(12,7))
 
-#     ax1.plot(plotIn.getAxes(ppmlim=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
-#     ax1.plot(plotOut.getAxes(ppmlim=ppmlim),np.real(plotOut.get_spec(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
+#     ax1.plot(plotIn.getAxes(limits=ppmlim),np.real(plotIn.get_spec(ppmlim=ppmlim)),'k',label='Original', linewidth=2)
+#     ax1.plot(plotOut.getAxes(limits=ppmlim),np.real(plotOut.get_spec(ppmlim=ppmlim)),'r',label='Shifted', linewidth=2)
 #     styleSpectrumAxes(ax=ax1)
 #     ax1.legend()
 

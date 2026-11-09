@@ -9,24 +9,21 @@
 # SHBASECOPYRIGHT
 
 # Imports
-from __future__ import annotations
-from typing import TYPE_CHECKING
-
 from os import makedirs
 from shutil import rmtree
 import os.path as op
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from fsl.data.image import Image
 
+from fsl_mrs.core import NIFTI_MRS, is_nifti_mrs
 from fsl_mrs.auxiliary import configargparse
-from fsl_mrs import __version__
+from fsl_mrs._version import __version__
 from fsl_mrs.utils.splash import splash
-if TYPE_CHECKING:
-    # Performed to enable NIFTI_MRS typing in dataclass
-    # and a quick startup by not importing NIFTI_MRS yet.
-    from fsl_mrs.core import NIFTI_MRS
 
 
 class InappropriateDataError(Exception):
@@ -42,8 +39,8 @@ class datacontainer:
     '''Class for keeping track of data and reference data together.'''
     data: NIFTI_MRS
     datafilename: str
-    reference: NIFTI_MRS = None
-    reffilename: str = None
+    reference: NIFTI_MRS | None = None
+    reffilename: str | None = None
 
 
 def main():
@@ -53,10 +50,11 @@ def main():
         description="FSL Magnetic Resonance Spectroscopy - Preprocessing")
 
     p.add_argument('-v', '--version', action='version', version=__version__)
-    p.add('--config',
-          required=False,
-          is_config_file=True,
-          help='configuration file')
+    p.add_argument(
+        '--config',
+        required=False,
+        is_config_file=True,
+        help='configuration file')
 
     sp = p.add_subparsers(title='subcommands',
                           description='Preprocessing subcommands',
@@ -106,19 +104,26 @@ def main():
     align_group = alignparser.add_argument_group('Align arguments')
     align_group.add_argument('--file', type=str, required=True,
                              help='List of files to align')
-    align_group.add_argument('--dim', type=str, default='DIM_DYN',
+    align_group.add_argument('--dim', type=str, default='all',
                              help='NIFTI-MRS dimension tag to align across.'
-                                  'Or "all" to align over all spectra in higer dimensions.'
-                                  'Default = DIM_DYN')
+                                  'Or "all" to align over all spectra in higher dimensions.'
+                                  'Default = all')
     align_group.add_argument('--ppm', type=float, nargs=2,
                              metavar=('<lower-limit>', '<upper-limit>'),
                              default=(0.2, 4.2),
                              help='ppm limits of alignment window'
                                   ' (default=0.2->4.2)')
     align_group.add_argument('--reference', type=str, required=False,
-                             help='Align to this reference data.')
+                             help='Align to this reference data, in NIFTI-MRS format.')
+    align_group.add_argument(
+        '--method',
+        type=str,
+        required=False,
+        choices=['specreg', 'xcorr'],
+        default='specreg',
+        help='Alignment method: "specreg" (default) or "xcorr".')
     align_group.add_argument('--window', type=int,
-                             help='Define window size to use iterative moving window average. '
+                             help='Define spectral registration window size to use iterative moving window average. '
                                   'This can improve performance for low SNR or data with phase cycled artifacts.')
     alignparser.set_defaults(func=align)
     add_common_args(alignparser)
@@ -359,24 +364,40 @@ def main():
     malignparser = sp.add_parser(
         'mrsi-align',
         add_help=False,
-        help='Phase and/or frequency align across voxels.')
+        help='Phase and frequency alignment using cross correlation.')
     ma_group = malignparser.add_argument_group('MRSI alignment arguments')
-    ma_group.add_argument('--file', type=str, required=True,
-                          help='File to align.')
-    ma_group.add_argument('--mask', type=str, required=False,
-                          help='Mask file, NIfTI formated, only align on voxels selected.')
-    ma_group.add_argument('--freq-align', action="store_true",
-                          help='Run crosscorrelation frequency alignment.')
-    ma_group.add_argument('--zpad', type=int, default=1,
-                          help='Frequency alignment zero pading factor. 1 = double, 0 disables')
-    ma_group.add_argument('--phase-correct', action="store_true",
-                          help='Run phase correction.')
-    ma_group.add_argument('--ppm', type=float, nargs=2,
-                          metavar=('<lower-limit', 'upper-limit>'),
-                          default=None,
-                          help='ppm limits of phase correction window, default = no limits')
-    ma_group.add_argument('--save-params', action="store_true",
-                          help='Save shfits and/or phases to nifti format files.')
+    ma_group.add_argument(
+        '--file',
+        type=str,
+        required=True,
+        help='File to align.')
+    ma_group.add_argument(
+        '--target',
+        type=str,
+        required=False,
+        help='Single spectrum target to align to. Stored as NIfTI-MRS.')
+    ma_group.add_argument(
+        '--mask',
+        type=str,
+        required=False,
+        help='Mask file, NIfTI formated. only align on voxels selected.')
+    ma_group.add_argument(
+        '--ppm',
+        type=float,
+        required=False,
+        nargs=2,
+        metavar=('<lower-limit>', '<upper-limit>'),
+        default=None,
+        help='ppm limits of alignment window (default=None, i.e. full spectrum)')
+    ma_group.add_argument(
+        '--zpad',
+        type=int,
+        default=1,
+        help='Frequency alignment zero pading factor. 1 = double, 0 disables')
+    ma_group.add_argument(
+        '--save-params',
+        action="store_true",
+        help='Save applied shifts (hertz) and phases (degrees) to nifti format files.')
     ma_group.set_defaults(func=mrsi_align)
     add_common_args(malignparser)
 
@@ -394,6 +415,13 @@ def main():
                           help='Regularisation scaling, default = 1E-5. Adjust to scale lipid removal strength')
     ml_group.set_defaults(func=mrsi_lipid)
     add_common_args(mlipidparser)
+
+    # Hide deprecated subcommands from help while keeping them callable.
+    sp._choices_actions = [
+        action for action in sp._choices_actions
+        if getattr(action, 'dest', None) != 'conj'
+    ]
+    sp.metavar = '{' + ','.join(name for name in sp.choices if name != 'conj') + '}'
 
     # Parse command-line arguments
     args = p.parse_args()
@@ -459,7 +487,7 @@ def add_common_args(p):
                           help='overwrite existing output folder')
     optional.add_argument('-r', '--generateReports', action="store_true",
                           help='Generate HTML reports.')
-    # optional.add_argument('-i', '--reportIndicies',
+    # optional.add_argument('-i', '--reportIndices',
     #                       type=int,
     #                       nargs='+',
     #                       default=[0],
@@ -469,8 +497,6 @@ def add_common_args(p):
     #                            ' Specify as indices counting from 0.')
     optional.add_argument('--allreports', action="store_true",
                           help='Generate reports for all inputs.')
-    # optional.add_argument('--conjugate', action="store_true",
-    #                       help='apply conjugate to FID')
     optional.add_argument('--filename', type=str, metavar='<str>',
                           help='Override output file name.')
     optional.add_argument('--verbose', action="store_true",
@@ -498,7 +524,6 @@ def loadData(datafile, refdatafile=None):
     The data must be of NIFTI MRS format.
     Optionaly loads a reference file.
     """
-    from fsl_mrs.core import NIFTI_MRS, is_nifti_mrs
 
     # Do a check on the data file passed. The data must be of nifti type.
     if not is_nifti_mrs(datafile):
@@ -607,12 +632,15 @@ def align(dataobj, args):
         raise InappropriateDataError(f'Data ({dataobj.datafilename}) has no {args["dim"]} dimension.'
                                      f' Dimensions are is {dataobj.data.dim_tags}.')
 
-    aligned = preproc.align(dataobj.data,
-                            args['dim'],
-                            ppmlim=args['ppm'],
-                            window=args['window'],
-                            report=args['generateReports'],
-                            report_all=args['allreports'])
+    aligned = preproc.align(
+        dataobj.data,
+        args['dim'],
+        ppmlim=args['ppm'],
+        window=args['window'],
+        method=args['method'],
+        target=dataobj.reference,
+        report=args['generateReports'],
+        report_all=args['allreports'])
 
     return datacontainer(aligned, dataobj.datafilename)
 
@@ -830,6 +858,10 @@ def add(dataobj, args):
 def conj(dataobj, args):
     from fsl_mrs.utils.preproc import nifti_mrs_proc as preproc
 
+    warnings.warn(
+        "The 'conj' subcommand is deprecated and may be removed in a future release.",
+        FutureWarning)
+
     conjugated = preproc.conjugate(dataobj.data,
                                    report=args['generateReports'],
                                    report_all=args['allreports'])
@@ -838,39 +870,30 @@ def conj(dataobj, args):
 
 
 def mrsi_align(dataobj, args):
-    '''Function that applys frequency and/or phase correction to mrsi.'''
+    '''Function that applies frequency and/or phase correction to mrsi.'''
     from fsl_mrs.utils.preproc import mrsi
 
     if dataobj.data.shape[:3] == (1, 1, 1):
         raise ValueError('mrsi-align is not suitable for single voxel data.')
 
-    if args['mask'] is not None:
-        from fsl.data.image import Image
-        mask = Image(args['mask'])
-    else:
-        mask = None
+    data, shifts, phases = mrsi.mrsi_freq_align(
+        dataobj.data,
+        mask=Image(args['mask']) if args['mask'] is not None else None,
+        target=NIFTI_MRS(args['target']) if args['target'] is not None else None,
+        zpad_factor=args['zpad'],
+        ppmlim=args['ppm'])
 
-    if args['filename'] is None:
-        fname = dataobj.datafilename
-    else:
-        fname = args['filename']
+    phases[:] *= 180 / np.pi
 
-    data = dataobj.data
-    if args['freq_align']:
-        data, shifts = mrsi.mrsi_freq_align(
-            data,
-            mask=mask,
-            zpad_factor=args['zpad'])
-        if args['save_params']:
-            shifts.save(op.join(args['output'], fname + '_shifts_hz.nii.gz'))
+    if args['save_params']:
 
-    if args['phase_correct']:
-        data, phs = mrsi.mrsi_phase_corr(
-            data,
-            mask=mask,
-            ppmlim=args['ppm'])
-        if args['save_params']:
-            phs.save(op.join(args['output'], fname + '_phase_deg.nii.gz'))
+        if args['filename'] is None:
+            fname = dataobj.datafilename
+        else:
+            fname = args['filename']
+
+        shifts.save(op.join(args['output'], fname + '_shifts_hz.nii.gz'))
+        phases.save(op.join(args['output'], fname + '_phase_deg.nii.gz'))
 
     return datacontainer(data, dataobj.datafilename)
 

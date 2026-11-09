@@ -62,7 +62,7 @@ class ArgumentDefaultsRawHelpFormatter(
     pass
 
 
-class ConfigFileParser(object):
+class ConfigFileParser():
     """This abstract class can be extended to add support for new config file
     formats"""
 

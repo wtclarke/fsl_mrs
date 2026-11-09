@@ -8,6 +8,7 @@ Copyright (C) 2021 University of Oxford
 from pathlib import Path
 
 import numpy as np
+from nifti_mrs.axes import Axes
 
 from fsl_mrs.utils import mrs_io
 from fsl_mrs.core import MRS
@@ -40,7 +41,7 @@ def convert_lcm_basis(path_to_basis, output_location=None, nucleus=None):
     # 1. Read LCModel basis
     basis = mrs_io.read_basis(path_to_basis)
 
-    # 2. Conjugate to preserve the sense w.r.t. FSL-MRS useage.
+    # 2. Conjugate to preserve the sense w.r.t. FSL-MRS usage.
     basis = conjugate_basis(basis)
 
     # 3. Update nucleus information if provided
@@ -55,7 +56,8 @@ def convert_lcm_basis(path_to_basis, output_location=None, nucleus=None):
         basis.save(output_location, info_str=sim_info)
 
 
-def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None, nucleus=None):
+def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_location=None,
+                          nucleus=None, chemical_shift=None):
     """Converts an existing LCModel set of .Raw basis files to FSL format (a directory of json files).
 
     The generated FSL format will only contain a subset of the information that it normaly does
@@ -71,10 +73,12 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     :type output_location: _tpathlib.Path or str, optional
     :param nucleus: String to update nucleus field with (e.g. 31P, 2H, etc)
     :type nucleus: str, optional.
+    :param chemical_shift: Chemical shift of the basis in ppm, defaults to None.
+    :type chemical_shift: float, optional.
     """
     from fsl_mrs.utils.mrs_io.lcm_io import read_basis_files
 
-    files = [str(x) for x in path_to_basis.glob('*.raw')]
+    files = [str(x) for x in sorted(path_to_basis.iterdir()) if x.is_file() and x.suffix.lower() == '.raw']
 
     basis_array, names = read_basis_files(files)
     basis_array = basis_array.conj()
@@ -85,6 +89,7 @@ def convert_lcm_raw_basis(path_to_basis, bandwidth, central_frequency, output_lo
     header['centralFrequency'] = central_frequency
     header['fwhm'] = None
     header['nucleus'] = nucleus
+    header['centralShift'] = chemical_shift
 
     basis = Basis(basis_array, names, [header, ] * len(names))
 
@@ -126,6 +131,7 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
 
     # get nucleus information
     gamma = GYRO_MAG_RATIO.get(nucleus, GYRO_MAG_RATIO['1H'])
+    # TODO review if this should be read later from input_dict['centerFreq']
     ppmshift = PPM_SHIFT.get(nucleus, PPM_SHIFT['1H'])
 
     # Extract fields from Osprey basis
@@ -165,6 +171,8 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
         # Convert each repetition to an FSL-MRS Basis
         for fids, desc in zip(basis_fids, description):
             # Use single conjugation as basis_tools vis conjugates by default dir inputs
+            # TODO Osprey data are assumed to be zero-centred.
+            # review if 'centralShift' here should change to central_freq_shift
             Basis(
                 shift(fids.conj()),
                 names,
@@ -172,11 +180,14 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
                     'dwelltime': dwell,
                     'bandwidth': bandwidth,
                     'centralFrequency': b0 * gamma,
-                    'fwhm': fwhm
+                    'fwhm': fwhm,
+                    'centralShift': 0,
                     },] * len(names))\
                 .save(f'{outdir}_{desc}', overwrite=True)
     else:
         # Use single conjugation as basis_tools vis conjugates by default dir inputs
+        # TODO Osprey data are assumed to be zero-centred.
+        # review if 'centralShift' here should change to central_freq_shift
         Basis(
             shift(basis_fids.conj()),
             names,
@@ -184,7 +195,8 @@ def convert_osprey_basis(infile, outdir, nucleus=None, description=None):
                 'dwelltime': dwell,
                 'bandwidth': bandwidth,
                 'centralFrequency': b0 * gamma,
-                'fwhm': fwhm
+                'fwhm': fwhm,
+                'centralShift': 0,
                 },] * len(names))\
             .save(f'{outdir}', overwrite=True)
 
@@ -230,7 +242,7 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
         if not pad:
             raise IncompatibleBasisError('The new basis FID covers too little time, try padding.')
         else:
-            # Pad fid to sufficent length
+            # Pad fid to sufficient length
             required_time = (target.original_points - 1) * target_dt
             fid_dt = 1 / bw
             required_points = int(np.ceil(required_time / fid_dt)) + 1
@@ -251,7 +263,6 @@ def add_basis(fid, name, cf, bw, target, scale=False, width=None, conj=False, pa
     # 3. Width calculation if needed.
     if width is None:
         mrs = MRS(FID=resampled_fid, cf=cf, bw=bw)
-        mrs.check_FID(repair=True)
         width, _, _ = idPeaksCalcFWHM(mrs)
 
     # 4. Conjugate if requested
@@ -387,13 +398,17 @@ def difference_basis_sets(basis_1, basis_2, add_or_subtract='add', missing_metab
 
 
 def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
+    axes = Axes(
+        ResonantNucleus='1H',
+        SpectrometerFrequency=basis.cf,
+        dwelltime=basis.original_dwell,
+        npoints=basis.original_basis_array.shape[0])
 
     def removal_func(fid):
         if use_hlsvd:
             return hlsvd(
                 fid,
-                basis.original_dwell,
-                basis.cf * 1E6,
+                axes,
                 limits,
                 limitUnits='ppm+shift',
                 numSingularValues=5,
@@ -401,8 +416,7 @@ def remove_peak(basis, limits, name=None, all=False, use_hlsvd=False):
         else:
             return zero_spectrum(
                 fid,
-                basis.original_dwell,
-                basis.cf * 1E6,
+                axes,
                 limits,
                 limitUnits='ppmshift')
 

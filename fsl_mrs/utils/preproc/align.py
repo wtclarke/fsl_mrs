@@ -111,9 +111,7 @@ def align_FID_diff(mrs, src_FID0, src_FID1, tgt_FID, diffType='add', ppmlim=None
 # The functions to call
 # 1) For normal FIDs
 def phase_freq_align(FIDlist,
-                     bandwidth,
-                     centralFrequency,
-                     nucleus='1H',
+                     axes,
                      ppmlim=None,
                      niter=2,
                      apodize=0,
@@ -128,15 +126,14 @@ def phase_freq_align(FIDlist,
 
     Parameters:
     -----------
-    FIDlist          : list
-    bandwidth        : float (unit=Hz)
-    centralFrequency : float (unit=Hz)
-    ppmlim           : tuple
-    niter            : int
-    apodize          : float (unit=Hz)
-    verbose          : bool
-    shift            : apply H20 shift to ppm limit
-    ref              : reference data to align to
+    FIDlist         : list
+    axes            : Axes
+    ppmlim          : tuple
+    niter           : int
+    apodize         : float (unit=Hz)
+    verbose         : bool
+    shift           : apply H20 shift to ppm limit
+    target          : reference data to align to
 
     Returns:
     --------
@@ -152,8 +149,7 @@ def phase_freq_align(FIDlist,
         if target is None:
             target = get_target_FID(all_FIDs, target='nearest_to_mean')
 
-        MRSargs = {'FID': target, 'bw': bandwidth, 'cf': centralFrequency, 'nucleus': nucleus}
-        mrs = MRS(**MRSargs)
+        mrs = MRS.from_axes(target, axes)
 
         if apodize > 0:
             target = apod(target, mrs.dwellTime, [apodize])
@@ -181,12 +177,86 @@ def phase_freq_align(FIDlist,
     return all_FIDs, phiOut, epsOut
 
 
-# 2) To align spectra from different groups with optional processing applied.
+# 2) Align using iterated windowed averages
+def phase_freq_align_windowed(
+        win_size: int,
+        FIDlist: np.typing.NDArray[np.complexfloating],
+        axes,
+        ppmlim=None,
+        apodize=0,
+        verbose=False,
+        shift=True,
+        target=None):
+
+    total_phs = np.zeros(FIDlist.shape[0])
+    total_eps = np.zeros(FIDlist.shape[0])
+    curr_raw = FIDlist.copy().T
+
+    mean_eps = 1
+    nwiter = 0
+
+    while mean_eps > 0.02:
+        if win_size % 2:
+            # Odd window size: up the size of the window by two
+            # discard the outer two zeros
+            weighting_func = np.hanning(win_size + 2)
+            weighting_func = weighting_func[1:-1]
+            stride_size = win_size
+        else:
+            # Even window size: up the size of the window by three
+            # discard the outer two zeros
+            weighting_func = np.hanning(win_size + 3)
+            weighting_func = weighting_func[1:-1]
+            stride_size = win_size + 1
+        half_win = int(win_size / 2)
+
+        # Handle window size 1 case
+        if win_size == 1:
+            padded_data = curr_raw
+        else:
+            padded_data = np.concatenate(
+                (curr_raw[:, -half_win:], curr_raw[:, :], curr_raw[:, :half_win]),
+                axis=1)
+
+        win_avg_data = np.lib.stride_tricks.sliding_window_view(
+            padded_data,
+            stride_size,
+            axis=1) * weighting_func
+        win_avg_data = win_avg_data.mean(axis=-1)
+
+        if target is None:
+            target = curr_raw.mean(axis=1)
+
+        _, phi, eps = phase_freq_align(
+            win_avg_data.T,
+            axes,
+            ppmlim=ppmlim,
+            apodize=apodize,
+            verbose=verbose,
+            shift=shift,
+            target=target)
+
+        mrs = MRS.from_axes(win_avg_data[:, 0], axes)
+        for jdx, fid in enumerate(curr_raw.T):
+            curr_raw.T[jdx] = np.exp(-1j * phi[jdx]) * shift_FID(mrs, fid, eps[jdx])
+
+        total_phs += phi
+        total_eps += eps
+        mean_eps = np.abs(eps).mean()
+        nwiter += 1
+
+        if nwiter == 30:
+            print('Reached windowed average iteration limit. Stopping.')
+            break
+
+    # Final transpose to match input and phase_freq_align
+    return curr_raw.T, total_phs, total_eps
+
+
+# 3) To align spectra from different groups with optional processing applied.
 def phase_freq_align_diff(FIDlist0,
                           FIDlist1,
-                          bandwidth,
-                          centralFrequency,
-                          nucleus='1H',
+                          axes,
                           diffType='add',
                           ppmlim=None,
                           shift=True,
@@ -197,15 +267,13 @@ def phase_freq_align_diff(FIDlist0,
 
     Parameters:
     -----------
-    FIDlist0         : list - shifted
-    FIDlist1         : list - fixed
-    bandwidth        : float (unit=Hz)
-    centralFrequency : float (unit=Hz)
-    nucleus          : str
-    diffType         : string - add or subtract
-    ppmlim           : tuple
-    shift            : apply H20 shift to ppm limit
-    ref              : reference data to align to
+    FIDlist0        : list - shifted
+    FIDlist1        : list - fixed
+    axes            : Axes
+    diffType        : string - add or subtract
+    ppmlim          : tuple
+    shift           : apply H20 shift to ppm limit
+    target          : reference data to align to
 
     Returns:
     --------
@@ -226,7 +294,7 @@ def phase_freq_align_diff(FIDlist0,
         tgt_FID = get_target_FID(diffFIDList, target='nearest_to_mean')
 
     # Pass to phase_freq_align
-    mrs = MRS(FID=FIDlist0[0], cf=centralFrequency, bw=bandwidth, nucleus=nucleus)
+    mrs = MRS.from_axes(FIDlist0[0], axes)
     phiOut, epsOut = [], []
     alignedFIDs0 = []
     for fid0, fid1 in zip(FIDlist0, FIDlist1):
@@ -241,13 +309,10 @@ def phase_freq_align_diff(FIDlist0,
 
 
 # Reporting functions
-def phase_freq_align_report(inFIDs,
-                            outFIDs,
+def phase_freq_align_report(in_mrs,
+                            out_mrs,
                             phi,
                             eps,
-                            bw,
-                            cf,
-                            nucleus='1H',
                             ppmlim=None,
                             shift=True,
                             html=None):
@@ -267,7 +332,6 @@ def phase_freq_align_report(inFIDs,
 
     trace1 = go.Scatter(x=np.arange(1, len(phi) + 1),
                         y=np.array(phi) * (180.0 / np.pi),
-                        mode='lines',
                         name='Phase',
                         line=lines['out'])
     fig.add_trace(trace1, row=1, col=1)
@@ -276,36 +340,31 @@ def phase_freq_align_report(inFIDs,
 
     trace2 = go.Scatter(x=np.arange(1, len(eps) + 1),
                         y=eps,
-                        mode='lines',
                         name='Shift',
                         line=lines['diff'])
     fig.add_trace(trace2, row=1, col=2)
     fig.layout.yaxis2.update(title_text='Shift (Hz)')
     fig.layout.xaxis2.update(title_text='Transient #')
 
+    inFIDs = np.asarray([mrs.FID for mrs in in_mrs])
+    outFIDs = np.asarray([mrs.FID for mrs in out_mrs])
+
     # Transpose so time dimension is first
     meanIn = combine_FIDs(inFIDs.T, 'mean')
     meanOut = combine_FIDs(outFIDs.T, 'mean')
-
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    meanIn = toMRSobj(meanIn)
-    meanOut = toMRSobj(meanOut)
+    meanIn = MRS.from_axes(meanIn, in_mrs[0].axes)
+    meanOut = MRS.from_axes(meanOut, out_mrs[0].axes)
 
     if shift:
         axis = 'ppmshift'
     else:
         axis = 'ppm'
 
-    toPlotIn, toPlotOut = [], []
-    for fid in inFIDs:
-        toPlotIn.append(toMRSobj(fid))
-    for fid in outFIDs:
-        toPlotOut.append(toMRSobj(fid))
+    toPlotIn = in_mrs
+    toPlotOut = out_mrs
 
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),
                            y=np.real(mrs.get_spec(ppmlim=lim, shift=shift)),
                            mode='lines',
                            name=name,
@@ -370,15 +429,12 @@ def phase_freq_align_report(inFIDs,
         return fig, fig2, fig3
 
 
-def phase_freq_align_diff_report(inFIDs0,
-                                 inFIDs1,
-                                 outFIDs0,
-                                 outFIDs1,
+def phase_freq_align_diff_report(in_mrs0,
+                                 in_mrs1,
+                                 out_mrs0,
+                                 out_mrs1,
                                  phi,
                                  eps,
-                                 bw,
-                                 cf,
-                                 nucleus='1H',
                                  ppmlim=None,
                                  diffType='add',
                                  shift=True,
@@ -414,38 +470,31 @@ def phase_freq_align_diff_report(inFIDs0,
 
     diffFIDListIn = []
     diffFIDListOut = []
-    for fid0i, fid1i, fid0o, fid1o in zip(inFIDs0, inFIDs1, outFIDs0, outFIDs1):
+    for fid0i, fid1i, fid0o, fid1o in zip(in_mrs0, in_mrs1, out_mrs0, out_mrs1):
         if diffType.lower() == 'add':
-            diffFIDListIn.append(add(fid1i, fid0i))
-            diffFIDListOut.append(add(fid1o, fid0o))
+            diffFIDListIn.append(add(fid1i.FID, fid0i.FID))
+            diffFIDListOut.append(add(fid1o.FID, fid0o.FID))
         elif diffType.lower() == 'sub':
-            diffFIDListIn.append(subtract(fid1i, fid0i))
-            diffFIDListOut.append(subtract(fid1o, fid0o))
+            diffFIDListIn.append(subtract(fid1i.FID, fid0i.FID))
+            diffFIDListOut.append(subtract(fid1o.FID, fid0o.FID))
         else:
             raise ValueError('diffType must be add or sub.')
 
     meanIn = combine_FIDs(diffFIDListIn, 'mean')
     meanOut = combine_FIDs(diffFIDListOut, 'mean')
-
-    def toMRSobj(fid):
-        return MRS(FID=fid, cf=cf, bw=bw, nucleus=nucleus)
-
-    meanIn = toMRSobj(meanIn)
-    meanOut = toMRSobj(meanOut)
+    meanIn = MRS.from_axes(meanIn, in_mrs0[0].axes)
+    meanOut = MRS.from_axes(meanOut, out_mrs0[0].axes)
 
     if shift:
         axis = 'ppmshift'
     else:
         axis = 'ppm'
 
-    toPlotIn, toPlotOut = [], []
-    for fid in diffFIDListIn:
-        toPlotIn.append(toMRSobj(fid))
-    for fid in diffFIDListOut:
-        toPlotOut.append(toMRSobj(fid))
+    toPlotIn = [MRS.from_axes(fid, in_mrs0[0].axes) for fid in diffFIDListIn]
+    toPlotOut = [MRS.from_axes(fid, out_mrs0[0].axes) for fid in diffFIDListOut]
 
     def addline(fig, mrs, lim, name, linestyle):
-        trace = go.Scatter(x=mrs.getAxes(ppmlim=lim, axis=axis),
+        trace = go.Scatter(x=mrs.getAxes(limits=lim, axis=axis),
                            y=np.real(mrs.get_spec(ppmlim=lim, shift=shift)),
                            mode='lines',
                            name=name,

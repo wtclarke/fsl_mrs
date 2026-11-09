@@ -12,9 +12,10 @@ import nibabel as nib
 import os
 import glob
 import re
-from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
 from pathlib import Path
 from datetime import datetime
+from fsl_mrs.core.nifti_mrs import gen_nifti_mrs
+from fsl_mrs.core import basis as bmod
 
 
 # NIFTI I/O
@@ -31,7 +32,7 @@ def readNIFTI(datafile):
     # Sort out header - must contain mandatory fields. Add a nifti header which is unfortunately quite
     # heavy weight as it is the whole loaded object. Add a json header as a nested dict if there is
     # a sidecar file.
-    # Reciever bandwidth and dwelltime can either be fetched from the nifti header or the json
+    # Receiver bandwidth and dwelltime can either be fetched from the nifti header or the json
     # central frequency is currently only sotred in the json.
     if jsonParams is None:
         raise Exception('Unable to load files without JSON sidecar')
@@ -115,7 +116,8 @@ def readFSLBasisFiles(basisFolder, readoutShift=4.65, bandwidth=None, points=Non
             header.append(h)
 
     basis = np.array(basis).conj().T
-    return basis, names, header
+
+    return bmod.Basis(basis, names, header)
 
 
 # Read the FID within the FSL basis json file. Returns equivalent outputs to the LCModel style basis files.
@@ -150,10 +152,17 @@ def readFSLBasis(filename, N=None, dofft=False):
                     and 'Nucleus' in basisFileParams['seq']:
                 header['nucleus'] = basisFileParams["seq"]["Nucleus"]
 
+            if 'centralShift' in basis:
+                header['centralShift'] = basis['centralShift']
+            elif 'seq' in basisFileParams \
+                    and basisFileParams['seq'] is not None \
+                    and 'centralShift' in basisFileParams['seq']:
+                header['centralShift'] = basisFileParams["seq"]["centralShift"]
+
             metabo = basis['basis_name']
 
         else:  # No basis information found
-            raise ValueError('FSL basis file must have a ''basis'' field.')
+            raise ValueError("FSL basis file must have a 'basis' field.")
 
     return data, metabo, header
 
@@ -194,6 +203,8 @@ def write_fsl_basis_file(basis, name, header, out_dir, info=''):
 
     if "nucleus" in header:
         bs_dict['basis']['basis_nucleus'] = header["nucleus"]
+    if "centralShift" in header:
+        bs_dict['basis']['centralShift'] = header["centralShift"]
 
     # 6. Write dict to json
     writeJSON(out_dir / (name + '.json'), bs_dict)

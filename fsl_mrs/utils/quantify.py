@@ -6,13 +6,14 @@
 # Copyright (C) 2020 University of Oxford
 # SHBASECOPYRIGHT
 import warnings
+from typing import Any
 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import pandas as pd
 
-from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits
+from fsl_mrs.utils.misc import FIDToSpec, checkCFUnits, rescale_FID
 from fsl_mrs.utils.constants import H2O_MOLALITY, H2O_MOLARITY, TISSUE_WATER_DENSITY, \
     STANDARD_T1, STANDARD_T2, GYRO_MAG_RATIO, \
     H2O_PROTONS, WATER_SCALING_METAB, \
@@ -28,28 +29,59 @@ class FieldStrengthInfoError(Exception):
     pass
 
 
+class InvalidScalingError(ValueError):
+    pass
+
+
+def reference_list(reference: str | list[str] | tuple[str, ...]) -> list[str]:
+    if isinstance(reference, str):
+        return [reference]
+    elif isinstance(reference, (list, tuple)):
+        return list(reference)
+    else:
+        raise TypeError(f'Reference must be string, list, or tuple not {type(reference)}.')
+
+
+def reference_label(reference: str | list[str] | tuple[str, ...]) -> str:
+    return '+'.join(reference_list(reference))
+
+
+def reference_concentration(
+        reference: str | list[str] | tuple[str, ...],
+        concentrations: np.ndarray | list[float],
+        names: list[str],
+        description: str = 'Internal reference') -> float:
+    conc_sum = 0.0
+    for metab in reference_list(reference):
+        if metab not in names:
+            raise ValueError(f'{description} {metab} is not a recognised metabolite.')
+        conc_sum += concentrations[names.index(metab)]
+    return conc_sum
+
+
+def _validate_positive_finite(value: float, message: str) -> None:
+    if not np.isfinite(value) or value <= 0:
+        raise InvalidScalingError(message)
+
+
 class FIDIntegrator:
-    def __init__(self, mrs_obj, limits=None):
+    def __init__(self, mrs_obj: Any, limits: tuple[float, float] | None = None) -> None:
         self.t_axis = mrs_obj.getAxes('time')
         self.ppm_axis = mrs_obj.getAxes()
 
-        if limits is not None:
-            first, last = mrs_obj.ppmlim_to_range(limits)
-            self.limits = (first, last)
-        else:
-            self.limits = (0, self.t_axis.size)
+        self.limits = mrs_obj.axes.ppmShiftIndices(limits)
 
         self.fid = None
 
     @property
-    def integral(self):
+    def integral(self) -> float:
         return self._calculate_area(self.fid)
 
-    def _calculate_area(self, FID):
+    def _calculate_area(self, FID: np.ndarray) -> float:
         """
             Calculate area of the abs real part of the spectrum between two limits
         """
-        spec = FIDToSpec(FID, axis=0)[self.limits[0]:self.limits[1]]
+        spec = FIDToSpec(FID, axis=0)[self.limits]
         try:
             return np.trapezoid(np.abs(np.real(spec)), axis=0)
         except AttributeError:
@@ -58,14 +90,14 @@ class FIDIntegrator:
 
 
 class WaterRef(FIDIntegrator):
-    def __init__(self, mrs_obj, limits=None):
+    def __init__(self, mrs_obj: Any, limits: tuple[float, float] | None = None) -> None:
         super().__init__(mrs_obj, limits)
 
         self.original_fid = mrs_obj.H2O
-
+        self.original_spec = FIDToSpec(mrs_obj.H2O)
         self._fit_w_ref()
 
-    def _fit_w_ref(self):
+    def _fit_w_ref(self) -> None:
         '''Fit unsuppressed water with single voigt lineshape.
         Fitted fid is then phase and frequency corrected.'''
         def fid_func(t, amp, gamma, sigma, omega, phi):
@@ -74,33 +106,116 @@ class WaterRef(FIDIntegrator):
                 * np.exp(1j * phi)
 
         def fit_func(p):
+            # Change to this function: the error is in freq domain over the water range
             amp, gamma, sigma, omega, phi = p
             fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
-            return np.mean(np.abs(fid - self.original_fid)**2)
+            spec = FIDToSpec(fid)
 
-        p0 = [np.mean(np.abs(self.original_fid[:5])), 10, 10, 0, 0]
+            return np.mean(np.abs(spec[self.limits] - fit_spec[self.limits])**2)
+
+        def grad_func(p):
+            amp, gamma, sigma, omega, phi = p
+            fid = fid_func(self.t_axis, amp, gamma, sigma, omega, phi)
+            S = FIDToSpec(fid)
+
+            envelope = np.exp(-self.t_axis * (gamma + self.t_axis * sigma + 1j * omega)) \
+                * np.exp(1j * phi)
+
+            # Gradients in time domain
+            dfid_damp = envelope
+            dfid_dgamma = -self.t_axis * envelope * amp
+            dfid_dsigma = -(self.t_axis**2) * envelope * amp
+            dfid_domega = -1j * self.t_axis * envelope * amp
+            dfid_dphi = 1j * envelope * amp
+
+            # Gradients in ppm domain within a range
+            S = S[self.limits]
+            dSdamp = FIDToSpec(dfid_damp)[self.limits]
+            dSdgamma = FIDToSpec(dfid_dgamma)[self.limits]
+            dSdsigma = FIDToSpec(dfid_dsigma)[self.limits]
+            dSdomega = FIDToSpec(dfid_domega)[self.limits]
+            dSdphi = FIDToSpec(dfid_dphi)[self.limits]
+            Spec = fit_spec[self.limits]
+
+            resid = S - Spec
+            dS = np.stack((dSdamp, dSdgamma, dSdsigma, dSdomega, dSdphi), axis=1)
+            grad = 2 * np.real(np.sum(resid[:, None] * np.conj(dS), axis=0)) / resid.size
+
+            return grad
+
+        # Apply rescaling to 100 on water FID, similar to metabolites in rescaleForFitting function
+        _, fid_scaling = rescale_FID(
+            self.original_fid if self.limits is None else self.original_spec[self.limits],
+            scale=100.0)
+        fit_fid = self.original_fid * fid_scaling
+        fit_spec = FIDToSpec(fit_fid)
+
+        # Changes to initialisation:
+        # Since f(t) = amp*exp(-t*gamma -t^2sigma) * exp(i*omegat+i*phi)
+        # Then |f(t)| = amp*exp(-t*gamma-t^2*sigma)
+        # So we can use a GLM on log(|f(t)|) to get gamma and sigma
+        # Then a GLM on Angle(f(t)) to get omega and phi
+        #
+        # GLM for gamma and sigma and amplitude
+        fid_abs = np.abs(fit_fid)
+        isvalid = np.isfinite(fid_abs) & (fid_abs > 0)
+        if np.count_nonzero(isvalid) < 3:
+            raise InvalidScalingError('Water reference has zero or non-finite integral.')
+        desmat = np.stack([np.ones_like(self.t_axis), -self.t_axis, -self.t_axis**2], axis=1)
+        ln_amp_init, gamma_init, sigma_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.log(fid_abs[isvalid]))
+
+        # GLM for phi and omega
+        rotating = fit_fid * np.exp(gamma_init*self.t_axis) * np.exp(sigma_init*self.t_axis**2) / np.exp(ln_amp_init)
+        desmat = np.stack([np.ones_like(self.t_axis), self.t_axis], axis=1)
+        phi_init, omega_init = np.dot(np.linalg.pinv(desmat[isvalid]), np.angle(rotating[isvalid]))
+
+        # gamma and sigma not constrained to be >0 in the GLM
+        # so need to clip them before feeding to init
+        p0 = [
+            np.exp(ln_amp_init),              # amp
+            np.maximum(gamma_init, 1E-3),     # gamma
+            np.maximum(sigma_init, 1E-3),     # sigma
+            omega_init,                       # omega
+            phi_init,                         # phi
+        ]
+
         bounds = ((0, None),
                   (0, None),
                   (0, None),
                   (None, None),
                   (None, None))
-        pout = minimize(fit_func, p0, bounds=bounds)
-        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0)
+        # Another change here: method='TNC' instead of default
+        options = {'maxfun': 1E5, 'ftol': 1e-12}
+        pout = minimize(fit_func,
+                        p0,
+                        bounds=bounds,
+                        method='TNC',
+                        jac=grad_func,
+                        options=options)
+        # The fitted amplitude corresponds to fit_fid, so restore the amplitude scale
+        self.fid = fid_func(self.t_axis, *pout.x[:3], 0, 0) / fid_scaling
 
-    def plot_fit(self):
+    def plot_fit(self) -> plt.Figure:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
-        ax1.plot(self.t_axis, self.original_fid.real, label='original')
-        ax1.plot(self.t_axis, self.fid.real, label='fit')
+        ax1.plot(self.t_axis, np.abs(self.original_fid), label='original')
+        ax1.plot(self.t_axis, np.abs(self.fid), label='fit')
         ax1.set_xscale('log')
+        ax1.legend()
 
-        ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, label='original')
+        ax2.plot(self.ppm_axis, FIDToSpec(self.original_fid).real, ".", label='original')
         ax2.plot(self.ppm_axis, FIDToSpec(self.fid).real, label='fit')
         ax2.set_xlim([3.65, 5.65])
+        ax2.legend()
         return fig
 
 
 class RefIntegral(FIDIntegrator):
-    def __init__(self, mrs_obj, res_obj, metab, limits):
+    def __init__(
+            self,
+            mrs_obj: Any,
+            res_obj: Any,
+            metab: str | list[str],
+            limits: tuple[float, float] | None = None) -> None:
         super().__init__(mrs_obj, limits)
         self.original_fid = res_obj.predictedFID(
             mrs_obj, mode=metab, noBaseline=False, no_phase=False)
@@ -108,7 +223,7 @@ class RefIntegral(FIDIntegrator):
             mrs_obj, mode=metab, noBaseline=True, no_phase=True)
 
 
-class QuantificationInfo(object):
+class QuantificationInfo():
     """ Class encapsulating the information required to run internal water quantification scaling.
         Requires (arguments to init):
             Echo time
@@ -607,7 +722,10 @@ class QuantificationInfo(object):
         return str(self.summary_table)
 
 
-def quantifyInternal(reference, concentrations, names):
+def quantifyInternal(
+        reference: str | list[str] | tuple[str, ...],
+        concentrations: np.ndarray | list[float],
+        names: list[str]) -> float:
     """Calculate scaling for internal referencing
 
     :param reference: Metabolite to use for internal scaling
@@ -620,22 +738,18 @@ def quantifyInternal(reference, concentrations, names):
     :return: Internal reference scaling value
     :rtype: float
     """
-    concSum = 0
-    if isinstance(reference, list):
-        for m in reference:
-            if m not in names:
-                raise ValueError(f'Internal reference {m} is not a recognised metabolite.')
-            concSum += concentrations[names.index(m)]
-    else:
-        if reference not in names:
-            raise ValueError(f'Internal reference {reference} is not a recognised metabolite.')
-        concSum += concentrations[names.index(reference)]
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        return 1 / concSum
+    conc_sum = reference_concentration(reference, concentrations, names)
+    _validate_positive_finite(
+        conc_sum,
+        f'Internal reference {reference_label(reference)} has zero or non-finite concentration.')
+    return 1 / conc_sum
 
 
-def quantifyWater(mrs, results, quant_info, verbose=False):
+def quantifyWater(
+        mrs: Any,
+        results: Any,
+        quant_info: QuantificationInfo,
+        verbose: bool = False) -> tuple[float, float, dict[str, FIDIntegrator]]:
     """Calculate scalings required to take raw concentrations to molarity or molality units.
 
     Steps:
@@ -653,7 +767,7 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     :type verbose: bool, optional
     :return: conc_molal, scaling parameter to convert raw fitted concentrations to molality units of mols/kg
     :rtype: float
-    :return: conc_molar, caling parameter to convert raw fitted concentrations to molarity units of mols/dm^3
+    :return: conc_molar, scaling parameter to convert raw fitted concentrations to molarity units of mols/dm^3
     :rtype: float
     :return: Dict containing water and reference integration classes.
     :rtype: dict
@@ -662,9 +776,15 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
     # Calculate observed areas
     wref = WaterRef(mrs, quant_info.h2o_limits)
     SH2OObs = wref.integral
+    _validate_positive_finite(
+        SH2OObs,
+        'Water reference has zero or non-finite integral.')
 
     mref = RefIntegral(mrs, results, quant_info.ref_metab, quant_info.ref_limits)
     SMObs = mref.integral
+    _validate_positive_finite(
+        SMObs,
+        f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite integral.')
 
     # Calculate concentration scalings
     # EQ 4 in https://doi.org/10.1002/nbm.4257
@@ -704,12 +824,27 @@ def quantifyWater(mrs, results, quant_info, verbose=False):
         print(f'H2O to ref molarity scaling = {conc_molar:0.2e}')
 
     # Calculate other metabolites to reference scaling
-    metabtoRefScaling = quantifyInternal(quant_info.ref_metab,
-                                         results.getConc(),
-                                         results.metabs)
+    ref_conc = reference_concentration(
+        quant_info.ref_metab,
+        results.getConc(),
+        results.metabs,
+        description='Metabolite reference')
+    _validate_positive_finite(
+        ref_conc,
+        f'Metabolite reference {reference_label(quant_info.ref_metab)} has zero or non-finite concentration.')
+    metabtoRefScaling = 1 / ref_conc
     conc_molal      *= metabtoRefScaling
     conc_molar      *= metabtoRefScaling
     conc_molal_old  *= metabtoRefScaling
+    _validate_positive_finite(
+        conc_molal,
+        'Molality scaling is zero or non-finite.')
+    _validate_positive_finite(
+        conc_molar,
+        'Molarity scaling is zero or non-finite.')
+    _validate_positive_finite(
+        conc_molal_old,
+        'Old wrong molality scaling is zero or non-finite.')
 
     if verbose:
         print(f'Ref to other metabolite scaling = {metabtoRefScaling:0.2e}')
