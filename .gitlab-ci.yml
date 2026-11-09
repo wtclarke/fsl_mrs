@@ -233,16 +233,18 @@ pages:
     GIT_STRATEGY: clone
   only:
     - branches@wclarke/fsl_mrs
+    - branches@ntm658/fsl_mrs
     - tags@fsl/fsl_mrs
   image: python:3.14
   stage: doc
   tags:
-    - docker
+    - docker  before_script:
+    - curl -fsSL https://pixi.sh/install.sh | sh
+    - export PATH="$HOME/.pixi/bin:$PATH"
+    - pixi install -e docs --frozen
   script:
     - git describe --tag --dirty
-    - pip install -U sphinx sphinx_rtd_theme "docutils<0.21" "snowballstemmer<3"
-    - pip install --no-deps .
-    - sphinx-build -b html ./docs/user_docs public
+    - pixi run -e docs python -m sphinx -b html ./docs/user_docs public
   artifacts:
     paths:
       - public
