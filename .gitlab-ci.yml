@@ -238,7 +238,8 @@ pages:
   image: python:3.14
   stage: doc
   tags:
-    - docker  before_script:
+    - docker
+  before_script:
     - curl -fsSL https://pixi.sh/install.sh | sh
     - export PATH="$HOME/.pixi/bin:$PATH"
     - pixi install -e docs --frozen
